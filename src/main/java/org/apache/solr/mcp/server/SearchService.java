@@ -3,7 +3,9 @@ package org.apache.solr.mcp.server;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.client.solrj.response.FacetField;
 import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.params.FacetParams;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -12,11 +14,18 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class SearchService {
 
+    public static final String FACETS = "facets";
+    public static final String DOCUMENTS = "documents";
+    public static final String NUM_FOUND = "numFound";
+    public static final String START = "start";
+    public static final String MAX_SCORE = "maxScore";
     private final SolrClient solrClient;
 
     public SearchService(SolrClient solrClient) {
@@ -49,7 +58,7 @@ public class SearchService {
           "_root_":"0553579908"
         }
     """)
-    public QueryResponse search(@ToolParam(description = "Solr collection to query") String collection,
+    public Map<String, Object> search(@ToolParam(description = "Solr collection to query") String collection,
                                 @ToolParam(description = "Solr q parameter. If none specified defaults to \"*:*\"", required = false) String query,
                                 @ToolParam(description = "Solr fq parameter", required = false) List<String> filterQueries,
                                 @ToolParam(description = "Solr facet fields", required = false)List<String> facetFields,
@@ -80,7 +89,41 @@ public class SearchService {
         }
 
         QueryResponse queryResponse = solrClient.query(collection, solrQuery);
-        return queryResponse;
+
+        // Convert QueryResponse to a serializable Map
+        Map<String, Object> result = new HashMap<>();
+
+        // Add documents
+        SolrDocumentList documents = queryResponse.getResults();
+        result.put(NUM_FOUND, documents.getNumFound());
+        result.put(START, documents.getStart());
+        result.put(MAX_SCORE, documents.getMaxScore());
+
+        // Convert SolrDocuments to Maps
+        List<Map<String, Object>> docs = new java.util.ArrayList<>(documents.size());
+        documents.forEach(doc -> {
+            Map<String, Object> docMap = new HashMap<>();
+            for (String fieldName : doc.getFieldNames()) {
+                docMap.put(fieldName, doc.getFieldValue(fieldName));
+            }
+            docs.add(docMap);
+        });
+        result.put(DOCUMENTS, docs);
+
+        // Add facets if present
+        if (queryResponse.getFacetFields() != null && !queryResponse.getFacetFields().isEmpty()) {
+            Map<String, Map<String, Long>> facets = new HashMap<>();
+            queryResponse.getFacetFields().forEach(facetField -> {
+                Map<String, Long> facetValues = new HashMap<>();
+                for (FacetField.Count count : facetField.getValues()) {
+                    facetValues.put(count.getName(), count.getCount());
+                }
+                facets.put(facetField.getName(), facetValues);
+            });
+            result.put(FACETS, facets);
+        }
+
+        return result;
 
     }
 }
