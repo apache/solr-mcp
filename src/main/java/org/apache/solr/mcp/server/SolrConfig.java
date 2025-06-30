@@ -13,7 +13,7 @@ public class SolrConfig {
     // todo connectiondetails, timeouts, cloud mode
     @Bean
     SolrClient solrClient(SolrConfigurationProperties properties) {
-        return new HttpSolrClient.Builder(properties.url())
+        return new HttpSolrClient.Builder(properties.getUrl())
                 .build();
     }
 }

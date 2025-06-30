@@ -58,11 +58,13 @@ public class SearchService {
           "_root_":"0553579908"
         }
     """)
-    public Map<String, Object> search(@ToolParam(description = "Solr collection to query") String collection,
-                                @ToolParam(description = "Solr q parameter. If none specified defaults to \"*:*\"", required = false) String query,
-                                @ToolParam(description = "Solr fq parameter", required = false) List<String> filterQueries,
-                                @ToolParam(description = "Solr facet fields", required = false)List<String> facetFields,
-                                @ToolParam(description = "Solr sort parameter", required = false) List<SolrQuery.SortClause> sortClauses) throws SolrServerException, IOException {
+    public Map<String, Object> search(
+            @ToolParam(description = "Solr collection to query") String collection,
+            @ToolParam(description = "Solr q parameter. If none specified defaults to \"*:*\"", required = false) String query,
+            @ToolParam(description = "Solr fq parameter", required = false) List<String> filterQueries,
+            @ToolParam(description = "Solr facet fields", required = false)List<String> facetFields,
+            @ToolParam(description = "Solr sort parameter", required = false) List<SolrQuery.SortClause> sortClauses)
+            throws SolrServerException, IOException {
 
         // query
         SolrQuery solrQuery = new SolrQuery("*:*");

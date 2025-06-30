@@ -6,6 +6,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 
+import java.util.Arrays;
 import java.util.List;
 
 @SpringBootApplication
@@ -17,6 +18,6 @@ public class Main {
 
     @Bean
     public List<ToolCallback> solrTools(SearchService searchService) {
-        return List.of(ToolCallbacks.from(searchService));
+        return Arrays.asList(ToolCallbacks.from(searchService));
     }
 }
