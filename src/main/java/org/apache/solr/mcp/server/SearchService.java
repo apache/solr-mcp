@@ -58,7 +58,7 @@ public class SearchService {
           "_root_":"0553579908"
         }
     """)
-    public Map<String, Object> search(
+    public SearchResponse search(
             @ToolParam(description = "Solr collection to query") String collection,
             @ToolParam(description = "Solr q parameter. If none specified defaults to \"*:*\"", required = false) String query,
             @ToolParam(description = "Solr fq parameter", required = false) List<String> filterQueries,
@@ -125,7 +125,15 @@ public class SearchService {
             result.put(FACETS, facets);
         }
 
-        return result;
+        return new SearchResponse(
+                documents.getNumFound(),
+                documents.getStart(),
+                documents.getMaxScore(),
+                docs,
+                result.get(FACETS) != null ? (Map<String, Map<String, Long>>) result.get(FACETS) : new HashMap<>()
+        );
 
     }
+
+
 }

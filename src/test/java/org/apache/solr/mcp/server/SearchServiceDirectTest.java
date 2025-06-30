@@ -64,15 +64,13 @@ class SearchServiceDirectTest {
         when(solrClient.query(eq("books"), any(SolrQuery.class))).thenReturn(queryResponse);
 
         // Test
-        Map<String, Object> result = searchService.search("books", null, null, null, null);
+        SearchResponse result = searchService.search("books", null, null, null, null);
 
         // Verify
         assertNotNull(result);
-        assertTrue(result.containsKey(SearchService.DOCUMENTS));
-        assertTrue(result.containsKey(SearchService.NUM_FOUND));
-        assertEquals(2L, result.get(SearchService.NUM_FOUND));
+        assertEquals(2L, result.numFound());
 
-        List<Map<String, Object>> resultDocs = (List<Map<String, Object>>) result.get(SearchService.DOCUMENTS);
+        List<Map<String, Object>> resultDocs = result.documents();
         assertEquals(2, resultDocs.size());
         assertEquals("1", resultDocs.get(0).get("id"));
         assertEquals("2", resultDocs.get(1).get("id"));
@@ -109,17 +107,13 @@ class SearchServiceDirectTest {
         when(solrClient.query(eq("books"), any(SolrQuery.class))).thenReturn(queryResponse);
 
         // Test
-        Map<String, Object> result = searchService.search("books", null, null, List.of("genre_s"), null);
+        SearchResponse result = searchService.search("books", null, null, List.of("genre_s"), null);
 
         // Verify
         assertNotNull(result);
-        assertTrue(result.containsKey(SearchService.DOCUMENTS));
-        assertTrue(result.containsKey(SearchService.FACETS));
+        assertTrue(result.facets().containsKey("genre_s"));
 
-        Map<String, Map<String, Long>> facets = (Map<String, Map<String, Long>>) result.get(SearchService.FACETS);
-        assertTrue(facets.containsKey("genre_s"));
-        
-        Map<String, Long> genreFacets = facets.get("genre_s");
+        Map<String, Long> genreFacets = result.facets().get("genre_s");
         assertEquals(2, genreFacets.size());
         assertEquals(1L, genreFacets.get("fantasy"));
         assertEquals(1L, genreFacets.get("scifi"));
