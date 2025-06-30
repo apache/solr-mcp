@@ -21,11 +21,6 @@ import java.util.Map;
 @Service
 public class SearchService {
 
-    public static final String FACETS = "facets";
-    public static final String DOCUMENTS = "documents";
-    public static final String NUM_FOUND = "numFound";
-    public static final String START = "start";
-    public static final String MAX_SCORE = "maxScore";
     private final SolrClient solrClient;
 
     public SearchService(SolrClient solrClient) {
@@ -92,14 +87,8 @@ public class SearchService {
 
         QueryResponse queryResponse = solrClient.query(collection, solrQuery);
 
-        // Convert QueryResponse to a serializable Map
-        Map<String, Object> result = new HashMap<>();
-
         // Add documents
         SolrDocumentList documents = queryResponse.getResults();
-        result.put(NUM_FOUND, documents.getNumFound());
-        result.put(START, documents.getStart());
-        result.put(MAX_SCORE, documents.getMaxScore());
 
         // Convert SolrDocuments to Maps
         List<Map<String, Object>> docs = new java.util.ArrayList<>(documents.size());
@@ -110,11 +99,10 @@ public class SearchService {
             }
             docs.add(docMap);
         });
-        result.put(DOCUMENTS, docs);
 
         // Add facets if present
+        Map<String, Map<String, Long>> facets = new HashMap<>();
         if (queryResponse.getFacetFields() != null && !queryResponse.getFacetFields().isEmpty()) {
-            Map<String, Map<String, Long>> facets = new HashMap<>();
             queryResponse.getFacetFields().forEach(facetField -> {
                 Map<String, Long> facetValues = new HashMap<>();
                 for (FacetField.Count count : facetField.getValues()) {
@@ -122,7 +110,6 @@ public class SearchService {
                 }
                 facets.put(facetField.getName(), facetValues);
             });
-            result.put(FACETS, facets);
         }
 
         return new SearchResponse(
@@ -130,7 +117,7 @@ public class SearchService {
                 documents.getStart(),
                 documents.getMaxScore(),
                 docs,
-                result.get(FACETS) != null ? (Map<String, Map<String, Long>>) result.get(FACETS) : new HashMap<>()
+                facets
         );
 
     }
