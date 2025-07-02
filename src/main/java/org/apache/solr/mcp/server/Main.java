@@ -4,7 +4,9 @@ import org.springframework.ai.support.ToolCallbacks;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.event.EventListener;
 
 import java.util.Arrays;
 import java.util.List;
@@ -17,7 +19,14 @@ public class Main {
     }
 
     @Bean
-    public List<ToolCallback> solrTools(SearchService searchService) {
-        return Arrays.asList(ToolCallbacks.from(searchService));
+    public List<ToolCallback> solrTools(
+            SearchService searchService,
+            IndexingService indexingService,
+            CollectionService collectionService) {
+        return Arrays.asList(ToolCallbacks.from(
+                searchService,
+                indexingService,
+                collectionService
+        ));
     }
 }

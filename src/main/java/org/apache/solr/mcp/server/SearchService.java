@@ -91,6 +91,22 @@ public class SearchService {
         SolrDocumentList documents = queryResponse.getResults();
 
         // Convert SolrDocuments to Maps
+        var docs = getDocs(documents);
+
+        // Add facets if present
+        var facets = getFacets(queryResponse);
+
+        return new SearchResponse(
+                documents.getNumFound(),
+                documents.getStart(),
+                documents.getMaxScore(),
+                docs,
+                facets
+        );
+
+    }
+
+    private static List<Map<String, Object>> getDocs(SolrDocumentList documents) {
         List<Map<String, Object>> docs = new java.util.ArrayList<>(documents.size());
         documents.forEach(doc -> {
             Map<String, Object> docMap = new HashMap<>();
@@ -99,8 +115,10 @@ public class SearchService {
             }
             docs.add(docMap);
         });
+        return docs;
+    }
 
-        // Add facets if present
+    private static Map<String, Map<String, Long>> getFacets(QueryResponse queryResponse) {
         Map<String, Map<String, Long>> facets = new HashMap<>();
         if (queryResponse.getFacetFields() != null && !queryResponse.getFacetFields().isEmpty()) {
             queryResponse.getFacetFields().forEach(facetField -> {
@@ -111,15 +129,7 @@ public class SearchService {
                 facets.put(facetField.getName(), facetValues);
             });
         }
-
-        return new SearchResponse(
-                documents.getNumFound(),
-                documents.getStart(),
-                documents.getMaxScore(),
-                docs,
-                facets
-        );
-
+        return facets;
     }
 
 
