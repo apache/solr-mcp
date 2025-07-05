@@ -13,7 +13,16 @@ public class SolrConfig {
     // todo connectiondetails, timeouts, cloud mode
     @Bean
     SolrClient solrClient(SolrConfigurationProperties properties) {
-        return new HttpSolrClient.Builder(properties.getUrl())
+        String url = properties.url();
+        // Ensure URL ends with a slash
+        if (!url.endsWith("/")) {
+            url = url + "/";
+        }
+
+        // Use HttpSolrClient with explicit base URL
+        return new HttpSolrClient.Builder(url)
+                .withConnectionTimeout(10000)
+                .withSocketTimeout(60000)
                 .build();
     }
 }

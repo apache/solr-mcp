@@ -80,6 +80,20 @@ public class IndexingService {
         }
     }
 
+    // METHOD FOR INDEXING MAP OBJECTS (for tests)
+    public boolean indexMapDocuments(String collection, List<Map<String, Object>> documents) throws Exception {
+        List<SolrInputDocument> solrDocs = new ArrayList<>();
+        for (Map<String, Object> doc : documents) {
+            SolrInputDocument solrDoc = new SolrInputDocument();
+            for (Map.Entry<String, Object> entry : doc.entrySet()) {
+                solrDoc.addField(entry.getKey(), entry.getValue());
+            }
+            solrDocs.add(solrDoc);
+        }
+        int successCount = indexDocuments(collection, solrDocs);
+        return successCount > 0;
+    }
+
     // BATCH INDEXING WITH ERROR HANDLING
     public int indexDocuments(String collection, List<SolrInputDocument> documents) throws Exception {
         int successCount = 0;

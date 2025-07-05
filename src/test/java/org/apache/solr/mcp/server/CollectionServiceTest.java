@@ -5,8 +5,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.SolrContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
 import java.util.List;
 import java.util.UUID;
@@ -18,14 +20,14 @@ import static org.junit.jupiter.api.Assertions.*;
 class CollectionServiceTest {
 
     @Container
-    static SolrTestContainer solrContainer = new SolrTestContainer();
+    static SolrContainer solrContainer = new SolrContainer(DockerImageName.parse("solr:9.4.1"));
 
     @Autowired
     private CollectionService collectionService;
 
     @DynamicPropertySource
     static void registerSolrProperties(DynamicPropertyRegistry registry) {
-        registry.add("solr.url", solrContainer::getSolrUrl);
+        registry.add("solr.url", () -> "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/");
     }
 
     @Test
@@ -85,6 +87,12 @@ class CollectionServiceTest {
         // List collections to verify our code is working correctly
         List<String> collections = collectionService.listCollections();
         System.out.println("[DEBUG_LOG] Collections after creation attempt: " + collections);
+
+        // If the collection was successfully created, it should appear in the list
+        if (created) {
+            assertTrue(collections.contains(testCollectionName), 
+                "Newly created collection should appear in the list of collections");
+        }
 
         // The test passes if we get to this point without exceptions
     }

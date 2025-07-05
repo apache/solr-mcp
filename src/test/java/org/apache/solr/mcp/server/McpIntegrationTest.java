@@ -7,8 +7,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.SolrContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
 import java.util.List;
 
@@ -19,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class McpIntegrationTest {
 
     @Container
-    static SolrTestContainer solrContainer = new SolrTestContainer();
+    static SolrContainer solrContainer = new SolrContainer(DockerImageName.parse("solr:9.4.1"));
 
     @Autowired
     private ApplicationContext context;
@@ -29,7 +31,7 @@ class McpIntegrationTest {
 
     @DynamicPropertySource
     static void registerSolrProperties(DynamicPropertyRegistry registry) {
-        registry.add("solr.url", solrContainer::getSolrUrl);
+        registry.add("solr.url", () -> "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/");
     }
 
     @Test

@@ -53,7 +53,6 @@ public class CollectionService {
             }
         } catch (Exception e) {
             // Log the exception for debugging
-            System.out.println("[DEBUG_LOG] Error checking if collection exists: " + e.getMessage());
             return false;
         }
     }
@@ -100,23 +99,35 @@ public class CollectionService {
             "books"           // The collection name from our test container
         };
 
+        boolean created = false;
         for (String configSet : possibleConfigSets) {
-            System.out.println("[DEBUG_LOG] Trying to create collection with configSet: " + configSet);
             try {
                 boolean success = createCollection(collectionName, configSet, 1, 1);
                 if (success) {
-                    System.out.println("[DEBUG_LOG] Successfully created collection with configSet: " + configSet);
-                    return true;
+                    created = true;
+                    break;
                 }
             } catch (Exception e) {
-                System.out.println("[DEBUG_LOG] Failed to create collection with configSet " + configSet + ": " + e.getMessage());
                 // Continue to the next configSet
             }
         }
 
-        // If we've tried all configSets and none worked, log the failure and return false
-        System.out.println("[DEBUG_LOG] Failed to create collection after trying all configSets");
-        return false;
+        if (!created) {
+            // If we've tried all configSets and none worked, log the failure and return false
+            return false;
+        }
+
+        // Wait a short time to ensure the collection is fully created and registered
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // Verify the collection exists after creation
+        boolean exists = collectionExists(collectionName);
+
+        return exists;
     }
 
     @Tool(description = "List solr collections")

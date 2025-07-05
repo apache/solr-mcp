@@ -7,8 +7,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.SolrContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -17,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class SolrConfigTest {
 
     @Container
-    static SolrTestContainer solrContainer = new SolrTestContainer();
+    static SolrContainer solrContainer = new SolrContainer(DockerImageName.parse("solr:9.4.1"));
 
     @Autowired
     private SolrClient solrClient;
@@ -27,7 +29,7 @@ class SolrConfigTest {
 
     @DynamicPropertySource
     static void registerSolrProperties(DynamicPropertyRegistry registry) {
-        registry.add("solr.url", solrContainer::getSolrUrl);
+        registry.add("solr.url", () -> "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr");
     }
 
     @Test
@@ -35,7 +37,7 @@ class SolrConfigTest {
         // Verify that the SolrClient is properly configured
         assertNotNull(solrClient);
         assertTrue(solrClient instanceof HttpSolrClient);
-        
+
         // Verify that the SolrClient is using the correct URL
         HttpSolrClient httpSolrClient = (HttpSolrClient) solrClient;
         assertEquals(properties.url(), httpSolrClient.getBaseURL());
@@ -46,6 +48,7 @@ class SolrConfigTest {
         // Verify that the properties are correctly loaded
         assertNotNull(properties);
         assertNotNull(properties.url());
-        assertEquals(solrContainer.getSolrUrl(), properties.url());
+        assertEquals("http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr",
+                properties.url());
     }
 }
