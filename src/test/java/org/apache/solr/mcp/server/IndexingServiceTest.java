@@ -1,8 +1,6 @@
 package org.apache.solr.mcp.server;
 
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.SolrQuery;
-import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.common.SolrInputDocument;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,7 +10,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -46,24 +43,6 @@ class IndexingServiceTest {
         collectionService = new CollectionService(solrClient, properties);
         indexingService = new IndexingService(solrClient, properties);
         searchService = new SearchService(solrClient);
-
-        // Create a unique collection for this test run
-        try {
-            if (!collectionService.collectionExists(COLLECTION_NAME)) {
-                collectionCreated = collectionService.createCollectionIfNotExists(COLLECTION_NAME);
-                System.out.println("[DEBUG_LOG] Collection creation attempted: " + collectionCreated);
-
-                // Wait a bit for collection creation to complete
-                if (collectionCreated) {
-                    Thread.sleep(2000);
-                }
-            } else {
-                collectionCreated = true;
-            }
-        } catch (Exception e) {
-            System.out.println("[DEBUG_LOG] Collection creation failed (may be expected in test environment): " + e.getMessage());
-            collectionCreated = false;
-        }
     }
 
 

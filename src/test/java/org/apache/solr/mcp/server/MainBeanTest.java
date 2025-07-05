@@ -11,7 +11,8 @@ import org.springframework.context.annotation.Primary;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @SpringBootTest(classes = {Main.class, MainBeanTest.TestConfig.class})
 class MainBeanTest {

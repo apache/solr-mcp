@@ -3,7 +3,6 @@ package org.apache.solr.mcp.server;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
-import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +16,6 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -61,127 +59,7 @@ class SearchServiceTest {
         String solrUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/";
         System.out.println("[DEBUG_LOG] Solr URL: " + solrUrl);
 
-        // Create a unique collection for this test run
-        try {
-            // First check if collection already exists
-            System.out.println("[DEBUG_LOG] Checking if collection exists: " + COLLECTION_NAME);
-            boolean exists = collectionService.collectionExists(COLLECTION_NAME);
-            System.out.println("[DEBUG_LOG] Collection exists: " + exists);
-
-            if (!exists) {
-                System.out.println("[DEBUG_LOG] Attempting to create collection: " + COLLECTION_NAME);
-                collectionCreated = collectionService.createCollectionIfNotExists(COLLECTION_NAME);
-                System.out.println("[DEBUG_LOG] Collection creation attempted: " + collectionCreated);
-
-                // Wait a bit for collection creation to complete
-                if (collectionCreated) {
-                    Thread.sleep(2000);
-
-                    // Load sample books data for testing
-                    loadSampleBooksData();
-                }
-            } else {
-                collectionCreated = true;
-            }
-        } catch (Exception e) {
-            System.out.println("[DEBUG_LOG] Collection creation failed (may be expected in test environment): " + e.getMessage());
-            e.printStackTrace();
-            collectionCreated = false;
-        }
     }
-
-    private void loadSampleBooksData() {
-        String sampleBooks = """
-                [
-                  {
-                    "id": "book1",
-                    "name": ["A Game of Thrones"],
-                    "author": ["George R.R. Martin"],
-                    "price": [7.99],
-                    "genre_s": "fantasy",
-                    "series_t": "A Song of Ice and Fire",
-                    "sequence_i": 1
-                  },
-                  {
-                    "id": "book2",
-                    "name": ["A Clash of Kings"],
-                    "author": ["George R.R. Martin"],
-                    "price": [8.99],
-                    "genre_s": "fantasy",
-                    "series_t": "A Song of Ice and Fire",
-                    "sequence_i": 2
-                  },
-                  {
-                    "id": "book3",
-                    "name": ["A Storm of Swords"],
-                    "author": ["George R.R. Martin"],
-                    "price": [9.99],
-                    "genre_s": "fantasy",
-                    "series_t": "A Song of Ice and Fire",
-                    "sequence_i": 3
-                  },
-                  {
-                    "id": "book4",
-                    "name": ["The Hobbit"],
-                    "author": ["J.R.R. Tolkien"],
-                    "price": [6.99],
-                    "genre_s": "fantasy"
-                  },
-                  {
-                    "id": "book5",
-                    "name": ["1984"],
-                    "author": ["George Orwell"],
-                    "price": [5.99],
-                    "genre_s": "dystopian"
-                  },
-                  {
-                    "id": "book6",
-                    "name": ["Dune"],
-                    "author": ["Frank Herbert"],
-                    "price": [8.99],
-                    "genre_s": "scifi"
-                  },
-                  {
-                    "id": "book7",
-                    "name": ["Foundation"],
-                    "author": ["Isaac Asimov"],
-                    "price": [7.99],
-                    "genre_s": "scifi"
-                  },
-                  {
-                    "id": "book8",
-                    "name": ["The Lord of the Rings"],
-                    "author": ["J.R.R. Tolkien"],
-                    "price": [12.99],
-                    "genre_s": "fantasy"
-                  },
-                  {
-                    "id": "book9",
-                    "name": ["Brave New World"],
-                    "author": ["Aldous Huxley"],
-                    "price": [6.50],
-                    "genre_s": "dystopian"
-                  },
-                  {
-                    "id": "book10",
-                    "name": ["The Martian"],
-                    "author": ["Andy Weir"],
-                    "price": [9.99],
-                    "genre_s": "scifi"
-                  }
-                ]
-                """;
-
-        try {
-            // Use the existing indexingService instance
-            indexingService.indexDocuments(COLLECTION_NAME, sampleBooks);
-            // Wait a bit for indexing to complete
-            Thread.sleep(1000);
-        } catch (Exception e) {
-            System.out.println("[DEBUG_LOG] Sample data loading failed: " + e.getMessage());
-        }
-    }
-
 
     @Test
     void testBasicSearch() throws SolrServerException, IOException {
