@@ -1,5 +1,6 @@
 package org.apache.solr.mcp.server;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.common.SolrInputDocument;
@@ -38,7 +39,7 @@ class IndexingServiceTest {
 
         // Initialize services
         SolrConfigurationProperties properties = new SolrConfigurationProperties(solrUrl);
-        collectionService = new CollectionService(solrClient, properties);
+        collectionService = new CollectionService(solrClient, properties, new ObjectMapper());
         indexingService = new IndexingService(solrClient, properties);
         searchService = new SearchService(solrClient);
     }
