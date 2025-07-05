@@ -14,9 +14,20 @@ public class SolrConfig {
     @Bean
     SolrClient solrClient(SolrConfigurationProperties properties) {
         String url = properties.url();
-        // Ensure URL ends with a slash
+
+        // Ensure URL is properly formatted for Solr
+        // The URL should end with /solr/ for proper path construction
         if (!url.endsWith("/")) {
             url = url + "/";
+        }
+
+        // If URL doesn't contain /solr/ path, add it
+        if (!url.endsWith("/solr/") && !url.contains("/solr/")) {
+            if (url.endsWith("/")) {
+                url = url + "solr/";
+            } else {
+                url = url + "/solr/";
+            }
         }
 
         // Use HttpSolrClient with explicit base URL

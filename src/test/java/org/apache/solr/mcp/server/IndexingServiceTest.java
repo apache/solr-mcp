@@ -39,7 +39,7 @@ class IndexingServiceTest {
 
         // Initialize services
         SolrConfigurationProperties properties = new SolrConfigurationProperties(solrUrl);
-        collectionService = new CollectionService(solrClient, properties, new ObjectMapper());
+        collectionService = new CollectionService(solrClient, properties);
         indexingService = new IndexingService(solrClient, properties);
         searchService = new SearchService(solrClient);
     }
