@@ -62,8 +62,15 @@ class McpIntegrationTest {
     @Test
     void testSearchServiceAnnotation() throws NoSuchMethodException {
         // Verify that the SearchService has the @Tool annotation
-        assertTrue(searchService.getClass().getMethod("search", String.class, String.class, 
-                List.class, List.class, List.class).isAnnotationPresent(org.springframework.ai.tool.annotation.Tool.class),
+        assertTrue(searchService.getClass().getMethod("search",
+                        String.class,
+                        String.class,
+                        List.class,
+                        List.class,
+                        List.class,
+                        Integer.class,
+                        Integer.class)
+                        .isAnnotationPresent(org.springframework.ai.tool.annotation.Tool.class),
                 "SearchService.search method should have @Tool annotation");
     }
 }

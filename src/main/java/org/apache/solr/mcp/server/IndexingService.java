@@ -27,7 +27,7 @@ public class IndexingService {
 
     @Tool(name = "index_documents", description = "Index documents from json String into Solr collection")
     public void indexDocuments(
-            @ToolParam(description = "Solr collection to index into")String collection,
+            @ToolParam(description = "Solr collection to index into") String collection,
             @ToolParam(description = "JSON string containing documents to index") String json) throws Exception {
         List<SolrInputDocument> schemalessDoc = createSchemalessDocuments(json);
         indexDocuments(collection, schemalessDoc);
@@ -78,20 +78,6 @@ public class IndexingService {
                 doc.addField(fieldName, convertJsonValue(value));
             }
         }
-    }
-
-    // METHOD FOR INDEXING MAP OBJECTS (for tests)
-    public boolean indexMapDocuments(String collection, List<Map<String, Object>> documents) throws Exception {
-        List<SolrInputDocument> solrDocs = new ArrayList<>();
-        for (Map<String, Object> doc : documents) {
-            SolrInputDocument solrDoc = new SolrInputDocument();
-            for (Map.Entry<String, Object> entry : doc.entrySet()) {
-                solrDoc.addField(entry.getKey(), entry.getValue());
-            }
-            solrDocs.add(solrDoc);
-        }
-        int successCount = indexDocuments(collection, solrDocs);
-        return successCount > 0;
     }
 
     // BATCH INDEXING WITH ERROR HANDLING

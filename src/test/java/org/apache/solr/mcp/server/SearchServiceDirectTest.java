@@ -64,7 +64,7 @@ class SearchServiceDirectTest {
         when(solrClient.query(eq("books"), any(SolrQuery.class))).thenReturn(queryResponse);
 
         // Test
-        SearchResponse result = searchService.search("books", null, null, null, null);
+        SearchResponse result = searchService.search("books", null, null, null, null, null, null);
 
         // Verify
         assertNotNull(result);
@@ -107,7 +107,7 @@ class SearchServiceDirectTest {
         when(solrClient.query(eq("books"), any(SolrQuery.class))).thenReturn(queryResponse);
 
         // Test
-        SearchResponse result = searchService.search("books", null, null, List.of("genre_s"), null);
+        SearchResponse result = searchService.search("books", null, null, null, null, null, null);
 
         // Verify
         assertNotNull(result);

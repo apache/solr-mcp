@@ -25,28 +25,23 @@ import static org.junit.jupiter.api.Assertions.*;
 @Testcontainers
 class SearchServiceTest {
 
+    private static final String COLLECTION_NAME = "search_test_" + System.currentTimeMillis();
     @Container
     static SolrContainer solrContainer = new SolrContainer(DockerImageName.parse("solr:9.4.1"));
-
     @Autowired
     private SearchService searchService;
-
     @Autowired
     private IndexingService indexingService;
-
     @Autowired
     private SolrClient solrClient;
-
     @Autowired
     private CollectionService collectionService;
+    private boolean collectionCreated = false;
 
     @DynamicPropertySource
     static void registerSolrProperties(DynamicPropertyRegistry registry) {
         registry.add("solr.url", () -> "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/");
     }
-
-    private static final String COLLECTION_NAME = "search_test_" + System.currentTimeMillis();
-    private boolean collectionCreated = false;
 
     @BeforeEach
     void setUp() {
@@ -70,7 +65,7 @@ class SearchServiceTest {
         }
 
         // Test basic search with no parameters
-        SearchResponse result = searchService.search(COLLECTION_NAME, null, null, null, null);
+        SearchResponse result = searchService.search(COLLECTION_NAME, null, null, null, null, null, null);
 
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
@@ -87,14 +82,14 @@ class SearchServiceTest {
         }
 
         // Test search with query
-        SearchResponse result = searchService.search(COLLECTION_NAME, "name:\"Game of Thrones\"", null, null, null);
+        SearchResponse result = searchService.search(COLLECTION_NAME, "name:\"Game of Thrones\"", null, null, null, null, null);
 
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
         assertEquals(1, documents.size());
 
         Map<String, Object> book = documents.get(0);
-        assertEquals("A Game of Thrones", ((List<?>)book.get("name")).get(0));
+        assertEquals("A Game of Thrones", ((List<?>) book.get("name")).get(0));
     }
 
     @Test
@@ -107,14 +102,14 @@ class SearchServiceTest {
 
         // Test search with filter query
         SearchResponse result = searchService.search(
-                COLLECTION_NAME, "author:\"George R.R. Martin\"", null, null, null);
+                COLLECTION_NAME, "author:\"George R.R. Martin\"", null, null, null, null, null);
 
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
         assertEquals(3, documents.size());
 
         Map<String, Object> book = documents.get(0);
-        assertEquals("George R.R. Martin", ((List<?>)book.get("author")).get(0));
+        assertEquals("George R.R. Martin", ((List<?>) book.get("author")).get(0));
     }
 
     @Test
@@ -127,7 +122,7 @@ class SearchServiceTest {
 
         // Test search with facets
         SearchResponse result = searchService.search(
-                COLLECTION_NAME, null, null, List.of("genre_s"), null);
+                COLLECTION_NAME, null, null, List.of("genre_s"), null, null, null);
 
         assertNotNull(result);
         Map<String, Map<String, Long>> facets = result.facets();
@@ -145,13 +140,13 @@ class SearchServiceTest {
 
         // Test search with sorting
         SearchResponse result = searchService.search(
-                COLLECTION_NAME, null, null, null, null);
+                COLLECTION_NAME, null, null, null, null, null, null);
 
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
         assertFalse(documents.isEmpty());
         Map<String, Object> book = documents.get(0);
-        double currentPrice = ((List<?>)book.get("price")).isEmpty() ? 0.0 : ((Number)((List<?>)book.get("price")).get(0)).doubleValue();
+        double currentPrice = ((List<?>) book.get("price")).isEmpty() ? 0.0 : ((Number) ((List<?>) book.get("price")).get(0)).doubleValue();
         assertTrue(currentPrice > 0);
     }
 
@@ -168,7 +163,7 @@ class SearchServiceTest {
         sortClauses.add(SolrQuery.SortClause.create("price", SolrQuery.ORDER.asc));
 
         SearchResponse result = searchService.search(
-                COLLECTION_NAME, null, null, null, sortClauses);
+                COLLECTION_NAME, null, null, null, sortClauses, null, null);
 
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
@@ -216,7 +211,7 @@ class SearchServiceTest {
         sortClauses.add(SolrQuery.SortClause.create("price", SolrQuery.ORDER.desc));
 
         SearchResponse result = searchService.search(
-                COLLECTION_NAME, null, null, null, sortClauses);
+                COLLECTION_NAME, null, null, null, sortClauses, null, null);
 
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
@@ -267,7 +262,7 @@ class SearchServiceTest {
         List<String> filterQueries = List.of("series_t:\"A Song of Ice and Fire\"");
 
         SearchResponse result = searchService.search(
-                COLLECTION_NAME, null, filterQueries, null, sortClauses);
+                COLLECTION_NAME, null, filterQueries, null, sortClauses, null, null);
 
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
@@ -276,7 +271,7 @@ class SearchServiceTest {
         // Verify documents are sorted by sequence_i in ascending order
         int previousSequence = 0;
         for (Map<String, Object> book : documents) {
-            int currentSequence = ((Number)book.get("sequence_i")).intValue();
+            int currentSequence = ((Number) book.get("sequence_i")).intValue();
             assertTrue(currentSequence >= previousSequence, "Books should be sorted by sequence_i in ascending order");
             previousSequence = currentSequence;
         }
@@ -294,7 +289,7 @@ class SearchServiceTest {
         List<String> filterQueries = List.of("genre_s:fantasy");
 
         SearchResponse result = searchService.search(
-                COLLECTION_NAME, null, filterQueries, null, null);
+                COLLECTION_NAME, null, filterQueries, null, null, null, null);
 
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
@@ -302,7 +297,7 @@ class SearchServiceTest {
 
         // Verify all returned documents have genre_s = fantasy
         for (Map<String, Object> book : documents) {
-            String genre = (String)book.get("genre_s");
+            String genre = (String) book.get("genre_s");
             assertEquals("fantasy", genre, "All books should have genre_s = fantasy");
         }
     }
@@ -319,7 +314,7 @@ class SearchServiceTest {
         List<String> filterQueries = List.of("price:[6.0 TO 7.0]");
 
         SearchResponse result = searchService.search(
-                COLLECTION_NAME, null, filterQueries, null, null);
+                COLLECTION_NAME, null, filterQueries, null, null, null, null);
 
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
@@ -367,7 +362,7 @@ class SearchServiceTest {
         List<String> filterQueries = List.of("genre_s:fantasy");
 
         SearchResponse result = searchService.search(
-                COLLECTION_NAME, null, filterQueries, null, sortClauses);
+                COLLECTION_NAME, null, filterQueries, null, sortClauses, null, null);
 
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
@@ -375,7 +370,7 @@ class SearchServiceTest {
 
         // Verify all returned documents have genre_s = fantasy
         for (Map<String, Object> book : documents) {
-            String genre = (String)book.get("genre_s");
+            String genre = (String) book.get("genre_s");
             assertEquals("fantasy", genre, "All books should have genre_s = fantasy");
         }
 
@@ -405,6 +400,156 @@ class SearchServiceTest {
 
             assertTrue(currentPrice <= previousPrice, "Books should be sorted by price in descending order");
             previousPrice = currentPrice;
+        }
+    }
+
+    @Test
+    void testPagination() throws Exception {
+        // Skip test if collection creation failed
+        if (!collectionCreated) {
+            System.out.println("[DEBUG_LOG] Skipping testPagination since collection creation failed");
+            return;
+        }
+
+        // First, get all documents to know how many we have
+        SearchResponse allResults = searchService.search(
+                COLLECTION_NAME, null, null, null, null, null, null);
+
+        assertNotNull(allResults);
+        long totalDocuments = allResults.numFound();
+        assertTrue(totalDocuments > 0, "Should have at least some documents");
+
+        // Now test pagination with start=0, rows=2 (first page with 2 items)
+        SearchResponse firstPage = searchService.search(
+                COLLECTION_NAME, null, null, null, null, 0, 2);
+
+        assertNotNull(firstPage);
+        assertEquals(0, firstPage.start(), "Start offset should be 0");
+        assertEquals(totalDocuments, firstPage.numFound(), "Total count should match");
+        assertEquals(2, firstPage.documents().size(), "Should return exactly 2 documents");
+
+        // Test second page (start=2, rows=2)
+        SearchResponse secondPage = searchService.search(
+                COLLECTION_NAME, null, null, null, null, 2, 2);
+
+        assertNotNull(secondPage);
+        assertEquals(2, secondPage.start(), "Start offset should be 2");
+        assertEquals(totalDocuments, secondPage.numFound(), "Total count should match");
+        assertEquals(2, secondPage.documents().size(), "Should return exactly 2 documents");
+
+        // Verify first and second page have different documents
+        List<String> firstPageIds = getDocumentIds(firstPage.documents());
+        List<String> secondPageIds = getDocumentIds(secondPage.documents());
+
+        for (String id : firstPageIds) {
+            assertFalse(secondPageIds.contains(id), "Second page should not contain documents from first page");
+        }
+    }
+
+    private List<String> getDocumentIds(List<Map<String, Object>> documents) {
+        List<String> ids = new ArrayList<>();
+        for (Map<String, Object> doc : documents) {
+            Object idObj = doc.get("id");
+            if (idObj instanceof List) {
+                ids.add(((List<?>) idObj).get(0).toString());
+            } else if (idObj != null) {
+                ids.add(idObj.toString());
+            }
+        }
+        return ids;
+    }
+
+    @Test
+    void testMultipleFacets() throws Exception {
+        // Skip test if collection creation failed
+        if (!collectionCreated) {
+            System.out.println("[DEBUG_LOG] Skipping testMultipleFacets since collection creation failed");
+            return;
+        }
+
+        // Test search with multiple facet fields
+        List<String> facetFields = List.of("genre_s", "author", "cat");
+
+        SearchResponse result = searchService.search(
+                COLLECTION_NAME, null, null, facetFields, null, null, null);
+
+        assertNotNull(result);
+        Map<String, Map<String, Long>> facets = result.facets();
+        assertNotNull(facets);
+
+        // Verify all requested facet fields are present in the response
+        assertTrue(facets.containsKey("genre_s"), "Response should contain genre_s facet");
+        assertTrue(facets.containsKey("author"), "Response should contain author facet");
+        assertTrue(facets.containsKey("cat"), "Response should contain cat facet");
+
+        // Verify each facet field has values
+        assertFalse(facets.get("genre_s").isEmpty(), "genre_s facet should have values");
+        assertFalse(facets.get("author").isEmpty(), "author facet should have values");
+        assertFalse(facets.get("cat").isEmpty(), "cat facet should have values");
+
+        // Verify some expected facet values
+        Map<String, Long> genreFacets = facets.get("genre_s");
+        assertTrue(genreFacets.containsKey("fantasy") || genreFacets.containsKey("scifi"),
+                "genre_s facet should contain fantasy or scifi");
+
+        Map<String, Long> authorFacets = facets.get("author");
+        for (String author : authorFacets.keySet()) {
+            assertTrue(authorFacets.get(author) > 0, "Author facet count should be positive");
+        }
+    }
+
+    @Test
+    void testSpecialCharactersInQuery() throws Exception {
+        // Skip test if collection creation failed
+        if (!collectionCreated) {
+            System.out.println("[DEBUG_LOG] Skipping testSpecialCharactersInQuery since collection creation failed");
+            return;
+        }
+
+        // First, index a document with special characters
+        String specialJson = """
+                [
+                  {
+                    "id": "special001",
+                    "title": "Book with special characters: & + - ! ( ) { } [ ] ^ \" ~ * ? : \\ /",
+                    "author": ["Special Author (with parentheses)"],
+                    "description": "This is a test document with special characters: & + - ! ( ) { } [ ] ^ \" ~ * ? : \\ /"
+                  }
+                ]
+                """;
+
+        try {
+            // Index the document with special characters
+            indexingService.indexDocuments(COLLECTION_NAME, specialJson);
+
+            // Wait a moment for indexing to complete
+            Thread.sleep(1000);
+
+            // Test searching for the document with escaped special characters
+            String query = "title:\"Book with special characters\\: \\& \\+ \\- \\! \\( \\) \\{ \\} \\[ \\] \\^ \\\" \\~ \\* \\? \\: \\\\ \\/\"";
+            SearchResponse result = searchService.search(COLLECTION_NAME, query, null, null, null, null, null);
+
+            assertNotNull(result);
+            assertEquals(1, result.numFound(), "Should find exactly one document");
+
+            // Test searching with escaped parentheses in author field
+            query = "author:\"Special Author \\(with parentheses\\)\"";
+            result = searchService.search(COLLECTION_NAME, query, null, null, null, null, null);
+
+            assertNotNull(result);
+            assertEquals(1, result.numFound(), "Should find exactly one document");
+
+            // Test searching with wildcards
+            query = "title:special*";
+            result = searchService.search(COLLECTION_NAME, query, null, null, null, null, null);
+
+            assertNotNull(result);
+            assertTrue(result.numFound() > 0, "Should find at least one document");
+
+        } catch (Exception e) {
+            System.out.println("[DEBUG_LOG] Error in testSpecialCharactersInQuery: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
         }
     }
 }

@@ -15,18 +15,24 @@ class McpToolRegistrationTest {
     @Test
     void testSearchServiceHasToolAnnotation() throws NoSuchMethodException {
         // Get the search method from SearchService
-        Method searchMethod = SearchService.class.getMethod("search", 
-                String.class, String.class, List.class, List.class, List.class);
+        Method searchMethod = SearchService.class.getMethod("search",
+                String.class,
+                String.class,
+                List.class,
+                List.class,
+                List.class,
+                Integer.class,
+                Integer.class);
 
         // Verify it has the @Tool annotation
-        assertTrue(searchMethod.isAnnotationPresent(Tool.class), 
+        assertTrue(searchMethod.isAnnotationPresent(Tool.class),
                 "SearchService.search method should have @Tool annotation");
 
         // Verify the annotation properties
         Tool toolAnnotation = searchMethod.getAnnotation(Tool.class);
-        assertEquals("Search", toolAnnotation.name(), 
+        assertEquals("Search", toolAnnotation.name(),
                 "Tool name should be 'Search'");
-        assertNotNull(toolAnnotation.description(), 
+        assertNotNull(toolAnnotation.description(),
                 "Tool description should not be null");
     }
 

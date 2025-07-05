@@ -20,6 +20,13 @@ class MainBeanTest {
     @Autowired
     private List<ToolCallback> solrTools;
 
+    @Test
+    void testSolrToolsBean() {
+        // Verify that the solrTools bean is created
+        assertNotNull(solrTools);
+        assertFalse(solrTools.isEmpty());
+    }
+
     @TestConfiguration
     static class TestConfig {
         @Bean
@@ -27,12 +34,5 @@ class MainBeanTest {
         public SearchService searchService() {
             return Mockito.mock(SearchService.class);
         }
-    }
-
-    @Test
-    void testSolrToolsBean() {
-        // Verify that the solrTools bean is created
-        assertNotNull(solrTools);
-        assertFalse(solrTools.isEmpty());
     }
 }
