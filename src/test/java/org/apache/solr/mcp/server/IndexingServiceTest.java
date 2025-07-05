@@ -633,4 +633,97 @@ class IndexingServiceTest {
         // Check for flattened review fields
         // Same note as above applies here
     }
+
+    @Test
+    void testNonArrayJsonInput() throws Exception {
+        // Test JSON string that is not an array but a single object
+        String json = """
+                {
+                  "id": "single_object_001",
+                  "title": "Single Object Document",
+                  "author": "Test Author",
+                  "year": 2023
+                }
+                """;
+
+        // Create documents
+        List<SolrInputDocument> documents = indexingService.createSchemalessDocuments(json);
+
+        // Verify no documents were created since input is not an array
+        assertNotNull(documents);
+        assertEquals(0, documents.size());
+    }
+
+    @Test
+    void testConvertJsonValueTypes() throws Exception {
+        // Test JSON with different value types
+        String json = """
+                [
+                  {
+                    "id": "value_types_001",
+                    "boolean_value": true,
+                    "int_value": 42,
+                    "double_value": 3.14159,
+                    "long_value": 9223372036854775807,
+                    "text_value": "This is a text value"
+                  }
+                ]
+                """;
+
+        // Create documents
+        List<SolrInputDocument> documents = indexingService.createSchemalessDocuments(json);
+
+        // Verify documents were created correctly
+        assertNotNull(documents);
+        assertEquals(1, documents.size());
+
+        SolrInputDocument doc = documents.get(0);
+        assertEquals("value_types_001", doc.getFieldValue("id"));
+
+        // Verify each value type was converted correctly
+        assertEquals(true, doc.getFieldValue("boolean_value"));
+        assertEquals(42, doc.getFieldValue("int_value"));
+        assertEquals(3.14159, doc.getFieldValue("double_value"));
+        assertEquals(9223372036854775807L, doc.getFieldValue("long_value"));
+        assertEquals("This is a text value", doc.getFieldValue("text_value"));
+    }
+
+    @Test
+    void testDirectSanitizeFieldName() throws Exception {
+        // Test sanitizing field names directly
+        // Create a document with field names that need sanitizing
+        String json = """
+                [
+                  {
+                    "id": "field_names_001",
+                    "field-with-hyphens": "Value 1",
+                    "field.with.dots": "Value 2",
+                    "field with spaces": "Value 3",
+                    "UPPERCASE_FIELD": "Value 4",
+                    "__leading_underscores__": "Value 5",
+                    "trailing_underscores___": "Value 6",
+                    "multiple___underscores": "Value 7"
+                  }
+                ]
+                """;
+
+        // Create documents
+        List<SolrInputDocument> documents = indexingService.createSchemalessDocuments(json);
+
+        // Verify documents were created correctly
+        assertNotNull(documents);
+        assertEquals(1, documents.size());
+
+        SolrInputDocument doc = documents.get(0);
+
+        // Verify field names were sanitized correctly
+        assertEquals("field_names_001", doc.getFieldValue("id"));
+        assertEquals("Value 1", doc.getFieldValue("field_with_hyphens"));
+        assertEquals("Value 2", doc.getFieldValue("field_with_dots"));
+        assertEquals("Value 3", doc.getFieldValue("field_with_spaces"));
+        assertEquals("Value 4", doc.getFieldValue("uppercase_field"));
+        assertEquals("Value 5", doc.getFieldValue("leading_underscores"));
+        assertEquals("Value 6", doc.getFieldValue("trailing_underscores"));
+        assertEquals("Value 7", doc.getFieldValue("multiple_underscores"));
+    }
 }

@@ -118,4 +118,158 @@ class SearchServiceDirectTest {
         assertEquals(1L, genreFacets.get("fantasy"));
         assertEquals(1L, genreFacets.get("scifi"));
     }
+
+    @Test
+    void testSearchWithEmptyResults() throws SolrServerException, IOException {
+        // Setup mock response with empty results
+        SolrDocumentList emptyDocuments = new SolrDocumentList();
+        emptyDocuments.setNumFound(0);
+        emptyDocuments.setStart(0);
+        emptyDocuments.setMaxScore(0.0f);
+
+        when(queryResponse.getResults()).thenReturn(emptyDocuments);
+        when(solrClient.query(eq("books"), any(SolrQuery.class))).thenReturn(queryResponse);
+
+        // Test
+        SearchResponse result = searchService.search("books", "nonexistent_query", null, null, null, null, null);
+
+        // Verify
+        assertNotNull(result);
+        assertEquals(0L, result.numFound());
+        assertEquals(0, result.documents().size());
+        assertTrue(result.facets().isEmpty());
+    }
+
+    @Test
+    void testSearchWithEmptyFacets() throws SolrServerException, IOException {
+        // Setup mock response with documents but no facets
+        SolrDocumentList documents = new SolrDocumentList();
+        documents.setNumFound(2);
+        documents.setStart(0);
+        documents.setMaxScore(1.0f);
+
+        SolrDocument doc1 = new SolrDocument();
+        doc1.addField("id", "1");
+        doc1.addField("name", "Book 1");
+
+        SolrDocument doc2 = new SolrDocument();
+        doc2.addField("id", "2");
+        doc2.addField("name", "Book 2");
+
+        documents.add(doc1);
+        documents.add(doc2);
+
+        when(queryResponse.getResults()).thenReturn(documents);
+        when(queryResponse.getFacetFields()).thenReturn(null); // No facet fields
+        when(solrClient.query(eq("books"), any(SolrQuery.class))).thenReturn(queryResponse);
+
+        // Test with facet fields requested but none returned
+        SearchResponse result = searchService.search("books", null, null, List.of("genre_s"), null, null, null);
+
+        // Verify
+        assertNotNull(result);
+        assertEquals(2L, result.numFound());
+        assertEquals(2, result.documents().size());
+        assertTrue(result.facets().isEmpty());
+    }
+
+    @Test
+    void testSearchWithEmptyFacetValues() throws SolrServerException, IOException {
+        // Setup mock response with facet fields but no values
+        SolrDocumentList documents = new SolrDocumentList();
+        documents.setNumFound(2);
+        documents.setStart(0);
+        documents.setMaxScore(1.0f);
+
+        SolrDocument doc1 = new SolrDocument();
+        doc1.addField("id", "1");
+        SolrDocument doc2 = new SolrDocument();
+        doc2.addField("id", "2");
+
+        documents.add(doc1);
+        documents.add(doc2);
+
+        // Create facet field with no values
+        List<FacetField> facetFields = new ArrayList<>();
+        FacetField emptyFacet = new FacetField("genre_s");
+        facetFields.add(emptyFacet);
+
+        when(queryResponse.getResults()).thenReturn(documents);
+        when(queryResponse.getFacetFields()).thenReturn(facetFields);
+        when(solrClient.query(eq("books"), any(SolrQuery.class))).thenReturn(queryResponse);
+
+        // Test
+        SearchResponse result = searchService.search("books", null, null, List.of("genre_s"), null, null, null);
+
+        // Verify
+        assertNotNull(result);
+        assertEquals(2L, result.numFound());
+        assertTrue(result.facets().containsKey("genre_s"));
+        assertTrue(result.facets().get("genre_s").isEmpty());
+    }
+
+    @Test
+    void testSearchWithSolrError() {
+        // Setup mock to throw exception
+        try {
+            when(solrClient.query(eq("books"), any(SolrQuery.class)))
+                .thenThrow(new SolrServerException("Simulated Solr server error"));
+
+            // Test
+            assertThrows(SolrServerException.class, () -> {
+                searchService.search("books", null, null, null, null, null, null);
+            });
+        } catch (Exception e) {
+            fail("Test setup failed: " + e.getMessage());
+        }
+    }
+
+    @Test
+    void testSearchWithAllParameters() throws SolrServerException, IOException {
+        // Setup mock response
+        SolrDocumentList documents = new SolrDocumentList();
+        documents.setNumFound(1);
+        documents.setStart(5);
+        documents.setMaxScore(0.75f);
+
+        SolrDocument doc = new SolrDocument();
+        doc.addField("id", "5");
+        doc.addField("name", "Book 5");
+        doc.addField("author", "Author 5");
+        doc.addField("genre_s", "mystery");
+        doc.addField("price", 12.99);
+
+        documents.add(doc);
+
+        // Create facet fields
+        List<FacetField> facetFields = new ArrayList<>();
+        FacetField genreFacet = new FacetField("genre_s");
+        genreFacet.add("mystery", 1);
+        facetFields.add(genreFacet);
+
+        when(queryResponse.getResults()).thenReturn(documents);
+        when(queryResponse.getFacetFields()).thenReturn(facetFields);
+        when(solrClient.query(eq("books"), any(SolrQuery.class))).thenReturn(queryResponse);
+
+        // Test with all parameters
+        List<String> filterQueries = List.of("price:[10 TO 15]");
+        List<String> facetFields2 = List.of("genre_s", "author");
+        List<SolrQuery.SortClause> sortClauses = List.of(
+            SolrQuery.SortClause.create("price", SolrQuery.ORDER.desc)
+        );
+
+        SearchResponse result = searchService.search(
+            "books", "mystery", filterQueries, facetFields2, sortClauses, 5, 10);
+
+        // Verify
+        assertNotNull(result);
+        assertEquals(1L, result.numFound());
+        assertEquals(5, result.start());
+        assertEquals(0.75f, result.maxScore());
+        assertEquals(1, result.documents().size());
+        assertEquals("5", result.documents().get(0).get("id"));
+        assertEquals("Book 5", result.documents().get(0).get("name"));
+        assertTrue(result.facets().containsKey("genre_s"));
+        assertEquals(1L, result.facets().get("genre_s").get("mystery"));
+    }
 }
