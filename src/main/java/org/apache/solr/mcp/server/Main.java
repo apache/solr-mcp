@@ -20,11 +20,13 @@ public class Main {
     public List<ToolCallback> solrTools(
             SearchService searchService,
             IndexingService indexingService,
-            CollectionService collectionService) {
+            CollectionService collectionService,
+            SchemaService schemaService) {
         return Arrays.asList(ToolCallbacks.from(
                 searchService,
                 indexingService,
-                collectionService
+                collectionService,
+                schemaService
         ));
     }
 }
