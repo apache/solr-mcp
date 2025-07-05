@@ -18,15 +18,31 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Service for searching Solr collections.
+ * Provides a tool for executing search queries against Solr with support for
+ * filtering, faceting, sorting, and pagination.
+ */
 @Service
 public class SearchService {
 
     private final SolrClient solrClient;
 
+    /**
+     * Constructs a new SearchService with the specified SolrClient.
+     *
+     * @param solrClient The SolrClient to use for executing queries
+     */
     public SearchService(SolrClient solrClient) {
         this.solrClient = solrClient;
     }
 
+    /**
+     * Converts a SolrDocumentList to a List of Maps for easier JSON serialization.
+     *
+     * @param documents The SolrDocumentList to convert
+     * @return A List of Maps where each Map represents a document with field names and values
+     */
     private static List<Map<String, Object>> getDocs(SolrDocumentList documents) {
         List<Map<String, Object>> docs = new java.util.ArrayList<>(documents.size());
         documents.forEach(doc -> {
@@ -39,6 +55,12 @@ public class SearchService {
         return docs;
     }
 
+    /**
+     * Extracts facet information from a QueryResponse.
+     *
+     * @param queryResponse The QueryResponse containing facet results
+     * @return A Map where keys are facet field names and values are Maps of facet values to counts
+     */
     private static Map<String, Map<String, Long>> getFacets(QueryResponse queryResponse) {
         Map<String, Map<String, Long>> facets = new HashMap<>();
         if (queryResponse.getFacetFields() != null && !queryResponse.getFacetFields().isEmpty()) {
@@ -54,6 +76,21 @@ public class SearchService {
     }
 
 
+    /**
+     * Searches a Solr collection with the specified parameters.
+     * This method is exposed as a tool for MCP clients to use.
+     *
+     * @param collection    The Solr collection to query
+     * @param query         The Solr query string (q parameter). Defaults to "*:*" if not specified
+     * @param filterQueries List of filter queries (fq parameter)
+     * @param facetFields   List of fields to facet on
+     * @param sortClauses   List of sort clauses for ordering results
+     * @param start         Starting offset for pagination
+     * @param rows          Number of rows to return
+     * @return A SearchResponse containing the search results and facets
+     * @throws SolrServerException If there's an error communicating with Solr
+     * @throws IOException         If there's an I/O error
+     */
     @Tool(name = "Search",
             description = """
                     Search specified Solr collection with query, optional filters, facets, sorting, and pagination. 

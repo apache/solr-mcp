@@ -15,7 +15,7 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @Testcontainers
@@ -85,5 +85,38 @@ class CollectionServiceTest {
         assertNotNull(metrics, "Collection stats should not be null");
         assertNotNull(metrics.getIndexStats(), "Index stats should not be null");
         assertNotNull(metrics.getTimestamp(), "Timestamp should not be null");
+    }
+
+    @Test
+    void testCheckHealthHealthy() {
+        // Test checking health of a valid collection
+        SolrHealthStatus status = collectionService.checkHealth(TEST_COLLECTION);
+
+        // Print the status for debugging
+        System.out.println("[DEBUG_LOG] Health status for valid collection: " + status);
+
+        // Verify the health status
+        assertNotNull(status, "Health status should not be null");
+        assertTrue(status.isHealthy(), "Collection should be healthy");
+        assertNotNull(status.getResponseTime(), "Response time should not be null");
+        assertNotNull(status.getTotalDocuments(), "Total documents should not be null");
+        assertNotNull(status.getLastChecked(), "Last checked timestamp should not be null");
+        assertNull(status.getErrorMessage(), "Error message should be null for healthy collection");
+    }
+
+    @Test
+    void testCheckHealthUnhealthy() {
+        // Test checking health of an invalid collection
+        String nonExistentCollection = "non_existent_collection";
+        SolrHealthStatus status = collectionService.checkHealth(nonExistentCollection);
+
+        // Print the status for debugging
+        System.out.println("[DEBUG_LOG] Health status for invalid collection: " + status);
+
+        // Verify the health status
+        assertNotNull(status, "Health status should not be null");
+        assertFalse(status.isHealthy(), "Collection should not be healthy");
+        assertNotNull(status.getLastChecked(), "Last checked timestamp should not be null");
+        assertNotNull(status.getErrorMessage(), "Error message should not be null for unhealthy collection");
     }
 }
