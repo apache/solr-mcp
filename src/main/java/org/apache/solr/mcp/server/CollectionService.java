@@ -18,7 +18,6 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.logging.Logger;
 
 import static org.apache.solr.mcp.server.Utils.*;
 
@@ -76,12 +75,9 @@ import static org.apache.solr.mcp.server.Utils.*;
 @Service
 public class CollectionService {
 
-    /** Logger for this service */
-    private static final Logger logger = Logger.getLogger(CollectionService.class.getName());
-    
     /** SolrJ client for communicating with Solr server */
     private final SolrClient solrClient;
-    
+
     /** Solr configuration properties */
     private final SolrConfigurationProperties solrConfigurationProperties;
 
@@ -203,14 +199,11 @@ public class CollectionService {
     public SolrMetrics getCollectionStats(String collection) throws Exception {
         // Extract actual collection name from shard name if needed
         String actualCollection = extractCollectionName(collection);
-        
+
         // Validate collection exists
         if (!validateCollectionExists(actualCollection)) {
-            logger.warning("Collection does not exist: " + actualCollection);
             throw new IllegalArgumentException("Collection not found: " + actualCollection);
         }
-        
-        logger.info("Collecting metrics for collection: " + actualCollection);
 
         // Index statistics using Luke
         LukeRequest lukeRequest = new LukeRequest();
@@ -338,8 +331,6 @@ public class CollectionService {
      * @see #isCacheStatsEmpty(CacheStats)
      */
     public CacheStats getCacheMetrics(String collection) throws Exception {
-        logger.info("Collecting cache metrics for collection: " + collection);
-        
         try {
             // Get MBeans for cache information
             ModifiableSolrParams params = new ModifiableSolrParams();
@@ -349,13 +340,12 @@ public class CollectionService {
 
             // Extract actual collection name from shard name if needed
             String actualCollection = extractCollectionName(collection);
-            
+
             // Validate collection exists first
             if (!validateCollectionExists(actualCollection)) {
-                logger.warning("Collection does not exist for cache metrics: " + actualCollection);
                 return null; // Return null instead of empty object
             }
-            
+
             String path = actualCollection + "/admin/mbeans";
 
             GenericSolrRequest request = new GenericSolrRequest(
@@ -366,20 +356,18 @@ public class CollectionService {
 
             NamedList<Object> response = solrClient.request(request);
             CacheStats stats = extractCacheStats(response);
-            
+
             // Return null if all cache stats are empty/null
             if (isCacheStatsEmpty(stats)) {
-                logger.info("Cache stats are empty, returning null");
                 return null;
             }
-            
+
             return stats;
         } catch (Exception e) {
-            logger.warning("Failed to collect cache metrics: " + e.getMessage());
             return null; // Return null instead of empty object
         }
     }
-    
+
     /**
      * Checks if cache statistics are empty or contain no meaningful data.
      * 
@@ -512,8 +500,6 @@ public class CollectionService {
      * @see #isHandlerStatsEmpty(HandlerStats)
      */
     public HandlerStats getHandlerMetrics(String collection) throws Exception {
-        logger.info("Collecting handler metrics for collection: " + collection);
-        
         try {
             ModifiableSolrParams params = new ModifiableSolrParams();
             params.set("stats", "true");
@@ -522,13 +508,12 @@ public class CollectionService {
 
             // Extract actual collection name from shard name if needed
             String actualCollection = extractCollectionName(collection);
-            
+
             // Validate collection exists first
             if (!validateCollectionExists(actualCollection)) {
-                logger.warning("Collection does not exist for handler metrics: " + actualCollection);
                 return null; // Return null instead of empty object
             }
-            
+
             String path = actualCollection + "/admin/mbeans";
 
             GenericSolrRequest request = new GenericSolrRequest(
@@ -539,20 +524,18 @@ public class CollectionService {
 
             NamedList<Object> response = solrClient.request(request);
             HandlerStats stats = extractHandlerStats(response);
-            
+
             // Return null if all handler stats are empty/null
             if (isHandlerStatsEmpty(stats)) {
-                logger.info("Handler stats are empty, returning null");
                 return null;
             }
-            
+
             return stats;
         } catch (Exception e) {
-            logger.warning("Failed to collect handler metrics: " + e.getMessage());
             return null; // Return null instead of empty object
         }
     }
-    
+
     /**
      * Checks if handler statistics are empty or contain no meaningful data.
      * 
@@ -672,7 +655,7 @@ public class CollectionService {
         // If it doesn't look like a shard name, return as-is
         return collectionOrShard;
     }
-    
+
     /**
      * Validates that a specified collection exists in the Solr cluster.
      * 
@@ -702,21 +685,18 @@ public class CollectionService {
     private boolean validateCollectionExists(String collection) {
         try {
             List<String> collections = listCollections();
-            
+
             // Check for exact match first
             if (collections.contains(collection)) {
-                logger.info("Collection validation for '" + collection + "': true (exact match in available: " + collections + ")");
                 return true;
             }
-            
+
             // Check if any of the returned collections start with the collection name (for shard names)
             boolean shardMatch = collections.stream()
                     .anyMatch(c -> c.startsWith(collection + "_shard"));
-            
-            logger.info("Collection validation for '" + collection + "': " + shardMatch + " (shard match in available: " + collections + ")");
+
             return shardMatch;
         } catch (Exception e) {
-            logger.warning("Failed to validate collection existence: " + e.getMessage());
             return false;
         }
     }
