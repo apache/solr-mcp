@@ -70,3 +70,9 @@ tasks.jacocoTestReport {
 tasks.named("sonar") {
     dependsOn("test", "jacocoTestReport")
 }
+
+sonar {
+    properties {
+        property("sonar.projectKey", "adityamparikh_solr-mcp-server")
+    }
+}
