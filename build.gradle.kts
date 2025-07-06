@@ -74,5 +74,7 @@ tasks.named("sonar") {
 sonar {
     properties {
         property("sonar.projectKey", "adityamparikh_solr-mcp-server")
+        property("sonar.organization", "adityamparikh")
+        property("sonar.host.url", "https://sonarcloud.io")
     }
 }
