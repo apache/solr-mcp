@@ -245,7 +245,6 @@ public class CollectionService {
      * 
      * @see IndexStats
      * @see LukeResponse
-     * @see org.apache.solr.handler.admin.LukeRequestHandler
      */
     public IndexStats buildIndexStats(LukeResponse lukeResponse) {
         NamedList<Object> indexInfo = lukeResponse.getIndexInfo();
