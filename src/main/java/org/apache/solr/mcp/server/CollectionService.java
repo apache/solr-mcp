@@ -3,6 +3,7 @@ package org.apache.solr.mcp.server;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrRequest;
+import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.request.CoreAdminRequest;
@@ -14,7 +15,6 @@ import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Service;
-import org.apache.solr.client.solrj.SolrServerException;
 
 import java.io.IOException;
 import java.util.ArrayList;
