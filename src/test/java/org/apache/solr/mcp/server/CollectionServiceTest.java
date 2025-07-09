@@ -2,6 +2,7 @@ package org.apache.solr.mcp.server;
 
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
+import org.apache.solr.client.solrj.response.CollectionAdminResponse;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,8 +40,8 @@ class CollectionServiceTest {
 
     @BeforeAll
     static void setup() throws Exception {
-        // Wait for Solr to start
-        Thread.sleep(2000);
+        // Wait for Solr container to be ready
+        assertTrue(solrContainer.isRunning(), "Solr container should be running");
 
         // Create a test collection
         String solrUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/";
@@ -51,8 +52,9 @@ class CollectionServiceTest {
             CollectionAdminRequest.Create createRequest = CollectionAdminRequest.createCollection(TEST_COLLECTION, "_default", 1, 1);
             client.request(createRequest);
 
-            // Wait for collection to be available
-            Thread.sleep(1000);
+            // Verify collection was created successfully
+            CollectionAdminRequest.List listRequest = new CollectionAdminRequest.List();
+            CollectionAdminResponse listResponse = listRequest.process(client);
 
             System.out.println("[DEBUG_LOG] Test collection created: " + TEST_COLLECTION);
         } catch (Exception e) {

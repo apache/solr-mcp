@@ -23,8 +23,12 @@ until curl -s http://localhost:8983/solr/ > /dev/null; do
 done
 
 # Create the 'books' collection in SolrCloud mode
-/opt/solr/bin/solr create -c books -n _default
-/opt/solr/bin/solr create -c films -n _default
+if ! /opt/solr/bin/solr list | grep -q 'books'; then
+  /opt/solr/bin/solr create -c books -n _default
+fi
+if ! /opt/solr/bin/solr list | grep -q 'films'; then
+  /opt/solr/bin/solr create -c films -n _default
+fi
 
 # Wait for collection to be ready
 until curl -s "http://localhost:8983/solr/admin/collections?action=LIST" | grep -q '"books"'; do

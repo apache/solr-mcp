@@ -3,11 +3,13 @@ package org.apache.solr.mcp.server;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrInputDocument;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -67,6 +69,8 @@ import java.util.Map;
  */
 @Service
 public class IndexingService {
+
+    private static final int DEFAULT_BATCH_SIZE = 1000;
 
     /** SolrJ client for communicating with Solr server */
     private final SolrClient solrClient;
@@ -297,36 +301,32 @@ public class IndexingService {
      */
     public int indexDocuments(String collection, List<SolrInputDocument> documents) throws Exception {
         int successCount = 0;
-        try {
-            int batchSize = 1000;
-            int errorCount = 0;
+        final int batchSize = DEFAULT_BATCH_SIZE;
+        int errorCount = 0;
 
-            for (int i = 0; i < documents.size(); i += batchSize) {
-                int endIndex = Math.min(i + batchSize, documents.size());
-                List<SolrInputDocument> batch = documents.subList(i, endIndex);
+        for (int i = 0; i < documents.size(); i += batchSize) {
+            final int endIndex = Math.min(i + batchSize, documents.size());
+            final List<SolrInputDocument> batch = documents.subList(i, endIndex);
 
-                try {
-                    solrClient.add(collection, batch);
-                    successCount += batch.size();
-                } catch (Exception e) {
-                    errorCount += batch.size();
+            try {
+                solrClient.add(collection, batch);
+                successCount += batch.size();
+            } catch (SolrServerException | IOException | RuntimeException e) {
+                errorCount += batch.size();
 
-                    // Try indexing documents individually to identify problematic ones
-                    for (SolrInputDocument doc : batch) {
-                        try {
-                            solrClient.add(collection, doc);
-                            successCount++;
-                        } catch (Exception docError) {
-                            errorCount++;
-                        }
+                // Try indexing documents individually to identify problematic ones
+                for (SolrInputDocument doc : batch) {
+                    try {
+                        solrClient.add(collection, doc);
+                        successCount++;
+                    } catch (SolrServerException | IOException | RuntimeException docError) {
+                        errorCount++;
                     }
                 }
             }
-
-            solrClient.commit(collection);
-        } catch (Exception e) {
-            throw e;
         }
+
+        solrClient.commit(collection);
         return successCount;
     }
 

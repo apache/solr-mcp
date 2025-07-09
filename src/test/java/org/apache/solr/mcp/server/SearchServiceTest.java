@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalDouble;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -46,13 +47,13 @@ class SearchServiceTest {
     @BeforeEach
     void setUp() {
         // Debug: Check if Solr container is running
-        System.out.println("[DEBUG_LOG] Solr container running: " + solrContainer.isRunning());
-        System.out.println("[DEBUG_LOG] Solr container host: " + solrContainer.getHost());
-        System.out.println("[DEBUG_LOG] Solr container port: " + solrContainer.getMappedPort(8983));
+        // Skipping test - Solr container running: " + solrContainer.isRunning());
+        // Skipping test - Solr container host: " + solrContainer.getHost());
+        // Skipping test - Solr container port: " + solrContainer.getMappedPort(8983));
 
         // Get the Solr URL for debug logging
         String solrUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/";
-        System.out.println("[DEBUG_LOG] Solr URL: " + solrUrl);
+        // Skipping test - Solr URL: " + solrUrl);
 
     }
 
@@ -60,7 +61,7 @@ class SearchServiceTest {
     void testBasicSearch() throws SolrServerException, IOException {
         // Skip test if collection creation failed
         if (!collectionCreated) {
-            System.out.println("[DEBUG_LOG] Skipping testBasicSearch since collection creation failed");
+            // Skipping test - Skipping testBasicSearch since collection creation failed");
             return;
         }
 
@@ -77,7 +78,7 @@ class SearchServiceTest {
     void testSearchWithQuery() throws SolrServerException, IOException {
         // Skip test if collection creation failed
         if (!collectionCreated) {
-            System.out.println("[DEBUG_LOG] Skipping testSearchWithQuery since collection creation failed");
+            // Skipping test - Skipping testSearchWithQuery since collection creation failed");
             return;
         }
 
@@ -96,7 +97,7 @@ class SearchServiceTest {
     void testSearchReturnsAuthor() throws Exception {
         // Skip test if collection creation failed
         if (!collectionCreated) {
-            System.out.println("[DEBUG_LOG] Skipping testSearchReturnsAuthor since collection creation failed");
+            // Skipping test - Skipping testSearchReturnsAuthor since collection creation failed");
             return;
         }
 
@@ -116,7 +117,7 @@ class SearchServiceTest {
     void testSearchWithFacets() throws Exception {
         // Skip test if collection creation failed
         if (!collectionCreated) {
-            System.out.println("[DEBUG_LOG] Skipping testSearchWithFacets since collection creation failed");
+            // Skipping test - Skipping testSearchWithFacets since collection creation failed");
             return;
         }
 
@@ -134,7 +135,7 @@ class SearchServiceTest {
     void testSearchWithPrice() throws Exception {
         // Skip test if collection creation failed
         if (!collectionCreated) {
-            System.out.println("[DEBUG_LOG] Skipping testSearchWithPrice since collection creation failed");
+            // Skipping test - Skipping testSearchWithPrice since collection creation failed");
             return;
         }
 
@@ -154,7 +155,7 @@ class SearchServiceTest {
     void testSortByPriceAscending() throws Exception {
         // Skip test if collection creation failed
         if (!collectionCreated) {
-            System.out.println("[DEBUG_LOG] Skipping testSortByPriceAscending since collection creation failed");
+            // Skipping test - Skipping testSortByPriceAscending since collection creation failed");
             return;
         }
 
@@ -172,27 +173,12 @@ class SearchServiceTest {
         // Verify documents are sorted by price in ascending order
         double previousPrice = 0.0;
         for (Map<String, Object> book : documents) {
-            // Skip books without a price field
-            if (book.get("price") == null) {
+            OptionalDouble priceOpt = extractPrice(book);
+            if (priceOpt.isEmpty()) {
                 continue;
             }
-
-            // Handle the case where price might be a List or a direct value
-            Object priceObj = book.get("price");
-            double currentPrice;
-
-            if (priceObj instanceof List) {
-                List<?> priceList = (List<?>) priceObj;
-                if (priceList.isEmpty()) {
-                    continue; // Skip if price list is empty
-                }
-                currentPrice = ((Number) priceList.get(0)).doubleValue();
-            } else if (priceObj instanceof Number) {
-                currentPrice = ((Number) priceObj).doubleValue();
-            } else {
-                continue; // Skip if price is not a number or list
-            }
-
+            
+            double currentPrice = priceOpt.getAsDouble();
             assertTrue(currentPrice >= previousPrice, "Books should be sorted by price in ascending order");
             previousPrice = currentPrice;
         }
@@ -202,7 +188,7 @@ class SearchServiceTest {
     void testSortByPriceDescending() throws Exception {
         // Skip test if collection creation failed
         if (!collectionCreated) {
-            System.out.println("[DEBUG_LOG] Skipping testSortByPriceDescending since collection creation failed");
+            // Skipping test - Skipping testSortByPriceDescending since collection creation failed");
             return;
         }
 
@@ -220,27 +206,12 @@ class SearchServiceTest {
         // Verify documents are sorted by price in descending order
         double previousPrice = Double.MAX_VALUE;
         for (Map<String, Object> book : documents) {
-            // Skip books without a price field
-            if (book.get("price") == null) {
+            OptionalDouble priceOpt = extractPrice(book);
+            if (priceOpt.isEmpty()) {
                 continue;
             }
-
-            // Handle the case where price might be a List or a direct value
-            Object priceObj = book.get("price");
-            double currentPrice;
-
-            if (priceObj instanceof List) {
-                List<?> priceList = (List<?>) priceObj;
-                if (priceList.isEmpty()) {
-                    continue; // Skip if price list is empty
-                }
-                currentPrice = ((Number) priceList.get(0)).doubleValue();
-            } else if (priceObj instanceof Number) {
-                currentPrice = ((Number) priceObj).doubleValue();
-            } else {
-                continue; // Skip if price is not a number or list
-            }
-
+            
+            double currentPrice = priceOpt.getAsDouble();
             assertTrue(currentPrice <= previousPrice, "Books should be sorted by price in descending order");
             previousPrice = currentPrice;
         }
@@ -250,7 +221,7 @@ class SearchServiceTest {
     void testSortBySequence() throws Exception {
         // Skip test if collection creation failed
         if (!collectionCreated) {
-            System.out.println("[DEBUG_LOG] Skipping testSortBySequence since collection creation failed");
+            // Skipping test - Skipping testSortBySequence since collection creation failed");
             return;
         }
 
@@ -281,7 +252,7 @@ class SearchServiceTest {
     void testFilterByGenre() throws Exception {
         // Skip test if collection creation failed
         if (!collectionCreated) {
-            System.out.println("[DEBUG_LOG] Skipping testFilterByGenre since collection creation failed");
+            // Skipping test - Skipping testFilterByGenre since collection creation failed");
             return;
         }
 
@@ -306,7 +277,7 @@ class SearchServiceTest {
     void testFilterByPriceRange() throws Exception {
         // Skip test if collection creation failed
         if (!collectionCreated) {
-            System.out.println("[DEBUG_LOG] Skipping testFilterByPriceRange since collection creation failed");
+            // Skipping test - Skipping testFilterByPriceRange since collection creation failed");
             return;
         }
 
@@ -327,22 +298,12 @@ class SearchServiceTest {
                 continue;
             }
 
-            // Handle the case where price might be a List or a direct value
-            Object priceObj = book.get("price");
-            double price;
-
-            if (priceObj instanceof List) {
-                List<?> priceList = (List<?>) priceObj;
-                if (priceList.isEmpty()) {
-                    continue; // Skip if price list is empty
-                }
-                price = ((Number) priceList.get(0)).doubleValue();
-            } else if (priceObj instanceof Number) {
-                price = ((Number) priceObj).doubleValue();
-            } else {
-                continue; // Skip if price is not a number or list
+            OptionalDouble priceOpt = extractPrice(book);
+            if (priceOpt.isEmpty()) {
+                continue;
             }
-
+            
+            double price = priceOpt.getAsDouble();
             assertTrue(price >= 6.0 && price <= 7.0, "All books should have price between 6.0 and 7.0");
         }
     }
@@ -351,7 +312,7 @@ class SearchServiceTest {
     void testCombinedSortingAndFiltering() throws Exception {
         // Skip test if collection creation failed
         if (!collectionCreated) {
-            System.out.println("[DEBUG_LOG] Skipping testCombinedSortingAndFiltering since collection creation failed");
+            // Skipping test - Skipping testCombinedSortingAndFiltering since collection creation failed");
             return;
         }
 
@@ -407,7 +368,7 @@ class SearchServiceTest {
     void testPagination() throws Exception {
         // Skip test if collection creation failed
         if (!collectionCreated) {
-            System.out.println("[DEBUG_LOG] Skipping testPagination since collection creation failed");
+            // Skipping test - Skipping testPagination since collection creation failed");
             return;
         }
 
@@ -463,7 +424,7 @@ class SearchServiceTest {
     void testMultipleFacets() throws Exception {
         // Skip test if collection creation failed
         if (!collectionCreated) {
-            System.out.println("[DEBUG_LOG] Skipping testMultipleFacets since collection creation failed");
+            // Skipping test - Skipping testMultipleFacets since collection creation failed");
             return;
         }
 
@@ -502,7 +463,7 @@ class SearchServiceTest {
     void testSpecialCharactersInQuery() throws Exception {
         // Skip test if collection creation failed
         if (!collectionCreated) {
-            System.out.println("[DEBUG_LOG] Skipping testSpecialCharactersInQuery since collection creation failed");
+            // Skipping test - Skipping testSpecialCharactersInQuery since collection creation failed");
             return;
         }
 
@@ -522,8 +483,8 @@ class SearchServiceTest {
             // Index the document with special characters
             indexingService.indexDocuments(COLLECTION_NAME, specialJson);
 
-            // Wait a moment for indexing to complete
-            Thread.sleep(1000);
+            // Commit to ensure document is available for search
+            solrClient.commit(COLLECTION_NAME);
 
             // Test searching for the document with escaped special characters
             String query = "title:\"Book with special characters\\: \\& \\+ \\- \\! \\( \\) \\{ \\} \\[ \\] \\^ \\\" \\~ \\* \\? \\: \\\\ \\/\"";
@@ -547,9 +508,32 @@ class SearchServiceTest {
             assertTrue(result.numFound() > 0, "Should find at least one document");
 
         } catch (Exception e) {
-            System.out.println("[DEBUG_LOG] Error in testSpecialCharactersInQuery: " + e.getMessage());
+            // Skipping test - Error in testSpecialCharactersInQuery: " + e.getMessage());
             e.printStackTrace();
             throw e;
         }
+    }
+
+    /**
+     * Helper method to extract price value from a document field.
+     * Handles both List and direct Number values.
+     */
+    private OptionalDouble extractPrice(Map<String, Object> document) {
+        Object priceObj = document.get("price");
+        if (priceObj == null) {
+            return OptionalDouble.empty();
+        }
+
+        if (priceObj instanceof List) {
+            List<?> priceList = (List<?>) priceObj;
+            if (priceList.isEmpty()) {
+                return OptionalDouble.empty();
+            }
+            return OptionalDouble.of(((Number) priceList.get(0)).doubleValue());
+        } else if (priceObj instanceof Number) {
+            return OptionalDouble.of(((Number) priceObj).doubleValue());
+        }
+        
+        return OptionalDouble.empty();
     }
 }

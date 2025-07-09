@@ -99,7 +99,7 @@ class IndexingServiceTest {
             }
         } else {
             // If inStock is not present in the document, we'll skip this assertion
-            System.out.println("[DEBUG_LOG] inStock field is null in the document");
+            // Removed debug print statement
         }
 
         Object authorValue = doc.getFieldValue("author");
@@ -118,7 +118,7 @@ class IndexingServiceTest {
     void testIndexDocuments() throws Exception {
         // Skip test if collection creation failed
         if (!collectionCreated) {
-            System.out.println("Skipping testIndexDocuments since collection creation failed in test environment");
+            // Removed debug print statement
             return;
         }
 
@@ -233,7 +233,7 @@ class IndexingServiceTest {
     void testIndexDocumentsWithNestedObjects() throws Exception {
         // Skip test if collection creation failed
         if (!collectionCreated) {
-            System.out.println("Skipping testIndexDocumentsWithNestedObjects since collection creation failed in test environment");
+            // Removed debug print statement
             return;
         }
 
@@ -307,7 +307,7 @@ class IndexingServiceTest {
     void testSanitizeFieldName() throws Exception {
         // Skip test if collection creation failed
         if (!collectionCreated) {
-            System.out.println("Skipping testSanitizeFieldName since collection creation failed in test environment");
+            // Removed debug print statement
             return;
         }
 
@@ -376,7 +376,7 @@ class IndexingServiceTest {
     void testDeeplyNestedJsonStructures() throws Exception {
         // Skip test if collection creation failed
         if (!collectionCreated) {
-            System.out.println("Skipping testDeeplyNestedJsonStructures since collection creation failed in test environment");
+            // Removed debug print statement
             return;
         }
 
@@ -466,7 +466,7 @@ class IndexingServiceTest {
     void testSpecialCharactersInFieldNames() throws Exception {
         // Skip test if collection creation failed
         if (!collectionCreated) {
-            System.out.println("Skipping testSpecialCharactersInFieldNames since collection creation failed in test environment");
+            // Removed debug print statement
             return;
         }
 
@@ -552,7 +552,7 @@ class IndexingServiceTest {
     void testArraysOfObjects() throws Exception {
         // Skip test if collection creation failed
         if (!collectionCreated) {
-            System.out.println("Skipping testArraysOfObjects since collection creation failed in test environment");
+            // Removed debug print statement
             return;
         }
 

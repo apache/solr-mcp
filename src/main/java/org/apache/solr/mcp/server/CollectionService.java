@@ -14,7 +14,9 @@ import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Service;
+import org.apache.solr.client.solrj.SolrServerException;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -74,6 +76,11 @@ import static org.apache.solr.mcp.server.Utils.*;
  */
 @Service
 public class CollectionService {
+
+    private static final String CACHE_CATEGORY = "CACHE";
+    private static final String QUERY_HANDLER_CATEGORY = "QUERYHANDLER";
+    private static final String UPDATE_HANDLER_CATEGORY = "UPDATEHANDLER";
+    private static final String HANDLER_CATEGORIES = "QUERYHANDLER,UPDATEHANDLER";
 
     /** SolrJ client for communicating with Solr server */
     private final SolrClient solrClient;
@@ -150,7 +157,7 @@ public class CollectionService {
                 }
                 return cores;
             }
-        } catch (Exception e) {
+        } catch (SolrServerException | IOException e) {
             return new ArrayList<>();
         }
     }
@@ -334,7 +341,7 @@ public class CollectionService {
             // Get MBeans for cache information
             ModifiableSolrParams params = new ModifiableSolrParams();
             params.set("stats", "true");
-            params.set("cat", "CACHE");
+            params.set("cat", CACHE_CATEGORY);
             params.set("wt", "json");
 
             // Extract actual collection name from shard name if needed
@@ -345,7 +352,7 @@ public class CollectionService {
                 return null; // Return null instead of empty object
             }
 
-            String path = actualCollection + "/admin/mbeans";
+            String path = "/" + actualCollection + "/admin/mbeans";
 
             GenericSolrRequest request = new GenericSolrRequest(
                     SolrRequest.METHOD.GET,
@@ -362,7 +369,7 @@ public class CollectionService {
             }
 
             return stats;
-        } catch (Exception e) {
+        } catch (SolrServerException | IOException e) {
             return null; // Return null instead of empty object
         }
     }
@@ -414,12 +421,15 @@ public class CollectionService {
     private CacheStats extractCacheStats(NamedList<Object> mbeans) {
         CacheStats.CacheStatsBuilder builder = CacheStats.builder();
 
-        NamedList<Object> caches = (NamedList<Object>) mbeans.get("CACHE");
+        @SuppressWarnings("unchecked")
+        NamedList<Object> caches = (NamedList<Object>) mbeans.get(CACHE_CATEGORY);
 
         if (caches != null) {
             // Query result cache
+            @SuppressWarnings("unchecked")
             NamedList<Object> queryResultCache = (NamedList<Object>) caches.get("queryResultCache");
             if (queryResultCache != null) {
+                @SuppressWarnings("unchecked")
                 NamedList<Object> stats = (NamedList<Object>) queryResultCache.get("stats");
                 builder.queryResultCache(CacheInfo.builder()
                         .lookups(getLong(stats, "lookups"))
@@ -432,8 +442,10 @@ public class CollectionService {
             }
 
             // Document cache
+            @SuppressWarnings("unchecked")
             NamedList<Object> documentCache = (NamedList<Object>) caches.get("documentCache");
             if (documentCache != null) {
+                @SuppressWarnings("unchecked")
                 NamedList<Object> stats = (NamedList<Object>) documentCache.get("stats");
                 builder.documentCache(CacheInfo.builder()
                         .lookups(getLong(stats, "lookups"))
@@ -446,8 +458,10 @@ public class CollectionService {
             }
 
             // Filter cache
+            @SuppressWarnings("unchecked")
             NamedList<Object> filterCache = (NamedList<Object>) caches.get("filterCache");
             if (filterCache != null) {
+                @SuppressWarnings("unchecked")
                 NamedList<Object> stats = (NamedList<Object>) filterCache.get("stats");
                 builder.filterCache(CacheInfo.builder()
                         .lookups(getLong(stats, "lookups"))
@@ -502,7 +516,7 @@ public class CollectionService {
         try {
             ModifiableSolrParams params = new ModifiableSolrParams();
             params.set("stats", "true");
-            params.set("cat", "QUERYHANDLER,UPDATEHANDLER");
+            params.set("cat", HANDLER_CATEGORIES);
             params.set("wt", "json");
 
             // Extract actual collection name from shard name if needed
@@ -513,7 +527,7 @@ public class CollectionService {
                 return null; // Return null instead of empty object
             }
 
-            String path = actualCollection + "/admin/mbeans";
+            String path = "/" + actualCollection + "/admin/mbeans";
 
             GenericSolrRequest request = new GenericSolrRequest(
                     SolrRequest.METHOD.GET,
@@ -530,7 +544,7 @@ public class CollectionService {
             }
 
             return stats;
-        } catch (Exception e) {
+        } catch (SolrServerException | IOException e) {
             return null; // Return null instead of empty object
         }
     }
@@ -579,12 +593,15 @@ public class CollectionService {
     private HandlerStats extractHandlerStats(NamedList<Object> mbeans) {
         HandlerStats.HandlerStatsBuilder builder = HandlerStats.builder();
 
-        NamedList<Object> queryHandlers = (NamedList<Object>) mbeans.get("QUERYHANDLER");
+        @SuppressWarnings("unchecked")
+        NamedList<Object> queryHandlers = (NamedList<Object>) mbeans.get(QUERY_HANDLER_CATEGORY);
 
         if (queryHandlers != null) {
             // Select handler
+            @SuppressWarnings("unchecked")
             NamedList<Object> selectHandler = (NamedList<Object>) queryHandlers.get("/select");
             if (selectHandler != null) {
+                @SuppressWarnings("unchecked")
                 NamedList<Object> stats = (NamedList<Object>) selectHandler.get("stats");
                 builder.selectHandler(HandlerInfo.builder()
                         .requests(getLong(stats, "requests"))
@@ -597,8 +614,10 @@ public class CollectionService {
             }
 
             // Update handler
+            @SuppressWarnings("unchecked")
             NamedList<Object> updateHandler = (NamedList<Object>) queryHandlers.get("/update");
             if (updateHandler != null) {
+                @SuppressWarnings("unchecked")
                 NamedList<Object> stats = (NamedList<Object>) updateHandler.get("stats");
                 builder.updateHandler(HandlerInfo.builder()
                         .requests(getLong(stats, "requests"))

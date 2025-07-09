@@ -37,13 +37,14 @@ class McpIntegrationTest {
     @Test
     void testToolCallbacksRegistration() {
         // Verify that the SearchService is registered as a tool
+        @SuppressWarnings("unchecked")
         List<ToolCallback> toolCallbacks = context.getBean("solrTools", List.class);
 
         assertNotNull(toolCallbacks);
         assertFalse(toolCallbacks.isEmpty());
 
         // Debug: Print out the toolCallbacks list
-        System.out.println("[DEBUG_LOG] toolCallbacks: " + toolCallbacks);
+        // Debug: toolCallbacks count = " + toolCallbacks.size();
 
         // Verify that the SearchService is properly registered
         boolean searchServiceRegistered = toolCallbacks.stream()
