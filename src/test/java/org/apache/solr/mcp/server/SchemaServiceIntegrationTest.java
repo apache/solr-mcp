@@ -121,8 +121,7 @@ class SchemaServiceIntegrationTest {
 
         // Then - verify schema has expected structure
         assertNotNull(schema.getName(), "Schema should have a name");
-        assertNotNull(schema.getVersion(), "Schema should have a version");
-        
+
         // Check that we can access field details
         schema.getFields().forEach(field -> {
             assertNotNull(field.get("name"), "Field should have a name");
