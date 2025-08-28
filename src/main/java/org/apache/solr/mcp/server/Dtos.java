@@ -8,7 +8,6 @@ import lombok.Data;
 import lombok.extern.jackson.Jacksonized;
 
 import java.util.Date;
-import java.util.Map;
 
 /**
  * Data Transfer Objects (DTOs) for the Apache Solr MCP Server.

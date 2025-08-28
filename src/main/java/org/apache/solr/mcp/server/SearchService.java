@@ -196,7 +196,7 @@ public class SearchService {
             throws SolrServerException, IOException {
 
         // query
-        SolrQuery solrQuery = new SolrQuery("*:*");
+        final SolrQuery solrQuery = new SolrQuery("*:*");
         if (StringUtils.hasText(query)) {
             solrQuery.setQuery(query);
         }
@@ -228,16 +228,16 @@ public class SearchService {
             solrQuery.setRows(rows);
         }
 
-        QueryResponse queryResponse = solrClient.query(collection, solrQuery);
+        final QueryResponse queryResponse = solrClient.query(collection, solrQuery);
 
         // Add documents
-        SolrDocumentList documents = queryResponse.getResults();
+        final SolrDocumentList documents = queryResponse.getResults();
 
         // Convert SolrDocuments to Maps
-        var docs = getDocs(documents);
+        final var docs = getDocs(documents);
 
         // Add facets if present
-        var facets = getFacets(queryResponse);
+        final var facets = getFacets(queryResponse);
 
         return new SearchResponse(
                 documents.getNumFound(),

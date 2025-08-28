@@ -64,6 +64,10 @@ import org.springframework.context.annotation.Configuration;
 @EnableConfigurationProperties(SolrConfigurationProperties.class)
 public class SolrConfig {
 
+    private static final int CONNECTION_TIMEOUT_MS = 10000;
+    private static final int SOCKET_TIMEOUT_MS = 60000;
+    private static final String SOLR_PATH = "solr/";
+
     /**
      * Creates and configures a SolrClient bean for Apache Solr communication.
      * 
@@ -118,18 +122,18 @@ public class SolrConfig {
         }
 
         // If URL doesn't contain /solr/ path, add it
-        if (!url.endsWith("/solr/") && !url.contains("/solr/")) {
+        if (!url.endsWith("/" + SOLR_PATH) && !url.contains("/" + SOLR_PATH)) {
             if (url.endsWith("/")) {
-                url = url + "solr/";
+                url = url + SOLR_PATH;
             } else {
-                url = url + "/solr/";
+                url = url + "/" + SOLR_PATH;
             }
         }
 
         // Use HttpSolrClient with explicit base URL
         return new HttpSolrClient.Builder(url)
-                .withConnectionTimeout(10000)
-                .withSocketTimeout(60000)
+                .withConnectionTimeout(CONNECTION_TIMEOUT_MS)
+                .withSocketTimeout(SOCKET_TIMEOUT_MS)
                 .build();
     }
 }
