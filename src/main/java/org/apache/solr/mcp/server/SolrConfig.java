@@ -1,7 +1,8 @@
 package org.apache.solr.mcp.server;
 
+import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.impl.HttpSolrClient;
+import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -57,7 +58,7 @@ import org.springframework.context.annotation.Configuration;
  * @since 1.0
  * 
  * @see SolrConfigurationProperties
- * @see HttpSolrClient
+ * @see Http2SolrClient
  * @see org.springframework.boot.context.properties.EnableConfigurationProperties
  */
 @Configuration
@@ -108,7 +109,7 @@ public class SolrConfig {
      * @param properties the injected Solr configuration properties containing connection URL
      * @return configured SolrClient instance ready for use in application services
      * 
-     * @see HttpSolrClient.Builder
+     * @see Http2SolrClient.Builder
      * @see SolrConfigurationProperties#url()
      */
     @Bean
@@ -130,10 +131,10 @@ public class SolrConfig {
             }
         }
 
-        // Use HttpSolrClient with explicit base URL
-        return new HttpSolrClient.Builder(url)
-                .withConnectionTimeout(CONNECTION_TIMEOUT_MS)
-                .withSocketTimeout(SOCKET_TIMEOUT_MS)
+        // Use with explicit base URL
+        return new Http2SolrClient.Builder(url)
+                .withConnectionTimeout(CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .withIdleTimeout(SOCKET_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 .build();
     }
 }

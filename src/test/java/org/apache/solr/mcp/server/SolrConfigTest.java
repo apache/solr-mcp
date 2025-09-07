@@ -1,7 +1,7 @@
 package org.apache.solr.mcp.server;
 
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.impl.HttpSolrClient;
+import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -38,10 +38,9 @@ class SolrConfigTest {
     void testSolrClientConfiguration() {
         // Verify that the SolrClient is properly configured
         assertNotNull(solrClient);
-        assertTrue(solrClient instanceof HttpSolrClient);
 
         // Verify that the SolrClient is using the correct URL
-        HttpSolrClient httpSolrClient = (HttpSolrClient) solrClient;
+        var httpSolrClient = assertInstanceOf(Http2SolrClient.class, solrClient);
         assertEquals(properties.url(), httpSolrClient.getBaseURL());
     }
 
@@ -72,9 +71,8 @@ class SolrConfigTest {
         // Test URL normalization
         SolrClient client = solrConfig.solrClient(testProperties);
         assertNotNull(client);
-        assertTrue(client instanceof HttpSolrClient);
         
-        HttpSolrClient httpClient = (HttpSolrClient) client;
+        var httpClient = assertInstanceOf(Http2SolrClient.class, client);
         assertEquals(expectedUrl, httpClient.getBaseURL());
         
         // Clean up
@@ -92,7 +90,7 @@ class SolrConfigTest {
         SolrConfig solrConfig = new SolrConfig();
         
         SolrClient client = solrConfig.solrClient(testProperties);
-        HttpSolrClient httpClient = (HttpSolrClient) client;
+        Http2SolrClient httpClient = (Http2SolrClient) client;
         
         // Should add trailing slash and solr path
         assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
@@ -111,7 +109,7 @@ class SolrConfigTest {
         SolrConfig solrConfig = new SolrConfig();
         
         SolrClient client = solrConfig.solrClient(testProperties);
-        HttpSolrClient httpClient = (HttpSolrClient) client;
+        Http2SolrClient httpClient = (Http2SolrClient) client;
         
         // Should add solr path to existing trailing slash
         assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
@@ -130,7 +128,7 @@ class SolrConfigTest {
         SolrConfig solrConfig = new SolrConfig();
         
         SolrClient client = solrConfig.solrClient(testProperties);
-        HttpSolrClient httpClient = (HttpSolrClient) client;
+        Http2SolrClient httpClient = (Http2SolrClient) client;
         
         // Should add trailing slash
         assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
@@ -149,7 +147,7 @@ class SolrConfigTest {
         SolrConfig solrConfig = new SolrConfig();
         
         SolrClient client = solrConfig.solrClient(testProperties);
-        HttpSolrClient httpClient = (HttpSolrClient) client;
+        Http2SolrClient httpClient = (Http2SolrClient) client;
         
         // Should remain unchanged
         assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
