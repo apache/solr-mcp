@@ -1,6 +1,7 @@
 package org.apache.solr.mcp.server;
 
 import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.response.CollectionAdminResponse;
 import org.junit.jupiter.api.BeforeAll;
@@ -45,7 +46,7 @@ class CollectionServiceTest {
 
         // Create a test collection
         String solrUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/";
-        SolrClient client = new org.apache.solr.client.solrj.impl.HttpSolrClient.Builder(solrUrl).build();
+        SolrClient client = new Http2SolrClient.Builder(solrUrl).build();
 
         try {
             // Create a collection for testing

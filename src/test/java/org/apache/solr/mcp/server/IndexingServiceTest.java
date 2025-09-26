@@ -1,7 +1,8 @@
 package org.apache.solr.mcp.server;
 
+import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.impl.HttpSolrClient;
+import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.common.SolrInputDocument;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,9 +32,9 @@ class IndexingServiceTest {
     void setUp() {
         // Initialize Solr client with trailing slash
         String solrUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/";
-        solrClient = new HttpSolrClient.Builder(solrUrl)
-                .withConnectionTimeout(10000)
-                .withSocketTimeout(60000)
+        solrClient = new Http2SolrClient.Builder(solrUrl)
+                .withConnectionTimeout(10000, TimeUnit.MILLISECONDS)
+                .withIdleTimeout(60000, TimeUnit.MILLISECONDS)
                 .build();
 
         // Initialize services

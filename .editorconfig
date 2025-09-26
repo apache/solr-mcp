@@ -1,0 +1,11 @@
+# EditorConfig helps maintain consistent coding styles between different editors and IDEs
+
+[*]
+indent_style = space
+indent_size = 4
+# IntelliJ/JetBrains continuation indent (e.g., wrapped lines)
+ij_continuation_indent_size = 8
+
+ij_any_keep_line_breaks = true
+
+# Keep trailing whitespace and EOL settings untouched to minimize changes

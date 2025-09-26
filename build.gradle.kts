@@ -31,7 +31,9 @@ extra["springAiVersion"] = "1.0.0"
 dependencies {
 
     implementation("org.springframework.ai:spring-ai-starter-mcp-server")
-    implementation("org.apache.solr:solr-solrj:9.8.1")
+    implementation("org.apache.solr:solr-solrj:9.8.1") {
+        exclude(group = "org.apache.httpcomponents")
+    }
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
@@ -49,6 +51,8 @@ dependencies {
 dependencyManagement {
     imports {
         mavenBom("org.springframework.ai:spring-ai-bom:${property("springAiVersion")}")
+        // Align Jetty family to 10.x compatible with SolrJ 9.x
+        mavenBom("org.eclipse.jetty:jetty-bom:10.0.22")
     }
 }
 
