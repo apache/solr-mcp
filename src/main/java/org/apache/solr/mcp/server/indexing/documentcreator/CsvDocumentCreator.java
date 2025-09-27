@@ -22,6 +22,8 @@ import java.util.regex.Pattern;
 public class CsvDocumentCreator implements SolrDocumentCreator {
 
     private static final Pattern FIELD_NAME_PATTERN = Pattern.compile("[^a-zA-Z0-9_]");
+    private static final Pattern LEADING_TRAILING_UNDERSCORES_PATTERN = Pattern.compile("^_+|_+$");
+    private static final Pattern MULTIPLE_UNDERSCORES_PATTERN = Pattern.compile("_+");
 
     /**
      * Creates a list of schema-less SolrInputDocument objects from a CSV string.
@@ -118,7 +120,8 @@ public class CsvDocumentCreator implements SolrDocumentCreator {
         String sanitized = FIELD_NAME_PATTERN.matcher(fieldName.toLowerCase()).replaceAll("_");
 
         // Remove leading/trailing underscores and collapse multiple underscores
-        sanitized = sanitized.replaceAll("^_+|_+$", "").replaceAll("_+", "_");
+        sanitized = LEADING_TRAILING_UNDERSCORES_PATTERN.matcher(sanitized).replaceAll("");
+        sanitized = MULTIPLE_UNDERSCORES_PATTERN.matcher(sanitized).replaceAll("_");
 
         // If the result is empty after sanitization, provide a default name
         if (sanitized.isEmpty()) {
