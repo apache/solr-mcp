@@ -29,10 +29,11 @@ class IndexingServiceDirectTest {
     private UpdateResponse updateResponse;
 
     private IndexingService indexingService;
-
+    private IndexingDocumentCreator indexingDocumentCreator;
     @BeforeEach
     void setUp() {
-        indexingService = new IndexingService(solrClient, solrConfigurationProperties);
+        indexingDocumentCreator = new IndexingDocumentCreator();
+        indexingService = new IndexingService(solrClient, solrConfigurationProperties, indexingDocumentCreator);
     }
 
     @Test
@@ -130,8 +131,10 @@ class IndexingServiceDirectTest {
                 ]
                 """;
 
-        // Create a spy on the indexingService to verify the createSchemalessDocuments method is called
-        IndexingService indexingServiceSpy = spy(indexingService);
+        // Create a spy on the indexingDocumentCreator and inject it into a new IndexingService
+        IndexingDocumentCreator indexingDocumentCreatorSpy = spy(indexingDocumentCreator);
+        IndexingService indexingServiceWithSpy = new IndexingService(solrClient, solrConfigurationProperties, indexingDocumentCreatorSpy);
+        IndexingService indexingServiceSpy = spy(indexingServiceWithSpy);
 
         // Create mock documents that would be returned by createSchemalessDocuments
         List<SolrInputDocument> mockDocuments = new ArrayList<>();
@@ -149,7 +152,7 @@ class IndexingServiceDirectTest {
         mockDocuments.add(doc2);
 
         // Mock the createSchemalessDocuments method to return our mock documents
-        doReturn(mockDocuments).when(indexingServiceSpy).createSchemalessDocuments(json);
+        doReturn(mockDocuments).when(indexingDocumentCreatorSpy).createSchemalessDocumentsFromJson(json);
 
         // Mock the indexDocuments method that takes a collection and list of documents
         doReturn(2).when(indexingServiceSpy).indexDocuments(anyString(), anyList());
@@ -158,7 +161,7 @@ class IndexingServiceDirectTest {
         indexingServiceSpy.indexJsonDocuments("test_collection", json);
 
         // Verify that createSchemalessDocuments was called with the JSON string
-        verify(indexingServiceSpy, times(1)).createSchemalessDocuments(json);
+        verify(indexingDocumentCreatorSpy, times(1)).createSchemalessDocumentsFromJson(json);
 
         // Verify that indexDocuments was called with the collection name and the documents
         verify(indexingServiceSpy, times(1)).indexDocuments("test_collection", mockDocuments);
@@ -169,11 +172,13 @@ class IndexingServiceDirectTest {
         // Test JSON string with invalid format
         String invalidJson = "{ This is not valid JSON }";
 
-        // Create a spy on the indexingService
-        IndexingService indexingServiceSpy = spy(indexingService);
+        // Create a spy on the indexingDocumentCreator and inject it into a new IndexingService
+        IndexingDocumentCreator indexingDocumentCreatorSpy = spy(indexingDocumentCreator);
+        IndexingService indexingServiceWithSpy = new IndexingService(solrClient, solrConfigurationProperties, indexingDocumentCreatorSpy);
+        IndexingService indexingServiceSpy = spy(indexingServiceWithSpy);
 
         // Mock the createSchemalessDocuments method to throw an exception
-        doThrow(new Exception("Invalid JSON")).when(indexingServiceSpy).createSchemalessDocuments(invalidJson);
+        doThrow(new Exception("Invalid JSON")).when(indexingDocumentCreatorSpy).createSchemalessDocumentsFromJson(invalidJson);
 
         // Call the method under test and verify it throws an exception
         Exception exception = assertThrows(Exception.class, () -> {
@@ -184,7 +189,7 @@ class IndexingServiceDirectTest {
         assertTrue(exception.getMessage().contains("Invalid JSON"));
 
         // Verify that createSchemalessDocuments was called
-        verify(indexingServiceSpy, times(1)).createSchemalessDocuments(invalidJson);
+        verify(indexingDocumentCreatorSpy, times(1)).createSchemalessDocumentsFromJson(invalidJson);
 
         // Verify that indexDocuments with documents was not called
         verify(indexingServiceSpy, never()).indexDocuments(anyString(), anyList());
