@@ -18,13 +18,13 @@ public final class FieldNameSanitizer {
      * Pattern to match invalid characters in field names.
      * Matches any character that is not alphanumeric or underscore.
      */
-    private static final Pattern INVALID_CHARACTERS_PATTERN = Pattern.compile("[^a-zA-Z0-9_]");
+    private static final Pattern INVALID_CHARACTERS_PATTERN = Pattern.compile("[\\W]");
 
     /**
      * Pattern to match leading and trailing underscores.
      * Uses explicit grouping to make operator precedence clear.
      */
-    private static final Pattern LEADING_TRAILING_UNDERSCORES_PATTERN = Pattern.compile("(^_+|_+$)");
+    private static final Pattern LEADING_TRAILING_UNDERSCORES_PATTERN = Pattern.compile("(^_+)|(_+$)");
 
     /**
      * Pattern to match multiple consecutive underscores.
