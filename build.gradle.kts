@@ -34,6 +34,7 @@ dependencies {
     implementation("org.apache.solr:solr-solrj:9.8.1") {
         exclude(group = "org.apache.httpcomponents")
     }
+    implementation("org.apache.commons:commons-csv:1.10.0")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")

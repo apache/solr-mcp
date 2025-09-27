@@ -481,7 +481,7 @@ class SearchServiceTest {
 
         try {
             // Index the document with special characters
-            indexingService.indexDocuments(COLLECTION_NAME, specialJson);
+            indexingService.indexJsonDocuments(COLLECTION_NAME, specialJson);
 
             // Commit to ensure document is available for search
             solrClient.commit(COLLECTION_NAME);
