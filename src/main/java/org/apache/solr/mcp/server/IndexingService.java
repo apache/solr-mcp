@@ -2,6 +2,9 @@ package org.apache.solr.mcp.server;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrInputDocument;
@@ -9,7 +12,9 @@ import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -19,7 +24,7 @@ import java.util.Map;
  * Spring Service providing comprehensive document indexing capabilities for Apache Solr collections
  * through Model Context Protocol (MCP) integration.
  * 
- * <p>This service handles the conversion of JSON documents into Solr-compatible format and manages
+ * <p>This service handles the conversion of JSON and CSV documents into Solr-compatible format and manages
  * the indexing process with robust error handling and batch processing capabilities. It employs a
  * schema-less approach where Solr automatically detects field types, eliminating the need for
  * predefined schema configuration.</p>
@@ -28,6 +33,7 @@ import java.util.Map;
  * <ul>
  *   <li><strong>Schema-less Indexing</strong>: Automatic field type detection by Solr</li>
  *   <li><strong>JSON Processing</strong>: Support for complex nested JSON documents</li>
+ *   <li><strong>CSV Processing</strong>: Support for comma-separated value files with headers</li>
  *   <li><strong>Batch Processing</strong>: Efficient bulk indexing with configurable batch sizes</li>
  *   <li><strong>Error Resilience</strong>: Individual document fallback when batch operations fail</li>
  *   <li><strong>Field Sanitization</strong>: Automatic cleanup of field names for Solr compatibility</li>
@@ -136,8 +142,8 @@ public class IndexingService {
      * @see #createSchemalessDocuments(String)
      * @see #indexDocuments(String, List)
      */
-    @Tool(name = "index_documents", description = "Index documents from json String into Solr collection")
-    public void indexDocuments(
+    @Tool(name = "index_json_documents", description = "Index documents from json String into Solr collection")
+    public void indexJsonDocuments(
             @ToolParam(description = "Solr collection to index into") String collection,
             @ToolParam(description = "JSON string containing documents to index") String json) throws Exception {
         List<SolrInputDocument> schemalessDoc = createSchemalessDocuments(json);
@@ -207,6 +213,127 @@ public class IndexingService {
     }
 
     /**
+     * Indexes documents from a CSV string into a specified Solr collection.
+     * 
+     * <p>This method serves as the primary entry point for CSV document indexing operations
+     * and is exposed as an MCP tool for AI client interactions. It processes CSV data
+     * with headers and indexes them using a schema-less approach.</p>
+     * 
+     * <p><strong>Supported CSV Formats:</strong></p>
+     * <ul>
+     *   <li><strong>Header Row Required</strong>: First row must contain column names</li>
+     *   <li><strong>Comma Delimited</strong>: Standard CSV format with comma separators</li>
+     *   <li><strong>Mixed Data Types</strong>: Automatic type detection by Solr</li>
+     * </ul>
+     * 
+     * <p><strong>Processing Workflow:</strong></p>
+     * <ol>
+     *   <li>Parse CSV string to extract headers and data rows</li>
+     *   <li>Convert to schema-less SolrInputDocument objects</li>
+     *   <li>Execute batch indexing with error handling</li>
+     *   <li>Commit changes to make documents searchable</li>
+     * </ol>
+     * 
+     * <p><strong>MCP Tool Usage:</strong></p>
+     * <p>AI clients can invoke this method with natural language requests like
+     * "index this CSV data into my_collection" or "add these CSV records to the search index".</p>
+     * 
+     * <p><strong>Error Handling:</strong></p>
+     * <p>If indexing fails, the method attempts individual document processing to maximize
+     * the number of successfully indexed documents. Detailed error information is logged
+     * for troubleshooting purposes.</p>
+     * 
+     * @param collection the name of the Solr collection to index documents into
+     * @param csv CSV string containing documents to index (first row must be headers)
+     * 
+     * @throws Exception if there are critical errors in CSV parsing or Solr communication
+     * 
+     * @see #createSchemalessDocumentsFromCsv(String)
+     * @see #indexDocuments(String, List)
+     */
+    @Tool(name = "index_csv_documents", description = "Index documents from CSV string into Solr collection")
+    public void indexCsvDocuments(
+            @ToolParam(description = "Solr collection to index into") String collection,
+            @ToolParam(description = "CSV string containing documents to index") String csv) throws Exception {
+        List<SolrInputDocument> schemalessDoc = createSchemalessDocumentsFromCsv(csv);
+        indexDocuments(collection, schemalessDoc);
+    }
+
+    /**
+     * Creates a list of schema-less SolrInputDocument objects from a CSV string.
+     * 
+     * <p>This method implements a flexible document conversion strategy that allows Solr
+     * to automatically detect field types without requiring predefined schema configuration.
+     * It processes CSV data by using the first row as field headers and converting each
+     * subsequent row into a document.</p>
+     * 
+     * <p><strong>Schema-less Benefits:</strong></p>
+     * <ul>
+     *   <li><strong>Flexibility</strong>: No need to predefine field types in schema</li>
+     *   <li><strong>Rapid Prototyping</strong>: Quick iteration on document structures</li>
+     *   <li><strong>Type Detection</strong>: Solr automatically infers optimal field types</li>
+     *   <li><strong>Dynamic Fields</strong>: Support for varying document structures</li>
+     * </ul>
+     * 
+     * <p><strong>CSV Processing Rules:</strong></p>
+     * <ul>
+     *   <li><strong>Header Row</strong>: First row defines field names, automatically sanitized</li>
+     *   <li><strong>Empty Values</strong>: Ignored and not indexed</li>
+     *   <li><strong>Type Detection</strong>: Solr handles numeric, boolean, and string types automatically</li>
+     *   <li><strong>Field Sanitization</strong>: Column names cleaned for Solr compatibility</li>
+     * </ul>
+     * 
+     * <p><strong>Field Name Sanitization:</strong></p>
+     * <p>Field names are automatically sanitized to ensure Solr compatibility by removing
+     * special characters and converting to lowercase with underscore separators.</p>
+     * 
+     * <p><strong>Example Transformation:</strong></p>
+     * <pre>{@code
+     * Input CSV:
+     * id,name,price,inStock
+     * 123,Product A,19.99,true
+     * 
+     * Output Document:
+     * {id:"123", name:"Product A", price:"19.99", instock:"true"}
+     * }</pre>
+     * 
+     * @param csv CSV string containing document data (first row must be headers)
+     * @return list of SolrInputDocument objects ready for indexing
+     * 
+     * @throws Exception if CSV parsing fails or the structure is invalid
+     * 
+     * @see SolrInputDocument
+     * @see #sanitizeFieldName(String)
+     */
+    public List<SolrInputDocument> createSchemalessDocumentsFromCsv(String csv) throws Exception {
+        List<SolrInputDocument> documents = new ArrayList<>();
+
+        CSVParser parser = new CSVParser(new StringReader(csv),
+                CSVFormat.Builder.create().setHeader().setTrim(true).build());
+        List<String> headers = new ArrayList<>(parser.getHeaderNames());
+        headers.replaceAll(this::sanitizeFieldName);
+
+        for (CSVRecord csvRecord : parser) {
+            if (csvRecord.size() == 0) {
+                continue; // Skip empty lines
+            }
+
+            SolrInputDocument doc = new SolrInputDocument();
+
+            for (int i = 0; i < headers.size() && i < csvRecord.size(); i++) {
+                String value = csvRecord.get(i);
+                if (!value.isEmpty()) {
+                    doc.addField(headers.get(i), value);
+                }
+            }
+
+            documents.add(doc);
+        }
+
+        return documents;
+    }
+
+    /**
      * Recursively flattens JSON nodes and adds them as fields to a SolrInputDocument.
      * 
      * <p>This method implements the core logic for converting nested JSON structures
@@ -228,30 +355,55 @@ public class IndexingService {
      * @see #convertJsonValue(JsonNode)
      * @see #sanitizeFieldName(String)
      */
+
     private void addAllFieldsFlat(SolrInputDocument doc, JsonNode node, String prefix) {
         Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
         while (fields.hasNext()) {
             Map.Entry<String, JsonNode> field = fields.next();
             String fieldName = sanitizeFieldName(prefix + field.getKey());
-            JsonNode value = field.getValue();
+            processFieldValue(doc, field.getValue(), fieldName);
+        }
+    }
 
-            if (value.isNull()) {
-                continue;
-            } else if (value.isArray()) {
-                List<Object> values = new ArrayList<>();
-                for (JsonNode item : value) {
-                    if (!item.isObject()) {
-                        values.add(convertJsonValue(item));
-                    }
-                }
-                if (!values.isEmpty()) {
-                    doc.addField(fieldName, values);
-                }
-            } else if (value.isObject()) {
-                addAllFieldsFlat(doc, value, fieldName + "_");
-            } else {
-                doc.addField(fieldName, convertJsonValue(value));
+    /**
+     * Processes the provided field value and adds it to the given SolrInputDocument.
+     * Handles cases where the field value is an array, object, or a simple value.
+     *
+     * @param doc       the SolrInputDocument to which the field value will be added
+     * @param value     the JsonNode representing the field value to be processed
+     * @param fieldName the name of the field to be added to the SolrInputDocument
+     */
+    private void processFieldValue(SolrInputDocument doc, JsonNode value, String fieldName) {
+        if (value.isNull()) {
+            return;
+        }
+
+        if (value.isArray()) {
+            processArrayField(doc, value, fieldName);
+        } else if (value.isObject()) {
+            addAllFieldsFlat(doc, value, fieldName + "_");
+        } else {
+            doc.addField(fieldName, convertJsonValue(value));
+        }
+    }
+
+    /**
+     * Processes a JSON array field and adds its non-object elements to the specified field
+     * in the given SolrInputDocument.
+     *
+     * @param doc the SolrInputDocument to which the processed field will be added
+     * @param arrayValue the JSON array node to process
+     * @param fieldName the name of the field in the SolrInputDocument to which the array values will be added
+     */
+    private void processArrayField(SolrInputDocument doc, JsonNode arrayValue, String fieldName) {
+        List<Object> values = new ArrayList<>();
+        for (JsonNode item : arrayValue) {
+            if (!item.isObject()) {
+                values.add(convertJsonValue(item));
             }
+        }
+        if (!values.isEmpty()) {
+            doc.addField(fieldName, values);
         }
     }
 

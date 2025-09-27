@@ -113,7 +113,7 @@ class IndexingServiceDirectTest {
     }
 
     @Test
-    void testIndexDocumentsWithJsonString() throws Exception {
+    void testIndexJsonDocumentsWithJsonString() throws Exception {
         // Test JSON string with multiple documents
         String json = """
                 [
@@ -155,7 +155,7 @@ class IndexingServiceDirectTest {
         doReturn(2).when(indexingServiceSpy).indexDocuments(anyString(), anyList());
 
         // Call the method under test
-        indexingServiceSpy.indexDocuments("test_collection", json);
+        indexingServiceSpy.indexJsonDocuments("test_collection", json);
 
         // Verify that createSchemalessDocuments was called with the JSON string
         verify(indexingServiceSpy, times(1)).createSchemalessDocuments(json);
@@ -165,7 +165,7 @@ class IndexingServiceDirectTest {
     }
 
     @Test
-    void testIndexDocumentsWithJsonStringErrorHandling() throws Exception {
+    void testIndexJsonDocumentsWithJsonStringErrorHandling() throws Exception {
         // Test JSON string with invalid format
         String invalidJson = "{ This is not valid JSON }";
 
@@ -177,7 +177,7 @@ class IndexingServiceDirectTest {
 
         // Call the method under test and verify it throws an exception
         Exception exception = assertThrows(Exception.class, () -> {
-            indexingServiceSpy.indexDocuments("test_collection", invalidJson);
+            indexingServiceSpy.indexJsonDocuments("test_collection", invalidJson);
         });
 
         // Verify the exception message

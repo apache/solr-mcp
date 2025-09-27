@@ -37,10 +37,10 @@ This will start a Solr instance in SolrCloud mode with ZooKeeper and create two 
 - `books` - A collection with sample book data
 - `films` - A collection with sample film data
 
-### 3. Build and run the MCP server
+### 3. Build
 
 ```bash
-./gradlew bootRun
+./gradlew build
 ```
 
 ## Available Tools
@@ -126,7 +126,7 @@ To add this MCP server to Claude Desktop:
 1. Build the project as a standalone JAR:
 
 ```bash
-./gradlew bootJar
+./gradlew build
 ```
 
 2. In Claude Desktop, go to Settings > Tools > Add Tool

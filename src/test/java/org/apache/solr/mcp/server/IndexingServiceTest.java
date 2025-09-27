@@ -115,7 +115,7 @@ class IndexingServiceTest {
     }
 
     @Test
-    void testIndexDocuments() throws Exception {
+    void testIndexJsonDocuments() throws Exception {
         // Skip test if collection creation failed
         if (!collectionCreated) {
             // Removed debug print statement
@@ -147,7 +147,7 @@ class IndexingServiceTest {
                 """;
 
         // Index documents
-        indexingService.indexDocuments(COLLECTION_NAME, json);
+        indexingService.indexJsonDocuments(COLLECTION_NAME, json);
 
         // Verify documents were indexed by searching for them
         SearchResponse result = searchService.search(COLLECTION_NAME, "id:test002 OR id:test003", null, null, null, null, null);
@@ -230,7 +230,7 @@ class IndexingServiceTest {
     }
 
     @Test
-    void testIndexDocumentsWithNestedObjects() throws Exception {
+    void testIndexJsonDocumentsWithNestedObjects() throws Exception {
         // Skip test if collection creation failed
         if (!collectionCreated) {
             // Removed debug print statement
@@ -256,7 +256,7 @@ class IndexingServiceTest {
                 """;
 
         // Index documents
-        indexingService.indexDocuments(COLLECTION_NAME, json);
+        indexingService.indexJsonDocuments(COLLECTION_NAME, json);
 
         // Verify documents were indexed by searching for them
         SearchResponse result = searchService.search(COLLECTION_NAME, "id:test004", null, null, null, null, null);
@@ -325,7 +325,7 @@ class IndexingServiceTest {
                 """;
 
         // Index documents
-        indexingService.indexDocuments(COLLECTION_NAME, json);
+        indexingService.indexJsonDocuments(COLLECTION_NAME, json);
 
         // Verify documents were indexed with sanitized field names
         SearchResponse result = searchService.search(COLLECTION_NAME, "id:test005", null, null, null, null, null);
@@ -422,7 +422,7 @@ class IndexingServiceTest {
                 """;
 
         // Index documents
-        indexingService.indexDocuments(COLLECTION_NAME, json);
+        indexingService.indexJsonDocuments(COLLECTION_NAME, json);
 
         // Verify documents were indexed by searching for them
         SearchResponse result = searchService.search(COLLECTION_NAME, "id:nested001", null, null, null, null, null);
@@ -504,7 +504,7 @@ class IndexingServiceTest {
                 """;
 
         // Index documents
-        indexingService.indexDocuments(COLLECTION_NAME, json);
+        indexingService.indexJsonDocuments(COLLECTION_NAME, json);
 
         // Verify documents were indexed by searching for them
         SearchResponse result = searchService.search(COLLECTION_NAME, "id:special_fields_001", null, null, null, null, null);
@@ -597,7 +597,7 @@ class IndexingServiceTest {
                 """;
 
         // Index documents
-        indexingService.indexDocuments(COLLECTION_NAME, json);
+        indexingService.indexJsonDocuments(COLLECTION_NAME, json);
 
         // Verify documents were indexed by searching for them
         SearchResponse result = searchService.search(COLLECTION_NAME, "id:array_objects_001", null, null, null, null, null);
