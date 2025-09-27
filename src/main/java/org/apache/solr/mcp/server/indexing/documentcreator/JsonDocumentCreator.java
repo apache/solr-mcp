@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 /**
  * Utility class for processing JSON documents and converting them to SolrInputDocument objects.
@@ -20,10 +19,6 @@ import java.util.regex.Pattern;
  */
 @Component
 public class JsonDocumentCreator implements SolrDocumentCreator {
-
-    private static final Pattern FIELD_SANITIZATION_PATTERN = Pattern.compile("[^a-zA-Z0-9_]");
-    private static final Pattern UNDERSCORE_CLEANUP_PATTERN = Pattern.compile("^_+|_+$");
-    private static final Pattern MULTIPLE_UNDERSCORES_PATTERN = Pattern.compile("_{2,}");
 
     /**
      * Creates a list of schema-less SolrInputDocument objects from a JSON string.
@@ -64,7 +59,7 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
      * @throws IOException if JSON parsing fails or the structure is invalid
      * @see SolrInputDocument
      * @see #addAllFieldsFlat(SolrInputDocument, JsonNode, String)
-     * @see #sanitizeFieldName(String)
+     * @see FieldNameSanitizer#sanitizeFieldName(String)
      */
     public List<SolrInputDocument> create(String json) throws IOException {
         List<SolrInputDocument> documents = new ArrayList<>();
@@ -104,13 +99,13 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
      * @param node   the JSON node to process
      * @param prefix current field name prefix for nested object flattening
      * @see #convertJsonValue(JsonNode)
-     * @see #sanitizeFieldName(String)
+     * @see FieldNameSanitizer#sanitizeFieldName(String)
      */
     private void addAllFieldsFlat(SolrInputDocument doc, JsonNode node, String prefix) {
         Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
         while (fields.hasNext()) {
             Map.Entry<String, JsonNode> field = fields.next();
-            String fieldName = sanitizeFieldName(prefix + field.getKey());
+            String fieldName = FieldNameSanitizer.sanitizeFieldName(prefix + field.getKey());
             processFieldValue(doc, field.getValue(), fieldName);
         }
     }
@@ -185,40 +180,4 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
         return value.asText();
     }
 
-    /**
-     * Sanitizes field names to ensure compatibility with Solr field naming requirements.
-     *
-     * <p>Solr has specific requirements for field names that must be met to ensure proper
-     * indexing and searching functionality. This method transforms arbitrary JSON field
-     * names into Solr-compliant identifiers.</p>
-     *
-     * <p><strong>Sanitization Rules:</strong></p>
-     * <ul>
-     *   <li><strong>Case Conversion</strong>: All characters converted to lowercase</li>
-     *   <li><strong>Character Replacement</strong>: Non-alphanumeric characters replaced with underscores</li>
-     *   <li><strong>Edge Trimming</strong>: Leading and trailing underscores removed</li>
-     *   <li><strong>Duplicate Compression</strong>: Multiple consecutive underscores collapsed to single</li>
-     * </ul>
-     *
-     * <p><strong>Example Transformations:</strong></p>
-     * <ul>
-     *   <li>"User-Name" → "user_name"</li>
-     *   <li>"product.price" → "product_price"</li>
-     *   <li>"__field__name__" → "field_name"</li>
-     *   <li>"Field123@Test" → "field123_test"</li>
-     * </ul>
-     *
-     * @param fieldName the original field name to sanitize
-     * @return sanitized field name compatible with Solr requirements
-     * @see <a href="https://solr.apache.org/guide/solr/latest/indexing-guide/fields.html">Solr Field Guide</a>
-     */
-    private String sanitizeFieldName(String fieldName) {
-        // Remove or replace invalid characters for Solr field names
-        return MULTIPLE_UNDERSCORES_PATTERN.matcher(
-                UNDERSCORE_CLEANUP_PATTERN.matcher(
-                        FIELD_SANITIZATION_PATTERN.matcher(fieldName.toLowerCase())
-                                .replaceAll("_")
-                ).replaceAll("")
-        ).replaceAll("_");
-    }
 }

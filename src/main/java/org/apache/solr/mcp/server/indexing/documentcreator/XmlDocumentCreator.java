@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 /**
  * Utility class for processing XML documents and converting them to SolrInputDocument objects.
@@ -29,10 +28,6 @@ import java.util.regex.Pattern;
  */
 @Component
 public class XmlDocumentCreator implements SolrDocumentCreator {
-
-    private static final Pattern FIELD_NAME_PATTERN = Pattern.compile("[\\W]");
-    private static final Pattern LEADING_TRAILING_UNDERSCORES_PATTERN = Pattern.compile("^_+|_+$");
-    private static final Pattern MULTIPLE_UNDERSCORES_PATTERN = Pattern.compile("_+");
 
     /**
      * Creates a list of SolrInputDocument objects from XML content.
@@ -183,10 +178,10 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
      * @param doc     the SolrInputDocument to add fields to
      * @param element the XML element to process
      * @param prefix  current field name prefix for nested element flattening
-     * @see #sanitizeFieldName(String)
+     * @see FieldNameSanitizer#sanitizeFieldName(String)
      */
     private void addXmlElementFields(SolrInputDocument doc, Element element, String prefix) {
-        String elementName = sanitizeFieldName(element.getTagName());
+        String elementName = FieldNameSanitizer.sanitizeFieldName(element.getTagName());
         String currentPrefix = prefix.isEmpty() ? elementName : prefix + "_" + elementName;
 
         processXmlAttributes(doc, element, prefix, currentPrefix);
@@ -208,7 +203,7 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
 
         for (int i = 0; i < element.getAttributes().getLength(); i++) {
             Node attr = element.getAttributes().item(i);
-            String attrName = sanitizeFieldName(attr.getNodeName()) + "_attr";
+            String attrName = FieldNameSanitizer.sanitizeFieldName(attr.getNodeName()) + "_attr";
             String fieldName = prefix.isEmpty() ? attrName : currentPrefix + "_" + attrName;
             String attrValue = attr.getNodeValue();
 
@@ -274,42 +269,4 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
         }
     }
 
-    /**
-     * Sanitizes field names to ensure they are compatible with Solr's field naming requirements.
-     *
-     * <p>This method ensures that field names:</p>
-     * <ul>
-     *   <li>Contain only alphanumeric characters and underscores</li>
-     *   <li>Are lowercase for consistency</li>
-     *   <li>Have special characters replaced with underscores</li>
-     *   <li>Don't have leading/trailing underscores or multiple consecutive underscores</li>
-     * </ul>
-     *
-     * @param fieldName the original field name to sanitize
-     * @return a sanitized field name safe for use in Solr
-     */
-    private String sanitizeFieldName(String fieldName) {
-        if (fieldName == null || fieldName.isEmpty()) {
-            return "field";
-        }
-
-        // Convert to lowercase and replace invalid characters with underscores
-        String sanitized = FIELD_NAME_PATTERN.matcher(fieldName.toLowerCase()).replaceAll("_");
-
-        // Remove leading/trailing underscores and collapse multiple underscores
-        sanitized = LEADING_TRAILING_UNDERSCORES_PATTERN.matcher(sanitized).replaceAll("");
-        sanitized = MULTIPLE_UNDERSCORES_PATTERN.matcher(sanitized).replaceAll("_");
-
-        // If the result is empty after sanitization, provide a default name
-        if (sanitized.isEmpty()) {
-            return "field";
-        }
-
-        // Ensure the field name doesn't start with a number (Solr requirement)
-        if (Character.isDigit(sanitized.charAt(0))) {
-            sanitized = "field_" + sanitized;
-        }
-
-        return sanitized;
-    }
 }
