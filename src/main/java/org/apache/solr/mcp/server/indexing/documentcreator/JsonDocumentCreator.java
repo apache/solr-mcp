@@ -59,29 +59,33 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
      *
      * @param json JSON string containing document data (must be an array)
      * @return list of SolrInputDocument objects ready for indexing
-     * @throws IOException if JSON parsing fails or the structure is invalid
+     * @throws DocumentProcessingException if JSON parsing fails, input validation fails, or the structure is invalid
      * @see SolrInputDocument
      * @see #addAllFieldsFlat(SolrInputDocument, JsonNode, String)
      * @see FieldNameSanitizer#sanitizeFieldName(String)
      */
-    public List<SolrInputDocument> create(String json) throws IOException {
+    public List<SolrInputDocument> create(String json) throws DocumentProcessingException {
         if (json.getBytes(StandardCharsets.UTF_8).length > MAX_INPUT_SIZE_BYTES) {
-            throw new IllegalArgumentException("Input too large");
+            throw new DocumentProcessingException("Input too large: exceeds maximum size of " + MAX_INPUT_SIZE_BYTES + " bytes");
         }
 
         List<SolrInputDocument> documents = new ArrayList<>();
-        ObjectMapper mapper = new ObjectMapper();
 
-        JsonNode rootNode = mapper.readTree(json);
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode rootNode = mapper.readTree(json);
 
-        if (rootNode.isArray()) {
-            for (JsonNode item : rootNode) {
-                SolrInputDocument doc = new SolrInputDocument();
+            if (rootNode.isArray()) {
+                for (JsonNode item : rootNode) {
+                    SolrInputDocument doc = new SolrInputDocument();
 
-                // Add all fields without type suffixes - let Solr figure it out
-                addAllFieldsFlat(doc, item, "");
-                documents.add(doc);
+                    // Add all fields without type suffixes - let Solr figure it out
+                    addAllFieldsFlat(doc, item, "");
+                    documents.add(doc);
+                }
             }
+        } catch (IOException e) {
+            throw new DocumentProcessingException("Failed to parse JSON document", e);
         }
 
         return documents;

@@ -63,13 +63,13 @@ public class CsvDocumentCreator implements SolrDocumentCreator {
      *
      * @param csv CSV string containing document data (first row must be headers)
      * @return list of SolrInputDocument objects ready for indexing
-     * @throws IOException if CSV parsing fails or the structure is invalid
+     * @throws DocumentProcessingException if CSV parsing fails, input validation fails, or the structure is invalid
      * @see SolrInputDocument
      * @see FieldNameSanitizer#sanitizeFieldName(String)
      */
-    public List<SolrInputDocument> create(String csv) throws IOException {
+    public List<SolrInputDocument> create(String csv) throws DocumentProcessingException {
         if (csv.getBytes(StandardCharsets.UTF_8).length > MAX_INPUT_SIZE_BYTES) {
-            throw new IllegalArgumentException("Input too large");
+            throw new DocumentProcessingException("Input too large: exceeds maximum size of " + MAX_INPUT_SIZE_BYTES + " bytes");
         }
 
         List<SolrInputDocument> documents = new ArrayList<>();
@@ -95,6 +95,8 @@ public class CsvDocumentCreator implements SolrDocumentCreator {
 
                 documents.add(doc);
             }
+        } catch (IOException e) {
+            throw new DocumentProcessingException("Failed to parse CSV document", e);
         }
 
         return documents;
