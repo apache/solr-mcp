@@ -7,7 +7,14 @@ import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.solr.common.SolrInputDocument;
 import org.springframework.stereotype.Service;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.ByteArrayInputStream;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -17,7 +24,7 @@ import java.util.Map;
 /**
  * Spring Service responsible for creating SolrInputDocument objects from various data formats.
  *
- * <p>This service handles the conversion of JSON and CSV documents into Solr-compatible format
+ * <p>This service handles the conversion of JSON, CSV, and XML documents into Solr-compatible format
  * using a schema-less approach where Solr automatically detects field types, eliminating the need for
  * predefined schema configuration.</p>
  *
@@ -26,6 +33,7 @@ import java.util.Map;
  *   <li><strong>Schema-less Document Creation</strong>: Automatic field type detection by Solr</li>
  *   <li><strong>JSON Processing</strong>: Support for complex nested JSON documents</li>
  *   <li><strong>CSV Processing</strong>: Support for comma-separated value files with headers</li>
+ *   <li><strong>XML Processing</strong>: Support for XML documents with element flattening and attribute handling</li>
  *   <li><strong>Field Sanitization</strong>: Automatic cleanup of field names for Solr compatibility</li>
  * </ul>
  *
@@ -168,6 +176,199 @@ public class IndexingDocumentCreator {
         }
 
         return documents;
+    }
+
+    /**
+     * Creates a list of schema-less SolrInputDocument objects from an XML string.
+     *
+     * <p>This method implements a flexible document conversion strategy that allows Solr
+     * to automatically detect field types without requiring predefined schema configuration.
+     * It processes XML documents by flattening nested elements and converting attributes
+     * to fields using a structured naming convention.</p>
+     *
+     * <p><strong>Schema-less Benefits:</strong></p>
+     * <ul>
+     *   <li><strong>Flexibility</strong>: No need to predefine field types in schema</li>
+     *   <li><strong>Rapid Prototyping</strong>: Quick iteration on document structures</li>
+     *   <li><strong>Type Detection</strong>: Solr automatically infers optimal field types</li>
+     *   <li><strong>Dynamic Fields</strong>: Support for varying document structures</li>
+     * </ul>
+     *
+     * <p><strong>XML Processing Rules:</strong></p>
+     * <ul>
+     *   <li><strong>Root Element</strong>: Expected to contain multiple document elements or be a single document</li>
+     *   <li><strong>Nested Elements</strong>: Flattened using underscore notation (e.g., "user/name" → "user_name")</li>
+     *   <li><strong>Attributes</strong>: Converted to fields with "_attr" suffix (e.g., id="123" → "id_attr":"123")</li>
+     *   <li><strong>Text Content</strong>: Element text content indexed as field values</li>
+     *   <li><strong>Empty Elements</strong>: Ignored and not indexed</li>
+     *   <li><strong>Mixed Content</strong>: Text content combined from all child text nodes</li>
+     * </ul>
+     *
+     * <p><strong>Field Name Sanitization:</strong></p>
+     * <p>Field names are automatically sanitized to ensure Solr compatibility by removing
+     * special characters and converting to lowercase with underscore separators.</p>
+     *
+     * <p><strong>Example Transformations:</strong></p>
+     * <pre>{@code
+     * Input XML:
+     * <documents>
+     *   <document id="1">
+     *     <title>Sample Document</title>
+     *     <author>
+     *       <name>John Doe</name>
+     *       <email>john@example.com</email>
+     *     </author>
+     *     <tags>
+     *       <tag>tech</tag>
+     *       <tag>java</tag>
+     *     </tags>
+     *   </document>
+     * </documents>
+     *
+     * Output Document:
+     * {id_attr:"1", title:"Sample Document", author_name:"John Doe",
+     *  author_email:"john@example.com", tags_tag:["tech", "java"]}
+     * }</pre>
+     *
+     * @param xml XML string containing document data
+     * @return list of SolrInputDocument objects ready for indexing
+     * @throws Exception if XML parsing fails or the structure is invalid
+     * @see SolrInputDocument
+     * @see #addXmlElementFields(SolrInputDocument, Element, String)
+     * @see #sanitizeFieldName(String)
+     */
+    public List<SolrInputDocument> createSchemalessDocumentsFromXml(String xml) throws Exception {
+        List<SolrInputDocument> documents = new ArrayList<>();
+
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(false);
+        factory.setValidating(false);
+
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        Document doc = builder.parse(new ByteArrayInputStream(xml.getBytes("UTF-8")));
+
+        Element rootElement = doc.getDocumentElement();
+
+        // Check if root element contains multiple document elements
+        NodeList children = rootElement.getChildNodes();
+        boolean hasDocumentElements = false;
+
+        for (int i = 0; i < children.getLength(); i++) {
+            Node child = children.item(i);
+            if (child.getNodeType() == Node.ELEMENT_NODE) {
+                Element childElement = (Element) child;
+                // If we find elements that could be individual documents
+                if (childElement.getTagName().toLowerCase().contains("doc") ||
+                        childElement.getTagName().toLowerCase().contains("item") ||
+                        childElement.getTagName().toLowerCase().contains("record")) {
+                    hasDocumentElements = true;
+                    SolrInputDocument solrDoc = new SolrInputDocument();
+                    addXmlElementFields(solrDoc, childElement, "");
+                    if (solrDoc.size() > 0) { // Only add if document has fields
+                        documents.add(solrDoc);
+                    }
+                }
+            }
+        }
+
+        // If no explicit document elements found, treat the entire root as a single document
+        if (!hasDocumentElements) {
+            SolrInputDocument solrDoc = new SolrInputDocument();
+            addXmlElementFields(solrDoc, rootElement, "");
+            if (solrDoc.size() > 0) { // Only add if document has fields
+                documents.add(solrDoc);
+            }
+        }
+
+        return documents;
+    }
+
+    /**
+     * Recursively processes XML elements and adds them as fields to a SolrInputDocument.
+     *
+     * <p>This method implements the core logic for converting nested XML structures
+     * into flat field names that Solr can efficiently index and search. It handles
+     * both element content and attributes while maintaining data integrity.</p>
+     *
+     * <p><strong>Processing Logic:</strong></p>
+     * <ul>
+     *   <li><strong>Attributes</strong>: Converted to fields with "_attr" suffix</li>
+     *   <li><strong>Text Content</strong>: Element text content indexed directly</li>
+     *   <li><strong>Child Elements</strong>: Recursively processed with prefix concatenation</li>
+     *   <li><strong>Empty Elements</strong>: Skipped to avoid indexing empty fields</li>
+     *   <li><strong>Repeated Elements</strong>: Combined into multi-valued fields</li>
+     * </ul>
+     *
+     * <p><strong>Field Naming Convention:</strong></p>
+     * <ul>
+     *   <li>Nested elements: parent_child (e.g., author_name)</li>
+     *   <li>Attributes: elementname_attr (e.g., id_attr)</li>
+     *   <li>All field names are sanitized for Solr compatibility</li>
+     * </ul>
+     *
+     * @param doc     the SolrInputDocument to add fields to
+     * @param element the XML element to process
+     * @param prefix  current field name prefix for nested element flattening
+     * @see #sanitizeFieldName(String)
+     */
+    private void addXmlElementFields(SolrInputDocument doc, Element element, String prefix) {
+        String elementName = sanitizeFieldName(element.getTagName());
+        String currentPrefix = prefix.isEmpty() ? elementName : prefix + "_" + elementName;
+
+        // Process attributes
+        if (element.hasAttributes()) {
+            for (int i = 0; i < element.getAttributes().getLength(); i++) {
+                Node attr = element.getAttributes().item(i);
+                String attrName = sanitizeFieldName(attr.getNodeName()) + "_attr";
+                // For root element attributes, use just the attribute name
+                // For nested elements, use the full path
+                String fieldName = prefix.isEmpty() ? attrName : currentPrefix + "_" + attrName;
+                String attrValue = attr.getNodeValue();
+                if (attrValue != null && !attrValue.trim().isEmpty()) {
+                    doc.addField(fieldName, attrValue.trim());
+                }
+            }
+        }
+
+        // Collect direct text content (not from child elements)
+        StringBuilder textContent = new StringBuilder();
+        NodeList children = element.getChildNodes();
+        boolean hasChildElements = false;
+
+        for (int i = 0; i < children.getLength(); i++) {
+            Node child = children.item(i);
+            if (child.getNodeType() == Node.TEXT_NODE) {
+                String text = child.getNodeValue();
+                if (text != null && !text.trim().isEmpty()) {
+                    textContent.append(text.trim()).append(" ");
+                }
+            } else if (child.getNodeType() == Node.ELEMENT_NODE) {
+                hasChildElements = true;
+            }
+        }
+
+        // If element has direct text content (and no child elements or mixed content), add it as a field
+        if (textContent.length() > 0) {
+            String content = textContent.toString().trim();
+            if (!content.isEmpty()) {
+                // If this element has no child elements, use the current prefix directly
+                // If it has child elements, it's mixed content - still add the text
+                String fieldName = prefix.isEmpty() ? elementName : (hasChildElements ? currentPrefix : currentPrefix);
+                doc.addField(fieldName, content);
+            }
+        }
+
+        // Process child elements recursively
+        if (hasChildElements) {
+            for (int i = 0; i < children.getLength(); i++) {
+                Node child = children.item(i);
+                if (child.getNodeType() == Node.ELEMENT_NODE) {
+                    Element childElement = (Element) child;
+                    // Pass the current prefix to maintain proper hierarchy
+                    addXmlElementFields(doc, childElement, currentPrefix);
+                }
+            }
+        }
     }
 
     /**

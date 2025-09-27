@@ -13,8 +13,8 @@ import java.util.List;
 /**
  * Spring Service providing comprehensive document indexing capabilities for Apache Solr collections
  * through Model Context Protocol (MCP) integration.
- * 
- * <p>This service handles the conversion of JSON and CSV documents into Solr-compatible format and manages
+ *
+ * <p>This service handles the conversion of JSON, CSV, and XML documents into Solr-compatible format and manages
  * the indexing process with robust error handling and batch processing capabilities. It employs a
  * schema-less approach where Solr automatically detects field types, eliminating the need for
  * predefined schema configuration.</p>
@@ -24,6 +24,7 @@ import java.util.List;
  *   <li><strong>Schema-less Indexing</strong>: Automatic field type detection by Solr</li>
  *   <li><strong>JSON Processing</strong>: Support for complex nested JSON documents</li>
  *   <li><strong>CSV Processing</strong>: Support for comma-separated value files with headers</li>
+ *   <li><strong>XML Processing</strong>: Support for XML documents with element flattening and attribute handling</li>
  *   <li><strong>Batch Processing</strong>: Efficient bulk indexing with configurable batch sizes</li>
  *   <li><strong>Error Resilience</strong>: Individual document fallback when batch operations fail</li>
  *   <li><strong>Field Sanitization</strong>: Automatic cleanup of field names for Solr compatibility</li>
@@ -195,7 +196,68 @@ public class IndexingService {
         indexDocuments(collection, schemalessDoc);
     }
 
-
+    /**
+     * Indexes documents from an XML string into a specified Solr collection.
+     *
+     * <p>This method serves as the primary entry point for XML document indexing operations
+     * and is exposed as an MCP tool for AI client interactions. It processes XML data
+     * with nested elements and attributes, indexing them using a schema-less approach.</p>
+     *
+     * <p><strong>Supported XML Formats:</strong></p>
+     * <ul>
+     *   <li><strong>Single Document</strong>: Root element treated as one document</li>
+     *   <li><strong>Multiple Documents</strong>: Child elements with 'doc', 'item', or 'record' names treated as separate documents</li>
+     *   <li><strong>Nested Elements</strong>: Automatically flattened with underscore notation</li>
+     *   <li><strong>Attributes</strong>: Converted to fields with "_attr" suffix</li>
+     *   <li><strong>Mixed Data Types</strong>: Automatic type detection by Solr</li>
+     * </ul>
+     *
+     * <p><strong>Processing Workflow:</strong></p>
+     * <ol>
+     *   <li>Parse XML string to extract elements and attributes</li>
+     *   <li>Flatten nested structures using underscore notation</li>
+     *   <li>Convert to schema-less SolrInputDocument objects</li>
+     *   <li>Execute batch indexing with error handling</li>
+     *   <li>Commit changes to make documents searchable</li>
+     * </ol>
+     *
+     * <p><strong>MCP Tool Usage:</strong></p>
+     * <p>AI clients can invoke this method with natural language requests like
+     * "index this XML data into my_collection" or "add these XML records to the search index".</p>
+     *
+     * <p><strong>Error Handling:</strong></p>
+     * <p>If indexing fails, the method attempts individual document processing to maximize
+     * the number of successfully indexed documents. Detailed error information is logged
+     * for troubleshooting purposes.</p>
+     *
+     * <p><strong>Example XML Processing:</strong></p>
+     * <pre>{@code
+     * Input:
+     * <documents>
+     *   <document id="1">
+     *     <title>Sample</title>
+     *     <author>
+     *       <name>John Doe</name>
+     *     </author>
+     *   </document>
+     * </documents>
+     *
+     * Result: {id_attr:"1", title:"Sample", author_name:"John Doe"}
+     * }</pre>
+     *
+     * @param collection the name of the Solr collection to index documents into
+     * @param xml        XML string containing documents to index
+     * @throws Exception if there are critical errors in XML parsing or Solr communication
+     * @see IndexingDocumentCreator#createSchemalessDocumentsFromXml(String)
+     * @see #indexDocuments(String, List)
+     */
+    @Tool(name = "index_xml_documents", description = "Index documents from XML string into Solr collection")
+    public void indexXmlDocuments(
+            @ToolParam(description = "Solr collection to index into") String collection,
+            @ToolParam(description = "XML string containing documents to index") String xml) throws Exception {
+        List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromXml(xml);
+        indexDocuments(collection, schemalessDoc);
+    }
 
     /**
      * Indexes a list of SolrInputDocument objects into a Solr collection using batch processing.
