@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,6 +20,8 @@ import java.util.List;
  */
 @Component
 public class CsvDocumentCreator implements SolrDocumentCreator {
+
+    private static final int MAX_INPUT_SIZE_BYTES = 10 * 1024 * 1024;
 
     /**
      * Creates a list of schema-less SolrInputDocument objects from a CSV string.
@@ -65,28 +68,33 @@ public class CsvDocumentCreator implements SolrDocumentCreator {
      * @see FieldNameSanitizer#sanitizeFieldName(String)
      */
     public List<SolrInputDocument> create(String csv) throws IOException {
+        if (csv.getBytes(StandardCharsets.UTF_8).length > MAX_INPUT_SIZE_BYTES) {
+            throw new IllegalArgumentException("Input too large");
+        }
+
         List<SolrInputDocument> documents = new ArrayList<>();
 
-        CSVParser parser = new CSVParser(new StringReader(csv),
-                CSVFormat.Builder.create().setHeader().setTrim(true).build());
-        List<String> headers = new ArrayList<>(parser.getHeaderNames());
-        headers.replaceAll(FieldNameSanitizer::sanitizeFieldName);
+        try (CSVParser parser = new CSVParser(new StringReader(csv),
+                CSVFormat.Builder.create().setHeader().setTrim(true).build())) {
+            List<String> headers = new ArrayList<>(parser.getHeaderNames());
+            headers.replaceAll(FieldNameSanitizer::sanitizeFieldName);
 
-        for (CSVRecord csvRecord : parser) {
-            if (csvRecord.size() == 0) {
-                continue; // Skip empty lines
-            }
-
-            SolrInputDocument doc = new SolrInputDocument();
-
-            for (int i = 0; i < headers.size() && i < csvRecord.size(); i++) {
-                String value = csvRecord.get(i);
-                if (!value.isEmpty()) {
-                    doc.addField(headers.get(i), value);
+            for (CSVRecord csvRecord : parser) {
+                if (csvRecord.size() == 0) {
+                    continue; // Skip empty lines
                 }
-            }
 
-            documents.add(doc);
+                SolrInputDocument doc = new SolrInputDocument();
+
+                for (int i = 0; i < headers.size() && i < csvRecord.size(); i++) {
+                    String value = csvRecord.get(i);
+                    if (!value.isEmpty()) {
+                        doc.addField(headers.get(i), value);
+                    }
+                }
+
+                documents.add(doc);
+            }
         }
 
         return documents;

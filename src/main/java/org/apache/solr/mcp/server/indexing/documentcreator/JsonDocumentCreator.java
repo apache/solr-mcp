@@ -6,6 +6,7 @@ import org.apache.solr.common.SolrInputDocument;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -19,6 +20,8 @@ import java.util.Map;
  */
 @Component
 public class JsonDocumentCreator implements SolrDocumentCreator {
+
+    private static final int MAX_INPUT_SIZE_BYTES = 10 * 1024 * 1024;
 
     /**
      * Creates a list of schema-less SolrInputDocument objects from a JSON string.
@@ -62,6 +65,10 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
      * @see FieldNameSanitizer#sanitizeFieldName(String)
      */
     public List<SolrInputDocument> create(String json) throws IOException {
+        if (json.getBytes(StandardCharsets.UTF_8).length > MAX_INPUT_SIZE_BYTES) {
+            throw new IllegalArgumentException("Input too large");
+        }
+
         List<SolrInputDocument> documents = new ArrayList<>();
         ObjectMapper mapper = new ObjectMapper();
 
@@ -174,9 +181,9 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
      */
     private Object convertJsonValue(JsonNode value) {
         if (value.isBoolean()) return value.asBoolean();
-        if (value.isInt()) return value.asInt();
-        if (value.isDouble()) return value.asDouble();
         if (value.isLong()) return value.asLong();
+        if (value.isDouble()) return value.asDouble();
+        if (value.isInt()) return value.asInt();
         return value.asText();
     }
 

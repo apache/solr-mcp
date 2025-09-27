@@ -42,15 +42,14 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
      *
      * @param xml the XML content to process
      * @return list of SolrInputDocument objects ready for indexing
-     * @throws RuntimeException if XML parsing fails
+     * @throws IOException if XML parsing fails
+     * @throws ParserConfigurationException if XML parser configuration fails
+     * @throws SAXException if XML parsing encounters structural errors
      */
-    public List<SolrInputDocument> create(String xml) throws IOException {
-        try {
-            Element rootElement = parseXmlDocument(xml);
-            return processRootElement(rootElement);
-        } catch (ParserConfigurationException | SAXException | IOException e) {
-            throw new RuntimeException("Failed to parse XML: " + e.getMessage(), e);
-        }
+    public List<SolrInputDocument> create(String xml)
+            throws IOException, ParserConfigurationException, SAXException {
+        Element rootElement = parseXmlDocument(xml);
+        return processRootElement(rootElement);
     }
 
     /**
