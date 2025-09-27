@@ -3,7 +3,7 @@ package org.apache.solr.mcp.server.indexing;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.response.UpdateResponse;
 import org.apache.solr.common.SolrInputDocument;
-import org.apache.solr.mcp.server.SolrConfigurationProperties;
+import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
 import org.apache.solr.mcp.server.indexing.documentcreator.CsvDocumentCreator;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
 import org.apache.solr.mcp.server.indexing.documentcreator.JsonDocumentCreator;

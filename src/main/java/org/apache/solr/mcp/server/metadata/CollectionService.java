@@ -1,4 +1,4 @@
-package org.apache.solr.mcp.server;
+package org.apache.solr.mcp.server.metadata;
 
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
@@ -13,6 +13,7 @@ import org.apache.solr.client.solrj.response.*;
 import org.apache.solr.common.params.CoreAdminParams;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
+import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Service;
 
@@ -21,7 +22,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import static org.apache.solr.mcp.server.Utils.*;
+import static org.apache.solr.mcp.server.metadata.CollectionUtils.*;
 
 /**
  * Spring Service providing comprehensive Solr collection management and monitoring capabilities

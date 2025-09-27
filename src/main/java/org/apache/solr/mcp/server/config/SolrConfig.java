@@ -1,11 +1,12 @@
-package org.apache.solr.mcp.server;
+package org.apache.solr.mcp.server.config;
 
-import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * Spring Configuration class for Apache Solr client setup and connection management.

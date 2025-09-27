@@ -1,4 +1,4 @@
-package org.apache.solr.mcp.server;
+package org.apache.solr.mcp.server.metadata;
 
 import org.apache.solr.common.util.NamedList;
 import org.junit.jupiter.api.Test;
@@ -13,21 +13,21 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  * Comprehensive test suite for the Utils utility class.
  * Tests all public methods and edge cases for type-safe value extraction from Solr NamedList objects.
  */
-class UtilsTest {
+class CollectionCollectionUtilsTest {
 
     @Test
     void testGetLong_withNullValue() {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("nullKey", null);
 
-        assertNull(Utils.getLong(namedList, "nullKey"));
+        assertNull(CollectionUtils.getLong(namedList, "nullKey"));
     }
 
     @Test
     void testGetLong_withMissingKey() {
         NamedList<Object> namedList = new NamedList<>();
 
-        assertNull(Utils.getLong(namedList, "missingKey"));
+        assertNull(CollectionUtils.getLong(namedList, "missingKey"));
     }
 
     @Test
@@ -35,7 +35,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("intKey", 123);
 
-        assertEquals(123L, Utils.getLong(namedList, "intKey"));
+        assertEquals(123L, CollectionUtils.getLong(namedList, "intKey"));
     }
 
     @Test
@@ -43,7 +43,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("longKey", 123456789L);
 
-        assertEquals(123456789L, Utils.getLong(namedList, "longKey"));
+        assertEquals(123456789L, CollectionUtils.getLong(namedList, "longKey"));
     }
 
     @Test
@@ -51,7 +51,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("doubleKey", 123.45);
 
-        assertEquals(123L, Utils.getLong(namedList, "doubleKey"));
+        assertEquals(123L, CollectionUtils.getLong(namedList, "doubleKey"));
     }
 
     @Test
@@ -59,7 +59,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("floatKey", 123.45f);
 
-        assertEquals(123L, Utils.getLong(namedList, "floatKey"));
+        assertEquals(123L, CollectionUtils.getLong(namedList, "floatKey"));
     }
 
     @Test
@@ -67,7 +67,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("bigIntKey", new BigInteger("123456789"));
 
-        assertEquals(123456789L, Utils.getLong(namedList, "bigIntKey"));
+        assertEquals(123456789L, CollectionUtils.getLong(namedList, "bigIntKey"));
     }
 
     @Test
@@ -75,7 +75,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("bigDecKey", new BigDecimal("123.45"));
 
-        assertEquals(123L, Utils.getLong(namedList, "bigDecKey"));
+        assertEquals(123L, CollectionUtils.getLong(namedList, "bigDecKey"));
     }
 
     @Test
@@ -83,7 +83,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("stringKey", "123456");
 
-        assertEquals(123456L, Utils.getLong(namedList, "stringKey"));
+        assertEquals(123456L, CollectionUtils.getLong(namedList, "stringKey"));
     }
 
     @Test
@@ -91,7 +91,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("invalidStringKey", "not_a_number");
 
-        assertNull(Utils.getLong(namedList, "invalidStringKey"));
+        assertNull(CollectionUtils.getLong(namedList, "invalidStringKey"));
     }
 
     @Test
@@ -99,7 +99,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("emptyStringKey", "");
 
-        assertNull(Utils.getLong(namedList, "emptyStringKey"));
+        assertNull(CollectionUtils.getLong(namedList, "emptyStringKey"));
     }
 
     @Test
@@ -107,14 +107,14 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("nullKey", null);
 
-        assertEquals(0.0f, Utils.getFloat(namedList, "nullKey"));
+        assertEquals(0.0f, CollectionUtils.getFloat(namedList, "nullKey"));
     }
 
     @Test
     void testGetFloat_withMissingKey() {
         NamedList<Object> namedList = new NamedList<>();
 
-        assertEquals(0.0f, Utils.getFloat(namedList, "missingKey"));
+        assertEquals(0.0f, CollectionUtils.getFloat(namedList, "missingKey"));
     }
 
     @Test
@@ -122,7 +122,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("intKey", 123);
 
-        assertEquals(123.0f, Utils.getFloat(namedList, "intKey"));
+        assertEquals(123.0f, CollectionUtils.getFloat(namedList, "intKey"));
     }
 
     @Test
@@ -130,7 +130,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("floatKey", 123.45f);
 
-        assertEquals(123.45f, Utils.getFloat(namedList, "floatKey"), 0.001f);
+        assertEquals(123.45f, CollectionUtils.getFloat(namedList, "floatKey"), 0.001f);
     }
 
     @Test
@@ -138,7 +138,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("doubleKey", 123.456789);
 
-        assertEquals(123.456789f, Utils.getFloat(namedList, "doubleKey"), 0.001f);
+        assertEquals(123.456789f, CollectionUtils.getFloat(namedList, "doubleKey"), 0.001f);
     }
 
     @Test
@@ -146,7 +146,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("longKey", 123456789L);
 
-        assertEquals(123456789.0f, Utils.getFloat(namedList, "longKey"));
+        assertEquals(123456789.0f, CollectionUtils.getFloat(namedList, "longKey"));
     }
 
     @Test
@@ -154,7 +154,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("bigDecKey", new BigDecimal("123.45"));
 
-        assertEquals(123.45f, Utils.getFloat(namedList, "bigDecKey"), 0.001f);
+        assertEquals(123.45f, CollectionUtils.getFloat(namedList, "bigDecKey"), 0.001f);
     }
 
     @Test
@@ -162,14 +162,14 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("nullKey", null);
 
-        assertNull(Utils.getInteger(namedList, "nullKey"));
+        assertNull(CollectionUtils.getInteger(namedList, "nullKey"));
     }
 
     @Test
     void testGetInteger_withMissingKey() {
         NamedList<Object> namedList = new NamedList<>();
 
-        assertNull(Utils.getInteger(namedList, "missingKey"));
+        assertNull(CollectionUtils.getInteger(namedList, "missingKey"));
     }
 
     @Test
@@ -177,7 +177,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("intKey", 123);
 
-        assertEquals(123, Utils.getInteger(namedList, "intKey"));
+        assertEquals(123, CollectionUtils.getInteger(namedList, "intKey"));
     }
 
     @Test
@@ -185,7 +185,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("longKey", 123456L);
 
-        assertEquals(123456, Utils.getInteger(namedList, "longKey"));
+        assertEquals(123456, CollectionUtils.getInteger(namedList, "longKey"));
     }
 
     @Test
@@ -193,7 +193,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("doubleKey", 123.45);
 
-        assertEquals(123, Utils.getInteger(namedList, "doubleKey"));
+        assertEquals(123, CollectionUtils.getInteger(namedList, "doubleKey"));
     }
 
     @Test
@@ -201,7 +201,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("floatKey", 123.45f);
 
-        assertEquals(123, Utils.getInteger(namedList, "floatKey"));
+        assertEquals(123, CollectionUtils.getInteger(namedList, "floatKey"));
     }
 
     @Test
@@ -209,7 +209,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("bigIntKey", new BigInteger("123456"));
 
-        assertEquals(123456, Utils.getInteger(namedList, "bigIntKey"));
+        assertEquals(123456, CollectionUtils.getInteger(namedList, "bigIntKey"));
     }
 
     @Test
@@ -217,7 +217,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("stringKey", "123456");
 
-        assertEquals(123456, Utils.getInteger(namedList, "stringKey"));
+        assertEquals(123456, CollectionUtils.getInteger(namedList, "stringKey"));
     }
 
     @Test
@@ -225,7 +225,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("invalidStringKey", "not_a_number");
 
-        assertNull(Utils.getInteger(namedList, "invalidStringKey"));
+        assertNull(CollectionUtils.getInteger(namedList, "invalidStringKey"));
     }
 
     @Test
@@ -233,7 +233,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("emptyStringKey", "");
 
-        assertNull(Utils.getInteger(namedList, "emptyStringKey"));
+        assertNull(CollectionUtils.getInteger(namedList, "emptyStringKey"));
     }
 
     @Test
@@ -243,7 +243,7 @@ class UtilsTest {
         namedList.add("overflowKey", Long.MAX_VALUE);
 
         // Should truncate to int value (overflow behavior)
-        assertEquals(-1, Utils.getInteger(namedList, "overflowKey"));
+        assertEquals(-1, CollectionUtils.getInteger(namedList, "overflowKey"));
     }
 
     @Test
@@ -251,7 +251,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("negativeKey", -123456);
 
-        assertEquals(-123456L, Utils.getLong(namedList, "negativeKey"));
+        assertEquals(-123456L, CollectionUtils.getLong(namedList, "negativeKey"));
     }
 
     @Test
@@ -259,7 +259,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("negativeKey", -123.45f);
 
-        assertEquals(-123.45f, Utils.getFloat(namedList, "negativeKey"), 0.001f);
+        assertEquals(-123.45f, CollectionUtils.getFloat(namedList, "negativeKey"), 0.001f);
     }
 
     @Test
@@ -267,7 +267,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("negativeKey", -123456);
 
-        assertEquals(-123456, Utils.getInteger(namedList, "negativeKey"));
+        assertEquals(-123456, CollectionUtils.getInteger(namedList, "negativeKey"));
     }
 
     @Test
@@ -275,7 +275,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("zeroKey", 0);
 
-        assertEquals(0L, Utils.getLong(namedList, "zeroKey"));
+        assertEquals(0L, CollectionUtils.getLong(namedList, "zeroKey"));
     }
 
     @Test
@@ -283,7 +283,7 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("zeroKey", 0.0f);
 
-        assertEquals(0.0f, Utils.getFloat(namedList, "zeroKey"));
+        assertEquals(0.0f, CollectionUtils.getFloat(namedList, "zeroKey"));
     }
 
     @Test
@@ -291,6 +291,6 @@ class UtilsTest {
         NamedList<Object> namedList = new NamedList<>();
         namedList.add("zeroKey", 0);
 
-        assertEquals(0, Utils.getInteger(namedList, "zeroKey"));
+        assertEquals(0, CollectionUtils.getInteger(namedList, "zeroKey"));
     }
 }

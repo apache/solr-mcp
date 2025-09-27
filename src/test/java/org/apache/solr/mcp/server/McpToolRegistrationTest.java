@@ -1,5 +1,6 @@
 package org.apache.solr.mcp.server;
 
+import org.apache.solr.mcp.server.search.SearchService;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.support.ToolCallbacks;
 import org.springframework.ai.tool.ToolCallback;
