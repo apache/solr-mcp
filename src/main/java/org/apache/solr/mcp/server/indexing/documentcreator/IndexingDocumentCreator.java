@@ -3,10 +3,7 @@ package org.apache.solr.mcp.server.indexing.documentcreator;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.springframework.stereotype.Service;
-import org.xml.sax.SAXException;
 
-import javax.xml.parsers.ParserConfigurationException;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
@@ -58,10 +55,10 @@ public class IndexingDocumentCreator {
      *
      * @param json JSON string containing document data (must be an array)
      * @return list of SolrInputDocument objects ready for indexing
-     * @throws IOException if JSON parsing fails or the structure is invalid
+     * @throws DocumentProcessingException if JSON parsing fails or the structure is invalid
      * @see JsonDocumentCreator
      */
-    public List<SolrInputDocument> createSchemalessDocumentsFromJson(String json) throws IOException {
+    public List<SolrInputDocument> createSchemalessDocumentsFromJson(String json) throws DocumentProcessingException {
         return jsonDocumentCreator.create(json);
     }
 
@@ -72,10 +69,10 @@ public class IndexingDocumentCreator {
      *
      * @param csv CSV string containing document data (first row must be headers)
      * @return list of SolrInputDocument objects ready for indexing
-     * @throws IOException if CSV parsing fails or the structure is invalid
+     * @throws DocumentProcessingException if CSV parsing fails or the structure is invalid
      * @see CsvDocumentCreator
      */
-    public List<SolrInputDocument> createSchemalessDocumentsFromCsv(String csv) throws IOException {
+    public List<SolrInputDocument> createSchemalessDocumentsFromCsv(String csv) throws DocumentProcessingException {
         return csvDocumentCreator.create(csv);
     }
 
@@ -86,13 +83,11 @@ public class IndexingDocumentCreator {
      *
      * @param xml XML string containing document data
      * @return list of SolrInputDocument objects ready for indexing
-     * @throws ParserConfigurationException if XML parser configuration fails
-     * @throws SAXException                 if XML parsing fails due to malformed content
-     * @throws IOException                  if I/O errors occur during parsing
+     * @throws DocumentProcessingException if XML parser configuration fails
      * @see XmlDocumentCreator
      */
     public List<SolrInputDocument> createSchemalessDocumentsFromXml(String xml)
-            throws ParserConfigurationException, SAXException, IOException {
+            throws DocumentProcessingException {
 
         // Input validation
         if (xml == null || xml.trim().isEmpty()) {
