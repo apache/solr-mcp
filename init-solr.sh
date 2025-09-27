@@ -19,9 +19,29 @@ until curl -s http://localhost:8983/solr/ > /dev/null; do
   sleep 2
 done
 
+# Wait for ZooKeeper to be fully ready for SolrCloud operations
+echo "Waiting for ZooKeeper to be ready for SolrCloud operations..."
+sleep 10
+
+# Wait for cluster state to be ready
+until curl -s "http://localhost:8983/solr/admin/collections?action=CLUSTERSTATUS" | grep -q '"responseHeader"'; do
+  echo "Waiting for SolrCloud cluster to be ready..."
+  sleep 2
+done
+
 # Create the 'books' collection in SolrCloud mode
-if ! /opt/solr/bin/solr list | grep -q 'books'; then
-  /opt/solr/bin/solr create -c books -n _default
+# Check if collection already exists via Collections API
+if ! curl -s "http://localhost:8983/solr/admin/collections?action=LIST" | grep -q '"books"'; then
+  echo "Creating books collection..."
+  /opt/solr/bin/solr create -c books -n _default || {
+    echo "First attempt failed, retrying collection creation..."
+    sleep 5
+    /opt/solr/bin/solr create -c books -n _default || {
+      echo "Collection creation failed twice, but continuing..."
+    }
+  }
+else
+  echo "Books collection already exists, skipping creation."
 fi
 
 
