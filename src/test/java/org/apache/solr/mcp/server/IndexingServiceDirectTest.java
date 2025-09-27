@@ -9,6 +9,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -178,10 +179,10 @@ class IndexingServiceDirectTest {
         IndexingService indexingServiceSpy = spy(indexingServiceWithSpy);
 
         // Mock the createSchemalessDocuments method to throw an exception
-        doThrow(new Exception("Invalid JSON")).when(indexingDocumentCreatorSpy).createSchemalessDocumentsFromJson(invalidJson);
+        doThrow(new IOException("Invalid JSON")).when(indexingDocumentCreatorSpy).createSchemalessDocumentsFromJson(invalidJson);
 
         // Call the method under test and verify it throws an exception
-        Exception exception = assertThrows(Exception.class, () -> {
+        IOException exception = assertThrows(IOException.class, () -> {
             indexingServiceSpy.indexJsonDocuments("test_collection", invalidJson);
         });
 

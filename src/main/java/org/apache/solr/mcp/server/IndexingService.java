@@ -6,7 +6,9 @@ import org.apache.solr.common.SolrInputDocument;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
+import org.xml.sax.SAXException;
 
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 import java.util.List;
 
@@ -134,8 +136,9 @@ public class IndexingService {
      * 
      * @param collection the name of the Solr collection to index documents into
      * @param json JSON string containing an array of documents to index
-     * 
-     * @throws Exception if there are critical errors in JSON parsing or Solr communication
+     *
+     * @throws IOException if there are critical errors in JSON parsing or Solr communication
+     * @throws SolrServerException if Solr server encounters errors during indexing
      *
      * @see IndexingDocumentCreator#createSchemalessDocumentsFromJson(String)
      * @see #indexDocuments(String, List)
@@ -143,7 +146,7 @@ public class IndexingService {
     @Tool(name = "index_json_documents", description = "Index documents from json String into Solr collection")
     public void indexJsonDocuments(
             @ToolParam(description = "Solr collection to index into") String collection,
-            @ToolParam(description = "JSON string containing documents to index") String json) throws Exception {
+            @ToolParam(description = "JSON string containing documents to index") String json) throws IOException, SolrServerException {
         List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
         indexDocuments(collection, schemalessDoc);
     }
@@ -182,8 +185,9 @@ public class IndexingService {
      * 
      * @param collection the name of the Solr collection to index documents into
      * @param csv CSV string containing documents to index (first row must be headers)
-     * 
-     * @throws Exception if there are critical errors in CSV parsing or Solr communication
+     *
+     * @throws IOException if there are critical errors in CSV parsing or Solr communication
+     * @throws SolrServerException if Solr server encounters errors during indexing
      *
      * @see IndexingDocumentCreator#createSchemalessDocumentsFromCsv(String)
      * @see #indexDocuments(String, List)
@@ -191,7 +195,7 @@ public class IndexingService {
     @Tool(name = "index_csv_documents", description = "Index documents from CSV string into Solr collection")
     public void indexCsvDocuments(
             @ToolParam(description = "Solr collection to index into") String collection,
-            @ToolParam(description = "CSV string containing documents to index") String csv) throws Exception {
+            @ToolParam(description = "CSV string containing documents to index") String csv) throws IOException, SolrServerException {
         List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromCsv(csv);
         indexDocuments(collection, schemalessDoc);
     }
@@ -247,14 +251,17 @@ public class IndexingService {
      *
      * @param collection the name of the Solr collection to index documents into
      * @param xml        XML string containing documents to index
-     * @throws Exception if there are critical errors in XML parsing or Solr communication
+     * @throws ParserConfigurationException if XML parser configuration fails
+     * @throws SAXException if XML parsing fails due to malformed content
+     * @throws IOException if I/O errors occur during parsing or Solr communication
+     * @throws SolrServerException if Solr server encounters errors during indexing
      * @see IndexingDocumentCreator#createSchemalessDocumentsFromXml(String)
      * @see #indexDocuments(String, List)
      */
     @Tool(name = "index_xml_documents", description = "Index documents from XML string into Solr collection")
     public void indexXmlDocuments(
             @ToolParam(description = "Solr collection to index into") String collection,
-            @ToolParam(description = "XML string containing documents to index") String xml) throws Exception {
+            @ToolParam(description = "XML string containing documents to index") String xml) throws ParserConfigurationException, SAXException, IOException, SolrServerException {
         List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromXml(xml);
         indexDocuments(collection, schemalessDoc);
     }
@@ -296,17 +303,17 @@ public class IndexingService {
      * @param collection the name of the Solr collection to index into
      * @param documents list of SolrInputDocument objects to index
      * @return the number of documents successfully indexed
-     * 
-     * @throws Exception if there are critical errors in Solr communication or commit operations
+     *
+     * @throws SolrServerException if there are critical errors in Solr communication
+     * @throws IOException if there are critical errors in commit operations
      * 
      * @see SolrInputDocument
      * @see SolrClient#add(String, java.util.Collection)
      * @see SolrClient#commit(String)
      */
-    public int indexDocuments(String collection, List<SolrInputDocument> documents) throws Exception {
+    public int indexDocuments(String collection, List<SolrInputDocument> documents) throws SolrServerException, IOException {
         int successCount = 0;
         final int batchSize = DEFAULT_BATCH_SIZE;
-        int errorCount = 0;
 
         for (int i = 0; i < documents.size(); i += batchSize) {
             final int endIndex = Math.min(i + batchSize, documents.size());
@@ -316,15 +323,14 @@ public class IndexingService {
                 solrClient.add(collection, batch);
                 successCount += batch.size();
             } catch (SolrServerException | IOException | RuntimeException e) {
-                errorCount += batch.size();
-
                 // Try indexing documents individually to identify problematic ones
                 for (SolrInputDocument doc : batch) {
                     try {
                         solrClient.add(collection, doc);
                         successCount++;
                     } catch (SolrServerException | IOException | RuntimeException docError) {
-                        errorCount++;
+                        // Document failed to index - this is expected behavior for problematic documents
+                        // We continue processing the rest of the batch
                     }
                 }
             }

@@ -4,10 +4,12 @@ import org.apache.solr.common.SolrInputDocument;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
+import org.xml.sax.SAXException;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Test class for XML indexing functionality in IndexingService.
@@ -245,5 +247,245 @@ class XmlIndexingTest {
         // Mixed content should be handled - text content should be captured
         assertThat(doc.getFieldValue("article_content")).isNotNull();
         assertThat(doc.getFieldValue("article_content_emphasis")).isEqualTo("emphasized text");
+    }
+
+    @Test
+    void testCreateSchemalessDocumentsFromXmlWithMalformedXml() {
+        // Given
+        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
+
+        String malformedXml = """
+                <book>
+                    <title>Incomplete Book
+                    <author>John Doe</author>
+                </book>
+                """;
+
+        // When/Then
+        assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(malformedXml))
+                .isInstanceOf(SAXException.class);
+    }
+
+    @Test
+    void testCreateSchemalessDocumentsFromXmlWithInvalidCharacters() {
+        // Given
+        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
+
+        String invalidXml = """
+                <book>
+                    <title>Book with invalid character: \u0000</title>
+                    <author>John Doe</author>
+                </book>
+                """;
+
+        // When/Then
+        assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(invalidXml))
+                .isInstanceOf(SAXException.class);
+    }
+
+    @Test
+    void testCreateSchemalessDocumentsFromXmlWithDoctype() {
+        // Given
+        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
+
+        String xmlWithDoctype = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <!DOCTYPE book [
+                    <!ELEMENT book (title, author)>
+                    <!ELEMENT title (#PCDATA)>
+                    <!ELEMENT author (#PCDATA)>
+                ]>
+                <book>
+                    <title>Test Book</title>
+                    <author>Test Author</author>
+                </book>
+                """;
+
+        // When/Then - Should fail due to XXE protection
+        assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlWithDoctype))
+                .isInstanceOf(SAXException.class);
+    }
+
+    @Test
+    void testCreateSchemalessDocumentsFromXmlWithExternalEntity() {
+        // Given
+        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
+
+        String xmlWithExternalEntity = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <!DOCTYPE book [
+                    <!ENTITY external SYSTEM "file:///etc/passwd">
+                ]>
+                <book>
+                    <title>&external;</title>
+                    <author>Test Author</author>
+                </book>
+                """;
+
+        // When/Then - Should fail due to XXE protection
+        assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlWithExternalEntity))
+                .isInstanceOf(SAXException.class);
+    }
+
+    @Test
+    void testCreateSchemalessDocumentsFromXmlWithNullInput() {
+        // Given
+        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
+
+        // When/Then
+        assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("XML input cannot be null or empty");
+    }
+
+    @Test
+    void testCreateSchemalessDocumentsFromXmlWithEmptyInput() {
+        // Given
+        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
+
+        // When/Then
+        assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(""))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("XML input cannot be null or empty");
+    }
+
+    @Test
+    void testCreateSchemalessDocumentsFromXmlWithWhitespaceOnlyInput() {
+        // Given
+        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
+
+        // When/Then
+        assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml("   \n\t  "))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("XML input cannot be null or empty");
+    }
+
+    @Test
+    void testCreateSchemalessDocumentsFromXmlWithLargeDocument() {
+        // Given
+        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
+
+        // Create a large XML document (over 10MB)
+        StringBuilder largeXml = new StringBuilder();
+        largeXml.append("<books>");
+
+        // Add enough data to exceed the 10MB limit
+        String bookTemplate = """
+                <book id="%d">
+                    <title>%s</title>
+                    <content>%s</content>
+                </book>
+                """;
+
+        // Create approximately 11MB of XML data
+        String longContent = "A".repeat(10000); // 10KB per book
+        for (int i = 0; i < 1200; i++) { // 1200 * 10KB = 12MB
+            largeXml.append(String.format(bookTemplate, i, "Title " + i, longContent));
+        }
+        largeXml.append("</books>");
+
+        // When/Then
+        assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(largeXml.toString()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("XML document too large");
+    }
+
+    @Test
+    void testCreateSchemalessDocumentsFromXmlWithComplexNestedStructure() throws Exception {
+        // Given
+        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
+
+        String complexXml = """
+                <product id="123" category="electronics">
+                    <details>
+                        <name lang="en">Smartphone</name>
+                        <name lang="es">Teléfono inteligente</name>
+                        <specifications>
+                            <screen size="6.1" type="OLED">Full HD+</screen>
+                            <camera type="main" resolution="12MP">Primary camera</camera>
+                            <camera type="selfie" resolution="8MP">Front camera</camera>
+                            <storage>
+                                <internal>128GB</internal>
+                                <expandable>Yes</expandable>
+                            </storage>
+                        </specifications>
+                    </details>
+                    <pricing currency="USD">599.99</pricing>
+                    <availability>
+                        <regions>
+                            <region>US</region>
+                            <region>EU</region>
+                            <region>APAC</region>
+                        </regions>
+                        <inStock>true</inStock>
+                    </availability>
+                </product>
+                """;
+
+        // When
+        List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromXml(complexXml);
+
+        // Then
+        assertThat(documents).hasSize(1);
+
+        SolrInputDocument doc = documents.getFirst();
+
+        // Verify basic attributes
+        assertThat(doc.getFieldValue("id_attr")).isEqualTo("123");
+        assertThat(doc.getFieldValue("category_attr")).isEqualTo("electronics");
+
+        // Verify nested structure flattening
+        assertThat(doc.getFieldValue("product_details_name_lang_attr")).isNotNull();
+        assertThat(doc.getFieldValue("product_details_specifications_screen_size_attr")).isEqualTo("6.1");
+        assertThat(doc.getFieldValue("product_details_specifications_screen_type_attr")).isEqualTo("OLED");
+        assertThat(doc.getFieldValue("product_details_specifications_screen")).isEqualTo("Full HD+");
+
+        // Verify multiple similar elements
+        assertThat(doc.getFieldValue("product_details_specifications_camera_type_attr")).isNotNull();
+        assertThat(doc.getFieldValue("product_details_specifications_camera_resolution_attr")).isNotNull();
+
+        // Verify deeply nested elements
+        assertThat(doc.getFieldValue("product_details_specifications_storage_internal")).isEqualTo("128GB");
+        assertThat(doc.getFieldValue("product_details_specifications_storage_expandable")).isEqualTo("Yes");
+
+        // Verify pricing and availability
+        assertThat(doc.getFieldValue("product_pricing_currency_attr")).isEqualTo("USD");
+        assertThat(doc.getFieldValue("product_pricing")).isEqualTo("599.99");
+        assertThat(doc.getFieldValue("product_availability_instock")).isEqualTo("true");
+        assertThat(doc.getFieldValue("product_availability_regions_region")).isNotNull();
+    }
+
+    @Test
+    void testFieldNameSanitization() throws Exception {
+        // Given
+        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
+
+        String xmlWithSpecialChars = """
+                <product_data id="123">
+                    <product_name>Test Product</product_name>
+                    <price_USD>99.99</price_USD>
+                    <category_type>electronics</category_type>
+                    <field__with__multiple__underscores>value</field__with__multiple__underscores>
+                    <field_with_dashes>dashed value</field_with_dashes>
+                    <UPPERCASE_FIELD>uppercase value</UPPERCASE_FIELD>
+                </product_data>
+                """;
+
+        // When
+        List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlWithSpecialChars);
+
+        // Then
+        assertThat(documents).hasSize(1);
+
+        SolrInputDocument doc = documents.getFirst();
+
+        // Verify field name sanitization
+        assertThat(doc.getFieldValue("id_attr")).isEqualTo("123");
+        assertThat(doc.getFieldValue("product_data_product_name")).isEqualTo("Test Product");
+        assertThat(doc.getFieldValue("product_data_price_usd")).isEqualTo("99.99");
+        assertThat(doc.getFieldValue("product_data_category_type")).isEqualTo("electronics");
+        assertThat(doc.getFieldValue("product_data_field_with_multiple_underscores")).isEqualTo("value");
+        assertThat(doc.getFieldValue("product_data_field_with_dashes")).isEqualTo("dashed value");
+        assertThat(doc.getFieldValue("product_data_uppercase_field")).isEqualTo("uppercase value");
     }
 }

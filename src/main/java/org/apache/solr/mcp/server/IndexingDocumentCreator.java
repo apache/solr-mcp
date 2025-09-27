@@ -11,15 +11,21 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
+import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Spring Service responsible for creating SolrInputDocument objects from various data formats.
@@ -45,6 +51,11 @@ import java.util.Map;
  */
 @Service
 public class IndexingDocumentCreator {
+
+    private static final int MAX_XML_SIZE_BYTES = 10 * 1024 * 1024; // 10MB limit
+    private static final Pattern FIELD_SANITIZATION_PATTERN = Pattern.compile("[^a-zA-Z0-9_]");
+    private static final Pattern UNDERSCORE_CLEANUP_PATTERN = Pattern.compile("^_+|_+$");
+    private static final Pattern MULTIPLE_UNDERSCORES_PATTERN = Pattern.compile("_{2,}");
 
     /**
      * Creates a list of schema-less SolrInputDocument objects from a JSON string.
@@ -87,7 +98,7 @@ public class IndexingDocumentCreator {
      * @see #addAllFieldsFlat(SolrInputDocument, JsonNode, String)
      * @see #sanitizeFieldName(String)
      */
-    public List<SolrInputDocument> createSchemalessDocumentsFromJson(String json) throws Exception {
+    public List<SolrInputDocument> createSchemalessDocumentsFromJson(String json) throws IOException {
         List<SolrInputDocument> documents = new ArrayList<>();
         ObjectMapper mapper = new ObjectMapper();
 
@@ -150,7 +161,7 @@ public class IndexingDocumentCreator {
      * @see SolrInputDocument
      * @see #sanitizeFieldName(String)
      */
-    public List<SolrInputDocument> createSchemalessDocumentsFromCsv(String csv) throws Exception {
+    public List<SolrInputDocument> createSchemalessDocumentsFromCsv(String csv) throws IOException {
         List<SolrInputDocument> documents = new ArrayList<>();
 
         CSVParser parser = new CSVParser(new StringReader(csv),
@@ -232,20 +243,45 @@ public class IndexingDocumentCreator {
      *
      * @param xml XML string containing document data
      * @return list of SolrInputDocument objects ready for indexing
-     * @throws Exception if XML parsing fails or the structure is invalid
+     * @throws ParserConfigurationException if XML parser configuration fails
+     * @throws SAXException if XML parsing fails due to malformed content
+     * @throws IOException if I/O errors occur during parsing
+     * @throws IllegalArgumentException if XML exceeds size limits or is invalid
      * @see SolrInputDocument
      * @see #addXmlElementFields(SolrInputDocument, Element, String)
      * @see #sanitizeFieldName(String)
      */
-    public List<SolrInputDocument> createSchemalessDocumentsFromXml(String xml) throws Exception {
+    public List<SolrInputDocument> createSchemalessDocumentsFromXml(String xml)
+            throws ParserConfigurationException, SAXException, IOException {
+
+        // Input validation
+        if (xml == null || xml.trim().isEmpty()) {
+            throw new IllegalArgumentException("XML input cannot be null or empty");
+        }
+
+        byte[] xmlBytes = xml.getBytes(StandardCharsets.UTF_8);
+        if (xmlBytes.length > MAX_XML_SIZE_BYTES) {
+            throw new IllegalArgumentException("XML document too large: " + xmlBytes.length + " bytes (max: " + MAX_XML_SIZE_BYTES + ")");
+        }
+        
         List<SolrInputDocument> documents = new ArrayList<>();
 
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+
+        // XXE Protection: Disable external entity processing
+        factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        factory.setXIncludeAware(false);
+        factory.setExpandEntityReferences(false);
+        
         factory.setNamespaceAware(false);
         factory.setValidating(false);
 
         DocumentBuilder builder = factory.newDocumentBuilder();
-        Document doc = builder.parse(new ByteArrayInputStream(xml.getBytes("UTF-8")));
+        Document doc = builder.parse(new ByteArrayInputStream(xmlBytes));
 
         Element rootElement = doc.getDocumentElement();
 
@@ -500,9 +536,11 @@ public class IndexingDocumentCreator {
      */
     private String sanitizeFieldName(String fieldName) {
         // Remove or replace invalid characters for Solr field names
-        return fieldName.toLowerCase()
-                .replaceAll("[^a-zA-Z0-9_]", "_")
-                .replaceAll("^_+|_+$", "")
-                .replaceAll("_{2,}", "_");
+        return MULTIPLE_UNDERSCORES_PATTERN.matcher(
+                UNDERSCORE_CLEANUP_PATTERN.matcher(
+                        FIELD_SANITIZATION_PATTERN.matcher(fieldName.toLowerCase())
+                                .replaceAll("_")
+                ).replaceAll("")
+        ).replaceAll("_");
     }
 }
