@@ -16,7 +16,9 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -34,9 +36,12 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
      * Creates a list of SolrInputDocument objects from XML content.
      *
      * <p>This method parses the XML and creates documents based on the structure:
-     * - If the XML contains elements that could represent individual documents
-     * (like &lt;book&gt;, &lt;document&gt;, &lt;record&gt;), each becomes a separate document
+     * - If the XML has multiple child elements with the same tag name (indicating repeated structures),
+     *   each child element becomes a separate document
      * - Otherwise, the entire XML structure is treated as a single document</p>
+     *
+     * <p>This approach is flexible and doesn't rely on hardcoded element names,
+     * allowing it to work with any XML structure.</p>
      *
      * @param xml the XML content to process
      * @return list of SolrInputDocument objects ready for indexing
@@ -60,40 +65,36 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
             Element rootElement = doc.getDocumentElement();
             NodeList children = rootElement.getChildNodes();
 
-            // Check if we have potential document elements (common patterns for individual records)
-            boolean hasDocumentElements = false;
+            // Strategy: determine if we should treat child elements as separate documents
+            // based on the structure rather than hardcoded element names
+            Map<String, Integer> childElementCounts = new HashMap<>();
+            List<Element> childElements = new ArrayList<>();
+
+            // Count child elements by tag name
             for (int i = 0; i < children.getLength(); i++) {
                 if (children.item(i).getNodeType() == Node.ELEMENT_NODE) {
                     Element child = (Element) children.item(i);
-                    String tagName = child.getTagName().toLowerCase();
-                    // Common patterns that suggest individual documents/records
-                    if (tagName.equals("document") || tagName.equals("record") ||
-                            tagName.equals("item") || tagName.equals("entry") ||
-                            tagName.equals("book") || tagName.equals("product") ||
-                            tagName.equals("person") || tagName.equals("customer") ||
-                            tagName.equals("order") || tagName.equals("article")) {
-                        hasDocumentElements = true;
-                        break;
-                    }
+                    childElements.add(child);
+                    String tagName = child.getTagName();
+                    childElementCounts.put(tagName, childElementCounts.getOrDefault(tagName, 0) + 1);
                 }
             }
 
-            // Process child elements as separate documents if they match document patterns
-            if (hasDocumentElements) {
-                for (int i = 0; i < children.getLength(); i++) {
-                    if (children.item(i).getNodeType() == Node.ELEMENT_NODE) {
-                        Element childElement = (Element) children.item(i);
-                        SolrInputDocument solrDoc = new SolrInputDocument();
-                        addXmlElementFields(solrDoc, childElement, "");
-                        if (!solrDoc.isEmpty()) { // Only add if document has fields
-                            documents.add(solrDoc);
-                        }
+            // If we have multiple elements with the same tag name (indicating repeated structures),
+            // treat each child element as a separate document
+            boolean shouldTreatChildrenAsDocuments = childElementCounts.values().stream().anyMatch(count -> count > 1);
+
+            if (shouldTreatChildrenAsDocuments && !childElements.isEmpty()) {
+                // Process each child element as a separate document
+                for (Element childElement : childElements) {
+                    SolrInputDocument solrDoc = new SolrInputDocument();
+                    addXmlElementFields(solrDoc, childElement, "");
+                    if (!solrDoc.isEmpty()) { // Only add if document has fields
+                        documents.add(solrDoc);
                     }
                 }
-            }
-
-            // If no explicit document elements found, treat the entire root as a single document
-            if (!hasDocumentElements) {
+            } else {
+                // Treat the entire root as a single document
                 SolrInputDocument solrDoc = new SolrInputDocument();
                 addXmlElementFields(solrDoc, rootElement, "");
                 if (!solrDoc.isEmpty()) { // Only add if document has fields
