@@ -15,7 +15,7 @@ package org.apache.solr.mcp.server.indexing.documentcreator;
  *   <li>Resource access or I/O errors during processing</li>
  * </ul>
  */
-public class DocumentProcessingException extends Exception {
+public class DocumentProcessingException extends RuntimeException {
 
     /**
      * Constructs a new DocumentProcessingException with the specified detail message.

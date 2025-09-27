@@ -4,17 +4,13 @@ import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.response.UpdateResponse;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
-import org.apache.solr.mcp.server.indexing.documentcreator.CsvDocumentCreator;
-import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
-import org.apache.solr.mcp.server.indexing.documentcreator.JsonDocumentCreator;
-import org.apache.solr.mcp.server.indexing.documentcreator.XmlDocumentCreator;
+import org.apache.solr.mcp.server.indexing.documentcreator.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -186,10 +182,10 @@ class IndexingServiceDirectTest {
         IndexingService indexingServiceSpy = spy(indexingServiceWithSpy);
 
         // Mock the createSchemalessDocuments method to throw an exception
-        doThrow(new IOException("Invalid JSON")).when(indexingDocumentCreatorSpy).createSchemalessDocumentsFromJson(invalidJson);
+        doThrow(new DocumentProcessingException("Invalid JSON")).when(indexingDocumentCreatorSpy).createSchemalessDocumentsFromJson(invalidJson);
 
         // Call the method under test and verify it throws an exception
-        IOException exception = assertThrows(IOException.class, () -> {
+        DocumentProcessingException exception = assertThrows(DocumentProcessingException.class, () -> {
             indexingServiceSpy.indexJsonDocuments("test_collection", invalidJson);
         });
 
