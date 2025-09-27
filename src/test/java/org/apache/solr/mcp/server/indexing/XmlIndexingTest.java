@@ -1,10 +1,11 @@
-package org.apache.solr.mcp.server;
+package org.apache.solr.mcp.server.indexing;
 
 import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
-import org.xml.sax.SAXException;
 
 import java.util.List;
 
@@ -21,10 +22,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @TestPropertySource(locations = "classpath:application.properties")
 class XmlIndexingTest {
 
+    @Autowired
+    private IndexingDocumentCreator indexingDocumentCreator;
+
     @Test
     void testCreateSchemalessDocumentsFromXmlSingleDocument() throws Exception {
         // Given
-        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
 
         String xmlData = """
                 <book id="123">
@@ -58,7 +61,6 @@ class XmlIndexingTest {
     @Test
     void testCreateSchemalessDocumentsFromXmlMultipleDocuments() throws Exception {
         // Given
-        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
 
         String xmlData = """
                 <books>
@@ -111,7 +113,6 @@ class XmlIndexingTest {
     @Test
     void testCreateSchemalessDocumentsFromXmlWithAttributes() throws Exception {
         // Given
-        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
 
         String xmlData = """
                 <product id="P123" category="electronics" featured="true">
@@ -141,7 +142,6 @@ class XmlIndexingTest {
     @Test
     void testCreateSchemalessDocumentsFromXmlWithEmptyValues() throws Exception {
         // Given
-        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
 
         String xmlData = """
                 <items>
@@ -182,7 +182,6 @@ class XmlIndexingTest {
     @Test
     void testCreateSchemalessDocumentsFromXmlWithRepeatedElements() throws Exception {
         // Given
-        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
 
         String xmlData = """
                 <book>
@@ -220,7 +219,6 @@ class XmlIndexingTest {
     @Test
     void testCreateSchemalessDocumentsFromXmlMixedContent() throws Exception {
         // Given
-        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
 
         String xmlData = """
                 <article>
@@ -252,7 +250,6 @@ class XmlIndexingTest {
     @Test
     void testCreateSchemalessDocumentsFromXmlWithMalformedXml() {
         // Given
-        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
 
         String malformedXml = """
                 <book>
@@ -263,13 +260,12 @@ class XmlIndexingTest {
 
         // When/Then
         assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(malformedXml))
-                .isInstanceOf(SAXException.class);
+                .isInstanceOf(RuntimeException.class);
     }
 
     @Test
     void testCreateSchemalessDocumentsFromXmlWithInvalidCharacters() {
         // Given
-        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
 
         String invalidXml = """
                 <book>
@@ -280,13 +276,12 @@ class XmlIndexingTest {
 
         // When/Then
         assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(invalidXml))
-                .isInstanceOf(SAXException.class);
+                .isInstanceOf(RuntimeException.class);
     }
 
     @Test
     void testCreateSchemalessDocumentsFromXmlWithDoctype() {
         // Given
-        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
 
         String xmlWithDoctype = """
                 <?xml version="1.0" encoding="UTF-8"?>
@@ -303,13 +298,12 @@ class XmlIndexingTest {
 
         // When/Then - Should fail due to XXE protection
         assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlWithDoctype))
-                .isInstanceOf(SAXException.class);
+                .isInstanceOf(RuntimeException.class);
     }
 
     @Test
     void testCreateSchemalessDocumentsFromXmlWithExternalEntity() {
         // Given
-        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
 
         String xmlWithExternalEntity = """
                 <?xml version="1.0" encoding="UTF-8"?>
@@ -324,13 +318,12 @@ class XmlIndexingTest {
 
         // When/Then - Should fail due to XXE protection
         assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlWithExternalEntity))
-                .isInstanceOf(SAXException.class);
+                .isInstanceOf(RuntimeException.class);
     }
 
     @Test
     void testCreateSchemalessDocumentsFromXmlWithNullInput() {
         // Given
-        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
 
         // When/Then
         assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(null))
@@ -341,7 +334,6 @@ class XmlIndexingTest {
     @Test
     void testCreateSchemalessDocumentsFromXmlWithEmptyInput() {
         // Given
-        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
 
         // When/Then
         assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(""))
@@ -352,7 +344,6 @@ class XmlIndexingTest {
     @Test
     void testCreateSchemalessDocumentsFromXmlWithWhitespaceOnlyInput() {
         // Given
-        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
 
         // When/Then
         assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml("   \n\t  "))
@@ -363,7 +354,6 @@ class XmlIndexingTest {
     @Test
     void testCreateSchemalessDocumentsFromXmlWithLargeDocument() {
         // Given
-        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
 
         // Create a large XML document (over 10MB)
         StringBuilder largeXml = new StringBuilder();
@@ -393,7 +383,6 @@ class XmlIndexingTest {
     @Test
     void testCreateSchemalessDocumentsFromXmlWithComplexNestedStructure() throws Exception {
         // Given
-        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
 
         String complexXml = """
                 <product id="123" category="electronics">
@@ -458,7 +447,6 @@ class XmlIndexingTest {
     @Test
     void testFieldNameSanitization() throws Exception {
         // Given
-        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
 
         String xmlWithSpecialChars = """
                 <product_data id="123">

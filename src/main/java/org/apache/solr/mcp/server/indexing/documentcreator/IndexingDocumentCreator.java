@@ -1,0 +1,110 @@
+package org.apache.solr.mcp.server.indexing.documentcreator;
+
+import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.mcp.server.indexing.IndexingService;
+import org.springframework.stereotype.Service;
+import org.xml.sax.SAXException;
+
+import javax.xml.parsers.ParserConfigurationException;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+
+/**
+ * Spring Service responsible for creating SolrInputDocument objects from various data formats.
+ *
+ * <p>This service handles the conversion of JSON, CSV, and XML documents into Solr-compatible format
+ * using a schema-less approach where Solr automatically detects field types, eliminating the need for
+ * predefined schema configuration.</p>
+ *
+ * <p><strong>Core Features:</strong></p>
+ * <ul>
+ *   <li><strong>Schema-less Document Creation</strong>: Automatic field type detection by Solr</li>
+ *   <li><strong>JSON Processing</strong>: Support for complex nested JSON documents</li>
+ *   <li><strong>CSV Processing</strong>: Support for comma-separated value files with headers</li>
+ *   <li><strong>XML Processing</strong>: Support for XML documents with element flattening and attribute handling</li>
+ *   <li><strong>Field Sanitization</strong>: Automatic cleanup of field names for Solr compatibility</li>
+ * </ul>
+ *
+ * @author Solr MCP Server
+ * @version 1.0
+ * @see SolrInputDocument
+ * @see IndexingService
+ * @since 1.0
+ */
+@Service
+public class IndexingDocumentCreator {
+
+    private static final int MAX_XML_SIZE_BYTES = 10 * 1024 * 1024; // 10MB limit
+
+    private final XmlDocumentCreator xmlDocumentCreator;
+
+    private final CsvDocumentCreator csvDocumentCreator;
+
+    private final JsonDocumentCreator jsonDocumentCreator;
+
+    public IndexingDocumentCreator(XmlDocumentCreator xmlDocumentCreator,
+                                   CsvDocumentCreator csvDocumentCreator,
+                                   JsonDocumentCreator jsonDocumentCreator) {
+        this.xmlDocumentCreator = xmlDocumentCreator;
+        this.csvDocumentCreator = csvDocumentCreator;
+        this.jsonDocumentCreator = jsonDocumentCreator;
+    }
+
+    /**
+     * Creates a list of schema-less SolrInputDocument objects from a JSON string.
+     *
+     * <p>This method delegates JSON processing to the JsonDocumentProcessor utility class.</p>
+     *
+     * @param json JSON string containing document data (must be an array)
+     * @return list of SolrInputDocument objects ready for indexing
+     * @throws IOException if JSON parsing fails or the structure is invalid
+     * @see JsonDocumentCreator
+     */
+    public List<SolrInputDocument> createSchemalessDocumentsFromJson(String json) throws IOException {
+        return jsonDocumentCreator.create(json);
+    }
+
+    /**
+     * Creates a list of schema-less SolrInputDocument objects from a CSV string.
+     *
+     * <p>This method delegates CSV processing to the CsvDocumentProcessor utility class.</p>
+     *
+     * @param csv CSV string containing document data (first row must be headers)
+     * @return list of SolrInputDocument objects ready for indexing
+     * @throws IOException if CSV parsing fails or the structure is invalid
+     * @see CsvDocumentCreator
+     */
+    public List<SolrInputDocument> createSchemalessDocumentsFromCsv(String csv) throws IOException {
+        return csvDocumentCreator.create(csv);
+    }
+
+    /**
+     * Creates a list of schema-less SolrInputDocument objects from an XML string.
+     *
+     * <p>This method delegates XML processing to the XmlDocumentProcessor utility class.</p>
+     *
+     * @param xml XML string containing document data
+     * @return list of SolrInputDocument objects ready for indexing
+     * @throws ParserConfigurationException if XML parser configuration fails
+     * @throws SAXException                 if XML parsing fails due to malformed content
+     * @throws IOException                  if I/O errors occur during parsing
+     * @see XmlDocumentCreator
+     */
+    public List<SolrInputDocument> createSchemalessDocumentsFromXml(String xml)
+            throws ParserConfigurationException, SAXException, IOException {
+
+        // Input validation
+        if (xml == null || xml.trim().isEmpty()) {
+            throw new IllegalArgumentException("XML input cannot be null or empty");
+        }
+
+        byte[] xmlBytes = xml.getBytes(StandardCharsets.UTF_8);
+        if (xmlBytes.length > MAX_XML_SIZE_BYTES) {
+            throw new IllegalArgumentException("XML document too large: " + xmlBytes.length + " bytes (max: " + MAX_XML_SIZE_BYTES + ")");
+        }
+
+        return xmlDocumentCreator.create(xml);
+    }
+
+}

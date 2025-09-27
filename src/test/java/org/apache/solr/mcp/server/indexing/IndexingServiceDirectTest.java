@@ -1,8 +1,13 @@
-package org.apache.solr.mcp.server;
+package org.apache.solr.mcp.server.indexing;
 
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.response.UpdateResponse;
 import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.mcp.server.SolrConfigurationProperties;
+import org.apache.solr.mcp.server.indexing.documentcreator.CsvDocumentCreator;
+import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
+import org.apache.solr.mcp.server.indexing.documentcreator.JsonDocumentCreator;
+import org.apache.solr.mcp.server.indexing.documentcreator.XmlDocumentCreator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,7 +38,9 @@ class IndexingServiceDirectTest {
     private IndexingDocumentCreator indexingDocumentCreator;
     @BeforeEach
     void setUp() {
-        indexingDocumentCreator = new IndexingDocumentCreator();
+        indexingDocumentCreator = new IndexingDocumentCreator(new XmlDocumentCreator(),
+                new CsvDocumentCreator(),
+                new JsonDocumentCreator());
         indexingService = new IndexingService(solrClient, solrConfigurationProperties, indexingDocumentCreator);
     }
 

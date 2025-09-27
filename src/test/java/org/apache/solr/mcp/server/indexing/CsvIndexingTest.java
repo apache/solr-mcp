@@ -1,7 +1,9 @@
-package org.apache.solr.mcp.server;
+package org.apache.solr.mcp.server.indexing;
 
 import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
 
@@ -19,10 +21,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 @TestPropertySource(locations = "classpath:application.properties")
 class CsvIndexingTest {
 
+    @Autowired
+    private IndexingDocumentCreator indexingDocumentCreator;
+
     @Test
     void testCreateSchemalessDocumentsFromCsv() throws Exception {
         // Given
-        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
         
         String csvData = """
             id,cat,name,price,inStock,author,series_t,sequence_i,genre_s
@@ -66,7 +70,6 @@ class CsvIndexingTest {
     @Test
     void testCreateSchemalessDocumentsFromCsvWithEmptyValues() throws Exception {
         // Given
-        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
         
         String csvData = """
             id,name,description
@@ -103,7 +106,6 @@ class CsvIndexingTest {
     @Test
     void testCreateSchemalessDocumentsFromCsvWithQuotedValues() throws Exception {
         // Given
-        IndexingDocumentCreator indexingDocumentCreator = new IndexingDocumentCreator();
         
         String csvData = """
             id,name,description

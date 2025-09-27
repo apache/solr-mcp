@@ -1,8 +1,10 @@
-package org.apache.solr.mcp.server;
+package org.apache.solr.mcp.server.indexing;
 
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.mcp.server.SolrConfigurationProperties;
+import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
