@@ -1,125 +1,221 @@
 package org.apache.solr.mcp.server.metadata;
 
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.impl.Http2SolrClient;
-import org.apache.solr.client.solrj.request.CollectionAdminRequest;
-import org.apache.solr.client.solrj.response.CollectionAdminResponse;
-import org.junit.jupiter.api.BeforeAll;
+import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.client.solrj.response.LukeResponse;
+import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.client.solrj.response.SolrPingResponse;
+import org.apache.solr.common.SolrDocumentList;
+import org.apache.solr.common.util.NamedList;
+import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.SolrContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 
-@SpringBootTest
-@Testcontainers
+@ExtendWith(MockitoExtension.class)
 class CollectionServiceTest {
 
-    @Container
-    static SolrContainer solrContainer = new SolrContainer(DockerImageName.parse("solr:9.4.1"));
+    @Mock
+    private SolrClient solrClient;
+    @Mock
+    private SolrConfigurationProperties solrConfigurationProperties;
+    @Mock
+    private QueryResponse queryResponse;
+    @Mock
+    private LukeResponse lukeResponse;
+    @Mock
+    private SolrPingResponse pingResponse;
 
-    @Autowired
     private CollectionService collectionService;
 
-    @Autowired
-    private SolrClient solrClient;
-
-    private static final String TEST_COLLECTION = "test_collection";
-
-    @DynamicPropertySource
-    static void registerSolrProperties(DynamicPropertyRegistry registry) {
-        registry.add("solr.url", () -> "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/");
+    @BeforeEach
+    void setUp() {
+        collectionService = new CollectionService(solrClient, solrConfigurationProperties);
     }
 
-    @BeforeAll
-    static void setup() throws Exception {
-        // Wait for Solr container to be ready
-        assertTrue(solrContainer.isRunning(), "Solr container should be running");
+    // Collection name extraction tests
+    @Test
+    void testExtractCollectionName() {
+        assertEquals("films", collectionService.extractCollectionName("films_shard1_replica_n1"));
+        assertEquals("simple_collection", collectionService.extractCollectionName("simple_collection"));
+        assertNull(collectionService.extractCollectionName(null));
+        assertEquals("", collectionService.extractCollectionName(""));
+        assertEquals("", collectionService.extractCollectionName("_shard1_replica_n1"));
+    }
 
-        // Create a test collection
-        String solrUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/";
-        SolrClient client = new Http2SolrClient.Builder(solrUrl).build();
+    // Query stats tests
+    @Test
+    void testBuildQueryStats() {
+        SolrDocumentList results = new SolrDocumentList();
+        results.setNumFound(1500L);
+        results.setStart(0L);
+        results.setMaxScore(0.95f);
 
-        try {
-            // Create a collection for testing
-            CollectionAdminRequest.Create createRequest = CollectionAdminRequest.createCollection(TEST_COLLECTION, "_default", 1, 1);
-            client.request(createRequest);
+        when(queryResponse.getQTime()).thenReturn(25);
+        when(queryResponse.getResults()).thenReturn(results);
 
-            // Verify collection was created successfully
-            CollectionAdminRequest.List listRequest = new CollectionAdminRequest.List();
-            CollectionAdminResponse listResponse = listRequest.process(client);
+        QueryStats result = collectionService.buildQueryStats(queryResponse);
 
-            System.out.println("[DEBUG_LOG] Test collection created: " + TEST_COLLECTION);
-        } catch (Exception e) {
-            System.err.println("[DEBUG_LOG] Error creating test collection: " + e.getMessage());
-            throw e;
-        } finally {
-            client.close();
-        }
+        assertEquals(25, result.getQueryTime());
+        assertEquals(1500L, result.getTotalResults());
+        assertEquals(0L, result.getStart());
+        assertEquals(0.95f, result.getMaxScore());
+    }
+
+    // Index stats tests
+    @Test
+    void testBuildIndexStats() {
+        NamedList<Object> indexInfo = new NamedList<>();
+        indexInfo.add("segmentCount", 5);
+        when(lukeResponse.getIndexInfo()).thenReturn(indexInfo);
+        when(lukeResponse.getNumDocs()).thenReturn(1000);
+
+        IndexStats result = collectionService.buildIndexStats(lukeResponse);
+
+        assertEquals(1000, result.getNumDocs());
+        assertEquals(5, result.getSegmentCount());
+    }
+
+    // Health check tests
+    @Test
+    void testCheckHealth_Success() throws Exception {
+        when(pingResponse.getElapsedTime()).thenReturn(50L);
+        when(solrClient.ping("test_collection")).thenReturn(pingResponse);
+
+        SolrDocumentList results = new SolrDocumentList();
+        results.setNumFound(1000L);
+        when(queryResponse.getResults()).thenReturn(results);
+        when(solrClient.query(eq("test_collection"), any())).thenReturn(queryResponse);
+
+        SolrHealthStatus result = collectionService.checkHealth("test_collection");
+
+        assertTrue(result.isHealthy());
+        assertEquals(50L, result.getResponseTime());
+        assertEquals(1000L, result.getTotalDocuments());
+        assertNull(result.getErrorMessage());
     }
 
     @Test
-    void testListCollections() {
-        // Test listing collections
-        List<String> collections = collectionService.listCollections();
+    void testCheckHealth_Failure() throws Exception {
+        when(solrClient.ping("bad_collection"))
+                .thenThrow(new SolrServerException("Collection not found"));
 
-        // Print the collections for debugging
-        System.out.println("[DEBUG_LOG] Collections: " + collections);
+        SolrHealthStatus result = collectionService.checkHealth("bad_collection");
 
-        // The test should not throw any exceptions
-        assertNotNull(collections, "Collections list should not be null");
+        assertFalse(result.isHealthy());
+        assertTrue(result.getErrorMessage().contains("Collection not found"));
+        assertNull(result.getResponseTime());
     }
 
-
+    // Collection validation tests
     @Test
-    void testGetCollectionStats() throws Exception {
-        // Test getting collection stats
-        SolrMetrics metrics = collectionService.getCollectionStats(TEST_COLLECTION);
+    void testGetCollectionStats_NotFound() throws Exception {
+        CollectionService spyService = spy(collectionService);
+        doReturn(Collections.emptyList()).when(spyService).listCollections();
 
-        // Verify that the metrics objects are not null
-        assertNotNull(metrics, "Collection stats should not be null");
-        assertNotNull(metrics.getIndexStats(), "Index stats should not be null");
-        assertNotNull(metrics.getTimestamp(), "Timestamp should not be null");
-    }
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> spyService.getCollectionStats("non_existent"));
 
-    @Test
-    void testCheckHealthHealthy() {
-        // Test checking health of a valid collection
-        SolrHealthStatus status = collectionService.checkHealth(TEST_COLLECTION);
-
-        // Print the status for debugging
-        System.out.println("[DEBUG_LOG] Health status for valid collection: " + status);
-
-        // Verify the health status
-        assertNotNull(status, "Health status should not be null");
-        assertTrue(status.isHealthy(), "Collection should be healthy");
-        assertNotNull(status.getResponseTime(), "Response time should not be null");
-        assertNotNull(status.getTotalDocuments(), "Total documents should not be null");
-        assertNotNull(status.getLastChecked(), "Last checked timestamp should not be null");
-        assertNull(status.getErrorMessage(), "Error message should be null for healthy collection");
+        assertTrue(exception.getMessage().contains("Collection not found: non_existent"));
     }
 
     @Test
-    void testCheckHealthUnhealthy() {
-        // Test checking health of an invalid collection
-        String nonExistentCollection = "non_existent_collection";
-        SolrHealthStatus status = collectionService.checkHealth(nonExistentCollection);
+    void testValidateCollectionExists() throws Exception {
+        CollectionService spyService = spy(collectionService);
+        List<String> collections = Arrays.asList("collection1", "films_shard1_replica_n1");
+        doReturn(collections).when(spyService).listCollections();
 
-        // Print the status for debugging
-        System.out.println("[DEBUG_LOG] Health status for invalid collection: " + status);
+        Method method = CollectionService.class.getDeclaredMethod("validateCollectionExists", String.class);
+        method.setAccessible(true);
 
-        // Verify the health status
-        assertNotNull(status, "Health status should not be null");
-        assertFalse(status.isHealthy(), "Collection should not be healthy");
-        assertNotNull(status.getLastChecked(), "Last checked timestamp should not be null");
-        assertNotNull(status.getErrorMessage(), "Error message should not be null for unhealthy collection");
+        assertTrue((boolean) method.invoke(spyService, "collection1"));
+        assertTrue((boolean) method.invoke(spyService, "films"));
+        assertFalse((boolean) method.invoke(spyService, "non_existent"));
+    }
+
+    // Cache stats tests
+    @Test
+    void testExtractCacheStats() throws Exception {
+        NamedList<Object> mbeans = createMockCacheData();
+        Method method = CollectionService.class.getDeclaredMethod("extractCacheStats", NamedList.class);
+        method.setAccessible(true);
+
+        CacheStats result = (CacheStats) method.invoke(collectionService, mbeans);
+
+        assertNotNull(result.getQueryResultCache());
+        assertEquals(100L, result.getQueryResultCache().getLookups());
+        assertEquals(80L, result.getQueryResultCache().getHits());
+    }
+
+    @Test
+    void testIsCacheStatsEmpty() throws Exception {
+        Method method = CollectionService.class.getDeclaredMethod("isCacheStatsEmpty", CacheStats.class);
+        method.setAccessible(true);
+
+        CacheStats emptyStats = CacheStats.builder().build();
+        assertTrue((boolean) method.invoke(collectionService, emptyStats));
+        assertTrue((boolean) method.invoke(collectionService, (CacheStats) null));
+
+        CacheStats nonEmptyStats = CacheStats.builder()
+                .queryResultCache(CacheInfo.builder().lookups(100L).build())
+                .build();
+        assertFalse((boolean) method.invoke(collectionService, nonEmptyStats));
+    }
+
+    // Handler stats tests
+    @Test
+    void testExtractHandlerStats() throws Exception {
+        NamedList<Object> mbeans = createMockHandlerData();
+        Method method = CollectionService.class.getDeclaredMethod("extractHandlerStats", NamedList.class);
+        method.setAccessible(true);
+
+        HandlerStats result = (HandlerStats) method.invoke(collectionService, mbeans);
+
+        assertNotNull(result.getSelectHandler());
+        assertEquals(500L, result.getSelectHandler().getRequests());
+    }
+
+    // Helper methods
+    private NamedList<Object> createMockCacheData() {
+        NamedList<Object> mbeans = new NamedList<>();
+        NamedList<Object> cacheCategory = new NamedList<>();
+        NamedList<Object> queryResultCache = new NamedList<>();
+        NamedList<Object> queryStats = new NamedList<>();
+
+        queryStats.add("lookups", 100L);
+        queryStats.add("hits", 80L);
+        queryStats.add("hitratio", 0.8f);
+        queryResultCache.add("stats", queryStats);
+        cacheCategory.add("queryResultCache", queryResultCache);
+        mbeans.add("CACHE", cacheCategory);
+
+        return mbeans;
+    }
+
+    private NamedList<Object> createMockHandlerData() {
+        NamedList<Object> mbeans = new NamedList<>();
+        NamedList<Object> queryHandlerCategory = new NamedList<>();
+        NamedList<Object> selectHandler = new NamedList<>();
+        NamedList<Object> selectStats = new NamedList<>();
+
+        selectStats.add("requests", 500L);
+        selectStats.add("errors", 5L);
+        selectHandler.add("stats", selectStats);
+        queryHandlerCategory.add("/select", selectHandler);
+        mbeans.add("QUERYHANDLER", queryHandlerCategory);
+
+        return mbeans;
     }
 }
