@@ -6,7 +6,7 @@ import io.modelcontextprotocol.client.transport.StdioClientTransport;
 
 import java.io.File;
 
-// run after project has been built with "./gradlew build -x test"
+// run after project has been built with "./gradlew build -x test and the mcp server jar is connected to a running solr"
 public class ClientStdio {
 
     public static void main(String[] args) {
