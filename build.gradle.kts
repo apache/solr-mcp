@@ -2,11 +2,11 @@ import net.ltgt.gradle.errorprone.errorprone
 
 plugins {
     java
-    id("org.springframework.boot") version "3.5.6"
-    id("io.spring.dependency-management") version "1.1.7"
+    alias(libs.plugins.spring.boot)
+    alias(libs.plugins.spring.dependency.management)
     jacoco
-    id("org.sonarqube") version "6.2.0.5505"
-    id("net.ltgt.errorprone") version "4.2.0"
+    alias(libs.plugins.sonarqube)
+    alias(libs.plugins.errorprone)
 }
 
 group = "org.apache.solr"
@@ -28,47 +28,35 @@ repositories {
     mavenCentral()
 }
 
-extra["springAiVersion"] = "1.0.2"
-
-
 dependencies {
+    annotationProcessor(libs.spring.boot.configuration.processor)
+    annotationProcessor(libs.lombok)
 
-    implementation("org.springframework.ai:spring-ai-starter-mcp-server")
-    implementation("org.apache.solr:solr-solrj:9.8.1") {
+    compileOnly(libs.lombok)
+
+    developmentOnly(libs.bundles.spring.boot.dev)
+
+    implementation(libs.spring.ai.starter.mcp.server)
+    implementation(libs.solr.solrj) {
         exclude(group = "org.apache.httpcomponents")
     }
-    implementation("org.apache.commons:commons-csv:1.10.0")
-
+    implementation(libs.commons.csv)
     // JSpecify for nullability annotations
-    implementation("org.jspecify:jspecify:1.0.0")
+    implementation(libs.jspecify)
 
-    annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
     // Error Prone and NullAway for null safety analysis
-    errorprone("com.google.errorprone:error_prone_core:2.38.0")
-    errorprone("com.uber.nullaway:nullaway:0.12.7")
+    errorprone(libs.errorprone.core)
+    errorprone(libs.nullaway)
 
-    compileOnly("org.projectlombok:lombok")
-
-    annotationProcessor("org.projectlombok:lombok")
-
-    developmentOnly("org.springframework.boot:spring-boot-docker-compose")
-    developmentOnly("org.springframework.ai:spring-ai-spring-boot-docker-compose")
-
-    testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation("org.springframework.ai:spring-ai-spring-boot-testcontainers")
-    testImplementation("org.testcontainers:junit-jupiter")
-    testImplementation("org.testcontainers:solr:1.21.3")
-    testImplementation("org.springframework.ai:spring-ai-starter-mcp-client")
-
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation(libs.bundles.test)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 dependencyManagement {
     imports {
-        mavenBom("org.springframework.ai:spring-ai-bom:${property("springAiVersion")}")
+        mavenBom("org.springframework.ai:spring-ai-bom:${libs.versions.spring.ai.get()}")
         // Align Jetty family to 10.x compatible with SolrJ 9.x
-        mavenBom("org.eclipse.jetty:jetty-bom:10.0.22")
+        mavenBom("org.eclipse.jetty:jetty-bom:${libs.versions.jetty.get()}")
     }
 }
 

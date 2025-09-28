@@ -16,7 +16,7 @@ The server provides the following capabilities:
 
 - Java 21 or higher
 - Docker and Docker Compose (for running Solr)
-- Gradle (for building the project)
+- Gradle 8.5+ (wrapper included in project)
 
 ## Installation and Setup
 
@@ -37,11 +37,26 @@ This will start a Solr instance in SolrCloud mode with ZooKeeper and create two 
 - `books` - A collection with sample book data
 - `films` - A collection with sample film data
 
-### 3. Build
+### 3. Build the Project
+
+This project uses Gradle with version catalogs for dependency management. All dependencies and their versions are
+centrally managed in `gradle/libs.versions.toml`.
 
 ```bash
+# Build the project and run tests
 ./gradlew build
+
+# Build without tests (faster)
+./gradlew assemble
+
+# Clean and rebuild
+./gradlew clean build
 ```
+
+The build produces two JAR files in `build/libs/`:
+
+- `solr-mcp-server-0.0.1-SNAPSHOT.jar` - Executable JAR with all dependencies (fat JAR)
+- `solr-mcp-server-0.0.1-SNAPSHOT-plain.jar` - Plain JAR without dependencies
 
 ## Available Tools
 
@@ -129,34 +144,39 @@ To add this MCP server to Claude Desktop:
 ./gradlew build
 ```
 
-2. In Claude Desktop, go to Settings > Tools > Add Tool
+2. In Claude Desktop, go to Settings > Developer > Edit Config
 
-3. Select "MCP Server" as the tool type
+3. Add the following configuration to your MCP settings:
 
-4. Configure the tool:
-   - Name: Solr MCP Server
-   - Description: Tools for interacting with Apache Solr
-   - Command: java -jar /path/to/solr-mcp-server-0.0.1-SNAPSHOT.jar
-   - Working Directory: /path/to/solr-mcp-server
-
-5. Click "Add Tool"
-
-Alternatively, you can add the following configuration to your MCP client configuration file:
-
-```
-"solr-search-mcp": {
-  "command": "~/.sdkman/candidates/java/current/bin/java",
-  "args": [
-    "-jar",
-    "~/solr-mcp-server/build/libs/solr-mcp-server-0.0.1-SNAPSHOT.jar"
-  ],
-  "env": {
-    "SOLR_URL": "http://localhost:8983/solr/"
+```json
+{
+    "mcpServers": {
+        "solr-search-mcp": {
+            "command": "java",
+            "args": [
+                "-jar",
+                "/absolute/path/to/solr-mcp-server/build/libs/solr-mcp-server-0.0.1-SNAPSHOT.jar"
+            ],
+            "env": {
+                "SOLR_URL": "http://localhost:8983/solr/"
+            }
+        }
   }
 }
 ```
 
-Note: Adjust the paths to match your Java installation and project location.
+**Note:** Replace `/absolute/path/to/solr-mcp-server` with the actual path to your project directory.
+
+## Testing with MCP Inspector
+
+For development and testing, you can use the [MCP Inspector](https://github.com/modelcontextprotocol/inspector):
+
+```bash
+# Install the MCP Inspector (requires Node.js)
+npx @modelcontextprotocol/inspector java -jar build/libs/solr-mcp-server-0.0.1-SNAPSHOT.jar
+```
+
+This provides a web interface to test MCP tools interactively.
 
 ## Usage Examples
 

@@ -1,0 +1,86 @@
+[versions]
+# Build plugins
+spring-boot = "3.5.6"
+spring-dependency-management = "1.1.7"
+sonarqube = "6.2.0.5505"
+errorprone-plugin = "4.2.0"
+
+# Main dependencies
+spring-ai = "1.0.2"
+solr = "9.8.1"
+commons-csv = "1.10.0"
+jspecify = "1.0.0"
+
+# Error Prone and analysis tools
+errorprone-core = "2.38.0"
+nullaway = "0.12.7"
+
+# Jetty BOM version
+jetty = "10.0.22"
+
+# Test dependencies
+testcontainers = "1.21.3"
+
+[libraries]
+# Spring AI
+spring-ai-starter-mcp-server = { module = "org.springframework.ai:spring-ai-starter-mcp-server" }
+spring-ai-starter-mcp-client = { module = "org.springframework.ai:spring-ai-starter-mcp-client" }
+spring-ai-spring-boot-docker-compose = { module = "org.springframework.ai:spring-ai-spring-boot-docker-compose" }
+spring-ai-spring-boot-testcontainers = { module = "org.springframework.ai:spring-ai-spring-boot-testcontainers" }
+
+# Solr
+solr-solrj = { module = "org.apache.solr:solr-solrj", version.ref = "solr" }
+
+# Apache Commons
+commons-csv = { module = "org.apache.commons:commons-csv", version.ref = "commons-csv" }
+
+# Null safety
+jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
+
+# Error Prone
+errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorprone-core" }
+nullaway = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }
+
+# Spring Boot
+spring-boot-configuration-processor = { module = "org.springframework.boot:spring-boot-configuration-processor" }
+spring-boot-docker-compose = { module = "org.springframework.boot:spring-boot-docker-compose" }
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
+
+# Lombok
+lombok = { module = "org.projectlombok:lombok" }
+
+# Test dependencies
+testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter" }
+testcontainers-solr = { module = "org.testcontainers:solr", version.ref = "testcontainers" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+
+[bundles]
+spring-ai = [
+    "spring-ai-starter-mcp-server"
+]
+
+spring-boot-dev = [
+    "spring-boot-docker-compose",
+    "spring-ai-spring-boot-docker-compose"
+]
+
+test = [
+    "spring-boot-starter-test",
+    "spring-boot-testcontainers",
+    "spring-ai-spring-boot-testcontainers",
+    "testcontainers-junit-jupiter",
+    "testcontainers-solr",
+    "spring-ai-starter-mcp-client"
+]
+
+errorprone = [
+    "errorprone-core",
+    "nullaway"
+]
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
+sonarqube = { id = "org.sonarqube", version.ref = "sonarqube" }
+errorprone = { id = "net.ltgt.errorprone", version.ref = "errorprone-plugin" }
