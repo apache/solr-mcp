@@ -1,4 +1,4 @@
-package org.apache.solr.mcp.server;
+package org.apache.solr.mcp.server.search;
 
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
@@ -68,6 +68,8 @@ import java.util.Map;
 @Service
 public class SearchService {
 
+    public static final String SORT_ITEM = "item";
+    public static final String SORT_ORDER = "order";
     private final SolrClient solrClient;
 
     /**
@@ -190,7 +192,7 @@ public class SearchService {
             @ToolParam(description = "Solr q parameter. If none specified defaults to \"*:*\"", required = false) String query,
             @ToolParam(description = "Solr fq parameter", required = false) List<String> filterQueries,
             @ToolParam(description = "Solr facet fields", required = false) List<String> facetFields,
-            @ToolParam(description = "Solr sort parameter", required = false) List<SolrQuery.SortClause> sortClauses,
+            @ToolParam(description = "Solr sort parameter", required = false) List<Map<String, String>> sortClauses,
             @ToolParam(description = "Starting offset for pagination", required = false) Integer start,
             @ToolParam(description = "Number of rows to return", required = false) Integer rows)
             throws SolrServerException, IOException {
@@ -216,7 +218,10 @@ public class SearchService {
 
         // sorting
         if (!CollectionUtils.isEmpty(sortClauses)) {
-            solrQuery.setSorts(sortClauses);
+            solrQuery.setSorts(sortClauses.stream()
+                    .map(sortClause -> new SolrQuery.SortClause(sortClause.get(SORT_ITEM),
+                            sortClause.get(SORT_ORDER)))
+                    .toList());
         }
 
         // pagination

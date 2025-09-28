@@ -1,8 +1,9 @@
-package org.apache.solr.mcp.server;
+package org.apache.solr.mcp.server.search;
 
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.mcp.server.indexing.IndexingService;
+import org.apache.solr.mcp.server.metadata.CollectionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -160,8 +161,9 @@ class SearchServiceTest {
         }
 
         // Test sorting by price in ascending order
-        List<SolrQuery.SortClause> sortClauses = new ArrayList<>();
-        sortClauses.add(SolrQuery.SortClause.create("price", SolrQuery.ORDER.asc));
+        List<Map<String, String>> sortClauses = List.of(
+                Map.of("item", "price", "order", "asc")
+        );
 
         SearchResponse result = searchService.search(
                 COLLECTION_NAME, null, null, null, sortClauses, null, null);
@@ -193,8 +195,9 @@ class SearchServiceTest {
         }
 
         // Test sorting by price in descending order
-        List<SolrQuery.SortClause> sortClauses = new ArrayList<>();
-        sortClauses.add(SolrQuery.SortClause.create("price", SolrQuery.ORDER.desc));
+        List<Map<String, String>> sortClauses = List.of(
+                Map.of("item", "price", "order", "desc")
+        );
 
         SearchResponse result = searchService.search(
                 COLLECTION_NAME, null, null, null, sortClauses, null, null);
@@ -226,8 +229,9 @@ class SearchServiceTest {
         }
 
         // Test sorting by sequence_i field
-        List<SolrQuery.SortClause> sortClauses = new ArrayList<>();
-        sortClauses.add(SolrQuery.SortClause.create("sequence_i", SolrQuery.ORDER.asc));
+        List<Map<String, String>> sortClauses = List.of(
+                Map.of("item", "sequence_i", "order", "asc")
+        );
 
         // Filter to only get books from the same series to test sequence sorting
         List<String> filterQueries = List.of("series_t:\"A Song of Ice and Fire\"");
@@ -317,8 +321,9 @@ class SearchServiceTest {
         }
 
         // Test combining sorting and filtering
-        List<SolrQuery.SortClause> sortClauses = new ArrayList<>();
-        sortClauses.add(SolrQuery.SortClause.create("price", SolrQuery.ORDER.desc));
+        List<Map<String, String>> sortClauses = List.of(
+                Map.of("item", "price", "order", "desc")
+        );
 
         List<String> filterQueries = List.of("genre_s:fantasy");
 

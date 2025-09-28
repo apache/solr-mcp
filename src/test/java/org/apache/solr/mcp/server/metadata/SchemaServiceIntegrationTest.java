@@ -1,4 +1,4 @@
-package org.apache.solr.mcp.server;
+package org.apache.solr.mcp.server.metadata;
 
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.Http2SolrClient;

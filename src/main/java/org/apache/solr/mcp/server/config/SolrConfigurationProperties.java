@@ -1,4 +1,4 @@
-package org.apache.solr.mcp.server;
+package org.apache.solr.mcp.server.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

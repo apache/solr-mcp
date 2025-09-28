@@ -1,4 +1,4 @@
-package org.apache.solr.mcp.server;
+package org.apache.solr.mcp.server.metadata;
 
 import org.apache.solr.common.util.NamedList;
 
@@ -36,7 +36,7 @@ import org.apache.solr.common.util.NamedList;
  * @see org.apache.solr.common.util.NamedList
  * @see CollectionService
  */
-public class Utils {
+public class CollectionUtils {
 
     /**
      * Extracts a Long value from a NamedList using the specified key with robust type conversion.

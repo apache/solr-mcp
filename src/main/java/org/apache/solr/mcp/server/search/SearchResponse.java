@@ -1,4 +1,4 @@
-package org.apache.solr.mcp.server;
+package org.apache.solr.mcp.server.search;
 
 import java.util.List;
 import java.util.Map;

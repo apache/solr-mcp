@@ -1,9 +1,16 @@
-package org.apache.solr.mcp.server;
+package org.apache.solr.mcp.server.indexing;
 
-import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
+import org.apache.solr.mcp.server.indexing.documentcreator.CsvDocumentCreator;
+import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
+import org.apache.solr.mcp.server.indexing.documentcreator.JsonDocumentCreator;
+import org.apache.solr.mcp.server.indexing.documentcreator.XmlDocumentCreator;
+import org.apache.solr.mcp.server.metadata.CollectionService;
+import org.apache.solr.mcp.server.search.SearchResponse;
+import org.apache.solr.mcp.server.search.SearchService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.SolrContainer;
@@ -13,6 +20,7 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -20,8 +28,11 @@ import static org.junit.jupiter.api.Assertions.*;
 class IndexingServiceTest {
 
     private static final String COLLECTION_NAME = "indexing_test_" + System.currentTimeMillis();
+
     @Container
     static SolrContainer solrContainer = new SolrContainer(DockerImageName.parse("solr:9.4.1"));
+
+    private IndexingDocumentCreator indexingDocumentCreator;
     private IndexingService indexingService;
     private SearchService searchService;
     private SolrClient solrClient;
@@ -40,13 +51,23 @@ class IndexingServiceTest {
         // Initialize services
         SolrConfigurationProperties properties = new SolrConfigurationProperties(solrUrl);
         collectionService = new CollectionService(solrClient, properties);
-        indexingService = new IndexingService(solrClient, properties);
+
+        // Create processor instances and wire them manually since this is not a Spring Boot test
+        XmlDocumentCreator xmlDocumentCreator = new XmlDocumentCreator();
+        CsvDocumentCreator csvDocumentCreator = new CsvDocumentCreator();
+        JsonDocumentCreator jsonDocumentCreator = new JsonDocumentCreator();
+
+        indexingDocumentCreator = new IndexingDocumentCreator(xmlDocumentCreator,
+                csvDocumentCreator,
+                jsonDocumentCreator);
+        
+        indexingService = new IndexingService(solrClient, properties, indexingDocumentCreator);
         searchService = new SearchService(solrClient);
     }
 
 
     @Test
-    void testCreateSchemalessDocuments() throws Exception {
+    void testCreateSchemalessDocumentsFromJson() throws Exception {
         // Test JSON string
         String json = """
                 [
@@ -65,7 +86,7 @@ class IndexingServiceTest {
                 """;
 
         // Create documents
-        List<SolrInputDocument> documents = indexingService.createSchemalessDocuments(json);
+        List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
 
         // Verify documents were created correctly
         assertNotNull(documents);
@@ -165,7 +186,7 @@ class IndexingServiceTest {
             Object idValue = book.get("id");
             String id;
             if (idValue instanceof List) {
-                id = (String) ((List<?>) idValue).get(0);
+                id = (String) ((List<?>) idValue).getFirst();
             } else {
                 id = (String) idValue;
             }
@@ -648,7 +669,7 @@ class IndexingServiceTest {
                 """;
 
         // Create documents
-        List<SolrInputDocument> documents = indexingService.createSchemalessDocuments(json);
+        List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
 
         // Verify no documents were created since input is not an array
         assertNotNull(documents);
@@ -672,13 +693,13 @@ class IndexingServiceTest {
                 """;
 
         // Create documents
-        List<SolrInputDocument> documents = indexingService.createSchemalessDocuments(json);
+        List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
 
         // Verify documents were created correctly
         assertNotNull(documents);
         assertEquals(1, documents.size());
 
-        SolrInputDocument doc = documents.get(0);
+        SolrInputDocument doc = documents.getFirst();
         assertEquals("value_types_001", doc.getFieldValue("id"));
 
         // Verify each value type was converted correctly
@@ -709,13 +730,13 @@ class IndexingServiceTest {
                 """;
 
         // Create documents
-        List<SolrInputDocument> documents = indexingService.createSchemalessDocuments(json);
+        List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
 
         // Verify documents were created correctly
         assertNotNull(documents);
         assertEquals(1, documents.size());
 
-        SolrInputDocument doc = documents.get(0);
+        SolrInputDocument doc = documents.getFirst();
 
         // Verify field names were sanitized correctly
         assertEquals("field_names_001", doc.getFieldValue("id"));

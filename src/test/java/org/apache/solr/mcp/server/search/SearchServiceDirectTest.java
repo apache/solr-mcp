@@ -1,4 +1,4 @@
-package org.apache.solr.mcp.server;
+package org.apache.solr.mcp.server.search;
 
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
@@ -254,8 +254,8 @@ class SearchServiceDirectTest {
         // Test with all parameters
         List<String> filterQueries = List.of("price:[10 TO 15]");
         List<String> facetFields2 = List.of("genre_s", "author");
-        List<SolrQuery.SortClause> sortClauses = List.of(
-            SolrQuery.SortClause.create("price", SolrQuery.ORDER.desc)
+        List<Map<String, String>> sortClauses = List.of(
+                Map.of("item", "price", "order", "desc")
         );
 
         SearchResponse result = searchService.search(

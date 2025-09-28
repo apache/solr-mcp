@@ -1,5 +1,9 @@
 package org.apache.solr.mcp.server;
 
+import org.apache.solr.mcp.server.indexing.IndexingService;
+import org.apache.solr.mcp.server.metadata.CollectionService;
+import org.apache.solr.mcp.server.metadata.SchemaService;
+import org.apache.solr.mcp.server.search.SearchService;
 import org.springframework.ai.support.ToolCallbacks;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.boot.SpringApplication;
