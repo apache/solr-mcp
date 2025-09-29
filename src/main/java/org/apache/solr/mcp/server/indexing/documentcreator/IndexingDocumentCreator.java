@@ -23,11 +23,11 @@ import java.util.List;
  *   <li><strong>Field Sanitization</strong>: Automatic cleanup of field names for Solr compatibility</li>
  * </ul>
  *
- * @author Solr MCP Server
- * @version 1.0
+ * @author adityamparikh
+ * @version 0.0.1
  * @see SolrInputDocument
  * @see IndexingService
- * @since 1.0
+ * @since 0.0.1
  */
 @Service
 public class IndexingDocumentCreator {

@@ -56,10 +56,10 @@ import java.util.Map;
  * <p>Returns structured {@link SearchResponse} objects that encapsulate search results,
  * metadata, and facet information in a format optimized for JSON serialization and
  * consumption by AI clients.</p>
- * 
- * @author Solr MCP Server
- * @version 1.0
- * @since 1.0
+ *
+ * @author adityamparikh
+ * @version 0.0.1
+ * @since 0.0.1
  * 
  * @see SearchResponse
  * @see SolrClient

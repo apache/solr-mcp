@@ -65,10 +65,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * during SolrClient bean creation.</p>
  * 
  * @param url the base URL of the Apache Solr server (required, non-null)
- * 
- * @author Solr MCP Server
- * @version 1.0
- * @since 1.0
+ *
+ * @author adityamparikh
+ * @version 0.0.1
+ * @since 0.0.1
  * 
  * @see SolrConfig
  * @see org.springframework.boot.context.properties.ConfigurationProperties

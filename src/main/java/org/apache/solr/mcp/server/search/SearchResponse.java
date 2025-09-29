@@ -80,10 +80,10 @@ import java.util.Map;
  * @param maxScore highest relevance score among the returned documents (null if scoring disabled)
  * @param documents list of document maps containing field names and values for each result
  * @param facets nested map structure containing facet field names, values, and document counts
- * 
- * @author Solr MCP Server
- * @version 1.0
- * @since 1.0
+ *
+ * @author adityamparikh
+ * @version 0.0.1
+ * @since 0.0.1
  * 
  * @see SearchService#search(String, String, List, List, List, Integer, Integer)
  * @see org.apache.solr.client.solrj.response.QueryResponse
