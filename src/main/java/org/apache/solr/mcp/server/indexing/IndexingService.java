@@ -59,10 +59,10 @@ import java.util.List;
  * List<SolrInputDocument> docs = indexingService.createSchemalessDocuments(jsonData);
  * int successful = indexingService.indexDocuments("my_collection", docs);
  * }</pre>
- * 
- * @author Solr MCP Server
- * @version 1.0
- * @since 1.0
+ *
+ * @author adityamparikh
+ * @version 0.0.1
+ * @since 0.0.1
  * 
  * @see SolrInputDocument
  * @see SolrClient

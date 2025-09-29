@@ -28,10 +28,10 @@ import org.apache.solr.common.util.NamedList;
  * <p><strong>Thread Safety:</strong></p>
  * <p>All methods in this utility class are stateless and thread-safe, making them
  * suitable for use in concurrent environments and Spring service beans.</p>
- * 
- * @author Solr MCP Server
- * @version 1.0
- * @since 1.0
+ *
+ * @author adityamparikh
+ * @version 0.0.1
+ * @since 0.0.1
  * 
  * @see org.apache.solr.common.util.NamedList
  * @see CollectionService

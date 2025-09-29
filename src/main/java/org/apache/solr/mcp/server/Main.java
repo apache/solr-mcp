@@ -68,10 +68,10 @@ import java.util.List;
  *   <li>Configure appropriate timeouts for production workloads</li>
  *   <li>Monitor application logs for connection and performance issues</li>
  * </ul>
- * 
- * @author Solr MCP Server
- * @version 1.0
- * @since 1.0
+ *
+ * @author adityamparikh
+ * @version 0.0.1
+ * @since 0.0.1
  * 
  * @see SearchService
  * @see IndexingService

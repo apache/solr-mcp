@@ -53,10 +53,10 @@ import java.util.concurrent.TimeUnit;
  *   <li>{@code http://localhost:8983/solr} → {@code http://localhost:8983/solr/}</li>
  *   <li>{@code http://localhost:8983/solr/} → {@code http://localhost:8983/solr/} (unchanged)</li>
  * </ul>
- * 
- * @author Solr MCP Server
- * @version 1.0
- * @since 1.0
+ *
+ * @author adityamparikh
+ * @version 0.0.1
+ * @since 0.0.1
  * 
  * @see SolrConfigurationProperties
  * @see Http2SolrClient

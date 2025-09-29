@@ -62,10 +62,10 @@ import org.springframework.stereotype.Service;
  *     System.out.println("Pattern: " + dynField.getName() + " Type: " + dynField.getType());
  * });
  * }</pre>
- * 
- * @author Solr MCP Server
- * @version 1.0
- * @since 1.0
+ *
+ * @author adityamparikh
+ * @version 0.0.1
+ * @since 0.0.1
  * 
  * @see SchemaRepresentation
  * @see org.apache.solr.client.solrj.request.schema.SchemaRequest

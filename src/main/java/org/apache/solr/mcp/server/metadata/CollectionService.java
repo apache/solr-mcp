@@ -66,10 +66,10 @@ import static org.apache.solr.mcp.server.metadata.CollectionUtils.*;
  * // Check collection health
  * SolrHealthStatus health = collectionService.checkHealth("my_collection");
  * }</pre>
- * 
- * @author Solr MCP Server
- * @version 1.0
- * @since 1.0
+ *
+ * @author adityamparikh
+ * @version 0.0.1
+ * @since 0.0.1
  * 
  * @see SolrMetrics
  * @see SolrHealthStatus

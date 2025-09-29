@@ -23,10 +23,10 @@ import java.util.Date;
  *   <li>Immutable builder pattern using {@code @Jacksonized} and {@code @Builder}</li>
  *   <li>ISO 8601 timestamp formatting for consistent date serialization</li>
  * </ul>
- * 
- * @author Solr MCP Server
- * @version 1.0
- * @since 1.0
+ *
+ * @author adityamparikh
+ * @version 0.0.1
+ * @since 0.0.1
  */
 
 /**
