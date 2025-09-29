@@ -55,6 +55,7 @@ import java.util.concurrent.TimeUnit;
  * </ul>
  *
  * @author adityamparikh
+ * @author dsmiley
  * @version 0.0.1
  * @since 0.0.1
  * 
