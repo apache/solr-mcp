@@ -12,6 +12,15 @@ The server provides the following capabilities:
 - Manage and monitor Solr collections
 - Retrieve and analyze Solr schema information
 
+### Transport Profiles
+
+The server supports two transport modes:
+
+- **STDIO (Standard Input/Output)** - Recommended for local development and production use with Claude Desktop. This is
+  the default and most secure option for local deployments.
+- **SSE (Server-Sent Events over HTTP)** - For testing with MCP Inspector and remote deployments. ⚠️ **Note:** HTTP/SSE
+  mode is inherently insecure without additional security measures (see Security Considerations below).
+
 ## Prerequisites
 
 - Java 21 or higher
@@ -158,7 +167,8 @@ To add this MCP server to Claude Desktop:
                 "/absolute/path/to/solr-mcp-server/build/libs/solr-mcp-server-0.0.1-SNAPSHOT.jar"
             ],
             "env": {
-                "SOLR_URL": "http://localhost:8983/solr/"
+                "SOLR_URL": "http://localhost:8983/solr/",
+                "PROFILES": "stdio"
             }
         }
   }
@@ -167,18 +177,41 @@ To add this MCP server to Claude Desktop:
 
 **Note:** Replace `/absolute/path/to/solr-mcp-server` with the actual path to your project directory.
 
+### 4. Restart Claude Desktop & Invoke
+
+![claude-stdio.png](images/claude-stdio.png)
+
 ## Testing with MCP Inspector
 
 For development and testing, you can use the [MCP Inspector](https://github.com/modelcontextprotocol/inspector):
 
 ```bash
 # Install the MCP Inspector (requires Node.js)
-npx @modelcontextprotocol/inspector java -jar build/libs/solr-mcp-server-0.0.1-SNAPSHOT.jar
+➜  ~ npx @modelcontextprotocol/inspector
+
+Starting MCP inspector...
+⚙️ Proxy server listening on localhost:6277
+🔑 Session token: 12345
+   Use this token to authenticate requests or set DANGEROUSLY_OMIT_AUTH=true to disable auth
+
+🚀 MCP Inspector is up and running at:
+   http://localhost:6274/?MCP_PROXY_AUTH_TOKEN=12345
+
+🌐 Opening browser...
 ```
 
 This provides a web interface to test MCP tools interactively.
+![mcp-inspector-stdio.png](images/mcp-inspector-stdio.png)
 
-## Usage Examples
+# HTTP Mode (SSE)
+
+![mcp-inspector-sse.png](images/mcp-inspector-sse.png)
+
+```shell
+./gradlew bootRun --args='--spring.profiles.active=sse'
+```
+
+## Tools Usage Examples
 
 Here are some examples of how to use the tools from an MCP client like Claude:
 
@@ -310,6 +343,50 @@ The 'books' collection has the following fields:
 - publish_date (date): Publication date
 ```
 
+## Security Considerations
+
+### STDIO Transport Security
+
+STDIO transport is the recommended option for local deployments because:
+
+- Communication occurs within the same machine through process pipes
+- No network exposure or open ports
+- OS-level process isolation provides security boundaries
+- Credentials are not exposed over the network
+
+### HTTP/SSE Transport Security Risks
+
+⚠️ **Warning**: The current HTTP/SSE implementation is **insecure** for production use without additional security
+measures.
+
+HTTP/SSE transport has the following security vulnerabilities when deployed without authentication:
+
+1. **No Authentication or Authorization**: By default, the SSE endpoints are publicly accessible without any
+   authentication mechanism
+2. **No Transport Encryption**: HTTP traffic is unencrypted and can be intercepted (use HTTPS in production)
+3. **No Origin Validation**: Without proper origin header validation, the server is vulnerable to DNS rebinding attacks
+4. **Network Exposure**: Unlike STDIO, HTTP endpoints are exposed over the network and accessible to any client that can
+   reach the server
+
+### Securing HTTP/SSE Deployments
+
+If you need to deploy the MCP server with HTTP/SSE transport for remote access, you **must** implement security
+controls:
+
+1. **Use HTTPS**: Always use TLS/SSL encryption for production deployments
+2. **Implement OAuth2 Authentication**: Follow
+   the [Spring AI MCP OAuth2 guide](https://spring.io/blog/2025/04/02/mcp-server-oauth2/) to add authentication
+3. **Validate Origin Headers**: Implement origin header validation to prevent DNS rebinding attacks
+4. **Network Isolation**: Deploy behind a firewall or VPN, restricting access to trusted networks
+5. **Use API Gateways**: Consider deploying behind an API gateway with authentication and rate limiting
+
+### Recommendation
+
+- **Local development/testing**: Use HTTP/SSE mode for testing with MCP Inspector, but only on localhost
+- **Claude Desktop integration**: Always use STDIO mode
+- **Production remote deployments**: Only use HTTP/SSE with OAuth2 authentication, HTTPS, and proper network security
+  controls
+
 ## Troubleshooting
 
 If you encounter issues:
@@ -317,6 +394,8 @@ If you encounter issues:
 1. Ensure Solr is running and accessible. By default, the server connects to http://localhost:8983/solr/, but you can set the `SOLR_URL` environment variable to point to a different Solr instance.
 2. Check the logs for any error messages
 3. Verify that the collections exist using the Solr Admin UI
+4. If using SSE mode, ensure the server is running on the expected port (default: 8080)
+5. For STDIO mode with Claude Desktop, verify the JAR path is absolute and correct in the configuration
 
 ## License
 
