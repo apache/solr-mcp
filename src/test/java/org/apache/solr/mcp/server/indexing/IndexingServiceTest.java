@@ -3,12 +3,10 @@ package org.apache.solr.mcp.server.indexing;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.common.SolrInputDocument;
-import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
 import org.apache.solr.mcp.server.indexing.documentcreator.CsvDocumentCreator;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
 import org.apache.solr.mcp.server.indexing.documentcreator.JsonDocumentCreator;
 import org.apache.solr.mcp.server.indexing.documentcreator.XmlDocumentCreator;
-import org.apache.solr.mcp.server.metadata.CollectionService;
 import org.apache.solr.mcp.server.search.SearchResponse;
 import org.apache.solr.mcp.server.search.SearchService;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,7 +34,6 @@ class IndexingServiceTest {
     private IndexingService indexingService;
     private SearchService searchService;
     private SolrClient solrClient;
-    private CollectionService collectionService;
     private boolean collectionCreated = false;
 
     @BeforeEach
@@ -48,10 +45,6 @@ class IndexingServiceTest {
                 .withIdleTimeout(60000, TimeUnit.MILLISECONDS)
                 .build();
 
-        // Initialize services
-        SolrConfigurationProperties properties = new SolrConfigurationProperties(solrUrl);
-        collectionService = new CollectionService(solrClient, properties);
-
         // Create processor instances and wire them manually since this is not a Spring Boot test
         XmlDocumentCreator xmlDocumentCreator = new XmlDocumentCreator();
         CsvDocumentCreator csvDocumentCreator = new CsvDocumentCreator();
@@ -60,8 +53,8 @@ class IndexingServiceTest {
         indexingDocumentCreator = new IndexingDocumentCreator(xmlDocumentCreator,
                 csvDocumentCreator,
                 jsonDocumentCreator);
-        
-        indexingService = new IndexingService(solrClient, properties, indexingDocumentCreator);
+
+        indexingService = new IndexingService(solrClient, indexingDocumentCreator);
         searchService = new SearchService(solrClient);
     }
 

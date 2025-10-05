@@ -75,9 +75,6 @@ public class IndexingService {
 
     /** SolrJ client for communicating with Solr server */
     private final SolrClient solrClient;
-    
-    /** Solr configuration properties for connection settings */
-    private final SolrConfigurationProperties solrConfigurationProperties;
 
     /**
      * Service for creating SolrInputDocument objects from various data formats
@@ -92,16 +89,13 @@ public class IndexingService {
      * Solr client and configuration components.</p>
      * 
      * @param solrClient the SolrJ client instance for communicating with Solr
-     * @param solrConfigurationProperties configuration properties for Solr connection
-     * 
+     *
      * @see SolrClient
      * @see SolrConfigurationProperties
      */
     public IndexingService(SolrClient solrClient,
-                           SolrConfigurationProperties solrConfigurationProperties,
                            IndexingDocumentCreator indexingDocumentCreator) {
         this.solrClient = solrClient;
-        this.solrConfigurationProperties = solrConfigurationProperties;
         this.indexingDocumentCreator = indexingDocumentCreator;
     }
 

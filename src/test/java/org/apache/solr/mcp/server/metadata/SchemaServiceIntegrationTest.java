@@ -77,8 +77,8 @@ class SchemaServiceIntegrationTest {
         assertNotNull(schema.getFieldTypes(), "Schema field types should not be null");
         
         // Verify basic schema properties
-        assertTrue(schema.getFields().size() > 0, "Schema should have at least some fields");
-        assertTrue(schema.getFieldTypes().size() > 0, "Schema should have at least some field types");
+        assertFalse(schema.getFields().isEmpty(), "Schema should have at least some fields");
+        assertFalse(schema.getFieldTypes().isEmpty(), "Schema should have at least some field types");
         
         // Check for common default fields in Solr
         boolean hasIdField = schema.getFields().stream()

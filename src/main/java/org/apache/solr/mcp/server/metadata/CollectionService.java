@@ -86,9 +86,6 @@ public class CollectionService {
     /** SolrJ client for communicating with Solr server */
     private final SolrClient solrClient;
 
-    /** Solr configuration properties */
-    private final SolrConfigurationProperties solrConfigurationProperties;
-
     /**
      * Constructs a new CollectionService with the required dependencies.
      * 
@@ -96,15 +93,12 @@ public class CollectionService {
      * framework during application startup.</p>
      * 
      * @param solrClient the SolrJ client instance for communicating with Solr
-     * @param solrConfigurationProperties configuration properties for Solr connection
-     * 
+     *
      * @see SolrClient
      * @see SolrConfigurationProperties
      */
-    public CollectionService(SolrClient solrClient,
-                             SolrConfigurationProperties solrConfigurationProperties) {
+    public CollectionService(SolrClient solrClient) {
         this.solrClient = solrClient;
-        this.solrConfigurationProperties = solrConfigurationProperties;
     }
 
     /**
