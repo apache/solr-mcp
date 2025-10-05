@@ -15,7 +15,10 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Integration test suite for SchemaService using real Solr containers.
@@ -77,8 +80,8 @@ class SchemaServiceIntegrationTest {
         assertNotNull(schema.getFieldTypes(), "Schema field types should not be null");
         
         // Verify basic schema properties
-        assertTrue(schema.getFields().size() > 0, "Schema should have at least some fields");
-        assertTrue(schema.getFieldTypes().size() > 0, "Schema should have at least some field types");
+        assertFalse(schema.getFields().isEmpty(), "Schema should have at least some fields");
+        assertFalse(schema.getFieldTypes().isEmpty(), "Schema should have at least some field types");
         
         // Check for common default fields in Solr
         boolean hasIdField = schema.getFields().stream()

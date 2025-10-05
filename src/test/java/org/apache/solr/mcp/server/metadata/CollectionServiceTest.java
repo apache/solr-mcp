@@ -7,7 +7,6 @@ import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.util.NamedList;
-import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,18 +18,23 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CollectionServiceTest {
 
     @Mock
     private SolrClient solrClient;
-    @Mock
-    private SolrConfigurationProperties solrConfigurationProperties;
     @Mock
     private QueryResponse queryResponse;
     @Mock
@@ -42,7 +46,7 @@ class CollectionServiceTest {
 
     @BeforeEach
     void setUp() {
-        collectionService = new CollectionService(solrClient, solrConfigurationProperties);
+        collectionService = new CollectionService(solrClient);
     }
 
     // Collection name extraction tests

@@ -9,7 +9,11 @@ import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.request.CoreAdminRequest;
 import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.LukeRequest;
-import org.apache.solr.client.solrj.response.*;
+import org.apache.solr.client.solrj.response.CollectionAdminResponse;
+import org.apache.solr.client.solrj.response.CoreAdminResponse;
+import org.apache.solr.client.solrj.response.LukeResponse;
+import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.params.CoreAdminParams;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
@@ -22,7 +26,9 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import static org.apache.solr.mcp.server.metadata.CollectionUtils.*;
+import static org.apache.solr.mcp.server.metadata.CollectionUtils.getFloat;
+import static org.apache.solr.mcp.server.metadata.CollectionUtils.getInteger;
+import static org.apache.solr.mcp.server.metadata.CollectionUtils.getLong;
 
 /**
  * Spring Service providing comprehensive Solr collection management and monitoring capabilities
@@ -86,9 +92,6 @@ public class CollectionService {
     /** SolrJ client for communicating with Solr server */
     private final SolrClient solrClient;
 
-    /** Solr configuration properties */
-    private final SolrConfigurationProperties solrConfigurationProperties;
-
     /**
      * Constructs a new CollectionService with the required dependencies.
      * 
@@ -96,15 +99,12 @@ public class CollectionService {
      * framework during application startup.</p>
      * 
      * @param solrClient the SolrJ client instance for communicating with Solr
-     * @param solrConfigurationProperties configuration properties for Solr connection
-     * 
+     *
      * @see SolrClient
      * @see SolrConfigurationProperties
      */
-    public CollectionService(SolrClient solrClient,
-                             SolrConfigurationProperties solrConfigurationProperties) {
+    public CollectionService(SolrClient solrClient) {
         this.solrClient = solrClient;
-        this.solrConfigurationProperties = solrConfigurationProperties;
     }
 
     /**
