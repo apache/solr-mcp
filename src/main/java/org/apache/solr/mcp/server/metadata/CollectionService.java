@@ -9,7 +9,11 @@ import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.request.CoreAdminRequest;
 import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.LukeRequest;
-import org.apache.solr.client.solrj.response.*;
+import org.apache.solr.client.solrj.response.CollectionAdminResponse;
+import org.apache.solr.client.solrj.response.CoreAdminResponse;
+import org.apache.solr.client.solrj.response.LukeResponse;
+import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.params.CoreAdminParams;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
@@ -22,7 +26,9 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import static org.apache.solr.mcp.server.metadata.CollectionUtils.*;
+import static org.apache.solr.mcp.server.metadata.CollectionUtils.getFloat;
+import static org.apache.solr.mcp.server.metadata.CollectionUtils.getInteger;
+import static org.apache.solr.mcp.server.metadata.CollectionUtils.getLong;
 
 /**
  * Spring Service providing comprehensive Solr collection management and monitoring capabilities
@@ -39,6 +45,11 @@ import static org.apache.solr.mcp.server.metadata.CollectionUtils.*;
  *   <li><strong>Health Monitoring</strong>: Real-time health checks with availability and performance indicators</li>
  *   <li><strong>Shard-Aware Operations</strong>: Intelligent handling of SolrCloud shard names and collection name extraction</li>
  * </ul>
+ *
+ * <p><strong>Implementation Details:</strong></p>
+ * <p>This class uses extensively documented constants for all API parameters, field names, and paths to ensure
+ * maintainability and reduce the risk of typos. All string literals have been replaced with well-named constants
+ * that are organized by category (API parameters, response parsing keys, handler paths, statistics fields, etc.).</p>
  * 
  * <p><strong>MCP Tool Integration:</strong></p>
  * <p>Methods annotated with {@code @Tool} are automatically exposed as MCP tools that can be invoked
@@ -78,36 +89,121 @@ import static org.apache.solr.mcp.server.metadata.CollectionUtils.*;
 @Service
 public class CollectionService {
 
+    // ========================================
+    // Constants for API Parameters and Paths
+    // ========================================
+
+    /**
+     * Category parameter value for cache-related MBeans requests
+     */
     private static final String CACHE_CATEGORY = "CACHE";
+
+    /**
+     * Category parameter value for query handler MBeans requests
+     */
     private static final String QUERY_HANDLER_CATEGORY = "QUERYHANDLER";
+
+    /** Combined category parameter value for both query and update handler MBeans requests */
     private static final String HANDLER_CATEGORIES = "QUERYHANDLER,UPDATEHANDLER";
+
+    /** Universal Solr query pattern to match all documents in a collection */
     private static final String ALL_DOCUMENTS_QUERY = "*:*";
+
+    /** Suffix pattern used to identify shard names in SolrCloud deployments */
     private static final String SHARD_SUFFIX = "_shard";
+
+    /** Request parameter name for enabling statistics in MBeans requests */
     private static final String STATS_PARAM = "stats";
+
+    /** Request parameter name for specifying category filters in MBeans requests */
     private static final String CAT_PARAM = "cat";
+
+    /** Request parameter name for specifying response writer type */
     private static final String WT_PARAM = "wt";
+
+    /** JSON format specification for response writer type */
     private static final String JSON_FORMAT = "json";
+
+    // ========================================
+    // Constants for Response Parsing
+    // ========================================
+
+    /** Key name for collections list in Collections API responses */
     private static final String COLLECTIONS_KEY = "collections";
+
+    /** Key name for segment count information in Luke response */
     private static final String SEGMENT_COUNT_KEY = "segmentCount";
+
+    /** Key name for query result cache in MBeans cache responses */
     private static final String QUERY_RESULT_CACHE_KEY = "queryResultCache";
+
+    /** Key name for document cache in MBeans cache responses */
     private static final String DOCUMENT_CACHE_KEY = "documentCache";
+
+    /** Key name for filter cache in MBeans cache responses */
     private static final String FILTER_CACHE_KEY = "filterCache";
+
+    /** Key name for statistics section in MBeans responses */
     private static final String STATS_KEY = "stats";
+
+    // ========================================
+    // Constants for Handler Paths
+    // ========================================
+
+    /** URL path for Solr select (query) handler */
     private static final String SELECT_HANDLER_PATH = "/select";
+
+    /** URL path for Solr update handler */
     private static final String UPDATE_HANDLER_PATH = "/update";
+
+    /** URL path for Solr MBeans admin endpoint */
     private static final String ADMIN_MBEANS_PATH = "/admin/mbeans";
+
+    // ========================================
+    // Constants for Statistics Field Names
+    // ========================================
+
+    /** Field name for cache/handler lookup count statistics */
     private static final String LOOKUPS_FIELD = "lookups";
+
+    /** Field name for cache hit count statistics */
     private static final String HITS_FIELD = "hits";
+
+    /** Field name for cache hit ratio statistics */
     private static final String HITRATIO_FIELD = "hitratio";
+
+    /** Field name for cache insert count statistics */
     private static final String INSERTS_FIELD = "inserts";
+
+    /** Field name for cache eviction count statistics */
     private static final String EVICTIONS_FIELD = "evictions";
+
+    /** Field name for cache size statistics */
     private static final String SIZE_FIELD = "size";
+
+    /** Field name for handler request count statistics */
     private static final String REQUESTS_FIELD = "requests";
+
+    /** Field name for handler error count statistics */
     private static final String ERRORS_FIELD = "errors";
+
+    /** Field name for handler timeout count statistics */
     private static final String TIMEOUTS_FIELD = "timeouts";
+
+    /** Field name for handler total processing time statistics */
     private static final String TOTAL_TIME_FIELD = "totalTime";
+
+    /** Field name for handler average time per request statistics */
     private static final String AVG_TIME_PER_REQUEST_FIELD = "avgTimePerRequest";
+
+    /** Field name for handler average requests per second statistics */
     private static final String AVG_REQUESTS_PER_SECOND_FIELD = "avgRequestsPerSecond";
+
+    // ========================================
+    // Constants for Error Messages
+    // ========================================
+
+    /** Error message prefix for collection not found exceptions */
     private static final String COLLECTION_NOT_FOUND_ERROR = "Collection not found: ";
 
     /** SolrJ client for communicating with Solr server */
@@ -244,13 +340,13 @@ public class CollectionService {
         QueryResponse statsResponse = solrClient.query(actualCollection,
                 new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
 
-        return SolrMetrics.builder()
-                .indexStats(buildIndexStats(lukeResponse))
-                .queryStats(buildQueryStats(statsResponse))
-                .cacheStats(getCacheMetrics(actualCollection))
-                .handlerStats(getHandlerMetrics(actualCollection))
-                .timestamp(new Date())
-                .build();
+        return new SolrMetrics(
+                buildIndexStats(lukeResponse),
+                buildQueryStats(statsResponse),
+                getCacheMetrics(actualCollection),
+                getHandlerMetrics(actualCollection),
+                new Date()
+        );
     }
 
     /**
@@ -282,10 +378,10 @@ public class CollectionService {
         // Extract index information using helper methods
         Integer segmentCount = getInteger(indexInfo, SEGMENT_COUNT_KEY);
 
-        return IndexStats.builder()
-                .numDocs(lukeResponse.getNumDocs())
-                .segmentCount(segmentCount)
-                .build();
+        return new IndexStats(
+                lukeResponse.getNumDocs(),
+                segmentCount
+        );
     }
 
     /**
@@ -315,12 +411,12 @@ public class CollectionService {
      */
     public QueryStats buildQueryStats(QueryResponse response) {
 
-        return QueryStats.builder()
-                .queryTime(response.getQTime())
-                .totalResults(response.getResults().getNumFound())
-                .start(response.getResults().getStart())
-                .maxScore(response.getResults().getMaxScore())
-                .build();
+        return new QueryStats(
+                response.getQTime(),
+                response.getResults().getNumFound(),
+                response.getResults().getStart(),
+                response.getResults().getMaxScore()
+        );
     }
 
     /**
@@ -406,10 +502,10 @@ public class CollectionService {
      * @return true if the stats are null or all cache types are null
      */
     private boolean isCacheStatsEmpty(CacheStats stats) {
-        return stats == null || 
-               (stats.getQueryResultCache() == null && 
-                stats.getDocumentCache() == null && 
-                stats.getFilterCache() == null);
+        return stats == null ||
+                (stats.queryResultCache() == null &&
+                        stats.documentCache() == null &&
+                        stats.filterCache() == null);
     }
 
     /**
@@ -440,7 +536,9 @@ public class CollectionService {
      * @see CacheInfo
      */
     private CacheStats extractCacheStats(NamedList<Object> mbeans) {
-        CacheStats.CacheStatsBuilder builder = CacheStats.builder();
+        CacheInfo queryResultCacheInfo = null;
+        CacheInfo documentCacheInfo = null;
+        CacheInfo filterCacheInfo = null;
 
         @SuppressWarnings("unchecked")
         NamedList<Object> caches = (NamedList<Object>) mbeans.get(CACHE_CATEGORY);
@@ -452,14 +550,14 @@ public class CollectionService {
             if (queryResultCache != null) {
                 @SuppressWarnings("unchecked")
                 NamedList<Object> stats = (NamedList<Object>) queryResultCache.get(STATS_KEY);
-                builder.queryResultCache(CacheInfo.builder()
-                        .lookups(getLong(stats, LOOKUPS_FIELD))
-                        .hits(getLong(stats, HITS_FIELD))
-                        .hitratio(getFloat(stats, HITRATIO_FIELD))
-                        .inserts(getLong(stats, INSERTS_FIELD))
-                        .evictions(getLong(stats, EVICTIONS_FIELD))
-                        .size(getLong(stats, SIZE_FIELD))
-                        .build());
+                queryResultCacheInfo = new CacheInfo(
+                        getLong(stats, LOOKUPS_FIELD),
+                        getLong(stats, HITS_FIELD),
+                        getFloat(stats, HITRATIO_FIELD),
+                        getLong(stats, INSERTS_FIELD),
+                        getLong(stats, EVICTIONS_FIELD),
+                        getLong(stats, SIZE_FIELD)
+                );
             }
 
             // Document cache
@@ -468,14 +566,14 @@ public class CollectionService {
             if (documentCache != null) {
                 @SuppressWarnings("unchecked")
                 NamedList<Object> stats = (NamedList<Object>) documentCache.get(STATS_KEY);
-                builder.documentCache(CacheInfo.builder()
-                        .lookups(getLong(stats, LOOKUPS_FIELD))
-                        .hits(getLong(stats, HITS_FIELD))
-                        .hitratio(getFloat(stats, HITRATIO_FIELD))
-                        .inserts(getLong(stats, INSERTS_FIELD))
-                        .evictions(getLong(stats, EVICTIONS_FIELD))
-                        .size(getLong(stats, SIZE_FIELD))
-                        .build());
+                documentCacheInfo = new CacheInfo(
+                        getLong(stats, LOOKUPS_FIELD),
+                        getLong(stats, HITS_FIELD),
+                        getFloat(stats, HITRATIO_FIELD),
+                        getLong(stats, INSERTS_FIELD),
+                        getLong(stats, EVICTIONS_FIELD),
+                        getLong(stats, SIZE_FIELD)
+                );
             }
 
             // Filter cache
@@ -484,18 +582,18 @@ public class CollectionService {
             if (filterCache != null) {
                 @SuppressWarnings("unchecked")
                 NamedList<Object> stats = (NamedList<Object>) filterCache.get(STATS_KEY);
-                builder.filterCache(CacheInfo.builder()
-                        .lookups(getLong(stats, LOOKUPS_FIELD))
-                        .hits(getLong(stats, HITS_FIELD))
-                        .hitratio(getFloat(stats, HITRATIO_FIELD))
-                        .inserts(getLong(stats, INSERTS_FIELD))
-                        .evictions(getLong(stats, EVICTIONS_FIELD))
-                        .size(getLong(stats, SIZE_FIELD))
-                        .build());
+                filterCacheInfo = new CacheInfo(
+                        getLong(stats, LOOKUPS_FIELD),
+                        getLong(stats, HITS_FIELD),
+                        getFloat(stats, HITRATIO_FIELD),
+                        getLong(stats, INSERTS_FIELD),
+                        getLong(stats, EVICTIONS_FIELD),
+                        getLong(stats, SIZE_FIELD)
+                );
             }
         }
 
-        return builder.build();
+        return new CacheStats(queryResultCacheInfo, documentCacheInfo, filterCacheInfo);
     }
 
     /**
@@ -507,8 +605,8 @@ public class CollectionService {
      * 
      * <p><strong>Monitored Handlers:</strong></p>
      * <ul>
-     *   <li><strong>Select Handler (/select)</strong>: Processes search and query requests</li>
-     *   <li><strong>Update Handler (/update)</strong>: Processes document indexing operations</li>
+     *   <li><strong>Select Handler ({@value #SELECT_HANDLER_PATH})</strong>: Processes search and query requests</li>
+     *   <li><strong>Update Handler ({@value #UPDATE_HANDLER_PATH})</strong>: Processes document indexing operations</li>
      * </ul>
      * 
      * <p><strong>Performance Metrics:</strong></p>
@@ -525,8 +623,6 @@ public class CollectionService {
      * 
      * @param collection the collection name to retrieve handler metrics for
      * @return HandlerStats object with performance metrics for all handlers, or null if unavailable
-     * 
-     * @throws Exception if there are communication errors with Solr (handled gracefully)
      * 
      * @see HandlerStats
      * @see HandlerInfo
@@ -581,8 +677,8 @@ public class CollectionService {
      * @return true if the stats are null or all handler types are null
      */
     private boolean isHandlerStatsEmpty(HandlerStats stats) {
-        return stats == null || 
-               (stats.getSelectHandler() == null && stats.getUpdateHandler() == null);
+        return stats == null ||
+                (stats.selectHandler() == null && stats.updateHandler() == null);
     }
 
     /**
@@ -612,7 +708,8 @@ public class CollectionService {
      * @see HandlerInfo
      */
     private HandlerStats extractHandlerStats(NamedList<Object> mbeans) {
-        HandlerStats.HandlerStatsBuilder builder = HandlerStats.builder();
+        HandlerInfo selectHandlerInfo = null;
+        HandlerInfo updateHandlerInfo = null;
 
         @SuppressWarnings("unchecked")
         NamedList<Object> queryHandlers = (NamedList<Object>) mbeans.get(QUERY_HANDLER_CATEGORY);
@@ -624,14 +721,14 @@ public class CollectionService {
             if (selectHandler != null) {
                 @SuppressWarnings("unchecked")
                 NamedList<Object> stats = (NamedList<Object>) selectHandler.get(STATS_KEY);
-                builder.selectHandler(HandlerInfo.builder()
-                        .requests(getLong(stats, REQUESTS_FIELD))
-                        .errors(getLong(stats, ERRORS_FIELD))
-                        .timeouts(getLong(stats, TIMEOUTS_FIELD))
-                        .totalTime(getLong(stats, TOTAL_TIME_FIELD))
-                        .avgTimePerRequest(getFloat(stats, AVG_TIME_PER_REQUEST_FIELD))
-                        .avgRequestsPerSecond(getFloat(stats, AVG_REQUESTS_PER_SECOND_FIELD))
-                        .build());
+                selectHandlerInfo = new HandlerInfo(
+                        getLong(stats, REQUESTS_FIELD),
+                        getLong(stats, ERRORS_FIELD),
+                        getLong(stats, TIMEOUTS_FIELD),
+                        getLong(stats, TOTAL_TIME_FIELD),
+                        getFloat(stats, AVG_TIME_PER_REQUEST_FIELD),
+                        getFloat(stats, AVG_REQUESTS_PER_SECOND_FIELD)
+                );
             }
 
             // Update handler
@@ -640,18 +737,18 @@ public class CollectionService {
             if (updateHandler != null) {
                 @SuppressWarnings("unchecked")
                 NamedList<Object> stats = (NamedList<Object>) updateHandler.get(STATS_KEY);
-                builder.updateHandler(HandlerInfo.builder()
-                        .requests(getLong(stats, REQUESTS_FIELD))
-                        .errors(getLong(stats, ERRORS_FIELD))
-                        .timeouts(getLong(stats, TIMEOUTS_FIELD))
-                        .totalTime(getLong(stats, TOTAL_TIME_FIELD))
-                        .avgTimePerRequest(getFloat(stats, AVG_TIME_PER_REQUEST_FIELD))
-                        .avgRequestsPerSecond(getFloat(stats, AVG_REQUESTS_PER_SECOND_FIELD))
-                        .build());
+                updateHandlerInfo = new HandlerInfo(
+                        getLong(stats, REQUESTS_FIELD),
+                        getLong(stats, ERRORS_FIELD),
+                        getLong(stats, TIMEOUTS_FIELD),
+                        getLong(stats, TOTAL_TIME_FIELD),
+                        getFloat(stats, AVG_TIME_PER_REQUEST_FIELD),
+                        getFloat(stats, AVG_REQUESTS_PER_SECOND_FIELD)
+                );
             }
         }
 
-        return builder.build();
+        return new HandlerStats(selectHandlerInfo, updateHandlerInfo);
     }
 
 
@@ -664,8 +761,8 @@ public class CollectionService {
      * 
      * <p><strong>Extraction Logic:</strong></p>
      * <ul>
-     *   <li>Detects shard patterns containing "_shard" suffix</li>
-     *   <li>Returns the substring before the "_shard" identifier</li>
+     *   <li>Detects shard patterns containing the {@value #SHARD_SUFFIX} suffix</li>
+     *   <li>Returns the substring before the shard identifier</li>
      *   <li>Returns the original string if no shard pattern is detected</li>
      * </ul>
      * 
@@ -705,7 +802,7 @@ public class CollectionService {
      * <p><strong>Validation Strategy:</strong></p>
      * <ol>
      *   <li><strong>Exact Match</strong>: Checks if the collection name exists exactly</li>
-     *   <li><strong>Shard Match</strong>: Checks if any shards start with "collection_shard" pattern</li>
+     *   <li><strong>Shard Match</strong>: Checks if any shards start with "collection{@value #SHARD_SUFFIX}" pattern</li>
      * </ol>
      * 
      * <p>This dual approach ensures compatibility with both standalone Solr
@@ -751,7 +848,7 @@ public class CollectionService {
      * <ul>
      *   <li><strong>Availability</strong>: Collection responds to ping requests</li>
      *   <li><strong>Performance</strong>: Response time measurement</li>
-     *   <li><strong>Content</strong>: Document count verification</li>
+     *   <li><strong>Content</strong>: Document count verification using universal query ({@value #ALL_DOCUMENTS_QUERY})</li>
      *   <li><strong>Timestamp</strong>: When the check was performed</li>
      * </ul>
      * 
@@ -785,19 +882,28 @@ public class CollectionService {
             QueryResponse statsResponse = solrClient.query(collection,
                     new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
 
-            return SolrHealthStatus.builder()
-                    .isHealthy(true)
-                    .responseTime(pingResponse.getElapsedTime())
-                    .totalDocuments(statsResponse.getResults().getNumFound())
-                    .lastChecked(new Date())
-                    .build();
+            return new SolrHealthStatus(
+                    true,
+                    null,
+                    pingResponse.getElapsedTime(),
+                    statsResponse.getResults().getNumFound(),
+                    new Date(),
+                    null,
+                    null,
+                    null
+            );
 
         } catch (Exception e) {
-            return SolrHealthStatus.builder()
-                    .isHealthy(false)
-                    .errorMessage(e.getMessage())
-                    .lastChecked(new Date())
-                    .build();
+            return new SolrHealthStatus(
+                    false,
+                    e.getMessage(),
+                    null,
+                    null,
+                    new Date(),
+                    null,
+                    null,
+                    null
+            );
         }
     }
 

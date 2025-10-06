@@ -18,10 +18,17 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CollectionServiceTest {
@@ -65,10 +72,10 @@ class CollectionServiceTest {
 
         QueryStats result = collectionService.buildQueryStats(queryResponse);
 
-        assertEquals(25, result.getQueryTime());
-        assertEquals(1500L, result.getTotalResults());
-        assertEquals(0L, result.getStart());
-        assertEquals(0.95f, result.getMaxScore());
+        assertEquals(25, result.queryTime());
+        assertEquals(1500L, result.totalResults());
+        assertEquals(0L, result.start());
+        assertEquals(0.95f, result.maxScore());
     }
 
     // Index stats tests
@@ -81,8 +88,8 @@ class CollectionServiceTest {
 
         IndexStats result = collectionService.buildIndexStats(lukeResponse);
 
-        assertEquals(1000, result.getNumDocs());
-        assertEquals(5, result.getSegmentCount());
+        assertEquals(1000, result.numDocs());
+        assertEquals(5, result.segmentCount());
     }
 
     // Health check tests
@@ -99,9 +106,9 @@ class CollectionServiceTest {
         SolrHealthStatus result = collectionService.checkHealth("test_collection");
 
         assertTrue(result.isHealthy());
-        assertEquals(50L, result.getResponseTime());
-        assertEquals(1000L, result.getTotalDocuments());
-        assertNull(result.getErrorMessage());
+        assertEquals(50L, result.responseTime());
+        assertEquals(1000L, result.totalDocuments());
+        assertNull(result.errorMessage());
     }
 
     @Test
@@ -112,8 +119,8 @@ class CollectionServiceTest {
         SolrHealthStatus result = collectionService.checkHealth("bad_collection");
 
         assertFalse(result.isHealthy());
-        assertTrue(result.getErrorMessage().contains("Collection not found"));
-        assertNull(result.getResponseTime());
+        assertTrue(result.errorMessage().contains("Collection not found"));
+        assertNull(result.responseTime());
     }
 
     // Collection validation tests
@@ -151,9 +158,9 @@ class CollectionServiceTest {
 
         CacheStats result = (CacheStats) method.invoke(collectionService, mbeans);
 
-        assertNotNull(result.getQueryResultCache());
-        assertEquals(100L, result.getQueryResultCache().getLookups());
-        assertEquals(80L, result.getQueryResultCache().getHits());
+        assertNotNull(result.queryResultCache());
+        assertEquals(100L, result.queryResultCache().lookups());
+        assertEquals(80L, result.queryResultCache().hits());
     }
 
     @Test
@@ -161,13 +168,15 @@ class CollectionServiceTest {
         Method method = CollectionService.class.getDeclaredMethod("isCacheStatsEmpty", CacheStats.class);
         method.setAccessible(true);
 
-        CacheStats emptyStats = CacheStats.builder().build();
+        CacheStats emptyStats = new CacheStats(null, null, null);
         assertTrue((boolean) method.invoke(collectionService, emptyStats));
         assertTrue((boolean) method.invoke(collectionService, (CacheStats) null));
 
-        CacheStats nonEmptyStats = CacheStats.builder()
-                .queryResultCache(CacheInfo.builder().lookups(100L).build())
-                .build();
+        CacheStats nonEmptyStats = new CacheStats(
+                new CacheInfo(100L, null, null, null, null, null),
+                null,
+                null
+        );
         assertFalse((boolean) method.invoke(collectionService, nonEmptyStats));
     }
 
@@ -180,8 +189,8 @@ class CollectionServiceTest {
 
         HandlerStats result = (HandlerStats) method.invoke(collectionService, mbeans);
 
-        assertNotNull(result.getSelectHandler());
-        assertEquals(500L, result.getSelectHandler().getRequests());
+        assertNotNull(result.selectHandler());
+        assertEquals(500L, result.selectHandler().requests());
     }
 
     // Helper methods

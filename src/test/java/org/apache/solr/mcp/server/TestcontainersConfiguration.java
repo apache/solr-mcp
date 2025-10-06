@@ -13,9 +13,7 @@ public class TestcontainersConfiguration {
 
     @Bean
     SolrContainer solr() {
-        SolrContainer container = new SolrContainer(DockerImageName.parse("solr:latest"));
-        container.start();
-        return container;
+        return new SolrContainer(DockerImageName.parse("solr:9.9-slim"));
     }
 
     @Bean
