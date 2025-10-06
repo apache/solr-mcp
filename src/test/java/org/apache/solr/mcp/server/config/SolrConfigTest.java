@@ -2,39 +2,29 @@ package org.apache.solr.mcp.server.config;
 
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.Http2SolrClient;
+import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.context.annotation.Import;
 import org.testcontainers.containers.SolrContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
-@Testcontainers
+@Import(TestcontainersConfiguration.class)
 class SolrConfigTest {
-
-    @Container
-    static SolrContainer solrContainer = new SolrContainer(DockerImageName.parse("solr:9.4.1"));
 
     @Autowired
     private SolrClient solrClient;
 
     @Autowired
-    private SolrConfigurationProperties properties;
+    SolrContainer solrContainer;
 
-    @DynamicPropertySource
-    static void registerSolrProperties(DynamicPropertyRegistry registry) {
-        registry.add("solr.url", () -> "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr");
-    }
+    @Autowired
+    private SolrConfigurationProperties properties;
 
     @Test
     void testSolrClientConfiguration() {
@@ -42,16 +32,20 @@ class SolrConfigTest {
         assertNotNull(solrClient);
 
         // Verify that the SolrClient is using the correct URL
+        // Note: SolrConfig normalizes the URL to have trailing slash, but Http2SolrClient removes it
         var httpSolrClient = assertInstanceOf(Http2SolrClient.class, solrClient);
-        assertEquals(properties.url(), httpSolrClient.getBaseURL());
+        String expectedUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr";
+        assertEquals(expectedUrl, httpSolrClient.getBaseURL());
     }
 
     @Test
     void testSolrConfigurationProperties() {
         // Verify that the properties are correctly loaded
+        // The properties object contains the original value from @DynamicPropertySource
         assertNotNull(properties);
         assertNotNull(properties.url());
-        assertEquals("http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr",
+        // BaseIntegrationTest sets the URL with trailing slash
+        assertEquals("http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/",
                 properties.url());
     }
 

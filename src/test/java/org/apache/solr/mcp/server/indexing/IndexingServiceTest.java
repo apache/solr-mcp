@@ -1,8 +1,9 @@
 package org.apache.solr.mcp.server.indexing;
 
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.impl.Http2SolrClient;
+import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.indexing.documentcreator.CsvDocumentCreator;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
 import org.apache.solr.mcp.server.indexing.documentcreator.JsonDocumentCreator;
@@ -11,41 +12,36 @@ import org.apache.solr.mcp.server.search.SearchResponse;
 import org.apache.solr.mcp.server.search.SearchService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.testcontainers.containers.SolrContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
-@Testcontainers
+@SpringBootTest
+@Import(TestcontainersConfiguration.class)
 class IndexingServiceTest {
 
+    private static boolean initialized = false;
+
     private static final String COLLECTION_NAME = "indexing_test_" + System.currentTimeMillis();
-
-    @Container
-    static SolrContainer solrContainer = new SolrContainer(DockerImageName.parse("solr:9.4.1"));
-
+    @Autowired
+    private SolrContainer solrContainer;
+    @Autowired
     private IndexingDocumentCreator indexingDocumentCreator;
+    @Autowired
     private IndexingService indexingService;
+    @Autowired
     private SearchService searchService;
+    @Autowired
     private SolrClient solrClient;
-    private boolean collectionCreated = false;
 
     @BeforeEach
-    void setUp() {
-        // Initialize Solr client with trailing slash
-        String solrUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/";
-        solrClient = new Http2SolrClient.Builder(solrUrl)
-                .withConnectionTimeout(10000, TimeUnit.MILLISECONDS)
-                .withIdleTimeout(60000, TimeUnit.MILLISECONDS)
-                .build();
+    void setUp() throws Exception {
 
         // Create processor instances and wire them manually since this is not a Spring Boot test
         XmlDocumentCreator xmlDocumentCreator = new XmlDocumentCreator();
@@ -58,6 +54,14 @@ class IndexingServiceTest {
 
         indexingService = new IndexingService(solrClient, indexingDocumentCreator);
         searchService = new SearchService(solrClient);
+
+        if (!initialized) {
+            // Create collection
+            CollectionAdminRequest.Create createRequest = CollectionAdminRequest.createCollection(
+                    COLLECTION_NAME, "_default", 1, 1);
+            createRequest.process(solrClient);
+            initialized = true;
+        }
     }
 
 
@@ -87,20 +91,20 @@ class IndexingServiceTest {
         assertNotNull(documents);
         assertEquals(1, documents.size());
 
-        SolrInputDocument doc = documents.get(0);
+        SolrInputDocument doc = documents.getFirst();
         assertEquals("test001", doc.getFieldValue("id"));
 
         // Check field values - they might be stored directly or as collections
         Object nameValue = doc.getFieldValue("name");
         if (nameValue instanceof List) {
-            assertEquals("Test Book 1", ((List<?>) nameValue).get(0));
+            assertEquals("Test Book 1", ((List<?>) nameValue).getFirst());
         } else {
             assertEquals("Test Book 1", nameValue);
         }
 
         Object priceValue = doc.getFieldValue("price");
         if (priceValue instanceof List) {
-            assertEquals(9.99, ((List<?>) priceValue).get(0));
+            assertEquals(9.99, ((List<?>) priceValue).getFirst());
         } else {
             assertEquals(9.99, priceValue);
         }
@@ -109,7 +113,7 @@ class IndexingServiceTest {
         // Check if inStock field exists
         if (inStockValue != null) {
             if (inStockValue instanceof List) {
-                assertEquals(true, ((List<?>) inStockValue).get(0));
+                assertEquals(true, ((List<?>) inStockValue).getFirst());
             } else {
                 assertEquals(true, inStockValue);
             }
@@ -120,7 +124,7 @@ class IndexingServiceTest {
 
         Object authorValue = doc.getFieldValue("author");
         if (authorValue instanceof List) {
-            assertEquals("Test Author", ((List<?>) authorValue).get(0));
+            assertEquals("Test Author", ((List<?>) authorValue).getFirst());
         } else {
             assertEquals("Test Author", authorValue);
         }
@@ -132,11 +136,6 @@ class IndexingServiceTest {
 
     @Test
     void testIndexJsonDocuments() throws Exception {
-        // Skip test if collection creation failed
-        if (!collectionCreated) {
-            // Removed debug print statement
-            return;
-        }
 
         // Test JSON string with multiple documents
         String json = """
@@ -192,7 +191,7 @@ class IndexingServiceTest {
                 // Handle name field
                 Object nameValue = book.get("name");
                 if (nameValue instanceof List) {
-                    assertEquals("Test Book 2", ((List<?>) nameValue).get(0));
+                    assertEquals("Test Book 2", ((List<?>) nameValue).getFirst());
                 } else {
                     assertEquals("Test Book 2", nameValue);
                 }
@@ -200,7 +199,7 @@ class IndexingServiceTest {
                 // Handle author field
                 Object authorValue = book.get("author");
                 if (authorValue instanceof List) {
-                    assertEquals("Test Author 2", ((List<?>) authorValue).get(0));
+                    assertEquals("Test Author 2", ((List<?>) authorValue).getFirst());
                 } else {
                     assertEquals("Test Author 2", authorValue);
                 }
@@ -208,7 +207,7 @@ class IndexingServiceTest {
                 // Handle genre field
                 Object genreValue = book.get("genre_s");
                 if (genreValue instanceof List) {
-                    assertEquals("scifi", ((List<?>) genreValue).get(0));
+                    assertEquals("scifi", ((List<?>) genreValue).getFirst());
                 } else {
                     assertEquals("scifi", genreValue);
                 }
@@ -218,7 +217,7 @@ class IndexingServiceTest {
                 // Handle name field
                 Object nameValue = book.get("name");
                 if (nameValue instanceof List) {
-                    assertEquals("Test Book 3", ((List<?>) nameValue).get(0));
+                    assertEquals("Test Book 3", ((List<?>) nameValue).getFirst());
                 } else {
                     assertEquals("Test Book 3", nameValue);
                 }
@@ -226,7 +225,7 @@ class IndexingServiceTest {
                 // Handle author field
                 Object authorValue = book.get("author");
                 if (authorValue instanceof List) {
-                    assertEquals("Test Author 3", ((List<?>) authorValue).get(0));
+                    assertEquals("Test Author 3", ((List<?>) authorValue).getFirst());
                 } else {
                     assertEquals("Test Author 3", authorValue);
                 }
@@ -234,7 +233,7 @@ class IndexingServiceTest {
                 // Handle genre field
                 Object genreValue = book.get("genre_s");
                 if (genreValue instanceof List) {
-                    assertEquals("fantasy", ((List<?>) genreValue).get(0));
+                    assertEquals("fantasy", ((List<?>) genreValue).getFirst());
                 } else {
                     assertEquals("fantasy", genreValue);
                 }
@@ -247,11 +246,6 @@ class IndexingServiceTest {
 
     @Test
     void testIndexJsonDocumentsWithNestedObjects() throws Exception {
-        // Skip test if collection creation failed
-        if (!collectionCreated) {
-            // Removed debug print statement
-            return;
-        }
 
         // Test JSON string with nested objects
         String json = """
@@ -281,12 +275,12 @@ class IndexingServiceTest {
         List<Map<String, Object>> documents = result.documents();
         assertEquals(1, documents.size());
 
-        Map<String, Object> book = documents.get(0);
+        Map<String, Object> book = documents.getFirst();
 
         // Handle ID field
         Object idValue = book.get("id");
         if (idValue instanceof List) {
-            assertEquals("test004", ((List<?>) idValue).get(0));
+            assertEquals("test004", ((List<?>) idValue).getFirst());
         } else {
             assertEquals("test004", idValue);
         }
@@ -294,7 +288,7 @@ class IndexingServiceTest {
         // Handle name field
         Object nameValue = book.get("name");
         if (nameValue instanceof List) {
-            assertEquals("Test Book 4", ((List<?>) nameValue).get(0));
+            assertEquals("Test Book 4", ((List<?>) nameValue).getFirst());
         } else {
             assertEquals("Test Book 4", nameValue);
         }
@@ -303,7 +297,7 @@ class IndexingServiceTest {
         assertNotNull(book.get("details_publisher"));
         Object publisherValue = book.get("details_publisher");
         if (publisherValue instanceof List) {
-            assertEquals("Test Publisher", ((List<?>) publisherValue).get(0));
+            assertEquals("Test Publisher", ((List<?>) publisherValue).getFirst());
         } else {
             assertEquals("Test Publisher", publisherValue);
         }
@@ -311,7 +305,7 @@ class IndexingServiceTest {
         assertNotNull(book.get("details_year"));
         Object yearValue = book.get("details_year");
         if (yearValue instanceof List) {
-            assertEquals(2023, ((Number) ((List<?>) yearValue).get(0)).intValue());
+            assertEquals(2023, ((Number) ((List<?>) yearValue).getFirst()).intValue());
         } else if (yearValue instanceof Number) {
             assertEquals(2023, ((Number) yearValue).intValue());
         } else {
@@ -321,11 +315,6 @@ class IndexingServiceTest {
 
     @Test
     void testSanitizeFieldName() throws Exception {
-        // Skip test if collection creation failed
-        if (!collectionCreated) {
-            // Removed debug print statement
-            return;
-        }
 
         // Test JSON string with field names that need sanitizing
         String json = """
@@ -350,13 +339,13 @@ class IndexingServiceTest {
         List<Map<String, Object>> documents = result.documents();
         assertEquals(1, documents.size());
 
-        Map<String, Object> doc = documents.get(0);
+        Map<String, Object> doc = documents.getFirst();
 
         // Check that field names were sanitized
         assertNotNull(doc.get("invalid_field"));
         Object invalidFieldValue = doc.get("invalid_field");
         if (invalidFieldValue instanceof List) {
-            assertEquals("Value with hyphen", ((List<?>) invalidFieldValue).get(0));
+            assertEquals("Value with hyphen", ((List<?>) invalidFieldValue).getFirst());
         } else {
             assertEquals("Value with hyphen", invalidFieldValue);
         }
@@ -364,7 +353,7 @@ class IndexingServiceTest {
         assertNotNull(doc.get("another_invalid"));
         Object anotherInvalidValue = doc.get("another_invalid");
         if (anotherInvalidValue instanceof List) {
-            assertEquals("Value with dot", ((List<?>) anotherInvalidValue).get(0));
+            assertEquals("Value with dot", ((List<?>) anotherInvalidValue).getFirst());
         } else {
             assertEquals("Value with dot", anotherInvalidValue);
         }
@@ -373,7 +362,7 @@ class IndexingServiceTest {
         assertNotNull(doc.get("uppercase"));
         Object uppercaseValue = doc.get("uppercase");
         if (uppercaseValue instanceof List) {
-            assertEquals("Value with uppercase", ((List<?>) uppercaseValue).get(0));
+            assertEquals("Value with uppercase", ((List<?>) uppercaseValue).getFirst());
         } else {
             assertEquals("Value with uppercase", uppercaseValue);
         }
@@ -382,7 +371,7 @@ class IndexingServiceTest {
         assertNotNull(doc.get("multiple_underscores"));
         Object multipleUnderscoresValue = doc.get("multiple_underscores");
         if (multipleUnderscoresValue instanceof List) {
-            assertEquals("Value with multiple underscores", ((List<?>) multipleUnderscoresValue).get(0));
+            assertEquals("Value with multiple underscores", ((List<?>) multipleUnderscoresValue).getFirst());
         } else {
             assertEquals("Value with multiple underscores", multipleUnderscoresValue);
         }
@@ -390,11 +379,6 @@ class IndexingServiceTest {
 
     @Test
     void testDeeplyNestedJsonStructures() throws Exception {
-        // Skip test if collection creation failed
-        if (!collectionCreated) {
-            // Removed debug print statement
-            return;
-        }
 
         // Test JSON string with deeply nested objects (3+ levels)
         String json = """
@@ -447,7 +431,7 @@ class IndexingServiceTest {
         List<Map<String, Object>> documents = result.documents();
         assertEquals(1, documents.size());
 
-        Map<String, Object> doc = documents.get(0);
+        Map<String, Object> doc = documents.getFirst();
 
         // Check that deeply nested fields were flattened with underscore prefix
         // Level 1
@@ -473,18 +457,13 @@ class IndexingServiceTest {
     private Object getFieldValue(Map<String, Object> doc, String fieldName) {
         Object value = doc.get(fieldName);
         if (value instanceof List) {
-            return ((List<?>) value).get(0);
+            return ((List<?>) value).getFirst();
         }
         return value;
     }
 
     @Test
     void testSpecialCharactersInFieldNames() throws Exception {
-        // Skip test if collection creation failed
-        if (!collectionCreated) {
-            // Removed debug print statement
-            return;
-        }
 
         // Test JSON string with field names containing various special characters
         String json = """
@@ -506,12 +485,12 @@ class IndexingServiceTest {
                     "field:with:colon": "Value with : symbols",
                     "field;with;semicolon": "Value with ; symbols",
                     "field'with'quotes": "Value with ' symbols",
-                    "field\"with\"doublequotes": "Value with \" symbols",
+                    "field\\"with\\"doublequotes": "Value with \\" symbols",
                     "field<with>anglebrackets": "Value with angle brackets",
                     "field,with,commas": "Value with , symbols",
                     "field?with?question": "Value with ? symbols",
                     "field/with/slashes": "Value with / symbols",
-                    "field\\with\\backslashes": "Value with \\ symbols",
+                    "field\\\\with\\\\backslashes": "Value with \\\\ symbols",
                     "field|with|pipes": "Value with | symbols",
                     "field`with`backticks": "Value with ` symbols",
                     "field~with~tildes": "Value with ~ symbols"
@@ -529,7 +508,7 @@ class IndexingServiceTest {
         List<Map<String, Object>> documents = result.documents();
         assertEquals(1, documents.size());
 
-        Map<String, Object> doc = documents.get(0);
+        Map<String, Object> doc = documents.getFirst();
 
         // Check that field names with special characters were sanitized
         // All special characters should be replaced with underscores
@@ -566,11 +545,6 @@ class IndexingServiceTest {
 
     @Test
     void testArraysOfObjects() throws Exception {
-        // Skip test if collection creation failed
-        if (!collectionCreated) {
-            // Removed debug print statement
-            return;
-        }
 
         // Test JSON string with arrays of objects
         String json = """
@@ -622,7 +596,7 @@ class IndexingServiceTest {
         List<Map<String, Object>> documents = result.documents();
         assertEquals(1, documents.size());
 
-        Map<String, Object> doc = documents.get(0);
+        Map<String, Object> doc = documents.getFirst();
 
         // Check that the document was indexed correctly
         assertEquals("array_objects_001", getFieldValue(doc, "id"));

@@ -3,11 +3,7 @@ package org.apache.solr.mcp.server.indexing;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.response.UpdateResponse;
 import org.apache.solr.common.SolrInputDocument;
-import org.apache.solr.mcp.server.indexing.documentcreator.CsvDocumentCreator;
-import org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException;
-import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
-import org.apache.solr.mcp.server.indexing.documentcreator.JsonDocumentCreator;
-import org.apache.solr.mcp.server.indexing.documentcreator.XmlDocumentCreator;
+import org.apache.solr.mcp.server.indexing.documentcreator.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,27 +13,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class IndexingServiceDirectTest {
 
     @Mock
     private SolrClient solrClient;
-
 
     @Mock
     private UpdateResponse updateResponse;
@@ -105,10 +89,10 @@ class IndexingServiceDirectTest {
         // Even-numbered documents succeed, odd-numbered documents fail
         for (int i = 0; i < 10; i++) {
             if (i % 2 == 0) {
-                when(solrClient.add(eq("test_collection"), eq(documents.get(i))))
+                when(solrClient.add("test_collection", documents.get(i)))
                         .thenReturn(updateResponse);
             } else {
-                when(solrClient.add(eq("test_collection"), eq(documents.get(i))))
+                when(solrClient.add("test_collection", documents.get(i)))
                         .thenThrow(new RuntimeException("Document " + i + " indexing failed"));
             }
         }

@@ -18,17 +18,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class CollectionServiceTest {
@@ -125,7 +118,7 @@ class CollectionServiceTest {
 
     // Collection validation tests
     @Test
-    void testGetCollectionStats_NotFound() throws Exception {
+    void testGetCollectionStats_NotFound() {
         CollectionService spyService = spy(collectionService);
         doReturn(Collections.emptyList()).when(spyService).listCollections();
 

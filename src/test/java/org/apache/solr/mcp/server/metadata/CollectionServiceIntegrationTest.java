@@ -1,69 +1,44 @@
 package org.apache.solr.mcp.server.metadata;
 
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
-import org.apache.solr.client.solrj.response.CollectionAdminResponse;
-import org.junit.jupiter.api.BeforeAll;
+import org.apache.solr.mcp.server.TestcontainersConfiguration;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.SolrContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
+import org.springframework.context.annotation.Import;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
-@Testcontainers
+@Import(TestcontainersConfiguration.class)
 class CollectionServiceIntegrationTest {
 
     private static final String TEST_COLLECTION = "test_collection";
-    @Container
-    static SolrContainer solrContainer = new SolrContainer(DockerImageName.parse("solr:9.4.1"));
     @Autowired
     private CollectionService collectionService;
     @Autowired
     private SolrClient solrClient;
+    private static boolean initialized = false;
 
-    @DynamicPropertySource
-    static void registerSolrProperties(DynamicPropertyRegistry registry) {
-        registry.add("solr.url", () -> "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/");
-    }
+    @BeforeEach
+    void setupCollection() throws Exception {
 
-    @BeforeAll
-    static void setup() throws Exception {
-        // Wait for Solr container to be ready
-        assertTrue(solrContainer.isRunning(), "Solr container should be running");
-
-        // Create a test collection
-        String solrUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/";
-        SolrClient client = new Http2SolrClient.Builder(solrUrl).build();
-
-        try {
+        if (!initialized) {
+            // Create a test collection using the container's connection details
             // Create a collection for testing
             CollectionAdminRequest.Create createRequest = CollectionAdminRequest.createCollection(TEST_COLLECTION, "_default", 1, 1);
-            client.request(createRequest);
+            createRequest.process(solrClient);
 
             // Verify collection was created successfully
             CollectionAdminRequest.List listRequest = new CollectionAdminRequest.List();
-            CollectionAdminResponse listResponse = listRequest.process(client);
+            listRequest.process(solrClient);
 
             System.out.println("[DEBUG_LOG] Test collection created: " + TEST_COLLECTION);
-        } catch (Exception e) {
-            System.err.println("[DEBUG_LOG] Error creating test collection: " + e.getMessage());
-            throw e;
-        } finally {
-            client.close();
+            initialized = true;
         }
     }
 

@@ -9,11 +9,7 @@ import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.request.CoreAdminRequest;
 import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.LukeRequest;
-import org.apache.solr.client.solrj.response.CollectionAdminResponse;
-import org.apache.solr.client.solrj.response.CoreAdminResponse;
-import org.apache.solr.client.solrj.response.LukeResponse;
-import org.apache.solr.client.solrj.response.QueryResponse;
-import org.apache.solr.client.solrj.response.SolrPingResponse;
+import org.apache.solr.client.solrj.response.*;
 import org.apache.solr.common.params.CoreAdminParams;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
@@ -26,9 +22,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import static org.apache.solr.mcp.server.metadata.CollectionUtils.getFloat;
-import static org.apache.solr.mcp.server.metadata.CollectionUtils.getInteger;
-import static org.apache.solr.mcp.server.metadata.CollectionUtils.getLong;
+import static org.apache.solr.mcp.server.metadata.CollectionUtils.*;
 
 /**
  * Spring Service providing comprehensive Solr collection management and monitoring capabilities
@@ -86,8 +80,35 @@ public class CollectionService {
 
     private static final String CACHE_CATEGORY = "CACHE";
     private static final String QUERY_HANDLER_CATEGORY = "QUERYHANDLER";
-    private static final String UPDATE_HANDLER_CATEGORY = "UPDATEHANDLER";
     private static final String HANDLER_CATEGORIES = "QUERYHANDLER,UPDATEHANDLER";
+    private static final String ALL_DOCUMENTS_QUERY = "*:*";
+    private static final String SHARD_SUFFIX = "_shard";
+    private static final String STATS_PARAM = "stats";
+    private static final String CAT_PARAM = "cat";
+    private static final String WT_PARAM = "wt";
+    private static final String JSON_FORMAT = "json";
+    private static final String COLLECTIONS_KEY = "collections";
+    private static final String SEGMENT_COUNT_KEY = "segmentCount";
+    private static final String QUERY_RESULT_CACHE_KEY = "queryResultCache";
+    private static final String DOCUMENT_CACHE_KEY = "documentCache";
+    private static final String FILTER_CACHE_KEY = "filterCache";
+    private static final String STATS_KEY = "stats";
+    private static final String SELECT_HANDLER_PATH = "/select";
+    private static final String UPDATE_HANDLER_PATH = "/update";
+    private static final String ADMIN_MBEANS_PATH = "/admin/mbeans";
+    private static final String LOOKUPS_FIELD = "lookups";
+    private static final String HITS_FIELD = "hits";
+    private static final String HITRATIO_FIELD = "hitratio";
+    private static final String INSERTS_FIELD = "inserts";
+    private static final String EVICTIONS_FIELD = "evictions";
+    private static final String SIZE_FIELD = "size";
+    private static final String REQUESTS_FIELD = "requests";
+    private static final String ERRORS_FIELD = "errors";
+    private static final String TIMEOUTS_FIELD = "timeouts";
+    private static final String TOTAL_TIME_FIELD = "totalTime";
+    private static final String AVG_TIME_PER_REQUEST_FIELD = "avgTimePerRequest";
+    private static final String AVG_REQUESTS_PER_SECOND_FIELD = "avgRequestsPerSecond";
+    private static final String COLLECTION_NOT_FOUND_ERROR = "Collection not found: ";
 
     /** SolrJ client for communicating with Solr server */
     private final SolrClient solrClient;
@@ -143,7 +164,7 @@ public class CollectionService {
                 CollectionAdminResponse response = request.process(solrClient);
 
                 @SuppressWarnings("unchecked")
-                List<String> collections = (List<String>) response.getResponse().get("collections");
+                List<String> collections = (List<String>) response.getResponse().get(COLLECTIONS_KEY);
                 return collections != null ? collections : new ArrayList<>();
             } else {
                 // For standalone Solr - use Core Admin API
@@ -194,23 +215,24 @@ public class CollectionService {
      * 
      * @param collection the name of the collection to analyze (supports both collection and shard names)
      * @return comprehensive metrics object containing all collected statistics
-     * 
+     *
      * @throws IllegalArgumentException if the specified collection does not exist
-     * @throws Exception if there are errors communicating with Solr or processing responses
-     * 
+     * @throws SolrServerException if there are errors communicating with Solr
+     * @throws IOException if there are I/O errors during communication
+     *
      * @see SolrMetrics
      * @see LukeRequest
      * @see #extractCollectionName(String)
      * @see #validateCollectionExists(String)
      */
     @Tool(description = "Get stats/metrics on a Solr collection")
-    public SolrMetrics getCollectionStats(String collection) throws Exception {
+    public SolrMetrics getCollectionStats(String collection) throws SolrServerException, IOException {
         // Extract actual collection name from shard name if needed
         String actualCollection = extractCollectionName(collection);
 
         // Validate collection exists
         if (!validateCollectionExists(actualCollection)) {
-            throw new IllegalArgumentException("Collection not found: " + actualCollection);
+            throw new IllegalArgumentException(COLLECTION_NOT_FOUND_ERROR + actualCollection);
         }
 
         // Index statistics using Luke
@@ -220,7 +242,7 @@ public class CollectionService {
 
         // Query performance metrics
         QueryResponse statsResponse = solrClient.query(actualCollection,
-                new SolrQuery("*:*").setRows(0));
+                new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
 
         return SolrMetrics.builder()
                 .indexStats(buildIndexStats(lukeResponse))
@@ -258,7 +280,7 @@ public class CollectionService {
         NamedList<Object> indexInfo = lukeResponse.getIndexInfo();
 
         // Extract index information using helper methods
-        Integer segmentCount = getInteger(indexInfo, "segmentCount");
+        Integer segmentCount = getInteger(indexInfo, SEGMENT_COUNT_KEY);
 
         return IndexStats.builder()
                 .numDocs(lukeResponse.getNumDocs())
@@ -329,21 +351,19 @@ public class CollectionService {
      * 
      * @param collection the collection name to retrieve cache metrics for
      * @return CacheStats object with all cache performance metrics, or null if unavailable
-     * 
-     * @throws Exception if there are communication errors with Solr (handled gracefully)
-     * 
+     *
      * @see CacheStats
      * @see CacheInfo
      * @see #extractCacheStats(NamedList)
      * @see #isCacheStatsEmpty(CacheStats)
      */
-    public CacheStats getCacheMetrics(String collection) throws Exception {
+    public CacheStats getCacheMetrics(String collection) {
         try {
             // Get MBeans for cache information
             ModifiableSolrParams params = new ModifiableSolrParams();
-            params.set("stats", "true");
-            params.set("cat", CACHE_CATEGORY);
-            params.set("wt", "json");
+            params.set(STATS_PARAM, "true");
+            params.set(CAT_PARAM, CACHE_CATEGORY);
+            params.set(WT_PARAM, JSON_FORMAT);
 
             // Extract actual collection name from shard name if needed
             String actualCollection = extractCollectionName(collection);
@@ -353,7 +373,7 @@ public class CollectionService {
                 return null; // Return null instead of empty object
             }
 
-            String path = "/" + actualCollection + "/admin/mbeans";
+            String path = "/" + actualCollection + ADMIN_MBEANS_PATH;
 
             GenericSolrRequest request = new GenericSolrRequest(
                     SolrRequest.METHOD.GET,
@@ -428,49 +448,49 @@ public class CollectionService {
         if (caches != null) {
             // Query result cache
             @SuppressWarnings("unchecked")
-            NamedList<Object> queryResultCache = (NamedList<Object>) caches.get("queryResultCache");
+            NamedList<Object> queryResultCache = (NamedList<Object>) caches.get(QUERY_RESULT_CACHE_KEY);
             if (queryResultCache != null) {
                 @SuppressWarnings("unchecked")
-                NamedList<Object> stats = (NamedList<Object>) queryResultCache.get("stats");
+                NamedList<Object> stats = (NamedList<Object>) queryResultCache.get(STATS_KEY);
                 builder.queryResultCache(CacheInfo.builder()
-                        .lookups(getLong(stats, "lookups"))
-                        .hits(getLong(stats, "hits"))
-                        .hitratio(getFloat(stats, "hitratio"))
-                        .inserts(getLong(stats, "inserts"))
-                        .evictions(getLong(stats, "evictions"))
-                        .size(getLong(stats, "size"))
+                        .lookups(getLong(stats, LOOKUPS_FIELD))
+                        .hits(getLong(stats, HITS_FIELD))
+                        .hitratio(getFloat(stats, HITRATIO_FIELD))
+                        .inserts(getLong(stats, INSERTS_FIELD))
+                        .evictions(getLong(stats, EVICTIONS_FIELD))
+                        .size(getLong(stats, SIZE_FIELD))
                         .build());
             }
 
             // Document cache
             @SuppressWarnings("unchecked")
-            NamedList<Object> documentCache = (NamedList<Object>) caches.get("documentCache");
+            NamedList<Object> documentCache = (NamedList<Object>) caches.get(DOCUMENT_CACHE_KEY);
             if (documentCache != null) {
                 @SuppressWarnings("unchecked")
-                NamedList<Object> stats = (NamedList<Object>) documentCache.get("stats");
+                NamedList<Object> stats = (NamedList<Object>) documentCache.get(STATS_KEY);
                 builder.documentCache(CacheInfo.builder()
-                        .lookups(getLong(stats, "lookups"))
-                        .hits(getLong(stats, "hits"))
-                        .hitratio(getFloat(stats, "hitratio"))
-                        .inserts(getLong(stats, "inserts"))
-                        .evictions(getLong(stats, "evictions"))
-                        .size(getLong(stats, "size"))
+                        .lookups(getLong(stats, LOOKUPS_FIELD))
+                        .hits(getLong(stats, HITS_FIELD))
+                        .hitratio(getFloat(stats, HITRATIO_FIELD))
+                        .inserts(getLong(stats, INSERTS_FIELD))
+                        .evictions(getLong(stats, EVICTIONS_FIELD))
+                        .size(getLong(stats, SIZE_FIELD))
                         .build());
             }
 
             // Filter cache
             @SuppressWarnings("unchecked")
-            NamedList<Object> filterCache = (NamedList<Object>) caches.get("filterCache");
+            NamedList<Object> filterCache = (NamedList<Object>) caches.get(FILTER_CACHE_KEY);
             if (filterCache != null) {
                 @SuppressWarnings("unchecked")
-                NamedList<Object> stats = (NamedList<Object>) filterCache.get("stats");
+                NamedList<Object> stats = (NamedList<Object>) filterCache.get(STATS_KEY);
                 builder.filterCache(CacheInfo.builder()
-                        .lookups(getLong(stats, "lookups"))
-                        .hits(getLong(stats, "hits"))
-                        .hitratio(getFloat(stats, "hitratio"))
-                        .inserts(getLong(stats, "inserts"))
-                        .evictions(getLong(stats, "evictions"))
-                        .size(getLong(stats, "size"))
+                        .lookups(getLong(stats, LOOKUPS_FIELD))
+                        .hits(getLong(stats, HITS_FIELD))
+                        .hitratio(getFloat(stats, HITRATIO_FIELD))
+                        .inserts(getLong(stats, INSERTS_FIELD))
+                        .evictions(getLong(stats, EVICTIONS_FIELD))
+                        .size(getLong(stats, SIZE_FIELD))
                         .build());
             }
         }
@@ -513,12 +533,12 @@ public class CollectionService {
      * @see #extractHandlerStats(NamedList)
      * @see #isHandlerStatsEmpty(HandlerStats)
      */
-    public HandlerStats getHandlerMetrics(String collection) throws Exception {
+    public HandlerStats getHandlerMetrics(String collection) {
         try {
             ModifiableSolrParams params = new ModifiableSolrParams();
-            params.set("stats", "true");
-            params.set("cat", HANDLER_CATEGORIES);
-            params.set("wt", "json");
+            params.set(STATS_PARAM, "true");
+            params.set(CAT_PARAM, HANDLER_CATEGORIES);
+            params.set(WT_PARAM, JSON_FORMAT);
 
             // Extract actual collection name from shard name if needed
             String actualCollection = extractCollectionName(collection);
@@ -528,7 +548,7 @@ public class CollectionService {
                 return null; // Return null instead of empty object
             }
 
-            String path = "/" + actualCollection + "/admin/mbeans";
+            String path = "/" + actualCollection + ADMIN_MBEANS_PATH;
 
             GenericSolrRequest request = new GenericSolrRequest(
                     SolrRequest.METHOD.GET,
@@ -600,33 +620,33 @@ public class CollectionService {
         if (queryHandlers != null) {
             // Select handler
             @SuppressWarnings("unchecked")
-            NamedList<Object> selectHandler = (NamedList<Object>) queryHandlers.get("/select");
+            NamedList<Object> selectHandler = (NamedList<Object>) queryHandlers.get(SELECT_HANDLER_PATH);
             if (selectHandler != null) {
                 @SuppressWarnings("unchecked")
-                NamedList<Object> stats = (NamedList<Object>) selectHandler.get("stats");
+                NamedList<Object> stats = (NamedList<Object>) selectHandler.get(STATS_KEY);
                 builder.selectHandler(HandlerInfo.builder()
-                        .requests(getLong(stats, "requests"))
-                        .errors(getLong(stats, "errors"))
-                        .timeouts(getLong(stats, "timeouts"))
-                        .totalTime(getLong(stats, "totalTime"))
-                        .avgTimePerRequest(getFloat(stats, "avgTimePerRequest"))
-                        .avgRequestsPerSecond(getFloat(stats, "avgRequestsPerSecond"))
+                        .requests(getLong(stats, REQUESTS_FIELD))
+                        .errors(getLong(stats, ERRORS_FIELD))
+                        .timeouts(getLong(stats, TIMEOUTS_FIELD))
+                        .totalTime(getLong(stats, TOTAL_TIME_FIELD))
+                        .avgTimePerRequest(getFloat(stats, AVG_TIME_PER_REQUEST_FIELD))
+                        .avgRequestsPerSecond(getFloat(stats, AVG_REQUESTS_PER_SECOND_FIELD))
                         .build());
             }
 
             // Update handler
             @SuppressWarnings("unchecked")
-            NamedList<Object> updateHandler = (NamedList<Object>) queryHandlers.get("/update");
+            NamedList<Object> updateHandler = (NamedList<Object>) queryHandlers.get(UPDATE_HANDLER_PATH);
             if (updateHandler != null) {
                 @SuppressWarnings("unchecked")
-                NamedList<Object> stats = (NamedList<Object>) updateHandler.get("stats");
+                NamedList<Object> stats = (NamedList<Object>) updateHandler.get(STATS_KEY);
                 builder.updateHandler(HandlerInfo.builder()
-                        .requests(getLong(stats, "requests"))
-                        .errors(getLong(stats, "errors"))
-                        .timeouts(getLong(stats, "timeouts"))
-                        .totalTime(getLong(stats, "totalTime"))
-                        .avgTimePerRequest(getFloat(stats, "avgTimePerRequest"))
-                        .avgRequestsPerSecond(getFloat(stats, "avgRequestsPerSecond"))
+                        .requests(getLong(stats, REQUESTS_FIELD))
+                        .errors(getLong(stats, ERRORS_FIELD))
+                        .timeouts(getLong(stats, TIMEOUTS_FIELD))
+                        .totalTime(getLong(stats, TOTAL_TIME_FIELD))
+                        .avgTimePerRequest(getFloat(stats, AVG_TIME_PER_REQUEST_FIELD))
+                        .avgRequestsPerSecond(getFloat(stats, AVG_REQUESTS_PER_SECOND_FIELD))
                         .build());
             }
         }
@@ -665,9 +685,9 @@ public class CollectionService {
         }
 
         // Check if this looks like a shard name (contains "_shard" pattern)
-        if (collectionOrShard.contains("_shard")) {
+        if (collectionOrShard.contains(SHARD_SUFFIX)) {
             // Extract collection name before "_shard"
-            int shardIndex = collectionOrShard.indexOf("_shard");
+            int shardIndex = collectionOrShard.indexOf(SHARD_SUFFIX);
             return collectionOrShard.substring(0, shardIndex);
         }
 
@@ -712,7 +732,7 @@ public class CollectionService {
 
             // Check if any of the returned collections start with the collection name (for shard names)
             boolean shardMatch = collections.stream()
-                    .anyMatch(c -> c.startsWith(collection + "_shard"));
+                    .anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
 
             return shardMatch;
         } catch (Exception e) {
@@ -763,7 +783,7 @@ public class CollectionService {
 
             // Get basic stats
             QueryResponse statsResponse = solrClient.query(collection,
-                    new SolrQuery("*:*").setRows(0));
+                    new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
 
             return SolrHealthStatus.builder()
                     .isHealthy(true)

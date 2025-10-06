@@ -89,7 +89,7 @@ class XmlIndexingTest {
         assertThat(documents).hasSize(3);
 
         // Verify first document
-        SolrInputDocument firstDoc = documents.get(0);
+        SolrInputDocument firstDoc = documents.getFirst();
         assertThat(firstDoc.getFieldValue("id_attr")).isEqualTo("1");
         assertThat(firstDoc.getFieldValue("document_title")).isEqualTo("A Game of Thrones");
         assertThat(firstDoc.getFieldValue("document_author")).isEqualTo("George R.R. Martin");
@@ -165,7 +165,7 @@ class XmlIndexingTest {
         assertThat(documents).hasSize(2);
 
         // First document should skip empty description
-        SolrInputDocument firstDoc = documents.get(0);
+        SolrInputDocument firstDoc = documents.getFirst();
         assertThat(firstDoc.getFieldValue("id_attr")).isEqualTo("1");
         assertThat(firstDoc.getFieldValue("item_name")).isEqualTo("Product One");
         assertThat(firstDoc.getFieldValue("item_description")).isNull(); // Empty element should not be indexed
