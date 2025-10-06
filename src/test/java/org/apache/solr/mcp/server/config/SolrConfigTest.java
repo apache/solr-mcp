@@ -41,10 +41,8 @@ class SolrConfigTest {
     @Test
     void testSolrConfigurationProperties() {
         // Verify that the properties are correctly loaded
-        // The properties object contains the original value from @DynamicPropertySource
         assertNotNull(properties);
         assertNotNull(properties.url());
-        // BaseIntegrationTest sets the URL with trailing slash
         assertEquals("http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/",
                 properties.url());
     }

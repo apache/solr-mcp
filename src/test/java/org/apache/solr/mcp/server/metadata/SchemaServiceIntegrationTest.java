@@ -128,7 +128,6 @@ class SchemaServiceIntegrationTest {
                     return name != null && (name.contains("*_s") || name.contains("*_str"));
                 });
         
-        // This assertion is lenient since dynamic fields vary by schema
         assertTrue(hasStringDynamicField, "Schema should have string dynamic fields");
     }
 
