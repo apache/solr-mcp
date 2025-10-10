@@ -8,9 +8,9 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Utility class for processing JSON documents and converting them to SolrInputDocument objects.
@@ -113,12 +113,9 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
      * @see FieldNameSanitizer#sanitizeFieldName(String)
      */
     private void addAllFieldsFlat(SolrInputDocument doc, JsonNode node, String prefix) {
-        Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
-        while (fields.hasNext()) {
-            Map.Entry<String, JsonNode> field = fields.next();
-            String fieldName = FieldNameSanitizer.sanitizeFieldName(prefix + field.getKey());
-            processFieldValue(doc, field.getValue(), fieldName);
-        }
+        Set<Map.Entry<String, JsonNode>> fields = node.properties();
+        fields.forEach(field -> processFieldValue(doc, field.getValue(),
+                FieldNameSanitizer.sanitizeFieldName(prefix + field.getKey())));
     }
 
     /**
