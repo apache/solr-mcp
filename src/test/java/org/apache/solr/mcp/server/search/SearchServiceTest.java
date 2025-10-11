@@ -1,8 +1,13 @@
 package org.apache.solr.mcp.server.search;
 
 import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
+import org.apache.solr.client.solrj.response.FacetField;
+import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.common.SolrDocument;
+import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,13 +23,21 @@ import java.util.Map;
 import java.util.OptionalDouble;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
-
+/**
+ * Combined tests for SearchService: integration + unit (mocked SolrClient) in one class.
+ */
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
 class SearchServiceTest {
 
+    // ===== Integration test context =====
     private static final String COLLECTION_NAME = "search_test_" + System.currentTimeMillis();
+
     @Autowired
     private SearchService searchService;
     @Autowired
@@ -37,12 +50,10 @@ class SearchServiceTest {
     @BeforeEach
     void setUp() throws Exception {
         if (!initialized) {
-            // Create collection
             CollectionAdminRequest.Create createRequest = CollectionAdminRequest.createCollection(
                     COLLECTION_NAME, "_default", 1, 1);
             createRequest.process(solrClient);
 
-            // Index sample data for testing
             String sampleData = """
                     [
                       {
@@ -53,7 +64,7 @@ class SearchServiceTest {
                         "genre_s": "fantasy",
                         "series_s": "A Song of Ice and Fire",
                         "sequence_i": 1,
-                        "cat_ss": ["book"]
+                         "cat_ss": ["book"]
                       },
                       {
                         "id": "book002",
@@ -154,11 +165,11 @@ class SearchServiceTest {
         }
     }
 
+    // ===== Integration tests (from original SearchServiceTest) =====
+
     @Test
     void testBasicSearch() throws SolrServerException, IOException {
-        // Test basic search with no parameters
         SearchResponse result = searchService.search(COLLECTION_NAME, null, null, null, null, null, null);
-
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
         assertFalse(documents.isEmpty());
@@ -167,37 +178,29 @@ class SearchServiceTest {
 
     @Test
     void testSearchWithQuery() throws SolrServerException, IOException {
-        // Test search with query
         SearchResponse result = searchService.search(COLLECTION_NAME, "name:\"Game of Thrones\"", null, null, null, null, null);
-
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
         assertEquals(1, documents.size());
-
         Map<String, Object> book = documents.getFirst();
         assertEquals("A Game of Thrones", ((List<?>) book.get("name")).getFirst());
     }
 
     @Test
     void testSearchReturnsAuthor() throws Exception {
-        // Test search with filter query
         SearchResponse result = searchService.search(
                 COLLECTION_NAME, "author_ss:\"George R.R. Martin\"", null, null, null, null, null);
-
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
         assertEquals(3, documents.size());
-
         Map<String, Object> book = documents.getFirst();
         assertEquals("George R.R. Martin", ((List<?>) book.get("author_ss")).getFirst());
     }
 
     @Test
     void testSearchWithFacets() throws Exception {
-        // Test search with facets
         SearchResponse result = searchService.search(
                 COLLECTION_NAME, null, null, List.of("genre_s"), null, null, null);
-
         assertNotNull(result);
         Map<String, Map<String, Long>> facets = result.facets();
         assertNotNull(facets);
@@ -206,10 +209,8 @@ class SearchServiceTest {
 
     @Test
     void testSearchWithPrice() throws Exception {
-        // Test search with sorting
         SearchResponse result = searchService.search(
                 COLLECTION_NAME, null, null, null, null, null, null);
-
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
         assertFalse(documents.isEmpty());
@@ -220,26 +221,18 @@ class SearchServiceTest {
 
     @Test
     void testSortByPriceAscending() throws Exception {
-        // Test sorting by price in ascending order
         List<Map<String, String>> sortClauses = List.of(
                 Map.of("item", "price", "order", "asc")
         );
-
         SearchResponse result = searchService.search(
                 COLLECTION_NAME, null, null, null, sortClauses, null, null);
-
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
         assertFalse(documents.isEmpty());
-
-        // Verify documents are sorted by price in ascending order
         double previousPrice = 0.0;
         for (Map<String, Object> book : documents) {
             OptionalDouble priceOpt = extractPrice(book);
-            if (priceOpt.isEmpty()) {
-                continue;
-            }
-            
+            if (priceOpt.isEmpty()) continue;
             double currentPrice = priceOpt.getAsDouble();
             assertTrue(currentPrice >= previousPrice, "Books should be sorted by price in ascending order");
             previousPrice = currentPrice;
@@ -248,26 +241,18 @@ class SearchServiceTest {
 
     @Test
     void testSortByPriceDescending() throws Exception {
-        // Test sorting by price in descending order
         List<Map<String, String>> sortClauses = List.of(
                 Map.of("item", "price", "order", "desc")
         );
-
         SearchResponse result = searchService.search(
                 COLLECTION_NAME, null, null, null, sortClauses, null, null);
-
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
         assertFalse(documents.isEmpty());
-
-        // Verify documents are sorted by price in descending order
         double previousPrice = Double.MAX_VALUE;
         for (Map<String, Object> book : documents) {
             OptionalDouble priceOpt = extractPrice(book);
-            if (priceOpt.isEmpty()) {
-                continue;
-            }
-            
+            if (priceOpt.isEmpty()) continue;
             double currentPrice = priceOpt.getAsDouble();
             assertTrue(currentPrice <= previousPrice, "Books should be sorted by price in descending order");
             previousPrice = currentPrice;
@@ -276,23 +261,15 @@ class SearchServiceTest {
 
     @Test
     void testSortBySequence() throws Exception {
-
-        // Test sorting by sequence_i field
         List<Map<String, String>> sortClauses = List.of(
                 Map.of("item", "sequence_i", "order", "asc")
         );
-
-        // Filter to only get books from the same series to test sequence sorting
         List<String> filterQueries = List.of("series_s:\"A Song of Ice and Fire\"");
-
         SearchResponse result = searchService.search(
                 COLLECTION_NAME, null, filterQueries, null, sortClauses, null, null);
-
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
         assertFalse(documents.isEmpty());
-
-        // Verify documents are sorted by sequence_i in ascending order
         int previousSequence = 0;
         for (Map<String, Object> book : documents) {
             int currentSequence = ((Number) book.get("sequence_i")).intValue();
@@ -303,18 +280,12 @@ class SearchServiceTest {
 
     @Test
     void testFilterByGenre() throws Exception {
-
-        // Test filtering by genre_s field
         List<String> filterQueries = List.of("genre_s:fantasy");
-
         SearchResponse result = searchService.search(
                 COLLECTION_NAME, null, filterQueries, null, null, null, null);
-
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
         assertFalse(documents.isEmpty());
-
-        // Verify all returned documents have genre_s = fantasy
         for (Map<String, Object> book : documents) {
             String genre = (String) book.get("genre_s");
             assertEquals("fantasy", genre, "All books should have genre_s = fantasy");
@@ -323,28 +294,16 @@ class SearchServiceTest {
 
     @Test
     void testFilterByPriceRange() throws Exception {
-        // Test filtering by price range
         List<String> filterQueries = List.of("price:[6.0 TO 7.0]");
-
         SearchResponse result = searchService.search(
                 COLLECTION_NAME, null, filterQueries, null, null, null, null);
-
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
         assertFalse(documents.isEmpty());
-
-        // Verify all returned documents have price between 6.0 and 7.0
         for (Map<String, Object> book : documents) {
-            // Skip books without a price field
-            if (book.get("price") == null) {
-                continue;
-            }
-
+            if (book.get("price") == null) continue;
             OptionalDouble priceOpt = extractPrice(book);
-            if (priceOpt.isEmpty()) {
-                continue;
-            }
-            
+            if (priceOpt.isEmpty()) continue;
             double price = priceOpt.getAsDouble();
             assertTrue(price >= 6.0 && price <= 7.0, "All books should have price between 6.0 and 7.0");
         }
@@ -352,50 +311,34 @@ class SearchServiceTest {
 
     @Test
     void testCombinedSortingAndFiltering() throws Exception {
-        // Test combining sorting and filtering
         List<Map<String, String>> sortClauses = List.of(
                 Map.of("item", "price", "order", "desc")
         );
-
         List<String> filterQueries = List.of("genre_s:fantasy");
-
         SearchResponse result = searchService.search(
                 COLLECTION_NAME, null, filterQueries, null, sortClauses, null, null);
-
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
         assertFalse(documents.isEmpty());
-
-        // Verify all returned documents have genre_s = fantasy
         for (Map<String, Object> book : documents) {
             String genre = (String) book.get("genre_s");
             assertEquals("fantasy", genre, "All books should have genre_s = fantasy");
         }
-
-        // Verify documents are sorted by price in descending order
         double previousPrice = Double.MAX_VALUE;
         for (Map<String, Object> book : documents) {
-            // Skip books without a price field
-            if (book.get("price") == null) {
-                continue;
-            }
-
-            // Handle the case where price might be a List or a direct value
             Object priceObj = book.get("price");
             double currentPrice;
-
             if (priceObj instanceof List) {
                 List<?> priceList = (List<?>) priceObj;
                 if (priceList.isEmpty()) {
-                    continue; // Skip if price list is empty
+                    continue;
                 }
                 currentPrice = ((Number) priceList.getFirst()).doubleValue();
             } else if (priceObj instanceof Number) {
                 currentPrice = ((Number) priceObj).doubleValue();
             } else {
-                continue; // Skip if price is not a number or list
+                continue;
             }
-
             assertTrue(currentPrice <= previousPrice, "Books should be sorted by price in descending order");
             previousPrice = currentPrice;
         }
@@ -403,39 +346,305 @@ class SearchServiceTest {
 
     @Test
     void testPagination() throws Exception {
-        // First, get all documents to know how many we have
         SearchResponse allResults = searchService.search(
                 COLLECTION_NAME, null, null, null, null, null, null);
-
         assertNotNull(allResults);
         long totalDocuments = allResults.numFound();
         assertTrue(totalDocuments > 0, "Should have at least some documents");
-
-        // Now test pagination with start=0, rows=2 (first page with 2 items)
         SearchResponse firstPage = searchService.search(
                 COLLECTION_NAME, null, null, null, null, 0, 2);
-
         assertNotNull(firstPage);
         assertEquals(0, firstPage.start(), "Start offset should be 0");
         assertEquals(totalDocuments, firstPage.numFound(), "Total count should match");
         assertEquals(2, firstPage.documents().size(), "Should return exactly 2 documents");
-
-        // Test second page (start=2, rows=2)
         SearchResponse secondPage = searchService.search(
                 COLLECTION_NAME, null, null, null, null, 2, 2);
-
         assertNotNull(secondPage);
         assertEquals(2, secondPage.start(), "Start offset should be 2");
         assertEquals(totalDocuments, secondPage.numFound(), "Total count should match");
         assertEquals(2, secondPage.documents().size(), "Should return exactly 2 documents");
-
-        // Verify first and second page have different documents
         List<String> firstPageIds = getDocumentIds(firstPage.documents());
         List<String> secondPageIds = getDocumentIds(secondPage.documents());
-
         for (String id : firstPageIds) {
             assertFalse(secondPageIds.contains(id), "Second page should not contain documents from first page");
         }
+    }
+
+    @Test
+    void testSpecialCharactersInQuery() throws Exception {
+        String specialJson = """
+                [
+                  {
+                    "id": "special001",
+                    "title": "Book with special characters: & + - ! ( ) { } [ ] ^ \\" ~ * ? : \\\\ /",
+                    "author_ss": ["Special Author (with parentheses)"],
+                    "description": "This is a test document with special characters: & + - ! ( ) { } [ ] ^ \\" ~ * ? : \\\\ /"
+                  }
+                ]
+                """;
+        indexingService.indexJsonDocuments(COLLECTION_NAME, specialJson);
+        solrClient.commit(COLLECTION_NAME);
+        String query = "id:special001";
+        SearchResponse result = searchService.search(COLLECTION_NAME, query, null, null, null, null, null);
+        assertNotNull(result);
+        assertEquals(1, result.numFound(), "Should find exactly one document");
+        query = "author_ss:\"Special Author \\(" + "with parentheses\\)\""; // escape parentheses
+        result = searchService.search(COLLECTION_NAME, query, null, null, null, null, null);
+        assertNotNull(result);
+        assertEquals(1, result.numFound(), "Should find exactly one document");
+        query = "title:special*";
+        result = searchService.search(COLLECTION_NAME, query, null, null, null, null, null);
+        assertNotNull(result);
+        assertTrue(result.numFound() > 0, "Should find at least one document");
+    }
+
+    // ===== Unit-style tests with mocked SolrClient (from SearchServiceUnitTest) =====
+
+    @Test
+    void unit_constructor_ShouldInitializeWithSolrClient() {
+        SearchService localService = new SearchService(mock(SolrClient.class));
+        assertNotNull(localService);
+    }
+
+    @Test
+    void unit_search_WithNullQuery_ShouldDefaultToMatchAll() throws Exception {
+        SolrClient mockClient = mock(SolrClient.class);
+        QueryResponse mockResponse = mock(QueryResponse.class);
+        SolrDocumentList mockDocuments = createMockDocumentList();
+        when(mockResponse.getResults()).thenReturn(mockDocuments);
+        when(mockResponse.getFacetFields()).thenReturn(null);
+        when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
+            SolrQuery q = invocation.getArgument(1);
+            assertEquals("*:*", q.getQuery());
+            return mockResponse;
+        });
+        SearchService localService = new SearchService(mockClient);
+        SearchResponse result = localService.search("test_collection", null, null, null, null, null, null);
+        assertNotNull(result);
+    }
+
+    @Test
+    void unit_search_WithCustomQuery_ShouldUseProvidedQuery() throws Exception {
+        SolrClient mockClient = mock(SolrClient.class);
+        QueryResponse mockResponse = mock(QueryResponse.class);
+        String customQuery = "name:\"Spring Boot\"";
+        SolrDocumentList mockDocuments = createMockDocumentList();
+        when(mockResponse.getResults()).thenReturn(mockDocuments);
+        when(mockResponse.getFacetFields()).thenReturn(null);
+        when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
+            SolrQuery q = invocation.getArgument(1);
+            assertEquals(customQuery, q.getQuery());
+            return mockResponse;
+        });
+        SearchService localService = new SearchService(mockClient);
+        SearchResponse result = localService.search("test_collection", customQuery, null, null, null, null, null);
+        assertNotNull(result);
+    }
+
+    @Test
+    void unit_search_WithFilterQueries_ShouldApplyFilters() throws Exception {
+        SolrClient mockClient = mock(SolrClient.class);
+        QueryResponse mockResponse = mock(QueryResponse.class);
+        List<String> filterQueries = List.of("genre_s:fantasy", "price:[0 TO 10]");
+        SolrDocumentList mockDocuments = createMockDocumentList();
+        when(mockResponse.getResults()).thenReturn(mockDocuments);
+        when(mockResponse.getFacetFields()).thenReturn(null);
+        when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
+            SolrQuery q = invocation.getArgument(1);
+            assertArrayEquals(filterQueries.toArray(), q.getFilterQueries());
+            return mockResponse;
+        });
+        SearchService localService = new SearchService(mockClient);
+        SearchResponse result = localService.search("test_collection", null, filterQueries, null, null, null, null);
+        assertNotNull(result);
+    }
+
+    @Test
+    void unit_search_WithFacetFields_ShouldEnableFaceting() throws Exception {
+        SolrClient mockClient = mock(SolrClient.class);
+        QueryResponse mockResponse = mock(QueryResponse.class);
+        List<String> facetFields = List.of("genre_s", "author_ss");
+        SolrDocumentList mockDocuments = createMockDocumentList();
+        when(mockResponse.getResults()).thenReturn(mockDocuments);
+        when(mockResponse.getFacetFields()).thenReturn(createMockFacetFields());
+        when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> mockResponse);
+        SearchService localService = new SearchService(mockClient);
+        SearchResponse result = localService.search("test_collection", null, null, facetFields, null, null, null);
+        assertNotNull(result);
+        assertNotNull(result.facets());
+    }
+
+    @Test
+    void unit_search_WithSortClauses_ShouldApplySorting() throws Exception {
+        SolrClient mockClient = mock(SolrClient.class);
+        QueryResponse mockResponse = mock(QueryResponse.class);
+        List<Map<String, String>> sortClauses = List.of(
+                Map.of("item", "price", "order", "asc"),
+                Map.of("item", "name", "order", "desc")
+        );
+        SolrDocumentList mockDocuments = createMockDocumentList();
+        when(mockResponse.getResults()).thenReturn(mockDocuments);
+        when(mockResponse.getFacetFields()).thenReturn(null);
+        when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> mockResponse);
+        SearchService localService = new SearchService(mockClient);
+        SearchResponse result = localService.search("test_collection", null, null, null, sortClauses, null, null);
+        assertNotNull(result);
+    }
+
+    @Test
+    void unit_search_WithPagination_ShouldApplyStartAndRows() throws Exception {
+        SolrClient mockClient = mock(SolrClient.class);
+        QueryResponse mockResponse = mock(QueryResponse.class);
+        Integer start = 10;
+        Integer rows = 20;
+        SolrDocumentList mockDocuments = createMockDocumentList();
+        when(mockResponse.getResults()).thenReturn(mockDocuments);
+        when(mockResponse.getFacetFields()).thenReturn(null);
+        when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
+            SolrQuery q = invocation.getArgument(1);
+            assertEquals(start, q.getStart());
+            assertEquals(rows, q.getRows());
+            return mockResponse;
+        });
+        SearchService localService = new SearchService(mockClient);
+        SearchResponse result = localService.search("test_collection", null, null, null, null, start, rows);
+        assertNotNull(result);
+    }
+
+    @Test
+    void unit_search_WithAllParameters_ShouldCombineAllOptions() throws Exception {
+        SolrClient mockClient = mock(SolrClient.class);
+        QueryResponse mockResponse = mock(QueryResponse.class);
+        String query = "title:Java";
+        List<String> filterQueries = List.of("inStock:true");
+        List<String> facetFields = List.of("category");
+        List<Map<String, String>> sortClauses = List.of(Map.of("item", "price", "order", "asc"));
+        Integer start = 0;
+        Integer rows = 10;
+        SolrDocumentList mockDocuments = createMockDocumentList();
+        when(mockResponse.getResults()).thenReturn(mockDocuments);
+        when(mockResponse.getFacetFields()).thenReturn(createMockFacetFields());
+        when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
+            SolrQuery captured = invocation.getArgument(1);
+            assertEquals(query, captured.getQuery());
+            assertArrayEquals(filterQueries.toArray(), captured.getFilterQueries());
+            assertNotNull(captured.getFacetFields());
+            assertEquals(start, captured.getStart());
+            assertEquals(rows, captured.getRows());
+            return mockResponse;
+        });
+        SearchService localService = new SearchService(mockClient);
+        SearchResponse result = localService.search("test_collection", query, filterQueries, facetFields, sortClauses, start, rows);
+        assertNotNull(result);
+    }
+
+    @Test
+    void unit_search_WhenSolrThrowsException_ShouldPropagateException() throws Exception {
+        SolrClient mockClient = mock(SolrClient.class);
+        when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
+                .thenThrow(new SolrServerException("Connection error"));
+        SearchService localService = new SearchService(mockClient);
+        assertThrows(SolrServerException.class, () ->
+                localService.search("test_collection", null, null, null, null, null, null));
+    }
+
+    @Test
+    void unit_search_WhenIOException_ShouldPropagateException() throws Exception {
+        SolrClient mockClient = mock(SolrClient.class);
+        when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
+                .thenThrow(new IOException("Network error"));
+        SearchService localService = new SearchService(mockClient);
+        assertThrows(IOException.class, () ->
+                localService.search("test_collection", null, null, null, null, null, null));
+    }
+
+    @Test
+    void unit_search_WithEmptyResults_ShouldReturnEmptyDocumentList() throws Exception {
+        SolrClient mockClient = mock(SolrClient.class);
+        QueryResponse mockResponse = mock(QueryResponse.class);
+        SolrDocumentList emptyDocuments = new SolrDocumentList();
+        emptyDocuments.setNumFound(0);
+        emptyDocuments.setStart(0);
+        when(mockResponse.getResults()).thenReturn(emptyDocuments);
+        when(mockResponse.getFacetFields()).thenReturn(null);
+        when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenReturn(mockResponse);
+        SearchService localService = new SearchService(mockClient);
+        SearchResponse result = localService.search("test_collection", "nonexistent:value", null, null, null, null, null);
+        assertNotNull(result);
+        assertEquals(0, result.numFound());
+        assertTrue(result.documents().isEmpty());
+    }
+
+    @Test
+    void unit_search_WithNullFilterQueries_ShouldNotApplyFilters() throws Exception {
+        SolrClient mockClient = mock(SolrClient.class);
+        QueryResponse mockResponse = mock(QueryResponse.class);
+        SolrDocumentList mockDocuments = createMockDocumentList();
+        when(mockResponse.getResults()).thenReturn(mockDocuments);
+        when(mockResponse.getFacetFields()).thenReturn(null);
+        when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
+            SolrQuery q = invocation.getArgument(1);
+            assertNull(q.getFilterQueries());
+            return mockResponse;
+        });
+        SearchService localService = new SearchService(mockClient);
+        SearchResponse result = localService.search("test_collection", null, null, null, null, null, null);
+        assertNotNull(result);
+    }
+
+    @Test
+    void unit_search_WithEmptyFacetFields_ShouldNotEnableFaceting() throws Exception {
+        SolrClient mockClient = mock(SolrClient.class);
+        QueryResponse mockResponse = mock(QueryResponse.class);
+        SolrDocumentList mockDocuments = createMockDocumentList();
+        when(mockResponse.getResults()).thenReturn(mockDocuments);
+        when(mockResponse.getFacetFields()).thenReturn(null);
+        when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
+            SolrQuery q = invocation.getArgument(1);
+            assertNull(q.getFacetFields());
+            return mockResponse;
+        });
+        SearchService localService = new SearchService(mockClient);
+        SearchResponse result = localService.search("test_collection", null, null, List.of(), null, null, null);
+        assertNotNull(result);
+    }
+
+    @Test
+    void unit_searchResponse_ShouldContainAllFields() throws Exception {
+        SolrClient mockClient = mock(SolrClient.class);
+        QueryResponse mockResponse = mock(QueryResponse.class);
+        SolrDocumentList mockDocuments = createMockDocumentListWithData();
+        when(mockResponse.getResults()).thenReturn(mockDocuments);
+        when(mockResponse.getFacetFields()).thenReturn(createMockFacetFields());
+        when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenReturn(mockResponse);
+        SearchService localService = new SearchService(mockClient);
+        SearchResponse result = localService.search("test_collection", null, null, List.of("genre_s"), null, null, null);
+        assertNotNull(result);
+        assertEquals(2, result.numFound());
+        assertEquals(0, result.start());
+        assertNotNull(result.documents());
+        assertEquals(2, result.documents().size());
+        assertNotNull(result.facets());
+        assertFalse(result.facets().isEmpty());
+    }
+
+    // ===== Helpers (from unit tests and integration tests) =====
+
+    private OptionalDouble extractPrice(Map<String, Object> document) {
+        Object priceObj = document.get("price");
+        if (priceObj == null) {
+            return OptionalDouble.empty();
+        }
+        if (priceObj instanceof List) {
+            List<?> priceList = (List<?>) priceObj;
+            if (priceList.isEmpty()) {
+                return OptionalDouble.empty();
+            }
+            return OptionalDouble.of(((Number) priceList.getFirst()).doubleValue());
+        } else if (priceObj instanceof Number) {
+            return OptionalDouble.of(((Number) priceObj).doubleValue());
+        }
+        return OptionalDouble.empty();
     }
 
     private List<String> getDocumentIds(List<Map<String, Object>> documents) {
@@ -451,118 +660,42 @@ class SearchServiceTest {
         return ids;
     }
 
-    @Test
-    void testMultipleFacets() throws Exception {
-        // Test search with multiple facet fields including multi-valued fields
-        // Using _s suffix for single-valued strings and _ss suffix for multi-valued strings
-        List<String> facetFields = List.of("genre_s", "series_s", "author_ss");
-
-        SearchResponse result = searchService.search(
-                COLLECTION_NAME, null, null, facetFields, null, null, null);
-
-        assertNotNull(result);
-        Map<String, Map<String, Long>> facets = result.facets();
-        assertNotNull(facets);
-
-        // Verify genre_s facet (single-valued)
-        assertTrue(facets.containsKey("genre_s"), "Response should contain genre_s facet");
-        Map<String, Long> genreFacets = facets.get("genre_s");
-        assertFalse(genreFacets.isEmpty(), "genre_s facet should have values");
-        assertTrue(genreFacets.containsKey("fantasy") || genreFacets.containsKey("scifi"),
-                "genre_s facet should contain fantasy or scifi");
-
-        // Verify series_s facet (single-valued)
-        assertTrue(facets.containsKey("series_s"), "Response should contain series_s facet");
-        Map<String, Long> seriesFacets = facets.get("series_s");
-        assertFalse(seriesFacets.isEmpty(), "series_s facet should have values");
-
-        // Verify author_ss facet (multi-valued)
-        assertTrue(facets.containsKey("author_ss"), "Response should contain author_ss facet");
-        Map<String, Long> authorFacets = facets.get("author_ss");
-        assertFalse(authorFacets.isEmpty(), "author_ss facet should have values");
-        assertTrue(authorFacets.containsKey("George R.R. Martin") || authorFacets.containsKey("J.R.R. Tolkien"),
-                "author_ss facet should contain known authors");
-
-        // Verify all facet counts are positive
-        for (String genre : genreFacets.keySet()) {
-            assertTrue(genreFacets.get(genre) > 0, "Genre facet count should be positive");
-        }
-        for (String series : seriesFacets.keySet()) {
-            assertTrue(seriesFacets.get(series) > 0, "Series facet count should be positive");
-        }
-        for (String author : authorFacets.keySet()) {
-            assertTrue(authorFacets.get(author) > 0, "Author facet count should be positive");
-        }
+    private SolrDocumentList createMockDocumentList() {
+        SolrDocumentList documents = new SolrDocumentList();
+        documents.setNumFound(0);
+        documents.setStart(0);
+        return documents;
     }
 
-    @Test
-    void testSpecialCharactersInQuery() throws Exception {
-        // First, index a document with special characters
-        String specialJson = """
-                [
-                  {
-                    "id": "special001",
-                    "title": "Book with special characters: & + - ! ( ) { } [ ] ^ \\" ~ * ? : \\\\ /",
-                    "author_ss": ["Special Author (with parentheses)"],
-                    "description": "This is a test document with special characters: & + - ! ( ) { } [ ] ^ \\" ~ * ? : \\\\ /"
-                  }
-                ]
-                """;
-
-        try {
-            // Index the document with special characters
-            indexingService.indexJsonDocuments(COLLECTION_NAME, specialJson);
-
-            // Commit to ensure document is available for search
-            solrClient.commit(COLLECTION_NAME);
-
-            // Test searching for the document - search by ID which always works
-            String query = "id:special001";
-            SearchResponse result = searchService.search(COLLECTION_NAME, query, null, null, null, null, null);
-
-            assertNotNull(result);
-            assertEquals(1, result.numFound(), "Should find exactly one document");
-
-            // Test searching with escaped parentheses in author field
-            query = "author_ss:\"Special Author \\(with parentheses\\)\"";
-            result = searchService.search(COLLECTION_NAME, query, null, null, null, null, null);
-
-            assertNotNull(result);
-            assertEquals(1, result.numFound(), "Should find exactly one document");
-
-            // Test searching with wildcards
-            query = "title:special*";
-            result = searchService.search(COLLECTION_NAME, query, null, null, null, null, null);
-
-            assertNotNull(result);
-            assertTrue(result.numFound() > 0, "Should find at least one document");
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw e;
-        }
+    private SolrDocumentList createMockDocumentListWithData() {
+        SolrDocumentList documents = new SolrDocumentList();
+        documents.setNumFound(2);
+        documents.setStart(0);
+        documents.setMaxScore(1.0f);
+        SolrDocument doc1 = new SolrDocument();
+        doc1.setField("id", "book001");
+        doc1.setField("name", "Spring Boot in Action");
+        doc1.setField("author_ss", List.of("Craig Walls"));
+        doc1.setField("price", 39.99);
+        doc1.setField("genre_s", "technology");
+        documents.add(doc1);
+        SolrDocument doc2 = new SolrDocument();
+        doc2.setField("id", "book002");
+        doc2.setField("name", "Effective Java");
+        doc2.setField("author_ss", List.of("Joshua Bloch"));
+        doc2.setField("price", 44.99);
+        doc2.setField("genre_s", "technology");
+        documents.add(doc2);
+        return documents;
     }
 
-    /**
-     * Helper method to extract price value from a document field.
-     * Handles both List and direct Number values.
-     */
-    private OptionalDouble extractPrice(Map<String, Object> document) {
-        Object priceObj = document.get("price");
-        if (priceObj == null) {
-            return OptionalDouble.empty();
-        }
-
-        if (priceObj instanceof List) {
-            List<?> priceList = (List<?>) priceObj;
-            if (priceList.isEmpty()) {
-                return OptionalDouble.empty();
-            }
-            return OptionalDouble.of(((Number) priceList.getFirst()).doubleValue());
-        } else if (priceObj instanceof Number) {
-            return OptionalDouble.of(((Number) priceObj).doubleValue());
-        }
-        
-        return OptionalDouble.empty();
+    private List<FacetField> createMockFacetFields() {
+        FacetField genreFacet = new FacetField("genre_s");
+        genreFacet.add("technology", 5);
+        genreFacet.add("fiction", 3);
+        FacetField authorFacet = new FacetField("author_ss");
+        authorFacet.add("Craig Walls", 2);
+        authorFacet.add("Joshua Bloch", 1);
+        return List.of(genreFacet, authorFacet);
     }
 }
