@@ -6,7 +6,7 @@ sonarqube = "6.2.0.5505"
 errorprone-plugin = "4.2.0"
 
 # Main dependencies
-spring-ai = "1.0.2"
+spring-ai = "1.1.0-M3"
 solr = "9.8.1"
 commons-csv = "1.10.0"
 jspecify = "1.0.0"

@@ -4,8 +4,8 @@ import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
-import org.springframework.ai.tool.annotation.Tool;
-import org.springframework.ai.tool.annotation.ToolParam;
+import org.springaicommunity.mcp.annotation.McpTool;
+import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Service;
 import org.xml.sax.SAXException;
 
@@ -90,7 +90,6 @@ public class IndexingService {
      * @param solrClient the SolrJ client instance for communicating with Solr
      *
      * @see SolrClient
-     * @see SolrConfigurationProperties
      */
     public IndexingService(SolrClient solrClient,
                            IndexingDocumentCreator indexingDocumentCreator) {
@@ -138,10 +137,10 @@ public class IndexingService {
      * @see IndexingDocumentCreator#createSchemalessDocumentsFromJson(String)
      * @see #indexDocuments(String, List)
      */
-    @Tool(name = "index_json_documents", description = "Index documents from json String into Solr collection")
+    @McpTool(name = "index_json_documents", description = "Index documents from json String into Solr collection")
     public void indexJsonDocuments(
-            @ToolParam(description = "Solr collection to index into") String collection,
-            @ToolParam(description = "JSON string containing documents to index") String json) throws IOException, SolrServerException {
+            @McpToolParam(description = "Solr collection to index into") String collection,
+            @McpToolParam(description = "JSON string containing documents to index") String json) throws IOException, SolrServerException {
         List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
         indexDocuments(collection, schemalessDoc);
     }
@@ -187,10 +186,10 @@ public class IndexingService {
      * @see IndexingDocumentCreator#createSchemalessDocumentsFromCsv(String)
      * @see #indexDocuments(String, List)
      */
-    @Tool(name = "index_csv_documents", description = "Index documents from CSV string into Solr collection")
+    @McpTool(name = "index_csv_documents", description = "Index documents from CSV string into Solr collection")
     public void indexCsvDocuments(
-            @ToolParam(description = "Solr collection to index into") String collection,
-            @ToolParam(description = "CSV string containing documents to index") String csv) throws IOException, SolrServerException {
+            @McpToolParam(description = "Solr collection to index into") String collection,
+            @McpToolParam(description = "CSV string containing documents to index") String csv) throws IOException, SolrServerException {
         List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromCsv(csv);
         indexDocuments(collection, schemalessDoc);
     }
@@ -253,10 +252,10 @@ public class IndexingService {
      * @see IndexingDocumentCreator#createSchemalessDocumentsFromXml(String)
      * @see #indexDocuments(String, List)
      */
-    @Tool(name = "index_xml_documents", description = "Index documents from XML string into Solr collection")
+    @McpTool(name = "index_xml_documents", description = "Index documents from XML string into Solr collection")
     public void indexXmlDocuments(
-            @ToolParam(description = "Solr collection to index into") String collection,
-            @ToolParam(description = "XML string containing documents to index") String xml) throws ParserConfigurationException, SAXException, IOException, SolrServerException {
+            @McpToolParam(description = "Solr collection to index into") String collection,
+            @McpToolParam(description = "XML string containing documents to index") String xml) throws ParserConfigurationException, SAXException, IOException, SolrServerException {
         List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromXml(xml);
         indexDocuments(collection, schemalessDoc);
     }

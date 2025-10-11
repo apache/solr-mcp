@@ -7,8 +7,8 @@ import org.apache.solr.client.solrj.response.FacetField;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.params.FacetParams;
-import org.springframework.ai.tool.annotation.Tool;
-import org.springframework.ai.tool.annotation.ToolParam;
+import org.springaicommunity.mcp.annotation.McpTool;
+import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
@@ -160,7 +160,7 @@ public class SearchService {
      * @throws SolrServerException If there's an error communicating with Solr
      * @throws IOException         If there's an I/O error
      */
-    @Tool(name = "Search",
+    @McpTool(name = "Search",
             description = """
                     Search specified Solr collection with query, optional filters, facets, sorting, and pagination. 
                     Note that solr has dynamic fields where name of field in schema may end with suffixes
@@ -188,13 +188,13 @@ public class SearchService {
                         }
                     """)
     public SearchResponse search(
-            @ToolParam(description = "Solr collection to query") String collection,
-            @ToolParam(description = "Solr q parameter. If none specified defaults to \"*:*\"", required = false) String query,
-            @ToolParam(description = "Solr fq parameter", required = false) List<String> filterQueries,
-            @ToolParam(description = "Solr facet fields", required = false) List<String> facetFields,
-            @ToolParam(description = "Solr sort parameter", required = false) List<Map<String, String>> sortClauses,
-            @ToolParam(description = "Starting offset for pagination", required = false) Integer start,
-            @ToolParam(description = "Number of rows to return", required = false) Integer rows)
+            @McpToolParam(description = "Solr collection to query") String collection,
+            @McpToolParam(description = "Solr q parameter. If none specified defaults to \"*:*\"", required = false) String query,
+            @McpToolParam(description = "Solr fq parameter", required = false) List<String> filterQueries,
+            @McpToolParam(description = "Solr facet fields", required = false) List<String> facetFields,
+            @McpToolParam(description = "Solr sort parameter", required = false) List<Map<String, String>> sortClauses,
+            @McpToolParam(description = "Starting offset for pagination", required = false) Integer start,
+            @McpToolParam(description = "Number of rows to return", required = false) Integer rows)
             throws SolrServerException, IOException {
 
         // query
