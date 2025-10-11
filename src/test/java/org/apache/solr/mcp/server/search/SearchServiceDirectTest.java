@@ -18,11 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -76,7 +72,7 @@ class SearchServiceDirectTest {
 
         List<Map<String, Object>> resultDocs = result.documents();
         assertEquals(2, resultDocs.size());
-        assertEquals("1", resultDocs.get(0).get("id"));
+        assertEquals("1", resultDocs.getFirst().get("id"));
         assertEquals("2", resultDocs.get(1).get("id"));
     }
 
@@ -271,8 +267,8 @@ class SearchServiceDirectTest {
         assertEquals(5, result.start());
         assertEquals(0.75f, result.maxScore());
         assertEquals(1, result.documents().size());
-        assertEquals("5", result.documents().get(0).get("id"));
-        assertEquals("Book 5", result.documents().get(0).get("name"));
+        assertEquals("5", result.documents().getFirst().get("id"));
+        assertEquals("Book 5", result.documents().getFirst().get("name"));
         assertTrue(result.facets().containsKey("genre_s"));
         assertEquals(1L, result.facets().get("genre_s").get("mystery"));
     }

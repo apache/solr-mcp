@@ -3,24 +3,21 @@ package org.apache.solr.mcp.server.metadata;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.Builder;
-import lombok.Data;
-import lombok.extern.jackson.Jacksonized;
 
 import java.util.Date;
 
 /**
  * Data Transfer Objects (DTOs) for the Apache Solr MCP Server.
- * 
+ *
  * <p>This package contains all the data transfer objects used to serialize and deserialize
  * Solr metrics, search results, and health status information for Model Context Protocol (MCP) clients.
- * All DTOs use Lombok annotations for reduced boilerplate and Jackson annotations for JSON serialization.</p>
- * 
+ * All DTOs use Java records for immutability and Jackson annotations for JSON serialization.</p>
+ *
  * <p><strong>Key Features:</strong></p>
  * <ul>
  *   <li>Automatic null value exclusion from JSON output using {@code @JsonInclude(JsonInclude.Include.NON_NULL)}</li>
  *   <li>Resilient JSON parsing with {@code @JsonIgnoreProperties(ignoreUnknown = true)}</li>
- *   <li>Immutable builder pattern using {@code @Jacksonized} and {@code @Builder}</li>
+ *   <li>Immutable data structures using Java records</li>
  *   <li>ISO 8601 timestamp formatting for consistent date serialization</li>
  * </ul>
  *
@@ -59,28 +56,25 @@ import java.util.Date;
  * @see CacheStats
  * @see HandlerStats
  */
-@Data
-@Builder
-@Jacksonized
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-class SolrMetrics {
-    
+record SolrMetrics(
     /** Index-related statistics including document counts and segment information */
-    private IndexStats indexStats;
-    
+    IndexStats indexStats,
+
     /** Query performance metrics from the most recent search operations */
-    private QueryStats queryStats;
-    
+    QueryStats queryStats,
+
     /** Cache utilization statistics for query result, document, and filter caches (may be null) */
-    private CacheStats cacheStats;
-    
+    CacheStats cacheStats,
+
     /** Request handler performance metrics for select and update operations (may be null) */
-    private HandlerStats handlerStats;
-    
+    HandlerStats handlerStats,
+
     /** Timestamp when these metrics were collected, formatted as ISO 8601 */
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-    private Date timestamp;
+    Date timestamp
+) {
 }
 
 /**
@@ -102,18 +96,15 @@ class SolrMetrics {
  * 
  * @see org.apache.solr.client.solrj.request.LukeRequest
  */
-@Data
-@Builder
-@Jacksonized
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-class IndexStats {
-    
+record IndexStats(
     /** Total number of documents in the index (excluding deleted documents) */
-    private Integer numDocs;
-    
+    Integer numDocs,
+
     /** Number of Lucene segments in the index (lower numbers generally indicate better performance) */
-    private Integer segmentCount;
+    Integer segmentCount
+) {
 }
 
 /**
@@ -138,21 +129,18 @@ class IndexStats {
  * <p><strong>Note:</strong> This class is currently unused in the collection statistics
  * but is available for future field-level analysis features.</p>
  */
-@Data
-@Builder
-@Jacksonized
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-class FieldStats {
-    
+record FieldStats(
     /** Solr field type as defined in the schema configuration */
-    private String type;
-    
+    String type,
+
     /** Number of documents in the index that contain this field */
-    private Integer docs;
-    
+    Integer docs,
+
     /** Number of unique/distinct values for this field across all documents */
-    private Integer distinct;
+    Integer distinct
+) {
 }
 
 /**
@@ -176,24 +164,21 @@ class FieldStats {
  * 
  * @see org.apache.solr.client.solrj.response.QueryResponse
  */
-@Data
-@Builder
-@Jacksonized
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-class QueryStats {
-    
+record QueryStats(
     /** Time in milliseconds required to execute the most recent query */
-    private Integer queryTime;
-    
+    Integer queryTime,
+
     /** Total number of documents matching the query criteria */
-    private Long totalResults;
-    
+    Long totalResults,
+
     /** Starting position for paginated results (0-based offset) */
-    private Long start;
-    
+    Long start,
+
     /** Highest relevance score among the returned documents */
-    private Float maxScore;
+    Float maxScore
+) {
 }
 
 /**
@@ -217,21 +202,18 @@ class QueryStats {
  * 
  * @see CacheInfo
  */
-@Data
-@Builder
-@Jacksonized
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-class CacheStats {
-    
+record CacheStats(
     /** Performance metrics for the query result cache */
-    private CacheInfo queryResultCache;
-    
+    CacheInfo queryResultCache,
+
     /** Performance metrics for the document cache */
-    private CacheInfo documentCache;
-    
+    CacheInfo documentCache,
+
     /** Performance metrics for the filter cache */
-    private CacheInfo filterCache;
+    CacheInfo filterCache
+) {
 }
 
 /**
@@ -254,30 +236,27 @@ class CacheStats {
  * minimal evictions. High eviction rates suggest cache size increases may
  * improve performance.</p>
  */
-@Data
-@Builder
-@Jacksonized
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-class CacheInfo {
-    
+record CacheInfo(
     /** Total number of cache lookup requests */
-    private Long lookups;
-    
+    Long lookups,
+
     /** Number of successful cache hits */
-    private Long hits;
-    
+    Long hits,
+
     /** Cache hit ratio (hits/lookups) - higher values indicate better cache performance */
-    private Float hitratio;
-    
+    Float hitratio,
+
     /** Number of new entries added to the cache */
-    private Long inserts;
-    
+    Long inserts,
+
     /** Number of entries removed due to cache size limits (indicates memory pressure) */
-    private Long evictions;
-    
+    Long evictions,
+
     /** Current number of entries stored in the cache */
-    private Long size;
+    Long size
+) {
 }
 
 /**
@@ -300,18 +279,15 @@ class CacheInfo {
  * 
  * @see HandlerInfo
  */
-@Data
-@Builder
-@Jacksonized
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-class HandlerStats {
-    
+record HandlerStats(
     /** Performance metrics for the search/select request handler */
-    private HandlerInfo selectHandler;
-    
+    HandlerInfo selectHandler,
+
     /** Performance metrics for the document update request handler */
-    private HandlerInfo updateHandler;
+    HandlerInfo updateHandler
+) {
 }
 
 /**
@@ -333,30 +309,27 @@ class HandlerStats {
  * <p>High error rates may indicate system stress or configuration issues.
  * Increasing response times suggest capacity limits or optimization needs.</p>
  */
-@Data
-@Builder
-@Jacksonized
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-class HandlerInfo {
-    
+record HandlerInfo(
     /** Total number of requests processed by this handler */
-    private Long requests;
-    
+    Long requests,
+
     /** Number of requests that resulted in errors */
-    private Long errors;
-    
+    Long errors,
+
     /** Number of requests that exceeded timeout limits */
-    private Long timeouts;
-    
+    Long timeouts,
+
     /** Cumulative time spent processing all requests (milliseconds) */
-    private Long totalTime;
-    
+    Long totalTime,
+
     /** Average time per request in milliseconds */
-    private Float avgTimePerRequest;
-    
+    Float avgTimePerRequest,
+
     /** Average throughput in requests per second */
-    private Float avgRequestsPerSecond;
+    Float avgRequestsPerSecond
+) {
 }
 
 /**
@@ -386,35 +359,32 @@ class HandlerInfo {
  * }
  * }</pre>
  */
-@Data
-@Builder
-@Jacksonized
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-class SolrHealthStatus {
-    
+record SolrHealthStatus(
     /** Overall health status - true if collection is operational and responding */
-    private boolean isHealthy;
-    
+    boolean isHealthy,
+
     /** Detailed error message when isHealthy is false, null when healthy */
-    private String errorMessage;
-    
+    String errorMessage,
+
     /** Response time in milliseconds for the health check ping request */
-    private Long responseTime;
-    
+    Long responseTime,
+
     /** Total number of documents currently indexed in the collection */
-    private Long totalDocuments;
-    
+    Long totalDocuments,
+
     /** Timestamp when this health check was performed, formatted as ISO 8601 */
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-    private Date lastChecked;
-    
+    Date lastChecked,
+
     /** Name of the collection that was checked */
-    private String collection;
-    
+    String collection,
+
     /** Version of Solr server (when available) */
-    private String solrVersion;
-    
+    String solrVersion,
+
     /** Additional status information or state description */
-    private String status;
+    String status
+) {
 }

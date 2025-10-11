@@ -1,35 +1,24 @@
 package org.apache.solr.mcp.server.metadata;
 
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
-import org.junit.jupiter.api.BeforeAll;
+import org.apache.solr.mcp.server.TestcontainersConfiguration;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.SolrContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
+import org.springframework.context.annotation.Import;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integration test suite for SchemaService using real Solr containers.
  * Tests actual schema retrieval functionality against a live Solr instance.
  */
 @SpringBootTest
-@Testcontainers
+@Import(TestcontainersConfiguration.class)
 class SchemaServiceIntegrationTest {
-
-    @Container
-    static SolrContainer solrContainer = new SolrContainer(DockerImageName.parse("solr:9.4.1"));
 
     @Autowired
     private SchemaService schemaService;
@@ -38,34 +27,15 @@ class SchemaServiceIntegrationTest {
     private SolrClient solrClient;
 
     private static final String TEST_COLLECTION = "schema_test_collection";
+    private static boolean initialized = false;
 
-    @DynamicPropertySource
-    static void registerSolrProperties(DynamicPropertyRegistry registry) {
-        registry.add("solr.url", () -> "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/");
-    }
-
-    @BeforeAll
-    static void setup() throws Exception {
-        // Wait for Solr container to be ready
-        assertTrue(solrContainer.isRunning(), "Solr container should be running");
-
-        // Create a test collection
-        String solrUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/";
-        SolrClient client = new Http2SolrClient.Builder(solrUrl).build();
-
-        try {
+    @BeforeEach
+    void setupCollection() throws Exception {
             // Create a collection for testing
+        if (!initialized) {
             CollectionAdminRequest.Create createRequest = CollectionAdminRequest.createCollection(TEST_COLLECTION, "_default", 1, 1);
-            client.request(createRequest);
-
-            // Verify collection was created successfully
-            CollectionAdminRequest.List listRequest = new CollectionAdminRequest.List();
-            listRequest.process(client);
-
-        } catch (Exception e) {
-            // Collection might already exist, which is fine
-        } finally {
-            client.close();
+            createRequest.process(solrClient);
+            initialized = true;
         }
     }
 
@@ -158,8 +128,7 @@ class SchemaServiceIntegrationTest {
                     return name != null && (name.contains("*_s") || name.contains("*_str"));
                 });
         
-        // This assertion is lenient since dynamic fields vary by schema
-        // assertTrue(hasStringDynamicField, "Schema should have string dynamic fields");
+        assertTrue(hasStringDynamicField, "Schema should have string dynamic fields");
     }
 
     @Test

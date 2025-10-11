@@ -1,19 +1,13 @@
 package org.apache.solr.mcp.server.metadata;
 
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
-import org.apache.solr.client.solrj.response.CollectionAdminResponse;
-import org.junit.jupiter.api.BeforeAll;
+import org.apache.solr.mcp.server.TestcontainersConfiguration;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.SolrContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
+import org.springframework.context.annotation.Import;
 
 import java.util.List;
 
@@ -24,46 +18,31 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
-@Testcontainers
+@Import(TestcontainersConfiguration.class)
 class CollectionServiceIntegrationTest {
 
     private static final String TEST_COLLECTION = "test_collection";
-    @Container
-    static SolrContainer solrContainer = new SolrContainer(DockerImageName.parse("solr:9.4.1"));
     @Autowired
     private CollectionService collectionService;
     @Autowired
     private SolrClient solrClient;
+    private static boolean initialized = false;
 
-    @DynamicPropertySource
-    static void registerSolrProperties(DynamicPropertyRegistry registry) {
-        registry.add("solr.url", () -> "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/");
-    }
+    @BeforeEach
+    void setupCollection() throws Exception {
 
-    @BeforeAll
-    static void setup() throws Exception {
-        // Wait for Solr container to be ready
-        assertTrue(solrContainer.isRunning(), "Solr container should be running");
-
-        // Create a test collection
-        String solrUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/";
-        SolrClient client = new Http2SolrClient.Builder(solrUrl).build();
-
-        try {
+        if (!initialized) {
+            // Create a test collection using the container's connection details
             // Create a collection for testing
             CollectionAdminRequest.Create createRequest = CollectionAdminRequest.createCollection(TEST_COLLECTION, "_default", 1, 1);
-            client.request(createRequest);
+            createRequest.process(solrClient);
 
             // Verify collection was created successfully
             CollectionAdminRequest.List listRequest = new CollectionAdminRequest.List();
-            CollectionAdminResponse listResponse = listRequest.process(client);
+            listRequest.process(solrClient);
 
             System.out.println("[DEBUG_LOG] Test collection created: " + TEST_COLLECTION);
-        } catch (Exception e) {
-            System.err.println("[DEBUG_LOG] Error creating test collection: " + e.getMessage());
-            throw e;
-        } finally {
-            client.close();
+            initialized = true;
         }
     }
 
@@ -112,45 +91,45 @@ class CollectionServiceIntegrationTest {
 
         // Enhanced assertions for metrics
         assertNotNull(metrics, "Collection stats should not be null");
-        assertNotNull(metrics.getTimestamp(), "Timestamp should not be null");
+        assertNotNull(metrics.timestamp(), "Timestamp should not be null");
 
         // Verify index stats
-        assertNotNull(metrics.getIndexStats(), "Index stats should not be null");
-        IndexStats indexStats = metrics.getIndexStats();
-        assertNotNull(indexStats.getNumDocs(), "Number of documents should not be null");
-        assertTrue(indexStats.getNumDocs() >= 0, "Number of documents should be non-negative");
+        assertNotNull(metrics.indexStats(), "Index stats should not be null");
+        IndexStats indexStats = metrics.indexStats();
+        assertNotNull(indexStats.numDocs(), "Number of documents should not be null");
+        assertTrue(indexStats.numDocs() >= 0, "Number of documents should be non-negative");
 
         // Verify query stats
-        assertNotNull(metrics.getQueryStats(), "Query stats should not be null");
-        QueryStats queryStats = metrics.getQueryStats();
-        assertNotNull(queryStats.getQueryTime(), "Query time should not be null");
-        assertTrue(queryStats.getQueryTime() >= 0, "Query time should be non-negative");
-        assertNotNull(queryStats.getTotalResults(), "Total results should not be null");
-        assertTrue(queryStats.getTotalResults() >= 0, "Total results should be non-negative");
-        assertNotNull(queryStats.getStart(), "Start should not be null");
-        assertTrue(queryStats.getStart() >= 0, "Start should be non-negative");
+        assertNotNull(metrics.queryStats(), "Query stats should not be null");
+        QueryStats queryStats = metrics.queryStats();
+        assertNotNull(queryStats.queryTime(), "Query time should not be null");
+        assertTrue(queryStats.queryTime() >= 0, "Query time should be non-negative");
+        assertNotNull(queryStats.totalResults(), "Total results should not be null");
+        assertTrue(queryStats.totalResults() >= 0, "Total results should be non-negative");
+        assertNotNull(queryStats.start(), "Start should not be null");
+        assertTrue(queryStats.start() >= 0, "Start should be non-negative");
 
         // Verify timestamp is recent (within last 10 seconds)
         long currentTime = System.currentTimeMillis();
-        long timestampTime = metrics.getTimestamp().getTime();
+        long timestampTime = metrics.timestamp().getTime();
         assertTrue(currentTime - timestampTime < 10000,
                 "Timestamp should be recent (within 10 seconds)");
 
         // Verify optional stats (cache and handler stats may be null, which is acceptable)
-        if (metrics.getCacheStats() != null) {
-            CacheStats cacheStats = metrics.getCacheStats();
+        if (metrics.cacheStats() != null) {
+            CacheStats cacheStats = metrics.cacheStats();
             // Verify at least one cache type exists if cache stats are present
-            assertTrue(cacheStats.getQueryResultCache() != null ||
-                            cacheStats.getDocumentCache() != null ||
-                            cacheStats.getFilterCache() != null,
+            assertTrue(cacheStats.queryResultCache() != null ||
+                            cacheStats.documentCache() != null ||
+                            cacheStats.filterCache() != null,
                     "At least one cache type should be present if cache stats exist");
         }
 
-        if (metrics.getHandlerStats() != null) {
-            HandlerStats handlerStats = metrics.getHandlerStats();
+        if (metrics.handlerStats() != null) {
+            HandlerStats handlerStats = metrics.handlerStats();
             // Verify at least one handler type exists if handler stats are present
-            assertTrue(handlerStats.getSelectHandler() != null ||
-                            handlerStats.getUpdateHandler() != null,
+            assertTrue(handlerStats.selectHandler() != null ||
+                            handlerStats.updateHandler() != null,
                     "At least one handler type should be present if handler stats exist");
         }
     }
@@ -168,23 +147,23 @@ class CollectionServiceIntegrationTest {
         assertTrue(status.isHealthy(), "Collection should be healthy");
 
         // Verify response time
-        assertNotNull(status.getResponseTime(), "Response time should not be null");
-        assertTrue(status.getResponseTime() >= 0, "Response time should be non-negative");
-        assertTrue(status.getResponseTime() < 30000, "Response time should be reasonable (< 30 seconds)");
+        assertNotNull(status.responseTime(), "Response time should not be null");
+        assertTrue(status.responseTime() >= 0, "Response time should be non-negative");
+        assertTrue(status.responseTime() < 30000, "Response time should be reasonable (< 30 seconds)");
 
         // Verify document count
-        assertNotNull(status.getTotalDocuments(), "Total documents should not be null");
-        assertTrue(status.getTotalDocuments() >= 0, "Total documents should be non-negative");
+        assertNotNull(status.totalDocuments(), "Total documents should not be null");
+        assertTrue(status.totalDocuments() >= 0, "Total documents should be non-negative");
 
         // Verify timestamp
-        assertNotNull(status.getLastChecked(), "Last checked timestamp should not be null");
+        assertNotNull(status.lastChecked(), "Last checked timestamp should not be null");
         long currentTime = System.currentTimeMillis();
-        long lastCheckedTime = status.getLastChecked().getTime();
+        long lastCheckedTime = status.lastChecked().getTime();
         assertTrue(currentTime - lastCheckedTime < 5000,
                 "Last checked timestamp should be very recent (within 5 seconds)");
 
         // Verify no error message for healthy collection
-        assertNull(status.getErrorMessage(), "Error message should be null for healthy collection");
+        assertNull(status.errorMessage(), "Error message should be null for healthy collection");
 
         // Verify string representation contains meaningful information
         String statusString = status.toString();
@@ -208,23 +187,23 @@ class CollectionServiceIntegrationTest {
         assertFalse(status.isHealthy(), "Collection should not be healthy");
 
         // Verify timestamp
-        assertNotNull(status.getLastChecked(), "Last checked timestamp should not be null");
+        assertNotNull(status.lastChecked(), "Last checked timestamp should not be null");
         long currentTime = System.currentTimeMillis();
-        long lastCheckedTime = status.getLastChecked().getTime();
+        long lastCheckedTime = status.lastChecked().getTime();
         assertTrue(currentTime - lastCheckedTime < 5000,
                 "Last checked timestamp should be very recent (within 5 seconds)");
 
         // Verify error message
-        assertNotNull(status.getErrorMessage(), "Error message should not be null for unhealthy collection");
-        assertFalse(status.getErrorMessage().trim().isEmpty(),
+        assertNotNull(status.errorMessage(), "Error message should not be null for unhealthy collection");
+        assertFalse(status.errorMessage().trim().isEmpty(),
                 "Error message should not be empty for unhealthy collection");
 
         // Verify that performance metrics are null for unhealthy collection
-        assertNull(status.getResponseTime(), "Response time should be null for unhealthy collection");
-        assertNull(status.getTotalDocuments(), "Total documents should be null for unhealthy collection");
+        assertNull(status.responseTime(), "Response time should be null for unhealthy collection");
+        assertNull(status.totalDocuments(), "Total documents should be null for unhealthy collection");
 
         // Verify error message contains meaningful information
-        String errorMessage = status.getErrorMessage().toLowerCase();
+        String errorMessage = status.errorMessage().toLowerCase();
         assertTrue(errorMessage.contains("collection") || errorMessage.contains("not found") ||
                         errorMessage.contains("error") || errorMessage.contains("fail"),
                 "Error message should contain meaningful error information");

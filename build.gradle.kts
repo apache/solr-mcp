@@ -29,15 +29,11 @@ repositories {
 }
 
 dependencies {
-    implementation("org.springframework.boot:spring-boot-starter-actuator")
-    annotationProcessor(libs.spring.boot.configuration.processor)
-    annotationProcessor(libs.lombok)
-
-    compileOnly(libs.lombok)
 
     developmentOnly(libs.bundles.spring.boot.dev)
 
     implementation(libs.spring.boot.starter.webflux)
+    implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.ai.starter.mcp.server.webflux)
     implementation(libs.solr.solrj) {
         exclude(group = "org.apache.httpcomponents")
