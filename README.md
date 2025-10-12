@@ -18,7 +18,7 @@ The server supports two transport modes:
 
 - **STDIO (Standard Input/Output)** - Recommended for local development and production use with Claude Desktop. This is
   the default and most secure option for local deployments.
-- **SSE (Server-Sent Events over HTTP)** - For testing with MCP Inspector and remote deployments. ⚠️ **Note:** HTTP/SSE
+- **HTTP (Streamable HTTP)** - For testing with MCP Inspector and remote deployments. ⚠️ **Note:** HTTP
   mode is inherently insecure without additional security measures (see Security Considerations below).
 
 ## Prerequisites
@@ -108,7 +108,7 @@ src/main/java/org/apache/solr/mcp/server/
 - **Configuration**: Spring Boot configuration using properties files
     - `application.properties` - Default configuration
     - `application-stdio.properties` - STDIO transport profile
-    - `application-sse.properties` - SSE transport profile
+  - `application-http.properties` - HTTP transport profile
 
 - **Document Creators**: Strategy pattern implementation for parsing different document formats
     - Automatically sanitizes field names to comply with Solr schema requirements
@@ -252,12 +252,12 @@ Starting MCP inspector...
 This provides a web interface to test MCP tools interactively.
 ![mcp-inspector-stdio.png](images/mcp-inspector-stdio.png)
 
-# HTTP Mode (SSE)
+# HTTP Mode
 
-![mcp-inspector-sse.png](images/mcp-inspector-sse.png)
+![mcp-inspector-http.png](images/mcp-inspector-http.png)
 
 ```shell
-./gradlew bootRun --args='--spring.profiles.active=sse'
+./gradlew bootRun --args='--spring.profiles.active=http'
 ```
 
 ## Tools Usage Examples
@@ -403,23 +403,23 @@ STDIO transport is the recommended option for local deployments because:
 - OS-level process isolation provides security boundaries
 - Credentials are not exposed over the network
 
-### HTTP/SSE Transport Security Risks
+### HTTP Transport Security Risks
 
-⚠️ **Warning**: The current HTTP/SSE implementation is **insecure** for production use without additional security
+⚠️ **Warning**: The current HTTP implementation is **insecure** for production use without additional security
 measures.
 
-HTTP/SSE transport has the following security vulnerabilities when deployed without authentication:
+HTTP transport has the following security vulnerabilities when deployed without authentication:
 
-1. **No Authentication or Authorization**: By default, the SSE endpoints are publicly accessible without any
+1. **No Authentication or Authorization**: By default, the HTTP endpoints are publicly accessible without any
    authentication mechanism
 2. **No Transport Encryption**: HTTP traffic is unencrypted and can be intercepted (use HTTPS in production)
 3. **No Origin Validation**: Without proper origin header validation, the server is vulnerable to DNS rebinding attacks
 4. **Network Exposure**: Unlike STDIO, HTTP endpoints are exposed over the network and accessible to any client that can
    reach the server
 
-### Securing HTTP/SSE Deployments
+### Securing HTTP Deployments
 
-If you need to deploy the MCP server with HTTP/SSE transport for remote access, you **must** implement security
+If you need to deploy the MCP server with HTTP transport for remote access, you **must** implement security
 controls:
 
 1. **Use HTTPS**: Always use TLS/SSL encryption for production deployments
@@ -431,9 +431,9 @@ controls:
 
 ### Recommendation
 
-- **Local development/testing**: Use HTTP/SSE mode for testing with MCP Inspector, but only on localhost
+- **Local development/testing**: Use HTTP mode for testing with MCP Inspector, but only on localhost
 - **Claude Desktop integration**: Always use STDIO mode
-- **Production remote deployments**: Only use HTTP/SSE with OAuth2 authentication, HTTPS, and proper network security
+- **Production remote deployments**: Only use HTTP with OAuth2 authentication, HTTPS, and proper network security
   controls
 
 ## Troubleshooting
@@ -443,7 +443,7 @@ If you encounter issues:
 1. Ensure Solr is running and accessible. By default, the server connects to http://localhost:8983/solr/, but you can set the `SOLR_URL` environment variable to point to a different Solr instance.
 2. Check the logs for any error messages
 3. Verify that the collections exist using the Solr Admin UI
-4. If using SSE mode, ensure the server is running on the expected port (default: 8080)
+4. If using HTTP mode, ensure the server is running on the expected port (default: 8080)
 5. For STDIO mode with Claude Desktop, verify the JAR path is absolute and correct in the configuration
 
 ## License
