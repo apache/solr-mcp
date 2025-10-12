@@ -4,14 +4,8 @@ import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.apache.solr.mcp.server.metadata.CollectionService;
 import org.apache.solr.mcp.server.metadata.SchemaService;
 import org.apache.solr.mcp.server.search.SearchService;
-import org.springframework.ai.support.ToolCallbacks;
-import org.springframework.ai.tool.ToolCallback;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.Bean;
-
-import java.util.Arrays;
-import java.util.List;
 
 /**
  * Main Spring Boot application class for the Apache Solr Model Context Protocol (MCP) Server.
@@ -29,12 +23,6 @@ import java.util.List;
  *   <li><strong>CollectionService</strong>: Collection management, metrics, health monitoring</li>
  *   <li><strong>SchemaService</strong>: Schema introspection and field management</li>
  * </ul>
- * 
- * <p><strong>MCP Tool Registration:</strong></p>
- * <p>The application automatically registers all service methods annotated with {@code @Tool}
- * as available MCP tools that AI clients can invoke. This registration happens through the
- * {@link #solrTools(SearchService, IndexingService, CollectionService, SchemaService)} method
- * which creates {@code ToolCallback} instances for each service.</p>
  * 
  * <p><strong>Spring Boot Features:</strong></p>
  * <ul>
@@ -115,61 +103,4 @@ public class Main {
         SpringApplication.run(Main.class, args);
     }
 
-    /**
-     * Creates and configures the list of MCP tool callbacks from all Solr service classes.
-     * 
-     * <p>This method serves as the central registry for all MCP tools exposed by the
-     * application. It automatically converts service methods annotated with {@code @Tool}
-     * into {@code ToolCallback} instances that can be invoked by AI clients through
-     * the Model Context Protocol.</p>
-     * 
-     * <p><strong>Tool Registration Process:</strong></p>
-     * <ol>
-     *   <li>Spring AI framework scans service classes for {@code @Tool} annotations</li>
-     *   <li>Method signatures and descriptions are extracted for tool metadata</li>
-     *   <li>Callback wrappers are created for each annotated method</li>
-     *   <li>Tools are made available to MCP clients for invocation</li>
-     * </ol>
-     * 
-     * <p><strong>Service Coverage:</strong></p>
-     * <ul>
-     *   <li><strong>SearchService</strong>: search operations with filtering and faceting</li>
-     *   <li><strong>IndexingService</strong>: document indexing and schema-less ingestion</li>
-     *   <li><strong>CollectionService</strong>: collection metrics, health checks, and management</li>
-     *   <li><strong>SchemaService</strong>: schema introspection and field information</li>
-     * </ul>
-     * 
-     * <p><strong>Tool Discoverability:</strong></p>
-     * <p>AI clients can discover available tools and their parameters through MCP
-     * protocol introspection, enabling natural language interactions with Solr
-     * without requiring knowledge of the underlying API structure.</p>
-     * 
-     * <p><strong>Bean Lifecycle:</strong></p>
-     * <p>This method is called during Spring context initialization after all
-     * service dependencies have been resolved and injected, ensuring that tools
-     * are fully functional when registered.</p>
-     * 
-     * @param searchService injected service for Solr search operations
-     * @param indexingService injected service for document indexing operations  
-     * @param collectionService injected service for collection management operations
-     * @param schemaService injected service for schema introspection operations
-     * @return list of tool callbacks that can be invoked by MCP clients
-     * 
-     * @see ToolCallbacks#from(Object...)
-     * @see org.springframework.ai.tool.annotation.Tool
-     * @see ToolCallback
-     */
-    @Bean
-    public List<ToolCallback> solrTools(
-            SearchService searchService,
-            IndexingService indexingService,
-            CollectionService collectionService,
-            SchemaService schemaService) {
-        return Arrays.asList(ToolCallbacks.from(
-                searchService,
-                indexingService,
-                collectionService,
-                schemaService
-        ));
-    }
 }

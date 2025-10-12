@@ -23,9 +23,9 @@ The server supports two transport modes:
 
 ## Prerequisites
 
-- Java 21 or higher
+- Java 25 or higher
 - Docker and Docker Compose (for running Solr)
-- Gradle 8.5+ (wrapper included in project)
+- Gradle 9.1.0+ (wrapper included in project)
 
 ## Installation and Setup
 
@@ -66,6 +66,55 @@ The build produces two JAR files in `build/libs/`:
 
 - `solr-mcp-server-0.0.1-SNAPSHOT.jar` - Executable JAR with all dependencies (fat JAR)
 - `solr-mcp-server-0.0.1-SNAPSHOT-plain.jar` - Plain JAR without dependencies
+
+## Project Structure
+
+The codebase follows a clean, modular architecture organized by functionality:
+
+```
+src/main/java/org/apache/solr/mcp/server/
+├── Main.java                           # Application entry point
+├── config/                             # Configuration classes
+│   ├── SolrConfig.java                # Solr client bean configuration
+│   └── SolrConfigurationProperties.java # Solr connection properties
+├── search/                             # Search functionality
+│   ├── SearchService.java             # MCP tool for searching Solr
+│   └── SearchResponse.java            # Search result DTOs
+├── indexing/                           # Document indexing functionality
+│   ├── IndexingService.java           # MCP tool for indexing documents
+│   └── documentcreator/               # Document format parsers
+│       ├── IndexingDocumentCreator.java    # Interface for document creators
+│       ├── JsonDocumentCreator.java        # JSON document parser
+│       ├── CsvDocumentCreator.java         # CSV document parser
+│       ├── XmlDocumentCreator.java         # XML document parser
+│       ├── SolrDocumentCreator.java        # Factory for document creators
+│       ├── FieldNameSanitizer.java         # Field name sanitization utility
+│       └── DocumentProcessingException.java # Indexing exceptions
+└── metadata/                           # Collection management functionality
+    ├── CollectionService.java         # MCP tools for collection operations
+    ├── SchemaService.java             # MCP tool for schema retrieval
+    ├── CollectionUtils.java           # Collection utility methods
+    └── Dtos.java                      # Collection-related DTOs (records)
+```
+
+### Key Components
+
+- **MCP Tools**: Service classes annotated with `@McpTool` expose functionality to AI assistants
+    - `SearchService` - Search queries with filtering, faceting, and pagination
+    - `IndexingService` - Document indexing with support for JSON, CSV, and XML formats
+    - `CollectionService` - Collection management (list, stats, health checks)
+    - `SchemaService` - Schema introspection
+
+- **Configuration**: Spring Boot configuration using properties files
+    - `application.properties` - Default configuration
+    - `application-stdio.properties` - STDIO transport profile
+    - `application-sse.properties` - SSE transport profile
+
+- **Document Creators**: Strategy pattern implementation for parsing different document formats
+    - Automatically sanitizes field names to comply with Solr schema requirements
+    - Supports nested JSON structures and multi-valued fields
+
+- **DTOs**: Java records for immutable data transfer objects (removed Lombok dependency)
 
 ## Available Tools
 

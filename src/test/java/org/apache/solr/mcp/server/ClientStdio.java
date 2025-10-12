@@ -3,6 +3,7 @@ package org.apache.solr.mcp.server;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.client.transport.StdioClientTransport;
+import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
 
 import java.io.File;
 
@@ -18,7 +19,7 @@ public class ClientStdio {
                         "build/libs/solr-mcp-server-0.0.1-SNAPSHOT.jar")
                 .build();
 
-        var transport = new StdioClientTransport(stdioParams, new ObjectMapper());
+        var transport = new StdioClientTransport(stdioParams, new JacksonMcpJsonMapper(new ObjectMapper()));
 
         new SampleClient(transport).run();
     }

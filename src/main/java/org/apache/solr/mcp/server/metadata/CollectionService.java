@@ -18,7 +18,8 @@ import org.apache.solr.common.params.CoreAdminParams;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
-import org.springframework.ai.tool.annotation.Tool;
+import org.springaicommunity.mcp.annotation.McpTool;
+import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -52,7 +53,7 @@ import static org.apache.solr.mcp.server.metadata.CollectionUtils.getLong;
  * that are organized by category (API parameters, response parsing keys, handler paths, statistics fields, etc.).</p>
  * 
  * <p><strong>MCP Tool Integration:</strong></p>
- * <p>Methods annotated with {@code @Tool} are automatically exposed as MCP tools that can be invoked
+ * <p>Methods annotated with {@code @McpTool} are automatically exposed as MCP tools that can be invoked
  * by AI clients. These tools provide natural language interfaces to Solr operations.</p>
  * 
  * <p><strong>Supported Solr Deployments:</strong></p>
@@ -251,7 +252,7 @@ public class CollectionService {
      * @see CollectionAdminRequest.List
      * @see CoreAdminRequest
      */
-    @Tool(description = "List solr collections")
+    @McpTool(description = "List solr collections")
     public List<String> listCollections() {
         try {
             if (solrClient instanceof CloudSolrClient) {
@@ -319,10 +320,9 @@ public class CollectionService {
      * @see SolrMetrics
      * @see LukeRequest
      * @see #extractCollectionName(String)
-     * @see #validateCollectionExists(String)
      */
-    @Tool(description = "Get stats/metrics on a Solr collection")
-    public SolrMetrics getCollectionStats(String collection) throws SolrServerException, IOException {
+    @McpTool(description = "Get stats/metrics on a Solr collection")
+    public SolrMetrics getCollectionStats(@McpToolParam(description = "Solr collection to get stats/metrics for") String collection) throws SolrServerException, IOException {
         // Extract actual collection name from shard name if needed
         String actualCollection = extractCollectionName(collection);
 
@@ -872,8 +872,8 @@ public class CollectionService {
      * @see SolrHealthStatus
      * @see SolrPingResponse
      */
-    @Tool(description = "Check health of a Solr collection")
-    public SolrHealthStatus checkHealth(String collection) {
+    @McpTool(description = "Check health of a Solr collection")
+    public SolrHealthStatus checkHealth(@McpToolParam(description = "Solr collection") String collection) {
         try {
             // Ping Solr
             SolrPingResponse pingResponse = solrClient.ping(collection);
