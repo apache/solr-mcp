@@ -32,9 +32,9 @@ dependencies {
 
     developmentOnly(libs.bundles.spring.boot.dev)
 
-    implementation(libs.spring.boot.starter.webflux)
+    implementation(libs.spring.boot.starter.web)
     implementation(libs.spring.boot.starter.actuator)
-    implementation(libs.spring.ai.starter.mcp.server.webflux)
+    implementation(libs.spring.ai.starter.mcp.server.webmvc)
     implementation(libs.solr.solrj) {
         exclude(group = "org.apache.httpcomponents")
     }
