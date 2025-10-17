@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+    <configuration default="false" name="SolrMcpServerHttp" type="SpringBootApplicationConfigurationType"
+                   factoryName="Spring Boot">
+        <option name="ACTIVE_PROFILES" value="http"/>
+        <module name="solr-mcp-server.main"/>
+        <option name="SPRING_BOOT_MAIN_CLASS" value="org.apache.solr.mcp.server.Main"/>
+        <method v="2">
+            <option name="Make" enabled="true"/>
+        </method>
+    </configuration>
+</component>

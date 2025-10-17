@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<books>
+    <document id="0553573403">
+        <category>book</category>
+        <title>A Game of Thrones</title>
+        <price>7.99</price>
+        <inStock>true</inStock>
+        <author>
+            <name>George R.R. Martin</name>
+            <email>george@example.com</email>
+        </author>
+        <series>A Song of Ice and Fire</series>
+        <sequence>1</sequence>
+        <genre>fantasy</genre>
+        <tags>
+            <tag>epic fantasy</tag>
+            <tag>medieval</tag>
+            <tag>political intrigue</tag>
+        </tags>
+    </document>
+
+    <document id="0553579908">
+        <category>book</category>
+        <title>A Clash of Kings</title>
+        <price>7.99</price>
+        <inStock>true</inStock>
+        <author>
+            <name>George R.R. Martin</name>
+            <email>george@example.com</email>
+        </author>
+        <series>A Song of Ice and Fire</series>
+        <sequence>2</sequence>
+        <genre>fantasy</genre>
+        <tags>
+            <tag>epic fantasy</tag>
+            <tag>war</tag>
+            <tag>dragons</tag>
+        </tags>
+    </document>
+
+    <document id="055357342X">
+        <category>book</category>
+        <title>A Storm of Swords</title>
+        <price>7.99</price>
+        <inStock>true</inStock>
+        <author>
+            <name>George R.R. Martin</name>
+            <email>george@example.com</email>
+        </author>
+        <series>A Song of Ice and Fire</series>
+        <sequence>3</sequence>
+        <genre>fantasy</genre>
+        <tags>
+            <tag>epic fantasy</tag>
+            <tag>betrayal</tag>
+            <tag>magic</tag>
+        </tags>
+    </document>
+
+    <document id="0553293354">
+        <category>book</category>
+        <title>Foundation</title>
+        <price>7.99</price>
+        <inStock>true</inStock>
+        <author>
+            <name>Isaac Asimov</name>
+            <email>isaac@example.com</email>
+        </author>
+        <series>Foundation Novels</series>
+        <sequence>1</sequence>
+        <genre>scifi</genre>
+        <tags>
+            <tag>space opera</tag>
+            <tag>psychohistory</tag>
+            <tag>galactic empire</tag>
+        </tags>
+    </document>
+
+    <document id="0812521390">
+        <category>book</category>
+        <title>The Black Company</title>
+        <price>6.99</price>
+        <inStock>false</inStock>
+        <author>
+            <name>Glen Cook</name>
+            <email>glen@example.com</email>
+        </author>
+        <series>The Chronicles of The Black Company</series>
+        <sequence>1</sequence>
+        <genre>fantasy</genre>
+        <tags>
+            <tag>military fantasy</tag>
+            <tag>dark fantasy</tag>
+            <tag>mercenaries</tag>
+        </tags>
+    </document>
+
+    <document id="0812550706">
+        <category>book</category>
+        <title>Ender's Game</title>
+        <price>6.99</price>
+        <inStock>true</inStock>
+        <author>
+            <name>Orson Scott Card</name>
+            <email>orson@example.com</email>
+        </author>
+        <series>Ender</series>
+        <sequence>1</sequence>
+        <genre>scifi</genre>
+        <tags>
+            <tag>space warfare</tag>
+            <tag>coming of age</tag>
+            <tag>aliens</tag>
+        </tags>
+    </document>
+</books>
