@@ -5,7 +5,6 @@ plugins {
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
     jacoco
-    alias(libs.plugins.sonarqube)
     alias(libs.plugins.errorprone)
 }
 
@@ -69,19 +68,6 @@ tasks.jacocoTestReport {
         xml.required.set(true)
         html.required.set(true)
         csv.required.set(false)
-    }
-}
-
-
-tasks.named("sonar") {
-    dependsOn("test", "jacocoTestReport")
-}
-
-sonar {
-    properties {
-        property("sonar.projectKey", "adityamparikh_solr-mcp-server")
-        property("sonar.organization", "adityamparikh")
-        property("sonar.host.url", "https://sonarcloud.io")
     }
 }
 

@@ -80,5 +80,4 @@ errorprone = [
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
 spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
-sonarqube = { id = "org.sonarqube", version.ref = "sonarqube" }
 errorprone = { id = "net.ltgt.errorprone", version.ref = "errorprone-plugin" }
