@@ -91,11 +91,11 @@ class CsvIndexingTest {
 
         String csvData =
                 """
-                id,name,description
-                1,Test Product,Some description
-                2,Another Product,
-                3,,Empty name
-                """;
+                        id,name,description
+                        1,Test Product,Some description
+                        2,Another Product,
+                        3,,Empty name
+                        """;
 
         // When
         List<SolrInputDocument> documents =
@@ -129,10 +129,10 @@ class CsvIndexingTest {
 
         String csvData =
                 """
-                id,name,description
-                1,"Quoted Name","Quoted description"
-                2,Regular Name,Regular description
-                """;
+                        id,name,description
+                        1,"Quoted Name","Quoted description"
+                        2,Regular Name,Regular description
+                        """;
 
         // When
         List<SolrInputDocument> documents =

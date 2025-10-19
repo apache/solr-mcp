@@ -38,7 +38,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -70,109 +76,109 @@ class SearchServiceTest {
 
             String sampleData =
                     """
-                    [
-                      {
-                        "id": "book001",
-                        "name": ["A Game of Thrones"],
-                        "author_ss": ["George R.R. Martin"],
-                        "price": [7.99],
-                        "genre_s": "fantasy",
-                        "series_s": "A Song of Ice and Fire",
-                        "sequence_i": 1,
-                         "cat_ss": ["book"]
-                      },
-                      {
-                        "id": "book002",
-                        "name": ["A Clash of Kings"],
-                        "author_ss": ["George R.R. Martin"],
-                        "price": [8.99],
-                        "genre_s": "fantasy",
-                        "series_s": "A Song of Ice and Fire",
-                        "sequence_i": 2,
-                        "cat_ss": ["book"]
-                      },
-                      {
-                        "id": "book003",
-                        "name": ["A Storm of Swords"],
-                        "author_ss": ["George R.R. Martin"],
-                        "price": [9.99],
-                        "genre_s": "fantasy",
-                        "series_s": "A Song of Ice and Fire",
-                        "sequence_i": 3,
-                        "cat_ss": ["book"]
-                      },
-                      {
-                        "id": "book004",
-                        "name": ["The Hobbit"],
-                        "author_ss": ["J.R.R. Tolkien"],
-                        "price": [6.99],
-                        "genre_s": "fantasy",
-                        "series_s": "Middle Earth",
-                        "sequence_i": 1,
-                        "cat_ss": ["book"]
-                      },
-                      {
-                        "id": "book005",
-                        "name": ["Dune"],
-                        "author_ss": ["Frank Herbert"],
-                        "price": [10.99],
-                        "genre_s": "scifi",
-                        "series_s": "Dune",
-                        "sequence_i": 1,
-                        "cat_ss": ["book"]
-                      },
-                      {
-                        "id": "book006",
-                        "name": ["Foundation"],
-                        "author_ss": ["Isaac Asimov"],
-                        "price": [5.99],
-                        "genre_s": "scifi",
-                        "series_s": "Foundation",
-                        "sequence_i": 1,
-                        "cat_ss": ["book"]
-                      },
-                      {
-                        "id": "book007",
-                        "name": ["The Fellowship of the Ring"],
-                        "author_ss": ["J.R.R. Tolkien"],
-                        "price": [8.99],
-                        "genre_s": "fantasy",
-                        "series_s": "The Lord of the Rings",
-                        "sequence_i": 1,
-                        "cat_ss": ["book"]
-                      },
-                      {
-                        "id": "book008",
-                        "name": ["The Two Towers"],
-                        "author_ss": ["J.R.R. Tolkien"],
-                        "price": [8.99],
-                        "genre_s": "fantasy",
-                        "series_s": "The Lord of the Rings",
-                        "sequence_i": 2,
-                        "cat_ss": ["book"]
-                      },
-                      {
-                        "id": "book009",
-                        "name": ["The Return of the King"],
-                        "author_ss": ["J.R.R. Tolkien"],
-                        "price": [8.99],
-                        "genre_s": "fantasy",
-                        "series_s": "The Lord of the Rings",
-                        "sequence_i": 3,
-                        "cat_ss": ["book"]
-                      },
-                      {
-                        "id": "book010",
-                        "name": ["Neuromancer"],
-                        "author_ss": ["William Gibson"],
-                        "price": [7.99],
-                        "genre_s": "scifi",
-                        "series_s": "Sprawl",
-                        "sequence_i": 1,
-                        "cat_ss": ["book"]
-                      }
-                    ]
-                    """;
+                            [
+                              {
+                                "id": "book001",
+                                "name": ["A Game of Thrones"],
+                                "author_ss": ["George R.R. Martin"],
+                                "price": [7.99],
+                                "genre_s": "fantasy",
+                                "series_s": "A Song of Ice and Fire",
+                                "sequence_i": 1,
+                                 "cat_ss": ["book"]
+                              },
+                              {
+                                "id": "book002",
+                                "name": ["A Clash of Kings"],
+                                "author_ss": ["George R.R. Martin"],
+                                "price": [8.99],
+                                "genre_s": "fantasy",
+                                "series_s": "A Song of Ice and Fire",
+                                "sequence_i": 2,
+                                "cat_ss": ["book"]
+                              },
+                              {
+                                "id": "book003",
+                                "name": ["A Storm of Swords"],
+                                "author_ss": ["George R.R. Martin"],
+                                "price": [9.99],
+                                "genre_s": "fantasy",
+                                "series_s": "A Song of Ice and Fire",
+                                "sequence_i": 3,
+                                "cat_ss": ["book"]
+                              },
+                              {
+                                "id": "book004",
+                                "name": ["The Hobbit"],
+                                "author_ss": ["J.R.R. Tolkien"],
+                                "price": [6.99],
+                                "genre_s": "fantasy",
+                                "series_s": "Middle Earth",
+                                "sequence_i": 1,
+                                "cat_ss": ["book"]
+                              },
+                              {
+                                "id": "book005",
+                                "name": ["Dune"],
+                                "author_ss": ["Frank Herbert"],
+                                "price": [10.99],
+                                "genre_s": "scifi",
+                                "series_s": "Dune",
+                                "sequence_i": 1,
+                                "cat_ss": ["book"]
+                              },
+                              {
+                                "id": "book006",
+                                "name": ["Foundation"],
+                                "author_ss": ["Isaac Asimov"],
+                                "price": [5.99],
+                                "genre_s": "scifi",
+                                "series_s": "Foundation",
+                                "sequence_i": 1,
+                                "cat_ss": ["book"]
+                              },
+                              {
+                                "id": "book007",
+                                "name": ["The Fellowship of the Ring"],
+                                "author_ss": ["J.R.R. Tolkien"],
+                                "price": [8.99],
+                                "genre_s": "fantasy",
+                                "series_s": "The Lord of the Rings",
+                                "sequence_i": 1,
+                                "cat_ss": ["book"]
+                              },
+                              {
+                                "id": "book008",
+                                "name": ["The Two Towers"],
+                                "author_ss": ["J.R.R. Tolkien"],
+                                "price": [8.99],
+                                "genre_s": "fantasy",
+                                "series_s": "The Lord of the Rings",
+                                "sequence_i": 2,
+                                "cat_ss": ["book"]
+                              },
+                              {
+                                "id": "book009",
+                                "name": ["The Return of the King"],
+                                "author_ss": ["J.R.R. Tolkien"],
+                                "price": [8.99],
+                                "genre_s": "fantasy",
+                                "series_s": "The Lord of the Rings",
+                                "sequence_i": 3,
+                                "cat_ss": ["book"]
+                              },
+                              {
+                                "id": "book010",
+                                "name": ["Neuromancer"],
+                                "author_ss": ["William Gibson"],
+                                "price": [7.99],
+                                "genre_s": "scifi",
+                                "series_s": "Sprawl",
+                                "sequence_i": 1,
+                                "cat_ss": ["book"]
+                              }
+                            ]
+                            """;
 
             indexingService.indexJsonDocuments(COLLECTION_NAME, sampleData);
             solrClient.commit(COLLECTION_NAME);

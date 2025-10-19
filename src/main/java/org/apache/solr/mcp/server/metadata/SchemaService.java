@@ -175,8 +175,8 @@ public class SchemaService {
      * @param collection the name of the Solr collection to retrieve schema information for
      * @return complete schema representation containing all field and type definitions
      * @throws SolrServerException if collection does not exist, access is denied, or Solr server
-     *     error occurs
-     * @throws IOException if communication with Solr server fails
+     *                             error occurs
+     * @throws IOException         if communication with Solr server fails
      * @see SchemaRepresentation
      * @see SchemaRequest
      * @see org.apache.solr.client.solrj.response.schema.SchemaResponse

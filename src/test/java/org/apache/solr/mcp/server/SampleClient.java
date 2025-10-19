@@ -24,7 +24,11 @@ import io.modelcontextprotocol.spec.McpSchema.Tool;
 import java.util.List;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Sample MCP client for testing and demonstrating Solr MCP Server functionality.
@@ -115,7 +119,7 @@ public class SampleClient {
      * </ol>
      *
      * @throws RuntimeException if any test assertion fails or MCP operations encounter errors
-     * @throws AssertionError if expected tools are missing or tool validation fails
+     * @throws AssertionError   if expected tools are missing or tool validation fails
      */
     public void run() {
 
