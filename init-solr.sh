@@ -14,7 +14,6 @@ if [ ! -f /mydata/films.json ]; then
   wget -O /mydata/films.json https://raw.githubusercontent.com/apache/solr/refs/heads/main/solr/example/films/films.json
 fi
 
-
 # Start Solr in background
 /opt/solr/bin/solr start -c -z zoo:2181
 
@@ -34,49 +33,28 @@ until curl -s "http://localhost:8983/solr/admin/collections?action=CLUSTERSTATUS
   sleep 2
 done
 
-# Create the 'books' collection in SolrCloud mode
-# Check if collection already exists via Collections API
-if ! curl -s "http://localhost:8983/solr/admin/collections?action=LIST" | grep -q '"books"'; then
-  echo "Creating books collection..."
-  /opt/solr/bin/solr create -c books -n _default || {
-    echo "First attempt failed, retrying collection creation..."
-    sleep 5
-    /opt/solr/bin/solr create -c books -n _default || {
-      echo "Collection creation failed twice, but continuing..."
+# Function to create collection if it doesn't exist
+create_collection_if_not_exists() {
+  local collection_name=$1
+  if ! curl -s "http://localhost:8983/solr/admin/collections?action=LIST" | grep -q "\"$collection_name\""; then
+    echo "Creating $collection_name collection..."
+    /opt/solr/bin/solr create -c "$collection_name" -n _default || {
+      echo "First attempt failed, retrying collection creation..."
+      sleep 5
+      /opt/solr/bin/solr create -c "$collection_name" -n _default || {
+        echo "Collection creation failed twice, but continuing..."
+      }
     }
-  }
-else
-  echo "Books collection already exists, skipping creation."
-fi
+  else
+    echo "$collection_name collection already exists, skipping creation."
+  fi
+}
 
+# Create collections
+create_collection_if_not_exists "books"
+create_collection_if_not_exists "films"
 
-# Wait for collection to be ready
-until curl -s "http://localhost:8983/solr/admin/collections?action=LIST" | grep -q '"books"'; do
-  echo "Waiting for books collection to be ready..."
-  sleep 2
-done
-
-# Create the 'films' collection in SolrCloud mode
-# Check if collection already exists via Collections API
-if ! curl -s "http://localhost:8983/solr/admin/collections?action=LIST" | grep -q '"films"'; then
-  echo "Creating films collection..."
-  /opt/solr/bin/solr create -c films -n _default || {
-    echo "First attempt failed, retrying collection creation..."
-    sleep 5
-    /opt/solr/bin/solr create -c films -n _default || {
-      echo "Collection creation failed twice, but continuing..."
-    }
-  }
-else
-  echo "Films collection already exists, skipping creation."
-fi
-
-# Wait for films collection to be ready
-until curl -s "http://localhost:8983/solr/admin/collections?action=LIST" | grep -q '"films"'; do
-  echo "Waiting for films collection to be ready..."
-  sleep 2
-done
-
+# Configure films schema
 curl -X POST -H 'Content-type:application/json' --data-binary '{
   "add-field": {
     "name":"name",
@@ -96,7 +74,6 @@ curl -X POST -H 'Content-type:application/json' --data-binary '{
 
 # Post the films.json data
 /opt/solr/bin/solr post -c films /mydata/films.json
-
 
 # Stop background Solr and run in foreground
 /opt/solr/bin/solr stop
