@@ -30,9 +30,15 @@ class SolrConfigTest {
         assertNotNull(solrClient);
 
         // Verify that the SolrClient is using the correct URL
-        // Note: SolrConfig normalizes the URL to have trailing slash, but Http2SolrClient removes it
+        // Note: SolrConfig normalizes the URL to have trailing slash, but Http2SolrClient removes
+        // it
         var httpSolrClient = assertInstanceOf(Http2SolrClient.class, solrClient);
-        String expectedUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr";
+        String expectedUrl =
+                "http://"
+                        + solrContainer.getHost()
+                        + ":"
+                        + solrContainer.getMappedPort(8983)
+                        + "/solr";
         assertEquals(expectedUrl, httpSolrClient.getBaseURL());
     }
 
@@ -41,7 +47,12 @@ class SolrConfigTest {
         // Verify that the properties are correctly loaded
         assertNotNull(properties);
         assertNotNull(properties.url());
-        assertEquals("http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/",
+        assertEquals(
+                "http://"
+                        + solrContainer.getHost()
+                        + ":"
+                        + solrContainer.getMappedPort(8983)
+                        + "/solr/",
                 properties.url());
     }
 
@@ -78,7 +89,8 @@ class SolrConfigTest {
     @Test
     void testUrlWithoutTrailingSlash() {
         // Test URL without trailing slash branch
-        SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983");
+        SolrConfigurationProperties testProperties =
+                new SolrConfigurationProperties("http://localhost:8983");
         SolrConfig solrConfig = new SolrConfig();
 
         SolrClient client = solrConfig.solrClient(testProperties);
@@ -97,7 +109,8 @@ class SolrConfigTest {
     @Test
     void testUrlWithTrailingSlashButNoSolrPath() {
         // Test URL with trailing slash but no solr path branch
-        SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983/");
+        SolrConfigurationProperties testProperties =
+                new SolrConfigurationProperties("http://localhost:8983/");
         SolrConfig solrConfig = new SolrConfig();
 
         SolrClient client = solrConfig.solrClient(testProperties);
@@ -116,7 +129,8 @@ class SolrConfigTest {
     @Test
     void testUrlWithSolrPathButNoTrailingSlash() {
         // Test URL with solr path but no trailing slash
-        SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983/solr");
+        SolrConfigurationProperties testProperties =
+                new SolrConfigurationProperties("http://localhost:8983/solr");
         SolrConfig solrConfig = new SolrConfig();
 
         SolrClient client = solrConfig.solrClient(testProperties);
@@ -135,7 +149,8 @@ class SolrConfigTest {
     @Test
     void testUrlAlreadyProperlyFormatted() {
         // Test URL that's already properly formatted
-        SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983/solr/");
+        SolrConfigurationProperties testProperties =
+                new SolrConfigurationProperties("http://localhost:8983/solr/");
         SolrConfig solrConfig = new SolrConfig();
 
         SolrClient client = solrConfig.solrClient(testProperties);

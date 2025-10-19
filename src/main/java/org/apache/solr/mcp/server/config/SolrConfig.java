@@ -11,34 +11,39 @@ import java.util.concurrent.TimeUnit;
 /**
  * Spring Configuration class for Apache Solr client setup and connection management.
  *
- * <p>This configuration class is responsible for creating and configuring the SolrJ client
- * that serves as the primary interface for communication with Apache Solr servers. It handles
- * URL normalization, connection parameters, and timeout configurations to ensure reliable
- * connectivity for the MCP server operations.</p>
+ * <p>This configuration class is responsible for creating and configuring the SolrJ client that
+ * serves as the primary interface for communication with Apache Solr servers. It handles URL
+ * normalization, connection parameters, and timeout configurations to ensure reliable connectivity
+ * for the MCP server operations.
  *
- * <p><strong>Configuration Features:</strong></p>
+ * <p><strong>Configuration Features:</strong>
+ *
  * <ul>
- *   <li><strong>Automatic URL Normalization</strong>: Ensures proper Solr URL formatting</li>
- *   <li><strong>Connection Timeout Management</strong>: Configurable timeouts for reliability</li>
- *   <li><strong>Property Integration</strong>: Uses externalized configuration through properties</li>
- *   <li><strong>Production-Ready Defaults</strong>: Optimized timeout values for production use</li>
+ *   <li><strong>Automatic URL Normalization</strong>: Ensures proper Solr URL formatting
+ *   <li><strong>Connection Timeout Management</strong>: Configurable timeouts for reliability
+ *   <li><strong>Property Integration</strong>: Uses externalized configuration through properties
+ *   <li><strong>Production-Ready Defaults</strong>: Optimized timeout values for production use
  * </ul>
  *
- * <p><strong>URL Processing:</strong></p>
- * <p>The configuration automatically normalizes Solr URLs to ensure proper communication:</p>
+ * <p><strong>URL Processing:</strong>
+ *
+ * <p>The configuration automatically normalizes Solr URLs to ensure proper communication:
+ *
  * <ul>
- *   <li>Adds trailing slashes if missing</li>
- *   <li>Appends "/solr/" path if not present in the URL</li>
- *   <li>Handles various URL formats (with/without protocols, paths, etc.)</li>
+ *   <li>Adds trailing slashes if missing
+ *   <li>Appends "/solr/" path if not present in the URL
+ *   <li>Handles various URL formats (with/without protocols, paths, etc.)
  * </ul>
  *
- * <p><strong>Connection Parameters:</strong></p>
+ * <p><strong>Connection Parameters:</strong>
+ *
  * <ul>
- *   <li><strong>Connection Timeout</strong>: 10 seconds (10,000ms) for establishing connections</li>
- *   <li><strong>Socket Timeout</strong>: 60 seconds (60,000ms) for read operations</li>
+ *   <li><strong>Connection Timeout</strong>: 10 seconds (10,000ms) for establishing connections
+ *   <li><strong>Socket Timeout</strong>: 60 seconds (60,000ms) for read operations
  * </ul>
  *
- * <p><strong>Configuration Example:</strong></p>
+ * <p><strong>Configuration Example:</strong>
+ *
  * <pre>{@code
  * # application.properties
  * solr.url=http://localhost:8983
@@ -46,12 +51,13 @@ import java.util.concurrent.TimeUnit;
  * # Results in normalized URL: http://localhost:8983/solr/
  * }</pre>
  *
- * <p><strong>Supported URL Formats:</strong></p>
+ * <p><strong>Supported URL Formats:</strong>
+ *
  * <ul>
- *   <li>{@code http://localhost:8983} → {@code http://localhost:8983/solr/}</li>
- *   <li>{@code http://localhost:8983/} → {@code http://localhost:8983/solr/}</li>
- *   <li>{@code http://localhost:8983/solr} → {@code http://localhost:8983/solr/}</li>
- *   <li>{@code http://localhost:8983/solr/} → {@code http://localhost:8983/solr/} (unchanged)</li>
+ *   <li>{@code http://localhost:8983} → {@code http://localhost:8983/solr/}
+ *   <li>{@code http://localhost:8983/} → {@code http://localhost:8983/solr/}
+ *   <li>{@code http://localhost:8983/solr} → {@code http://localhost:8983/solr/}
+ *   <li>{@code http://localhost:8983/solr/} → {@code http://localhost:8983/solr/} (unchanged)
  * </ul>
  *
  * @author adityamparikh
@@ -73,38 +79,43 @@ public class SolrConfig {
     /**
      * Creates and configures a SolrClient bean for Apache Solr communication.
      *
-     * <p>This method serves as the primary factory for creating SolrJ client instances
-     * that are used throughout the application for all Solr operations. It performs
-     * automatic URL normalization and applies production-ready timeout configurations.</p>
+     * <p>This method serves as the primary factory for creating SolrJ client instances that are
+     * used throughout the application for all Solr operations. It performs automatic URL
+     * normalization and applies production-ready timeout configurations.
      *
-     * <p><strong>URL Normalization Process:</strong></p>
+     * <p><strong>URL Normalization Process:</strong>
+     *
      * <ol>
-     *   <li><strong>Trailing Slash</strong>: Ensures URL ends with "/"</li>
-     *   <li><strong>Solr Path</strong>: Appends "/solr/" if not already present</li>
-     *   <li><strong>Validation</strong>: Checks for proper Solr endpoint format</li>
+     *   <li><strong>Trailing Slash</strong>: Ensures URL ends with "/"
+     *   <li><strong>Solr Path</strong>: Appends "/solr/" if not already present
+     *   <li><strong>Validation</strong>: Checks for proper Solr endpoint format
      * </ol>
      *
-     * <p><strong>Connection Configuration:</strong></p>
+     * <p><strong>Connection Configuration:</strong>
+     *
      * <ul>
-     *   <li><strong>Connection Timeout</strong>: 10,000ms - Time to establish initial connection</li>
-     *   <li><strong>Socket Timeout</strong>: 60,000ms - Time to wait for data/response</li>
+     *   <li><strong>Connection Timeout</strong>: 10,000ms - Time to establish initial connection
+     *   <li><strong>Socket Timeout</strong>: 60,000ms - Time to wait for data/response
      * </ul>
      *
-     * <p><strong>Client Type:</strong></p>
-     * <p>Creates an {@code HttpSolrClient} configured for standard HTTP-based communication
-     * with Solr servers. This client type is suitable for both standalone Solr instances
-     * and SolrCloud deployments when used with load balancers.</p>
+     * <p><strong>Client Type:</strong>
      *
-     * <p><strong>Error Handling:</strong></p>
-     * <p>URL normalization is defensive and handles various input formats gracefully.
-     * Invalid URLs or connection failures will be caught during application startup
-     * or first usage, providing clear error messages for troubleshooting.</p>
+     * <p>Creates an {@code HttpSolrClient} configured for standard HTTP-based communication with
+     * Solr servers. This client type is suitable for both standalone Solr instances and SolrCloud
+     * deployments when used with load balancers.
      *
-     * <p><strong>Production Considerations:</strong></p>
+     * <p><strong>Error Handling:</strong>
+     *
+     * <p>URL normalization is defensive and handles various input formats gracefully. Invalid URLs
+     * or connection failures will be caught during application startup or first usage, providing
+     * clear error messages for troubleshooting.
+     *
+     * <p><strong>Production Considerations:</strong>
+     *
      * <ul>
-     *   <li>Timeout values are optimized for production workloads</li>
-     *   <li>Connection pooling is handled by the HttpSolrClient internally</li>
-     *   <li>Client is thread-safe and suitable for concurrent operations</li>
+     *   <li>Timeout values are optimized for production workloads
+     *   <li>Connection pooling is handled by the HttpSolrClient internally
+     *   <li>Client is thread-safe and suitable for concurrent operations
      * </ul>
      *
      * @param properties the injected Solr configuration properties containing connection URL

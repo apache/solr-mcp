@@ -4,6 +4,7 @@ spring-boot = "3.5.6"
 spring-dependency-management = "1.1.7"
 sonarqube = "6.2.0.5505"
 errorprone-plugin = "4.2.0"
+spotless = "7.0.2"
 
 # Main dependencies
 spring-ai = "1.1.0-M3"
@@ -80,5 +81,5 @@ errorprone = [
 [plugins]
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
 spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
-sonarqube = { id = "org.sonarqube", version.ref = "sonarqube" }
 errorprone = { id = "net.ltgt.errorprone", version.ref = "errorprone-plugin" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

@@ -18,6 +18,14 @@ public class TestcontainersConfiguration {
 
     @Bean
     DynamicPropertyRegistrar propertiesRegistrar(SolrContainer solr) {
-        return registry -> registry.add("solr.url", () -> "http://" + solr.getHost() + ":" + solr.getMappedPort(SOLR_PORT) + "/solr/");
+        return registry ->
+                registry.add(
+                        "solr.url",
+                        () ->
+                                "http://"
+                                        + solr.getHost()
+                                        + ":"
+                                        + solr.getMappedPort(SOLR_PORT)
+                                        + "/solr/");
     }
 }

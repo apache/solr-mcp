@@ -19,8 +19,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 /**
- * Comprehensive test suite for the SchemaService class.
- * Tests schema retrieval functionality with various scenarios including success and error cases.
+ * Comprehensive test suite for the SchemaService class. Tests schema retrieval functionality with
+ * various scenarios including success and error cases.
  */
 @ExtendWith(MockitoExtension.class)
 class SchemaServiceTest {
@@ -57,12 +57,15 @@ class SchemaServiceTest {
 
         // When SolrClient throws an exception for non-existent collection
         when(solrClient.request(any(SchemaRequest.class), eq(nonExistentCollection)))
-                .thenThrow(new SolrServerException("Collection not found: " + nonExistentCollection));
+                .thenThrow(
+                        new SolrServerException("Collection not found: " + nonExistentCollection));
 
         // Then
-        assertThrows(Exception.class, () -> {
-            schemaService.getSchema(nonExistentCollection);
-        });
+        assertThrows(
+                Exception.class,
+                () -> {
+                    schemaService.getSchema(nonExistentCollection);
+                });
     }
 
     @Test
@@ -75,9 +78,11 @@ class SchemaServiceTest {
                 .thenThrow(new SolrServerException("Solr server error"));
 
         // Then
-        assertThrows(Exception.class, () -> {
-            schemaService.getSchema(collectionName);
-        });
+        assertThrows(
+                Exception.class,
+                () -> {
+                    schemaService.getSchema(collectionName);
+                });
     }
 
     @Test
@@ -90,27 +95,33 @@ class SchemaServiceTest {
                 .thenThrow(new IOException("Network connection error"));
 
         // Then
-        assertThrows(Exception.class, () -> {
-            schemaService.getSchema(collectionName);
-        });
+        assertThrows(
+                Exception.class,
+                () -> {
+                    schemaService.getSchema(collectionName);
+                });
     }
 
     @Test
     void testGetSchema_WithNullCollection() {
         // Given a null collection name
         // Then should throw an exception (NullPointerException or IllegalArgumentException)
-        assertThrows(Exception.class, () -> {
-            schemaService.getSchema(null);
-        });
+        assertThrows(
+                Exception.class,
+                () -> {
+                    schemaService.getSchema(null);
+                });
     }
 
     @Test
     void testGetSchema_WithEmptyCollection() {
         // Given an empty collection name
         // Then should throw an exception
-        assertThrows(Exception.class, () -> {
-            schemaService.getSchema("");
-        });
+        assertThrows(
+                Exception.class,
+                () -> {
+                    schemaService.getSchema("");
+                });
     }
 
     @Test
@@ -123,8 +134,9 @@ class SchemaServiceTest {
     @Test
     void testConstructor_WithNullClient() {
         // Test constructor with null client
-        assertDoesNotThrow(() -> {
-            new SchemaService(null);
-        });
+        assertDoesNotThrow(
+                () -> {
+                    new SchemaService(null);
+                });
     }
 }

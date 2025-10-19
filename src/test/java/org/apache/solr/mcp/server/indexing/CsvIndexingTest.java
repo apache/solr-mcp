@@ -14,8 +14,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Test class for CSV indexing functionality in IndexingService.
  *
- * <p>This test verifies that the IndexingService can correctly parse CSV data
- * and convert it into SolrInputDocument objects using the schema-less approach.</p>
+ * <p>This test verifies that the IndexingService can correctly parse CSV data and convert it into
+ * SolrInputDocument objects using the schema-less approach.
  */
 @SpringBootTest
 @TestPropertySource(locations = "classpath:application.properties")
@@ -28,15 +28,17 @@ class CsvIndexingTest {
     void testCreateSchemalessDocumentsFromCsv() throws Exception {
         // Given
 
-        String csvData = """
-                id,cat,name,price,inStock,author,series_t,sequence_i,genre_s
-                0553573403,book,A Game of Thrones,7.99,true,George R.R. Martin,"A Song of Ice and Fire",1,fantasy
-                0553579908,book,A Clash of Kings,7.99,true,George R.R. Martin,"A Song of Ice and Fire",2,fantasy
-                0553293354,book,Foundation,7.99,true,Isaac Asimov,Foundation Novels,1,scifi
-                """;
+        String csvData =
+                """
+                        id,cat,name,price,inStock,author,series_t,sequence_i,genre_s
+                        0553573403,book,A Game of Thrones,7.99,true,George R.R. Martin,"A Song of Ice and Fire",1,fantasy
+                        0553579908,book,A Clash of Kings,7.99,true,George R.R. Martin,"A Song of Ice and Fire",2,fantasy
+                        0553293354,book,Foundation,7.99,true,Isaac Asimov,Foundation Novels,1,scifi
+                        """;
 
         // When
-        List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromCsv(csvData);
+        List<SolrInputDocument> documents =
+                indexingDocumentCreator.createSchemalessDocumentsFromCsv(csvData);
 
         // Then
         assertThat(documents).hasSize(3);
@@ -71,7 +73,8 @@ class CsvIndexingTest {
     void testCreateSchemalessDocumentsFromCsvWithEmptyValues() throws Exception {
         // Given
 
-        String csvData = """
+        String csvData =
+                """
                 id,name,description
                 1,Test Product,Some description
                 2,Another Product,
@@ -79,7 +82,8 @@ class CsvIndexingTest {
                 """;
 
         // When
-        List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromCsv(csvData);
+        List<SolrInputDocument> documents =
+                indexingDocumentCreator.createSchemalessDocumentsFromCsv(csvData);
 
         // Then
         assertThat(documents).hasSize(3);
@@ -107,14 +111,16 @@ class CsvIndexingTest {
     void testCreateSchemalessDocumentsFromCsvWithQuotedValues() throws Exception {
         // Given
 
-        String csvData = """
+        String csvData =
+                """
                 id,name,description
                 1,"Quoted Name","Quoted description"
                 2,Regular Name,Regular description
                 """;
 
         // When
-        List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromCsv(csvData);
+        List<SolrInputDocument> documents =
+                indexingDocumentCreator.createSchemalessDocumentsFromCsv(csvData);
 
         // Then
         assertThat(documents).hasSize(2);

@@ -58,27 +58,27 @@ class IndexingServiceTest {
         CsvDocumentCreator csvDocumentCreator = new CsvDocumentCreator();
         JsonDocumentCreator jsonDocumentCreator = new JsonDocumentCreator();
 
-        indexingDocumentCreator = new IndexingDocumentCreator(xmlDocumentCreator,
-                csvDocumentCreator,
-                jsonDocumentCreator);
+        indexingDocumentCreator =
+                new IndexingDocumentCreator(
+                        xmlDocumentCreator, csvDocumentCreator, jsonDocumentCreator);
 
         indexingService = new IndexingService(solrClient, indexingDocumentCreator);
         searchService = new SearchService(solrClient);
 
         if (!initialized) {
             // Create collection
-            CollectionAdminRequest.Create createRequest = CollectionAdminRequest.createCollection(
-                    COLLECTION_NAME, "_default", 1, 1);
+            CollectionAdminRequest.Create createRequest =
+                    CollectionAdminRequest.createCollection(COLLECTION_NAME, "_default", 1, 1);
             createRequest.process(solrClient);
             initialized = true;
         }
     }
 
-
     @Test
     void testCreateSchemalessDocumentsFromJson() throws Exception {
         // Test JSON string
-        String json = """
+        String json =
+                """
                 [
                   {
                     "id": "test001",
@@ -95,7 +95,8 @@ class IndexingServiceTest {
                 """;
 
         // Create documents
-        List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
+        List<SolrInputDocument> documents =
+                indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
 
         // Verify documents were created correctly
         assertNotNull(documents);
@@ -148,7 +149,8 @@ class IndexingServiceTest {
     void testIndexJsonDocuments() throws Exception {
 
         // Test JSON string with multiple documents
-        String json = """
+        String json =
+                """
                 [
                   {
                     "id": "test002",
@@ -175,7 +177,9 @@ class IndexingServiceTest {
         indexingService.indexJsonDocuments(COLLECTION_NAME, json);
 
         // Verify documents were indexed by searching for them
-        SearchResponse result = searchService.search(COLLECTION_NAME, "id:test002 OR id:test003", null, null, null, null, null);
+        SearchResponse result =
+                searchService.search(
+                        COLLECTION_NAME, "id:test002 OR id:test003", null, null, null, null, null);
 
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
@@ -258,7 +262,8 @@ class IndexingServiceTest {
     void testIndexJsonDocumentsWithNestedObjects() throws Exception {
 
         // Test JSON string with nested objects
-        String json = """
+        String json =
+                """
                 [
                   {
                     "id": "test004",
@@ -279,7 +284,8 @@ class IndexingServiceTest {
         indexingService.indexJsonDocuments(COLLECTION_NAME, json);
 
         // Verify documents were indexed by searching for them
-        SearchResponse result = searchService.search(COLLECTION_NAME, "id:test004", null, null, null, null, null);
+        SearchResponse result =
+                searchService.search(COLLECTION_NAME, "id:test004", null, null, null, null, null);
 
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
@@ -327,7 +333,8 @@ class IndexingServiceTest {
     void testSanitizeFieldName() throws Exception {
 
         // Test JSON string with field names that need sanitizing
-        String json = """
+        String json =
+                """
                 [
                   {
                     "id": "test005",
@@ -343,7 +350,8 @@ class IndexingServiceTest {
         indexingService.indexJsonDocuments(COLLECTION_NAME, json);
 
         // Verify documents were indexed with sanitized field names
-        SearchResponse result = searchService.search(COLLECTION_NAME, "id:test005", null, null, null, null, null);
+        SearchResponse result =
+                searchService.search(COLLECTION_NAME, "id:test005", null, null, null, null, null);
 
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
@@ -381,7 +389,9 @@ class IndexingServiceTest {
         assertNotNull(doc.get("multiple_underscores"));
         Object multipleUnderscoresValue = doc.get("multiple_underscores");
         if (multipleUnderscoresValue instanceof List) {
-            assertEquals("Value with multiple underscores", ((List<?>) multipleUnderscoresValue).getFirst());
+            assertEquals(
+                    "Value with multiple underscores",
+                    ((List<?>) multipleUnderscoresValue).getFirst());
         } else {
             assertEquals("Value with multiple underscores", multipleUnderscoresValue);
         }
@@ -391,7 +401,8 @@ class IndexingServiceTest {
     void testDeeplyNestedJsonStructures() throws Exception {
 
         // Test JSON string with deeply nested objects (3+ levels)
-        String json = """
+        String json =
+                """
                 [
                   {
                     "id": "nested001",
@@ -435,7 +446,8 @@ class IndexingServiceTest {
         indexingService.indexJsonDocuments(COLLECTION_NAME, json);
 
         // Verify documents were indexed by searching for them
-        SearchResponse result = searchService.search(COLLECTION_NAME, "id:nested001", null, null, null, null, null);
+        SearchResponse result =
+                searchService.search(COLLECTION_NAME, "id:nested001", null, null, null, null, null);
 
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
@@ -446,15 +458,24 @@ class IndexingServiceTest {
         // Check that deeply nested fields were flattened with underscore prefix
         // Level 1
         assertNotNull(doc.get("metadata_publication_publisher_name"));
-        assertEquals("Deep Nest Publishing", getFieldValue(doc, "metadata_publication_publisher_name"));
+        assertEquals(
+                "Deep Nest Publishing", getFieldValue(doc, "metadata_publication_publisher_name"));
 
         // Level 2
         assertNotNull(doc.get("metadata_publication_publisher_location_city"));
-        assertEquals("Nestville", getFieldValue(doc, "metadata_publication_publisher_location_city"));
+        assertEquals(
+                "Nestville", getFieldValue(doc, "metadata_publication_publisher_location_city"));
 
         // Level 3
         assertNotNull(doc.get("metadata_publication_publisher_location_coordinates_latitude"));
-        assertEquals(42.123, ((Number) getFieldValue(doc, "metadata_publication_publisher_location_coordinates_latitude")).doubleValue(), 0.001);
+        assertEquals(
+                42.123,
+                ((Number)
+                        getFieldValue(
+                                doc,
+                                "metadata_publication_publisher_location_coordinates_latitude"))
+                        .doubleValue(),
+                0.001);
 
         // Check other branches of the nested structure
         assertNotNull(doc.get("metadata_publication_edition_notes_condition"));
@@ -476,7 +497,8 @@ class IndexingServiceTest {
     void testSpecialCharactersInFieldNames() throws Exception {
 
         // Test JSON string with field names containing various special characters
-        String json = """
+        String json =
+                """
                 [
                   {
                     "id": "special_fields_001",
@@ -512,7 +534,9 @@ class IndexingServiceTest {
         indexingService.indexJsonDocuments(COLLECTION_NAME, json);
 
         // Verify documents were indexed by searching for them
-        SearchResponse result = searchService.search(COLLECTION_NAME, "id:special_fields_001", null, null, null, null, null);
+        SearchResponse result =
+                searchService.search(
+                        COLLECTION_NAME, "id:special_fields_001", null, null, null, null, null);
 
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
@@ -557,7 +581,8 @@ class IndexingServiceTest {
     void testArraysOfObjects() throws Exception {
 
         // Test JSON string with arrays of objects
-        String json = """
+        String json =
+                """
                 [
                   {
                     "id": "array_objects_001",
@@ -600,7 +625,9 @@ class IndexingServiceTest {
         indexingService.indexJsonDocuments(COLLECTION_NAME, json);
 
         // Verify documents were indexed by searching for them
-        SearchResponse result = searchService.search(COLLECTION_NAME, "id:array_objects_001", null, null, null, null, null);
+        SearchResponse result =
+                searchService.search(
+                        COLLECTION_NAME, "id:array_objects_001", null, null, null, null, null);
 
         assertNotNull(result);
         List<Map<String, Object>> documents = result.documents();
@@ -624,11 +651,13 @@ class IndexingServiceTest {
 
         // For arrays of objects, the IndexingService should flatten them with field names
         // that include the array name and the object field name
-        // We can't directly access the array elements, but we can check if the flattened fields exist
+        // We can't directly access the array elements, but we can check if the flattened fields
+        // exist
 
         // Check for flattened author fields
         // Note: The current implementation in IndexingService.java doesn't handle arrays of objects
-        // in a way that preserves the array structure. It skips object items in arrays (line 68-70).
+        // in a way that preserves the array structure. It skips object items in arrays (line
+        // 68-70).
         // This test is checking the current behavior, which may need improvement in the future.
 
         // Check for flattened review fields
@@ -638,7 +667,8 @@ class IndexingServiceTest {
     @Test
     void testNonArrayJsonInput() throws Exception {
         // Test JSON string that is not an array but a single object
-        String json = """
+        String json =
+                """
                 {
                   "id": "single_object_001",
                   "title": "Single Object Document",
@@ -648,7 +678,8 @@ class IndexingServiceTest {
                 """;
 
         // Create documents
-        List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
+        List<SolrInputDocument> documents =
+                indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
 
         // Verify no documents were created since input is not an array
         assertNotNull(documents);
@@ -658,7 +689,8 @@ class IndexingServiceTest {
     @Test
     void testConvertJsonValueTypes() throws Exception {
         // Test JSON with different value types
-        String json = """
+        String json =
+                """
                 [
                   {
                     "id": "value_types_001",
@@ -672,7 +704,8 @@ class IndexingServiceTest {
                 """;
 
         // Create documents
-        List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
+        List<SolrInputDocument> documents =
+                indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
 
         // Verify documents were created correctly
         assertNotNull(documents);
@@ -693,7 +726,8 @@ class IndexingServiceTest {
     void testDirectSanitizeFieldName() throws Exception {
         // Test sanitizing field names directly
         // Create a document with field names that need sanitizing
-        String json = """
+        String json =
+                """
                 [
                   {
                     "id": "field_names_001",
@@ -709,7 +743,8 @@ class IndexingServiceTest {
                 """;
 
         // Create documents
-        List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
+        List<SolrInputDocument> documents =
+                indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
 
         // Verify documents were created correctly
         assertNotNull(documents);
@@ -728,7 +763,6 @@ class IndexingServiceTest {
         assertEquals("Value 7", doc.getFieldValue("multiple_underscores"));
     }
 }
-
 
 @Nested
 @ExtendWith(MockitoExtension.class)
@@ -768,14 +802,20 @@ class UnitTests {
     }
 
     @Test
-    void indexJsonDocuments_WhenDocumentCreatorThrowsException_ShouldPropagateException() throws Exception {
+    void indexJsonDocuments_WhenDocumentCreatorThrowsException_ShouldPropagateException()
+            throws Exception {
         String invalidJson = "not valid json";
         when(indexingDocumentCreator.createSchemalessDocumentsFromJson(invalidJson))
-                .thenThrow(new org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException("Invalid JSON"));
+                .thenThrow(
+                        new org.apache.solr.mcp.server.indexing.documentcreator
+                                .DocumentProcessingException("Invalid JSON"));
 
-        assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class, () -> {
-            indexingService.indexJsonDocuments("test_collection", invalidJson);
-        });
+        assertThrows(
+                org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException
+                        .class,
+                () -> {
+                    indexingService.indexJsonDocuments("test_collection", invalidJson);
+                });
         verify(solrClient, never()).add(anyString(), any(Collection.class));
         verify(solrClient, never()).commit(anyString());
     }
@@ -796,14 +836,20 @@ class UnitTests {
     }
 
     @Test
-    void indexCsvDocuments_WhenDocumentCreatorThrowsException_ShouldPropagateException() throws Exception {
+    void indexCsvDocuments_WhenDocumentCreatorThrowsException_ShouldPropagateException()
+            throws Exception {
         String invalidCsv = "malformed csv data";
         when(indexingDocumentCreator.createSchemalessDocumentsFromCsv(invalidCsv))
-                .thenThrow(new org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException("Invalid CSV"));
+                .thenThrow(
+                        new org.apache.solr.mcp.server.indexing.documentcreator
+                                .DocumentProcessingException("Invalid CSV"));
 
-        assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class, () -> {
-            indexingService.indexCsvDocuments("test_collection", invalidCsv);
-        });
+        assertThrows(
+                org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException
+                        .class,
+                () -> {
+                    indexingService.indexCsvDocuments("test_collection", invalidCsv);
+                });
         verify(solrClient, never()).add(anyString(), any(Collection.class));
         verify(solrClient, never()).commit(anyString());
     }
@@ -824,14 +870,20 @@ class UnitTests {
     }
 
     @Test
-    void indexXmlDocuments_WhenParserConfigurationFails_ShouldPropagateException() throws Exception {
+    void indexXmlDocuments_WhenParserConfigurationFails_ShouldPropagateException()
+            throws Exception {
         String xml = "<invalid>xml</invalid>";
         when(indexingDocumentCreator.createSchemalessDocumentsFromXml(xml))
-                .thenThrow(new org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException("Parser error"));
+                .thenThrow(
+                        new org.apache.solr.mcp.server.indexing.documentcreator
+                                .DocumentProcessingException("Parser error"));
 
-        assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class, () -> {
-            indexingService.indexXmlDocuments("test_collection", xml);
-        });
+        assertThrows(
+                org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException
+                        .class,
+                () -> {
+                    indexingService.indexXmlDocuments("test_collection", xml);
+                });
         verify(solrClient, never()).add(anyString(), any(Collection.class));
         verify(solrClient, never()).commit(anyString());
     }
@@ -840,11 +892,16 @@ class UnitTests {
     void indexXmlDocuments_WhenSaxExceptionOccurs_ShouldPropagateException() throws Exception {
         String xml = "<malformed><unclosed>";
         when(indexingDocumentCreator.createSchemalessDocumentsFromXml(xml))
-                .thenThrow(new org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException("SAX parsing error"));
+                .thenThrow(
+                        new org.apache.solr.mcp.server.indexing.documentcreator
+                                .DocumentProcessingException("SAX parsing error"));
 
-        assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class, () -> {
-            indexingService.indexXmlDocuments("test_collection", xml);
-        });
+        assertThrows(
+                org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException
+                        .class,
+                () -> {
+                    indexingService.indexXmlDocuments("test_collection", xml);
+                });
         verify(solrClient, never()).add(anyString(), any(Collection.class));
         verify(solrClient, never()).commit(anyString());
     }
@@ -894,7 +951,8 @@ class UnitTests {
     }
 
     @Test
-    void indexDocuments_WhenSomeIndividualDocumentsFail_ShouldIndexSuccessfulOnes() throws Exception {
+    void indexDocuments_WhenSomeIndividualDocumentsFail_ShouldIndexSuccessfulOnes()
+            throws Exception {
         List<SolrInputDocument> docs = createMockDocuments(3);
 
         when(solrClient.add(eq("test_collection"), any(List.class)))
@@ -933,9 +991,11 @@ class UnitTests {
         when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
         when(solrClient.commit("test_collection")).thenThrow(new IOException("Commit failed"));
 
-        assertThrows(IOException.class, () -> {
-            indexingService.indexDocuments("test_collection", docs);
-        });
+        assertThrows(
+                IOException.class,
+                () -> {
+                    indexingService.indexDocuments("test_collection", docs);
+                });
         verify(solrClient).add(eq("test_collection"), any(Collection.class));
         verify(solrClient).commit("test_collection");
     }
@@ -950,14 +1010,16 @@ class UnitTests {
 
         assertEquals(1000, result);
 
-        ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
+        ArgumentCaptor<Collection<SolrInputDocument>> captor =
+                ArgumentCaptor.forClass(Collection.class);
         verify(solrClient).add(eq("test_collection"), captor.capture());
         assertEquals(1000, captor.getValue().size());
         verify(solrClient).commit("test_collection");
     }
 
     @Test
-    void indexJsonDocuments_WhenSolrClientThrowsException_ShouldPropagateException() throws Exception {
+    void indexJsonDocuments_WhenSolrClientThrowsException_ShouldPropagateException()
+            throws Exception {
         String json = "[{\"id\":\"1\"}]";
         List<SolrInputDocument> mockDocs = createMockDocuments(1);
         when(indexingDocumentCreator.createSchemalessDocumentsFromJson(json)).thenReturn(mockDocs);
@@ -974,7 +1036,8 @@ class UnitTests {
     }
 
     @Test
-    void indexCsvDocuments_WhenSolrClientThrowsIOException_ShouldPropagateException() throws Exception {
+    void indexCsvDocuments_WhenSolrClientThrowsIOException_ShouldPropagateException()
+            throws Exception {
         String csv = "id,title\n1,Test";
         List<SolrInputDocument> mockDocs = createMockDocuments(1);
         when(indexingDocumentCreator.createSchemalessDocumentsFromCsv(csv)).thenReturn(mockDocs);

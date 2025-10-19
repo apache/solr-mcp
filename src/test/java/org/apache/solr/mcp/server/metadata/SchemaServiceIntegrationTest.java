@@ -13,8 +13,8 @@ import org.springframework.context.annotation.Import;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Integration test suite for SchemaService using real Solr containers.
- * Tests actual schema retrieval functionality against a live Solr instance.
+ * Integration test suite for SchemaService using real Solr containers. Tests actual schema
+ * retrieval functionality against a live Solr instance.
  */
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
@@ -31,7 +31,8 @@ class SchemaServiceIntegrationTest {
     void setupCollection() throws Exception {
         // Create a collection for testing
         if (!initialized) {
-            CollectionAdminRequest.Create createRequest = CollectionAdminRequest.createCollection(TEST_COLLECTION, "_default", 1, 1);
+            CollectionAdminRequest.Create createRequest =
+                    CollectionAdminRequest.createCollection(TEST_COLLECTION, "_default", 1, 1);
             createRequest.process(solrClient);
             initialized = true;
         }
@@ -49,41 +50,54 @@ class SchemaServiceIntegrationTest {
 
         // Verify basic schema properties
         assertFalse(schema.getFields().isEmpty(), "Schema should have at least some fields");
-        assertFalse(schema.getFieldTypes().isEmpty(), "Schema should have at least some field types");
+        assertFalse(
+                schema.getFieldTypes().isEmpty(), "Schema should have at least some field types");
 
         // Check for common default fields in Solr
-        boolean hasIdField = schema.getFields().stream()
-                .anyMatch(field -> "id".equals(field.get("name")));
+        boolean hasIdField =
+                schema.getFields().stream().anyMatch(field -> "id".equals(field.get("name")));
         assertTrue(hasIdField, "Schema should have an 'id' field");
 
         // Check for common field types
-        boolean hasStringType = schema.getFieldTypes().stream()
-                .anyMatch(fieldType -> "string".equals(fieldType.getAttributes().get("name")));
+        boolean hasStringType =
+                schema.getFieldTypes().stream()
+                        .anyMatch(
+                                fieldType ->
+                                        "string".equals(fieldType.getAttributes().get("name")));
         assertTrue(hasStringType, "Schema should have a 'string' field type");
     }
 
     @Test
     void testGetSchema_InvalidCollection() {
         // When/Then
-        assertThrows(Exception.class, () -> {
-            schemaService.getSchema("non_existent_collection_12345");
-        }, "Getting schema for non-existent collection should throw exception");
+        assertThrows(
+                Exception.class,
+                () -> {
+                    schemaService.getSchema("non_existent_collection_12345");
+                },
+                "Getting schema for non-existent collection should throw exception");
     }
 
     @Test
     void testGetSchema_NullCollection() {
         // When/Then
-        assertThrows(Exception.class, () -> {
-            schemaService.getSchema(null);
-        }, "Getting schema with null collection should throw exception");
+        assertThrows(
+                Exception.class,
+                () -> {
+                    schemaService.getSchema(null);
+                },
+                "Getting schema with null collection should throw exception");
     }
 
     @Test
     void testGetSchema_EmptyCollection() {
         // When/Then
-        assertThrows(Exception.class, () -> {
-            schemaService.getSchema("");
-        }, "Getting schema with empty collection should throw exception");
+        assertThrows(
+                Exception.class,
+                () -> {
+                    schemaService.getSchema("");
+                },
+                "Getting schema with empty collection should throw exception");
     }
 
     @Test
@@ -95,17 +109,25 @@ class SchemaServiceIntegrationTest {
         assertNotNull(schema.getName(), "Schema should have a name");
 
         // Check that we can access field details
-        schema.getFields().forEach(field -> {
-            assertNotNull(field.get("name"), "Field should have a name");
-            assertNotNull(field.get("type"), "Field should have a type");
-            // indexed and stored can be null (defaults to true in many cases)
-        });
+        schema.getFields()
+                .forEach(
+                        field -> {
+                            assertNotNull(field.get("name"), "Field should have a name");
+                            assertNotNull(field.get("type"), "Field should have a type");
+                            // indexed and stored can be null (defaults to true in many cases)
+                        });
 
         // Check that we can access field type details
-        schema.getFieldTypes().forEach(fieldType -> {
-            assertNotNull(fieldType.getAttributes().get("name"), "Field type should have a name");
-            assertNotNull(fieldType.getAttributes().get("class"), "Field type should have a class");
-        });
+        schema.getFieldTypes()
+                .forEach(
+                        fieldType -> {
+                            assertNotNull(
+                                    fieldType.getAttributes().get("name"),
+                                    "Field type should have a name");
+                            assertNotNull(
+                                    fieldType.getAttributes().get("class"),
+                                    "Field type should have a class");
+                        });
     }
 
     @Test
@@ -120,11 +142,14 @@ class SchemaServiceIntegrationTest {
         assertTrue(schema.getDynamicFields().size() >= 0, "Dynamic fields should be a valid list");
 
         // Check for common dynamic field patterns
-        boolean hasStringDynamicField = schema.getDynamicFields().stream()
-                .anyMatch(dynField -> {
-                    String name = (String) dynField.get("name");
-                    return name != null && (name.contains("*_s") || name.contains("*_str"));
-                });
+        boolean hasStringDynamicField =
+                schema.getDynamicFields().stream()
+                        .anyMatch(
+                                dynField -> {
+                                    String name = (String) dynField.get("name");
+                                    return name != null
+                                            && (name.contains("*_s") || name.contains("*_str"));
+                                });
 
         assertTrue(hasStringDynamicField, "Schema should have string dynamic fields");
     }

@@ -10,8 +10,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
- * Comprehensive test suite for the Utils utility class.
- * Tests all public methods and edge cases for type-safe value extraction from Solr NamedList objects.
+ * Comprehensive test suite for the Utils utility class. Tests all public methods and edge cases for
+ * type-safe value extraction from Solr NamedList objects.
  */
 class CollectionUtilsTest {
 

@@ -99,7 +99,8 @@ class CollectionServiceTest {
     @Test
     void extractCollectionName_WithMultipleShards_ShouldExtractCorrectly() {
         // Given & When & Then
-        assertEquals("products", collectionService.extractCollectionName("products_shard2_replica_n3"));
+        assertEquals(
+                "products", collectionService.extractCollectionName("products_shard2_replica_n3"));
         assertEquals("users", collectionService.extractCollectionName("users_shard5_replica_n10"));
     }
 
@@ -134,7 +135,8 @@ class CollectionServiceTest {
     }
 
     @Test
-    void extractCollectionName_WithCollectionNameContainingUnderscore_ShouldOnlyExtractBeforeShard() {
+    void
+    extractCollectionName_WithCollectionNameContainingUnderscore_ShouldOnlyExtractBeforeShard() {
         // Given - collection name itself contains underscore
         String complexName = "my_complex_collection_shard1_replica_n1";
 
@@ -163,7 +165,10 @@ class CollectionServiceTest {
         String result = collectionService.extractCollectionName(name);
 
         // Then
-        assertEquals("resharding_tasks", result, "Should not extract when '_shard' is not followed by number");
+        assertEquals(
+                "resharding_tasks",
+                result,
+                "Should not extract when '_shard' is not followed by number");
     }
 
     @Test
@@ -280,8 +285,7 @@ class CollectionServiceTest {
 
     @Test
     void checkHealth_IOException() throws Exception {
-        when(solrClient.ping("error_collection"))
-                .thenThrow(new IOException("Network error"));
+        when(solrClient.ping("error_collection")).thenThrow(new IOException("Network error"));
 
         SolrHealthStatus result = collectionService.checkHealth("error_collection");
 
@@ -367,8 +371,10 @@ class CollectionServiceTest {
         CollectionService spyService = spy(collectionService);
         doReturn(Collections.emptyList()).when(spyService).listCollections();
 
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> spyService.getCollectionStats("non_existent"));
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> spyService.getCollectionStats("non_existent"));
 
         assertTrue(exception.getMessage().contains("Collection not found: non_existent"));
     }
@@ -379,7 +385,8 @@ class CollectionServiceTest {
         List<String> collections = Arrays.asList("collection1", "films_shard1_replica_n1");
         doReturn(collections).when(spyService).listCollections();
 
-        Method method = CollectionService.class.getDeclaredMethod("validateCollectionExists", String.class);
+        Method method =
+                CollectionService.class.getDeclaredMethod("validateCollectionExists", String.class);
         method.setAccessible(true);
 
         assertTrue((boolean) method.invoke(spyService, "collection1"));
@@ -392,7 +399,8 @@ class CollectionServiceTest {
         CollectionService spyService = spy(collectionService);
         doReturn(Collections.emptyList()).when(spyService).listCollections();
 
-        Method method = CollectionService.class.getDeclaredMethod("validateCollectionExists", String.class);
+        Method method =
+                CollectionService.class.getDeclaredMethod("validateCollectionExists", String.class);
         method.setAccessible(true);
 
         assertFalse((boolean) method.invoke(spyService, "any_collection"));
@@ -451,8 +459,7 @@ class CollectionServiceTest {
         CollectionService spyService = spy(collectionService);
         doReturn(Arrays.asList("test_collection")).when(spyService).listCollections();
 
-        when(solrClient.request(any(SolrRequest.class)))
-                .thenThrow(new IOException("IO Error"));
+        when(solrClient.request(any(SolrRequest.class))).thenThrow(new IOException("IO Error"));
 
         CacheStats result = spyService.getCacheMetrics("test_collection");
 
@@ -489,7 +496,8 @@ class CollectionServiceTest {
     @Test
     void extractCacheStats() throws Exception {
         NamedList<Object> mbeans = createMockCacheData();
-        Method method = CollectionService.class.getDeclaredMethod("extractCacheStats", NamedList.class);
+        Method method =
+                CollectionService.class.getDeclaredMethod("extractCacheStats", NamedList.class);
         method.setAccessible(true);
 
         CacheStats result = (CacheStats) method.invoke(collectionService, mbeans);
@@ -502,7 +510,8 @@ class CollectionServiceTest {
     @Test
     void extractCacheStats_AllCacheTypes() throws Exception {
         NamedList<Object> mbeans = createCompleteMockCacheData();
-        Method method = CollectionService.class.getDeclaredMethod("extractCacheStats", NamedList.class);
+        Method method =
+                CollectionService.class.getDeclaredMethod("extractCacheStats", NamedList.class);
         method.setAccessible(true);
 
         CacheStats result = (CacheStats) method.invoke(collectionService, mbeans);
@@ -517,7 +526,8 @@ class CollectionServiceTest {
         NamedList<Object> mbeans = new NamedList<>();
         mbeans.add("CACHE", null);
 
-        Method method = CollectionService.class.getDeclaredMethod("extractCacheStats", NamedList.class);
+        Method method =
+                CollectionService.class.getDeclaredMethod("extractCacheStats", NamedList.class);
         method.setAccessible(true);
 
         CacheStats result = (CacheStats) method.invoke(collectionService, mbeans);
@@ -530,18 +540,16 @@ class CollectionServiceTest {
 
     @Test
     void isCacheStatsEmpty() throws Exception {
-        Method method = CollectionService.class.getDeclaredMethod("isCacheStatsEmpty", CacheStats.class);
+        Method method =
+                CollectionService.class.getDeclaredMethod("isCacheStatsEmpty", CacheStats.class);
         method.setAccessible(true);
 
         CacheStats emptyStats = new CacheStats(null, null, null);
         assertTrue((boolean) method.invoke(collectionService, emptyStats));
         assertTrue((boolean) method.invoke(collectionService, (CacheStats) null));
 
-        CacheStats nonEmptyStats = new CacheStats(
-                new CacheInfo(100L, null, null, null, null, null),
-                null,
-                null
-        );
+        CacheStats nonEmptyStats =
+                new CacheStats(new CacheInfo(100L, null, null, null, null, null), null, null);
         assertFalse((boolean) method.invoke(collectionService, nonEmptyStats));
     }
 
@@ -597,8 +605,7 @@ class CollectionServiceTest {
         CollectionService spyService = spy(collectionService);
         doReturn(Arrays.asList("test_collection")).when(spyService).listCollections();
 
-        when(solrClient.request(any(SolrRequest.class)))
-                .thenThrow(new IOException("IO Error"));
+        when(solrClient.request(any(SolrRequest.class))).thenThrow(new IOException("IO Error"));
 
         HandlerStats result = spyService.getHandlerMetrics("test_collection");
 
@@ -635,7 +642,8 @@ class CollectionServiceTest {
     @Test
     void extractHandlerStats() throws Exception {
         NamedList<Object> mbeans = createMockHandlerData();
-        Method method = CollectionService.class.getDeclaredMethod("extractHandlerStats", NamedList.class);
+        Method method =
+                CollectionService.class.getDeclaredMethod("extractHandlerStats", NamedList.class);
         method.setAccessible(true);
 
         HandlerStats result = (HandlerStats) method.invoke(collectionService, mbeans);
@@ -647,7 +655,8 @@ class CollectionServiceTest {
     @Test
     void extractHandlerStats_BothHandlers() throws Exception {
         NamedList<Object> mbeans = createCompleteHandlerData();
-        Method method = CollectionService.class.getDeclaredMethod("extractHandlerStats", NamedList.class);
+        Method method =
+                CollectionService.class.getDeclaredMethod("extractHandlerStats", NamedList.class);
         method.setAccessible(true);
 
         HandlerStats result = (HandlerStats) method.invoke(collectionService, mbeans);
@@ -663,7 +672,8 @@ class CollectionServiceTest {
         NamedList<Object> mbeans = new NamedList<>();
         mbeans.add("QUERYHANDLER", null);
 
-        Method method = CollectionService.class.getDeclaredMethod("extractHandlerStats", NamedList.class);
+        Method method =
+                CollectionService.class.getDeclaredMethod("extractHandlerStats", NamedList.class);
         method.setAccessible(true);
 
         HandlerStats result = (HandlerStats) method.invoke(collectionService, mbeans);
@@ -675,17 +685,17 @@ class CollectionServiceTest {
 
     @Test
     void isHandlerStatsEmpty() throws Exception {
-        Method method = CollectionService.class.getDeclaredMethod("isHandlerStatsEmpty", HandlerStats.class);
+        Method method =
+                CollectionService.class.getDeclaredMethod(
+                        "isHandlerStatsEmpty", HandlerStats.class);
         method.setAccessible(true);
 
         HandlerStats emptyStats = new HandlerStats(null, null);
         assertTrue((boolean) method.invoke(collectionService, emptyStats));
         assertTrue((boolean) method.invoke(collectionService, (HandlerStats) null));
 
-        HandlerStats nonEmptyStats = new HandlerStats(
-                new HandlerInfo(100L, null, null, null, null, null),
-                null
-        );
+        HandlerStats nonEmptyStats =
+                new HandlerStats(new HandlerInfo(100L, null, null, null, null, null), null);
         assertFalse((boolean) method.invoke(collectionService, nonEmptyStats));
     }
 
@@ -727,7 +737,8 @@ class CollectionServiceTest {
     @Test
     void listCollections_CloudClient_Error() throws Exception {
         CloudSolrClient cloudClient = mock(CloudSolrClient.class);
-        when(cloudClient.request(any(), any())).thenThrow(new SolrServerException("Connection error"));
+        when(cloudClient.request(any(), any()))
+                .thenThrow(new SolrServerException("Connection error"));
 
         CollectionService service = new CollectionService(cloudClient);
         List<String> result = service.listCollections();

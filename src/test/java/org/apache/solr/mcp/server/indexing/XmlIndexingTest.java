@@ -15,8 +15,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Test class for XML indexing functionality in IndexingService.
  *
- * <p>This test verifies that the IndexingService can correctly parse XML data
- * and convert it into SolrInputDocument objects using the schema-less approach.</p>
+ * <p>This test verifies that the IndexingService can correctly parse XML data and convert it into
+ * SolrInputDocument objects using the schema-less approach.
  */
 @SpringBootTest
 @TestPropertySource(locations = "classpath:application.properties")
@@ -29,7 +29,8 @@ class XmlIndexingTest {
     void testCreateSchemalessDocumentsFromXmlSingleDocument() throws Exception {
         // Given
 
-        String xmlData = """
+        String xmlData =
+                """
                 <book id="123">
                     <title>A Game of Thrones</title>
                     <author>
@@ -43,7 +44,8 @@ class XmlIndexingTest {
                 """;
 
         // When
-        List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlData);
+        List<SolrInputDocument> documents =
+                indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlData);
 
         // Then
         assertThat(documents).hasSize(1);
@@ -62,7 +64,8 @@ class XmlIndexingTest {
     void testCreateSchemalessDocumentsFromXmlMultipleDocuments() throws Exception {
         // Given
 
-        String xmlData = """
+        String xmlData =
+                """
                 <books>
                     <document id="1">
                         <title>A Game of Thrones</title>
@@ -83,7 +86,8 @@ class XmlIndexingTest {
                 """;
 
         // When
-        List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlData);
+        List<SolrInputDocument> documents =
+                indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlData);
 
         // Then
         assertThat(documents).hasSize(3);
@@ -114,7 +118,8 @@ class XmlIndexingTest {
     void testCreateSchemalessDocumentsFromXmlWithAttributes() throws Exception {
         // Given
 
-        String xmlData = """
+        String xmlData =
+                """
                 <product id="P123" category="electronics" featured="true">
                     <name lang="en">Smartphone</name>
                     <price currency="USD">599.99</price>
@@ -123,7 +128,8 @@ class XmlIndexingTest {
                 """;
 
         // When
-        List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlData);
+        List<SolrInputDocument> documents =
+                indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlData);
 
         // Then
         assertThat(documents).hasSize(1);
@@ -136,14 +142,16 @@ class XmlIndexingTest {
         assertThat(doc.getFieldValue("product_price_currency_attr")).isEqualTo("USD");
         assertThat(doc.getFieldValue("product_name")).isEqualTo("Smartphone");
         assertThat(doc.getFieldValue("product_price")).isEqualTo("599.99");
-        assertThat(doc.getFieldValue("product_description")).isEqualTo("Latest smartphone with advanced features");
+        assertThat(doc.getFieldValue("product_description"))
+                .isEqualTo("Latest smartphone with advanced features");
     }
 
     @Test
     void testCreateSchemalessDocumentsFromXmlWithEmptyValues() throws Exception {
         // Given
 
-        String xmlData = """
+        String xmlData =
+                """
                 <items>
                     <item id="1">
                         <name>Product One</name>
@@ -159,7 +167,8 @@ class XmlIndexingTest {
                 """;
 
         // When
-        List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlData);
+        List<SolrInputDocument> documents =
+                indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlData);
 
         // Then
         assertThat(documents).hasSize(2);
@@ -168,13 +177,15 @@ class XmlIndexingTest {
         SolrInputDocument firstDoc = documents.getFirst();
         assertThat(firstDoc.getFieldValue("id_attr")).isEqualTo("1");
         assertThat(firstDoc.getFieldValue("item_name")).isEqualTo("Product One");
-        assertThat(firstDoc.getFieldValue("item_description")).isNull(); // Empty element should not be indexed
+        assertThat(firstDoc.getFieldValue("item_description"))
+                .isNull(); // Empty element should not be indexed
         assertThat(firstDoc.getFieldValue("item_price")).isEqualTo("19.99");
 
         // Second document should skip empty name
         SolrInputDocument secondDoc = documents.get(1);
         assertThat(secondDoc.getFieldValue("id_attr")).isEqualTo("2");
-        assertThat(secondDoc.getFieldValue("item_name")).isNull(); // Empty element should not be indexed
+        assertThat(secondDoc.getFieldValue("item_name"))
+                .isNull(); // Empty element should not be indexed
         assertThat(secondDoc.getFieldValue("item_description")).isEqualTo("Product with no name");
         assertThat(secondDoc.getFieldValue("item_price")).isEqualTo("29.99");
     }
@@ -183,7 +194,8 @@ class XmlIndexingTest {
     void testCreateSchemalessDocumentsFromXmlWithRepeatedElements() throws Exception {
         // Given
 
-        String xmlData = """
+        String xmlData =
+                """
                 <book>
                     <title>Programming Book</title>
                     <author>John Doe</author>
@@ -200,7 +212,8 @@ class XmlIndexingTest {
                 """;
 
         // When
-        List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlData);
+        List<SolrInputDocument> documents =
+                indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlData);
 
         // Then
         assertThat(documents).hasSize(1);
@@ -220,11 +233,12 @@ class XmlIndexingTest {
     void testCreateSchemalessDocumentsFromXmlMixedContent() throws Exception {
         // Given
 
-        String xmlData = """
+        String xmlData =
+                """
                 <article>
                     <title>Mixed Content Example</title>
                     <content>
-                        This is some text content with 
+                                This is some text content with
                         <emphasis>emphasized text</emphasis>
                         and more content here.
                     </content>
@@ -233,7 +247,8 @@ class XmlIndexingTest {
                 """;
 
         // When
-        List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlData);
+        List<SolrInputDocument> documents =
+                indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlData);
 
         // Then
         assertThat(documents).hasSize(1);
@@ -251,7 +266,8 @@ class XmlIndexingTest {
     void testCreateSchemalessDocumentsFromXmlWithMalformedXml() {
         // Given
 
-        String malformedXml = """
+        String malformedXml =
+                """
                 <book>
                     <title>Incomplete Book
                     <author>John Doe</author>
@@ -259,7 +275,10 @@ class XmlIndexingTest {
                 """;
 
         // When/Then
-        assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(malformedXml))
+        assertThatThrownBy(
+                () ->
+                        indexingDocumentCreator.createSchemalessDocumentsFromXml(
+                                malformedXml))
                 .isInstanceOf(RuntimeException.class);
     }
 
@@ -267,7 +286,8 @@ class XmlIndexingTest {
     void testCreateSchemalessDocumentsFromXmlWithInvalidCharacters() {
         // Given
 
-        String invalidXml = """
+        String invalidXml =
+                """
                 <book>
                     <title>Book with invalid character: \u0000</title>
                     <author>John Doe</author>
@@ -275,7 +295,8 @@ class XmlIndexingTest {
                 """;
 
         // When/Then
-        assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(invalidXml))
+        assertThatThrownBy(
+                () -> indexingDocumentCreator.createSchemalessDocumentsFromXml(invalidXml))
                 .isInstanceOf(RuntimeException.class);
     }
 
@@ -283,7 +304,8 @@ class XmlIndexingTest {
     void testCreateSchemalessDocumentsFromXmlWithDoctype() {
         // Given
 
-        String xmlWithDoctype = """
+        String xmlWithDoctype =
+                """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <!DOCTYPE book [
                     <!ELEMENT book (title, author)>
@@ -297,7 +319,10 @@ class XmlIndexingTest {
                 """;
 
         // When/Then - Should fail due to XXE protection
-        assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlWithDoctype))
+        assertThatThrownBy(
+                () ->
+                        indexingDocumentCreator.createSchemalessDocumentsFromXml(
+                                xmlWithDoctype))
                 .isInstanceOf(RuntimeException.class);
     }
 
@@ -305,7 +330,8 @@ class XmlIndexingTest {
     void testCreateSchemalessDocumentsFromXmlWithExternalEntity() {
         // Given
 
-        String xmlWithExternalEntity = """
+        String xmlWithExternalEntity =
+                """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <!DOCTYPE book [
                     <!ENTITY external SYSTEM "file:///etc/passwd">
@@ -317,7 +343,10 @@ class XmlIndexingTest {
                 """;
 
         // When/Then - Should fail due to XXE protection
-        assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlWithExternalEntity))
+        assertThatThrownBy(
+                () ->
+                        indexingDocumentCreator.createSchemalessDocumentsFromXml(
+                                xmlWithExternalEntity))
                 .isInstanceOf(RuntimeException.class);
     }
 
@@ -346,7 +375,8 @@ class XmlIndexingTest {
         // Given
 
         // When/Then
-        assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml("   \n\t  "))
+        assertThatThrownBy(
+                () -> indexingDocumentCreator.createSchemalessDocumentsFromXml("   \n\t  "))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("XML input cannot be null or empty");
     }
@@ -360,7 +390,8 @@ class XmlIndexingTest {
         largeXml.append("<books>");
 
         // Add enough data to exceed the 10MB limit
-        String bookTemplate = """
+        String bookTemplate =
+                """
                 <book id="%d">
                     <title>%s</title>
                     <content>%s</content>
@@ -376,7 +407,8 @@ class XmlIndexingTest {
 
         // When/Then
         String xmlString = largeXml.toString();
-        assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlString))
+        assertThatThrownBy(
+                () -> indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlString))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("XML document too large");
     }
@@ -385,7 +417,8 @@ class XmlIndexingTest {
     void testCreateSchemalessDocumentsFromXmlWithComplexNestedStructure() throws Exception {
         // Given
 
-        String complexXml = """
+        String complexXml =
+                """
                 <product id="123" category="electronics">
                     <details>
                         <name lang="en">Smartphone</name>
@@ -413,7 +446,8 @@ class XmlIndexingTest {
                 """;
 
         // When
-        List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromXml(complexXml);
+        List<SolrInputDocument> documents =
+                indexingDocumentCreator.createSchemalessDocumentsFromXml(complexXml);
 
         // Then
         assertThat(documents).hasSize(1);
@@ -426,17 +460,24 @@ class XmlIndexingTest {
 
         // Verify nested structure flattening
         assertThat(doc.getFieldValue("product_details_name_lang_attr")).isNotNull();
-        assertThat(doc.getFieldValue("product_details_specifications_screen_size_attr")).isEqualTo("6.1");
-        assertThat(doc.getFieldValue("product_details_specifications_screen_type_attr")).isEqualTo("OLED");
-        assertThat(doc.getFieldValue("product_details_specifications_screen")).isEqualTo("Full HD+");
+        assertThat(doc.getFieldValue("product_details_specifications_screen_size_attr"))
+                .isEqualTo("6.1");
+        assertThat(doc.getFieldValue("product_details_specifications_screen_type_attr"))
+                .isEqualTo("OLED");
+        assertThat(doc.getFieldValue("product_details_specifications_screen"))
+                .isEqualTo("Full HD+");
 
         // Verify multiple similar elements
-        assertThat(doc.getFieldValue("product_details_specifications_camera_type_attr")).isNotNull();
-        assertThat(doc.getFieldValue("product_details_specifications_camera_resolution_attr")).isNotNull();
+        assertThat(doc.getFieldValue("product_details_specifications_camera_type_attr"))
+                .isNotNull();
+        assertThat(doc.getFieldValue("product_details_specifications_camera_resolution_attr"))
+                .isNotNull();
 
         // Verify deeply nested elements
-        assertThat(doc.getFieldValue("product_details_specifications_storage_internal")).isEqualTo("128GB");
-        assertThat(doc.getFieldValue("product_details_specifications_storage_expandable")).isEqualTo("Yes");
+        assertThat(doc.getFieldValue("product_details_specifications_storage_internal"))
+                .isEqualTo("128GB");
+        assertThat(doc.getFieldValue("product_details_specifications_storage_expandable"))
+                .isEqualTo("Yes");
 
         // Verify pricing and availability
         assertThat(doc.getFieldValue("product_pricing_currency_attr")).isEqualTo("USD");
@@ -449,7 +490,8 @@ class XmlIndexingTest {
     void testFieldNameSanitization() throws Exception {
         // Given
 
-        String xmlWithSpecialChars = """
+        String xmlWithSpecialChars =
+                """
                 <product_data id="123">
                     <product_name>Test Product</product_name>
                     <price_USD>99.99</price_USD>
@@ -461,7 +503,8 @@ class XmlIndexingTest {
                 """;
 
         // When
-        List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlWithSpecialChars);
+        List<SolrInputDocument> documents =
+                indexingDocumentCreator.createSchemalessDocumentsFromXml(xmlWithSpecialChars);
 
         // Then
         assertThat(documents).hasSize(1);
@@ -473,7 +516,8 @@ class XmlIndexingTest {
         assertThat(doc.getFieldValue("product_data_product_name")).isEqualTo("Test Product");
         assertThat(doc.getFieldValue("product_data_price_usd")).isEqualTo("99.99");
         assertThat(doc.getFieldValue("product_data_category_type")).isEqualTo("electronics");
-        assertThat(doc.getFieldValue("product_data_field_with_multiple_underscores")).isEqualTo("value");
+        assertThat(doc.getFieldValue("product_data_field_with_multiple_underscores"))
+                .isEqualTo("value");
         assertThat(doc.getFieldValue("product_data_field_with_dashes")).isEqualTo("dashed value");
         assertThat(doc.getFieldValue("product_data_uppercase_field")).isEqualTo("uppercase value");
     }
