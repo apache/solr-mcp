@@ -1,3 +1,4 @@
+[![Project Status: Incubating](https://img.shields.io/badge/status-incubating-yellow.svg)](https://github.com/apache/solr-mcp)
 # Solr MCP Server
 
 A Spring AI Model Context Protocol (MCP) server that provides tools for interacting with Apache Solr. This server
