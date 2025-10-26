@@ -20,15 +20,16 @@ package org.apache.solr.mcp.server.indexing.documentcreator;
  * Exception thrown when document processing operations fail.
  *
  * <p>This exception provides a unified error handling mechanism for all document creator
- * implementations, wrapping various underlying exceptions while preserving the original
- * error context and stack trace information.</p>
+ * implementations, wrapping various underlying exceptions while preserving the original error
+ * context and stack trace information.
  *
- * <p>Common scenarios where this exception is thrown:</p>
+ * <p>Common scenarios where this exception is thrown:
+ *
  * <ul>
- *   <li>Invalid document format or structure</li>
- *   <li>Document parsing errors (JSON, XML, CSV)</li>
- *   <li>Input validation failures</li>
- *   <li>Resource access or I/O errors during processing</li>
+ *   <li>Invalid document format or structure
+ *   <li>Document parsing errors (JSON, XML, CSV)
+ *   <li>Input validation failures
+ *   <li>Resource access or I/O errors during processing
  * </ul>
  */
 public class DocumentProcessingException extends RuntimeException {
@@ -45,11 +46,11 @@ public class DocumentProcessingException extends RuntimeException {
     /**
      * Constructs a new DocumentProcessingException with the specified detail message and cause.
      *
-     * <p>This constructor is particularly useful for wrapping underlying exceptions
-     * while providing additional context about the document processing failure.</p>
+     * <p>This constructor is particularly useful for wrapping underlying exceptions while providing
+     * additional context about the document processing failure.
      *
      * @param message the detail message explaining the error
-     * @param cause   the cause of this exception (which is saved for later retrieval)
+     * @param cause the cause of this exception (which is saved for later retrieval)
      */
     public DocumentProcessingException(String message, Throwable cause) {
         super(message, cause);
@@ -58,7 +59,7 @@ public class DocumentProcessingException extends RuntimeException {
     /**
      * Constructs a new DocumentProcessingException with the specified cause.
      *
-     * <p>The detail message is automatically derived from the cause's toString() method.</p>
+     * <p>The detail message is automatically derived from the cause's toString() method.
      *
      * @param cause the cause of this exception (which is saved for later retrieval)
      */

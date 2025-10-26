@@ -32,7 +32,7 @@ version = "0.0.1-SNAPSHOT"
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
@@ -195,9 +195,9 @@ spotless {
 //   docker run -e SOLR_URL=http://custom-solr:8983/solr/ solr-mcp-server:0.0.1-SNAPSHOT
 jib {
     from {
-        // Use Eclipse Temurin JRE 21 as the base image
+        // Use Eclipse Temurin JRE 25 as the base image
         // Temurin is the open-source build of OpenJDK from Adoptium
-        image = "eclipse-temurin:21-jre"
+        image = "eclipse-temurin:25-jre"
 
         // Multi-platform support for both AMD64 and ARM64 architectures
         // This allows the image to run on x86_64 machines and Apple Silicon (M1/M2/M3)
@@ -216,7 +216,7 @@ jib {
     to {
         // Default image name (can be overridden with -Djib.to.image=...)
         // Format: repository/image-name:tag
-        image = "solr-mcp-server:${version}"
+        image = "solr-mcp-server:$version"
 
         // Tags to apply to the image
         // The version tag is applied by default, plus "latest" tag
@@ -226,23 +226,24 @@ jib {
     container {
         // Container environment variables
         // These are baked into the image but can be overridden at runtime
-        environment = mapOf(
-            // Disable Spring Boot Docker Compose support when running in container
-            "SPRING_DOCKER_COMPOSE_ENABLED" to "false",
-
-            // Default Solr URL using host.docker.internal to reach host machine
-            // On Linux, use --add-host=host.docker.internal:host-gateway
-            "SOLR_URL" to "http://host.docker.internal:8983/solr/"
-        )
+        environment =
+            mapOf(
+                // Disable Spring Boot Docker Compose support when running in container
+                "SPRING_DOCKER_COMPOSE_ENABLED" to "false",
+                // Default Solr URL using host.docker.internal to reach host machine
+                // On Linux, use --add-host=host.docker.internal:host-gateway
+                "SOLR_URL" to "http://host.docker.internal:8983/solr/",
+            )
 
         // JVM flags for containerized environments
         // These optimize the JVM for running in containers
-        jvmFlags = listOf(
-            // Use container-aware memory settings
-            "-XX:+UseContainerSupport",
-            // Set max RAM percentage (default 75%)
-            "-XX:MaxRAMPercentage=75.0"
-        )
+        jvmFlags =
+            listOf(
+                // Use container-aware memory settings
+                "-XX:+UseContainerSupport",
+                // Set max RAM percentage (default 75%)
+                "-XX:MaxRAMPercentage=75.0",
+            )
 
         // Main class to run (auto-detected from Spring Boot plugin)
         // mainClass is automatically set by Spring Boot Gradle plugin
@@ -259,8 +260,8 @@ jib {
                 "org.opencontainers.image.description" to "Spring AI MCP Server for Apache Solr",
                 "org.opencontainers.image.version" to version.toString(),
                 "org.opencontainers.image.vendor" to "Apache Software Foundation",
-                "org.opencontainers.image.licenses" to "Apache-2.0"
-            )
+                "org.opencontainers.image.licenses" to "Apache-2.0",
+            ),
         )
     }
 }

@@ -47,7 +47,7 @@ on:
     workflow_dispatch:  # Allow manual workflow runs from GitHub UI
 
 env:
-    JAVA_VERSION: '21'
+    JAVA_VERSION: '25'
     JAVA_DISTRIBUTION: 'temurin'
 
 jobs:
@@ -73,7 +73,7 @@ jobs:
                 uses: actions/checkout@v4
 
             # Set up Java Development Kit
-            # Uses Temurin (Eclipse Adoptium) distribution of OpenJDK 21
+            # Uses Temurin (Eclipse Adoptium) distribution of OpenJDK 25
             # Gradle cache is enabled to speed up subsequent builds
             -   name: Set up JDK ${{ env.JAVA_VERSION }}
                 uses: actions/setup-java@v4

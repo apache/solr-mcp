@@ -16,6 +16,15 @@
  */
 package org.apache.solr.mcp.server.search;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -29,24 +38,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 class SearchServiceDirectTest {
 
-    @Mock
-    private SolrClient solrClient;
+    @Mock private SolrClient solrClient;
 
-    @Mock
-    private QueryResponse queryResponse;
+    @Mock private QueryResponse queryResponse;
 
     private SearchService searchService;
 
@@ -147,7 +144,8 @@ class SearchServiceDirectTest {
         when(solrClient.query(eq("books"), any(SolrQuery.class))).thenReturn(queryResponse);
 
         // Test
-        SearchResponse result = searchService.search("books", "nonexistent_query", null, null, null, null, null);
+        SearchResponse result =
+                searchService.search("books", "nonexistent_query", null, null, null, null, null);
 
         // Verify
         assertNotNull(result);
@@ -180,7 +178,8 @@ class SearchServiceDirectTest {
         when(solrClient.query(eq("books"), any(SolrQuery.class))).thenReturn(queryResponse);
 
         // Test with facet fields requested but none returned
-        SearchResponse result = searchService.search("books", null, null, List.of("genre_s"), null, null, null);
+        SearchResponse result =
+                searchService.search("books", null, null, List.of("genre_s"), null, null, null);
 
         // Verify
         assertNotNull(result);
@@ -215,7 +214,8 @@ class SearchServiceDirectTest {
         when(solrClient.query(eq("books"), any(SolrQuery.class))).thenReturn(queryResponse);
 
         // Test
-        SearchResponse result = searchService.search("books", null, null, List.of("genre_s"), null, null, null);
+        SearchResponse result =
+                searchService.search("books", null, null, List.of("genre_s"), null, null, null);
 
         // Verify
         assertNotNull(result);
@@ -229,12 +229,14 @@ class SearchServiceDirectTest {
         // Setup mock to throw exception
         try {
             when(solrClient.query(eq("books"), any(SolrQuery.class)))
-                .thenThrow(new SolrServerException("Simulated Solr server error"));
+                    .thenThrow(new SolrServerException("Simulated Solr server error"));
 
             // Test
-            assertThrows(SolrServerException.class, () -> {
-                searchService.search("books", null, null, null, null, null, null);
-            });
+            assertThrows(
+                    SolrServerException.class,
+                    () -> {
+                        searchService.search("books", null, null, null, null, null, null);
+                    });
         } catch (Exception e) {
             fail("Test setup failed: " + e.getMessage());
         }
@@ -270,12 +272,11 @@ class SearchServiceDirectTest {
         // Test with all parameters
         List<String> filterQueries = List.of("price:[10 TO 15]");
         List<String> facetFields2 = List.of("genre_s", "author");
-        List<Map<String, String>> sortClauses = List.of(
-                Map.of("item", "price", "order", "desc")
-        );
+        List<Map<String, String>> sortClauses = List.of(Map.of("item", "price", "order", "desc"));
 
-        SearchResponse result = searchService.search(
-            "books", "mystery", filterQueries, facetFields2, sortClauses, 5, 10);
+        SearchResponse result =
+                searchService.search(
+                        "books", "mystery", filterQueries, facetFields2, sortClauses, 5, 10);
 
         // Verify
         assertNotNull(result);

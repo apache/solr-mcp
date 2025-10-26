@@ -2,14 +2,13 @@
 # Build plugins
 spring-boot = "3.5.6"
 spring-dependency-management = "1.1.7"
-sonarqube = "6.2.0.5505"
 errorprone-plugin = "4.2.0"
 spotless = "7.0.2"
-jib = "3.4.4"
+jib = "3.4.5"
 
 # Main dependencies
 spring-ai = "1.1.0-M3"
-solr = "9.8.1"
+solr = "9.9.0"
 commons-csv = "1.10.0"
 jspecify = "1.0.0"
 
