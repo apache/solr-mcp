@@ -1,0 +1,309 @@
+# GitHub Actions Workflow: Build and Publish
+# ===========================================
+#
+# This workflow builds the Solr MCP Server project and publishes Docker images
+# to both GitHub Container Registry (GHCR) and Docker Hub.
+#
+# Workflow Triggers:
+# ------------------
+# 1. Push to 'main' branch - Builds, tests, and publishes Docker images
+# 2. Version tags (v*) - Builds and publishes release images with version tags
+# 3. Pull requests to 'main' - Only builds and tests (no publishing)
+# 4. Manual trigger via workflow_dispatch
+#
+# Jobs:
+# -----
+# 1. build: Compiles the JAR, runs tests, and uploads artifacts
+# 2. publish-docker: Publishes multi-platform Docker images using Jib
+#
+# Published Images:
+# ----------------
+# - GitHub Container Registry: ghcr.io/OWNER/solr-mcp-server:TAG
+# - Docker Hub: DOCKERHUB_USERNAME/solr-mcp-server:TAG
+#
+# Image Tagging Strategy:
+# ----------------------
+# - Main branch: VERSION-SHORT_SHA (e.g., 0.0.1-SNAPSHOT-a1b2c3d) + latest
+# - Version tags: VERSION (e.g., 1.0.0) + latest
+#
+# Required Secrets (for Docker Hub):
+# ----------------------------------
+# - DOCKERHUB_USERNAME: Your Docker Hub username
+# - DOCKERHUB_TOKEN: Docker Hub access token (https://hub.docker.com/settings/security)
+#
+# Note: GitHub Container Registry uses GITHUB_TOKEN automatically (no setup needed)
+
+name: Build and Publish
+
+on:
+    push:
+        branches:
+            - main
+        tags:
+            - 'v*'  # Trigger on version tags like v1.0.0, v2.1.3, etc.
+    pull_request:
+        branches:
+            - main
+    workflow_dispatch:  # Allow manual workflow runs from GitHub UI
+
+env:
+    JAVA_VERSION: '21'
+    JAVA_DISTRIBUTION: 'temurin'
+
+jobs:
+    # ============================================================================
+    # Job 1: Build JAR
+    # ============================================================================
+    # This job compiles the project, runs tests, and generates build artifacts.
+    # It runs on all triggers (push, PR, tags, manual).
+    #
+    # Outputs:
+    # - Spring Boot JAR with all dependencies (fat JAR)
+    # - Plain JAR without dependencies
+    # - JUnit test results
+    # - JaCoCo code coverage reports
+    # ============================================================================
+    build:
+        name: Build JAR
+        runs-on: ubuntu-latest
+
+        steps:
+            # Checkout the repository code
+            -   name: Checkout code
+                uses: actions/checkout@v4
+
+            # Set up Java Development Kit
+            # Uses Temurin (Eclipse Adoptium) distribution of OpenJDK 21
+            # Gradle cache is enabled to speed up subsequent builds
+            -   name: Set up JDK ${{ env.JAVA_VERSION }}
+                uses: actions/setup-java@v4
+                with:
+                    java-version: ${{ env.JAVA_VERSION }}
+                    distribution: ${{ env.JAVA_DISTRIBUTION }}
+                    cache: 'gradle'
+
+            # Make the Gradle wrapper executable
+            # Required on Unix-based systems (Linux, macOS)
+            -   name: Grant execute permission for gradlew
+                run: chmod +x gradlew
+
+            # Build the project with Gradle
+            # This runs: compilation, tests, spotless formatting, error-prone checks,
+            # JaCoCo coverage, and creates the JAR files
+            -   name: Build with Gradle
+                run: ./gradlew build
+
+            # Upload the compiled JAR files as workflow artifacts
+            # These can be downloaded from the GitHub Actions UI
+            # Artifacts are retained for 7 days
+            -   name: Upload JAR artifact
+                uses: actions/upload-artifact@v4
+                with:
+                    name: solr-mcp-server-jar
+                    path: build/libs/solr-mcp-server-*.jar
+                    retention-days: 7
+
+            # Upload JUnit test results
+            # if: always() ensures this runs even if the build fails
+            # This allows viewing test results for failed builds
+            -   name: Upload test results
+                if: always()
+                uses: actions/upload-artifact@v4
+                with:
+                    name: test-results
+                    path: build/test-results/
+                    retention-days: 7
+
+            # Upload JaCoCo code coverage report
+            # if: always() ensures this runs even if tests fail
+            # Coverage reports help identify untested code paths
+            -   name: Upload coverage report
+                if: always()
+                uses: actions/upload-artifact@v4
+                with:
+                    name: coverage-report
+                    path: build/reports/jacoco/
+                    retention-days: 7
+
+    # ============================================================================
+    # Job 2: Publish Docker Images
+    # ============================================================================
+    # This job builds multi-platform Docker images using Jib and publishes them
+    # to GitHub Container Registry (GHCR) and Docker Hub.
+    #
+    # This job:
+    # - Only runs after 'build' job succeeds (needs: build)
+    # - Skips for pull requests (only runs on push to main and tags)
+    # - Uses Jib to build without requiring Docker daemon
+    # - Supports multi-platform: linux/amd64 and linux/arm64
+    # - Publishes to both GHCR (always) and Docker Hub (if secrets configured)
+    #
+    # Security Note:
+    # - Secrets are passed to Jib CLI arguments for authentication
+    # - This is required for registry authentication and is handled securely
+    # - GitHub Actions masks secret values in logs automatically
+    # ============================================================================
+    publish-docker:
+        name: Publish Docker Images
+        runs-on: ubuntu-latest
+        needs: build  # Wait for build job to complete successfully
+        if: github.event_name != 'pull_request'  # Skip for PRs
+
+        # Grant permissions for GHCR publishing
+        # contents:read - Read repository contents
+        # packages:write - Publish to GitHub Container Registry
+        permissions:
+            contents: read
+            packages: write
+
+        steps:
+            # Checkout the repository code
+            -   name: Checkout code
+                uses: actions/checkout@v4
+
+            # Set up Java for running Jib
+            # Jib doesn't require Docker but needs Java to run
+            -   name: Set up JDK ${{ env.JAVA_VERSION }}
+                uses: actions/setup-java@v4
+                with:
+                    java-version: ${{ env.JAVA_VERSION }}
+                    distribution: ${{ env.JAVA_DISTRIBUTION }}
+                    cache: 'gradle'
+
+            # Make Gradle wrapper executable
+            -   name: Grant execute permission for gradlew
+                run: chmod +x gradlew
+
+            # Extract version and determine image tags
+            # Outputs:
+            # - version: Project version from build.gradle.kts
+            # - tags: Comma-separated list of Docker tags to apply
+            # - is_release: Whether this is a release build (from version tag)
+            -   name: Extract metadata
+                id: meta
+                run: |
+                    # Get version from build.gradle.kts
+                    VERSION=$(grep '^version = ' build.gradle.kts | sed 's/version = "\(.*\)"/\1/')
+                    echo "version=$VERSION" >> $GITHUB_OUTPUT
+                    
+                    # Determine image tags based on trigger type
+                    if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+                      # For version tags (e.g., v1.0.0), use semantic version
+                      TAG_VERSION=${GITHUB_REF#refs/tags/v}
+                      echo "tags=$TAG_VERSION,latest" >> $GITHUB_OUTPUT
+                      echo "is_release=true" >> $GITHUB_OUTPUT
+                    else
+                      # For main branch, append short commit SHA for traceability
+                      SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+                      echo "tags=$VERSION-$SHORT_SHA,latest" >> $GITHUB_OUTPUT
+                      echo "is_release=false" >> $GITHUB_OUTPUT
+                    fi
+
+            # Authenticate to GitHub Container Registry
+            # Uses built-in GITHUB_TOKEN (no configuration needed)
+            -   name: Log in to GitHub Container Registry
+                uses: docker/login-action@v3
+                with:
+                    registry: ghcr.io
+                    username: ${{ github.actor }}
+                    password: ${{ secrets.GITHUB_TOKEN }}
+
+            # Authenticate to Docker Hub
+            # Requires DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets
+            # This step will fail silently if secrets are not configured
+            #     Create a Docker Hub access token, then add two GitHub Actions secrets named `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`.
+            #
+            #          Steps (web UI)
+            #      -   Create Docker Hub token:
+            #              - Visit `https://hub.docker.com`
+            #              - Account → Settings → Security → New Access Token
+            #              - Copy the generated token (you can’t view it again).
+            #      -   Add secrets to the repository:
+            #              - In GitHub, open the repo → `Settings` → `Secrets and variables` → `Actions` → `New repository secret`
+            #              - Add secret `DOCKERHUB_USERNAME` with your Docker Hub username.
+            #              - Add secret `DOCKERHUB_TOKEN` with the token from Docker Hub.
+            #
+            #          Optional
+            #      -   To make secrets available to multiple repos, add them at the organization level: Org → `Settings` → `Secrets and variables` → `Actions`.
+            #      - You can also add environment-level secrets if you use GitHub Environments.
+            #
+            #          CLI example (GitHub CLI)
+            #          ```bash
+            #          gh secret set DOCKERHUB_USERNAME --body "your-docker-username"
+            #          gh secret set DOCKERHUB_TOKEN --body "your-docker-access-token"
+            #          ```
+            #
+            #      Note: `GITHUB_TOKEN` is provided automatically for GHCR; do not store it manually.
+            #      - name: Log in to Docker Hub
+            #        uses: docker/login-action@v3
+            #        with:
+            #          username: ${{ secrets.DOCKERHUB_USERNAME }}
+            #          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+            # Convert repository owner to lowercase
+            # Required because container registry names must be lowercase
+            # Example: "Apache" -> "apache"
+            -   name: Determine repository owner (lowercase)
+                id: repo
+                run: |
+                    echo "owner_lc=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+            # Build and publish images to GitHub Container Registry
+            # Uses Jib Gradle plugin to build multi-platform images
+            # Jib creates optimized, layered images without Docker daemon
+            # Each tag is built and pushed separately
+            -   name: Build and publish to GitHub Container Registry
+                run: |
+                    TAGS="${{ steps.meta.outputs.tags }}"
+                    IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
+                    
+                    # Build and push each tag to GHCR
+                    # Jib automatically handles multi-platform builds (amd64, arm64)
+                    for TAG in "${TAG_ARRAY[@]}"; do
+                      echo "Building and pushing ghcr.io/${{ steps.repo.outputs.owner_lc }}/solr-mcp-server:$TAG"
+                      ./gradlew jib \
+                        -Djib.to.image=ghcr.io/${{ steps.repo.outputs.owner_lc }}/solr-mcp-server:$TAG \
+                        -Djib.to.auth.username=${{ github.actor }} \
+                        -Djib.to.auth.password=${{ secrets.GITHUB_TOKEN }}
+                    done
+
+            # Build and publish images to Docker Hub
+            # Only runs if Docker Hub secrets are configured
+            # Gracefully skips if secrets are not available
+            -   name: Build and publish to Docker Hub
+                if: secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != ''
+                run: |
+                    TAGS="${{ steps.meta.outputs.tags }}"
+                    IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
+                    
+                    # Build and push each tag to Docker Hub
+                    for TAG in "${TAG_ARRAY[@]}"; do
+                      echo "Building and pushing ${{ secrets.DOCKERHUB_USERNAME }}/solr-mcp-server:$TAG"
+                      ./gradlew jib \
+                        -Djib.to.image=${{ secrets.DOCKERHUB_USERNAME }}/solr-mcp-server:$TAG \
+                        -Djib.to.auth.username=${{ secrets.DOCKERHUB_USERNAME }} \
+                        -Djib.to.auth.password=${{ secrets.DOCKERHUB_TOKEN }}
+                    done
+
+            # Create a summary of published images
+            # Displayed in the GitHub Actions workflow summary page
+            # Makes it easy to see which images were published and their tags
+            -   name: Summary
+                run: |
+                    echo "### Docker Images Published :rocket:" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "#### GitHub Container Registry" >> $GITHUB_STEP_SUMMARY
+                    TAGS="${{ steps.meta.outputs.tags }}"
+                    IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
+                    for TAG in "${TAG_ARRAY[@]}"; do
+                      echo "- \`ghcr.io/${{ steps.repo.outputs.owner_lc }}/solr-mcp-server:$TAG\`" >> $GITHUB_STEP_SUMMARY
+                    done
+                    
+                    # Only show Docker Hub section if secrets are configured
+                    if [[ "${{ secrets.DOCKERHUB_USERNAME }}" != "" ]]; then
+                      echo "" >> $GITHUB_STEP_SUMMARY
+                      echo "#### Docker Hub" >> $GITHUB_STEP_SUMMARY
+                      for TAG in "${TAG_ARRAY[@]}"; do
+                        echo "- \`${{ secrets.DOCKERHUB_USERNAME }}/solr-mcp-server:$TAG\`" >> $GITHUB_STEP_SUMMARY
+                      done
+                    fi
