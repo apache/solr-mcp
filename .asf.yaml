@@ -1,0 +1,35 @@
+# https://cwiki.apache.org/confluence/display/INFRA/Git+-+.asf.yaml+features
+
+github:
+  description: "Solr MCP Server"
+  homepage: https://solr.apache.org/
+  labels:
+    - lucene
+    - solr
+    - search
+    - java
+    - mcp
+
+  enabled_merge_buttons:
+    squash: true
+    merge:  false
+    rebase: false
+
+  # TODO: Add to this list for each new minor release
+  protected_branches:
+    main: {}
+
+  protected_tags:
+    - "releases/*"
+
+  autolink_jira:
+    - SOLR
+
+  collaborators:
+    - solrbot
+
+notifications:
+  commits:      commits@solr.apache.org
+  issues:       issues@solr.apache.org
+  pullrequests: issues@solr.apache.org
+  jira_options: link label worklog
