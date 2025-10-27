@@ -16,12 +16,6 @@
  */
 package org.apache.solr.mcp.server.metadata;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-
-import java.io.IOException;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
@@ -33,6 +27,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.IOException;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+
 /**
  * Comprehensive test suite for the SchemaService class. Tests schema retrieval functionality with
  * various scenarios including success and error cases.
@@ -40,11 +43,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class SchemaServiceTest {
 
-    @Mock private SolrClient solrClient;
+    @Mock
+    private SolrClient solrClient;
 
-    @Mock private SchemaResponse schemaResponse;
+    @Mock
+    private SchemaResponse schemaResponse;
 
-    @Mock private SchemaRepresentation schemaRepresentation;
+    @Mock
+    private SchemaRepresentation schemaRepresentation;
 
     private SchemaService schemaService;
 

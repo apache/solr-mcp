@@ -83,12 +83,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * </ul>
  *
  * @version 0.0.1
- * @since 0.0.1
  * @see SearchService
  * @see IndexingService
  * @see CollectionService
  * @see SchemaService
  * @see org.springframework.boot.SpringApplication
+ * @since 0.0.1
  */
 @SpringBootApplication
 public class Main {

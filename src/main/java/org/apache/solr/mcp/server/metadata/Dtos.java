@@ -19,6 +19,7 @@ package org.apache.solr.mcp.server.metadata;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
+
 import java.util.Date;
 
 /**
@@ -93,7 +94,8 @@ record SolrMetrics(
 
         /** Timestamp when these metrics were collected, formatted as ISO 8601 */
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-                Date timestamp) {}
+        Date timestamp) {
+}
 
 /**
  * Lucene index statistics for a Solr collection.
@@ -126,7 +128,8 @@ record IndexStats(
          * Number of Lucene segments in the index (lower numbers generally indicate better
          * performance)
          */
-        Integer segmentCount) {}
+        Integer segmentCount) {
+}
 
 /**
  * Field-level statistics for individual Solr schema fields.
@@ -160,7 +163,8 @@ record FieldStats(
         Integer docs,
 
         /** Number of unique/distinct values for this field across all documents */
-        Integer distinct) {}
+        Integer distinct) {
+}
 
 /**
  * Query execution performance metrics from Solr search operations.
@@ -197,7 +201,8 @@ record QueryStats(
         Long start,
 
         /** Highest relevance score among the returned documents */
-        Float maxScore) {}
+        Float maxScore) {
+}
 
 /**
  * Solr cache utilization statistics across all cache types.
@@ -231,7 +236,8 @@ record CacheStats(
         CacheInfo documentCache,
 
         /** Performance metrics for the filter cache */
-        CacheInfo filterCache) {}
+        CacheInfo filterCache) {
+}
 
 /**
  * Detailed performance metrics for individual Solr cache instances.
@@ -273,7 +279,8 @@ record CacheInfo(
         Long evictions,
 
         /** Current number of entries stored in the cache */
-        Long size) {}
+        Long size) {
+}
 
 /**
  * Request handler performance statistics for core Solr operations.
@@ -303,7 +310,8 @@ record HandlerStats(
         HandlerInfo selectHandler,
 
         /** Performance metrics for the document update request handler */
-        HandlerInfo updateHandler) {}
+        HandlerInfo updateHandler) {
+}
 
 /**
  * Detailed performance metrics for individual Solr request handlers.
@@ -345,7 +353,8 @@ record HandlerInfo(
         Float avgTimePerRequest,
 
         /** Average throughput in requests per second */
-        Float avgRequestsPerSecond) {}
+        Float avgRequestsPerSecond) {
+}
 
 /**
  * Comprehensive health status assessment for Solr collections.
@@ -394,7 +403,7 @@ record SolrHealthStatus(
 
         /** Timestamp when this health check was performed, formatted as ISO 8601 */
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-                Date lastChecked,
+        Date lastChecked,
 
         /** Name of the collection that was checked */
         String collection,
@@ -403,4 +412,5 @@ record SolrHealthStatus(
         String solrVersion,
 
         /** Additional status information or state description */
-        String status) {}
+        String status) {
+}

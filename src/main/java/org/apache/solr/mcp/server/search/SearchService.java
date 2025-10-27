@@ -16,10 +16,6 @@
  */
 package org.apache.solr.mcp.server.search;
 
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -32,6 +28,11 @@ import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Spring Service providing comprehensive search capabilities for Apache Solr collections through
@@ -77,10 +78,10 @@ import org.springframework.util.StringUtils;
  * and facet information in a format optimized for JSON serialization and consumption by AI clients.
  *
  * @version 0.0.1
- * @since 0.0.1
  * @see SearchResponse
  * @see SolrClient
  * @see org.springframework.ai.tool.annotation.Tool
+ * @since 0.0.1
  */
 @Service
 public class SearchService {
@@ -169,60 +170,60 @@ public class SearchService {
      * Searches a Solr collection with the specified parameters. This method is exposed as a tool
      * for MCP clients to use.
      *
-     * @param collection The Solr collection to query
-     * @param query The Solr query string (q parameter). Defaults to "*:*" if not specified
+     * @param collection    The Solr collection to query
+     * @param query         The Solr query string (q parameter). Defaults to "*:*" if not specified
      * @param filterQueries List of filter queries (fq parameter)
-     * @param facetFields List of fields to facet on
-     * @param sortClauses List of sort clauses for ordering results
-     * @param start Starting offset for pagination
-     * @param rows Number of rows to return
+     * @param facetFields   List of fields to facet on
+     * @param sortClauses   List of sort clauses for ordering results
+     * @param start         Starting offset for pagination
+     * @param rows          Number of rows to return
      * @return A SearchResponse containing the search results and facets
      * @throws SolrServerException If there's an error communicating with Solr
-     * @throws IOException If there's an I/O error
+     * @throws IOException         If there's an I/O error
      */
     @McpTool(
             name = "Search",
             description =
                     """
-Search specified Solr collection with query, optional filters, facets, sorting, and pagination.
-Note that solr has dynamic fields where name of field in schema may end with suffixes
-_s: Represents a string field, used for exact string matching.
-_i: Represents an integer field.
-_l: Represents a long field.
-_f: Represents a float field.
-_d: Represents a double field.
-_dt: Represents a date field.
-_b: Represents a boolean field.
-_t: Often used for text fields that undergo tokenization and analysis.
-One example from the books collection:
-{
-      "id":"0553579908",
-      "cat":["book"],
-      "name":["A Clash of Kings"],
-      "price":[7.99],
-      "inStock":[true],
-      "author":["George R.R. Martin"],
-      "series_t":"A Song of Ice and Fire",
-      "sequence_i":2,
-      "genre_s":"fantasy",
-      "_version_":1836275819373133824,
-      "_root_":"0553579908"
-    }
-""")
+                            Search specified Solr collection with query, optional filters, facets, sorting, and pagination.
+                            Note that solr has dynamic fields where name of field in schema may end with suffixes
+                            _s: Represents a string field, used for exact string matching.
+                            _i: Represents an integer field.
+                            _l: Represents a long field.
+                            _f: Represents a float field.
+                            _d: Represents a double field.
+                            _dt: Represents a date field.
+                            _b: Represents a boolean field.
+                            _t: Often used for text fields that undergo tokenization and analysis.
+                            One example from the books collection:
+                            {
+                                  "id":"0553579908",
+                                  "cat":["book"],
+                                  "name":["A Clash of Kings"],
+                                  "price":[7.99],
+                                  "inStock":[true],
+                                  "author":["George R.R. Martin"],
+                                  "series_t":"A Song of Ice and Fire",
+                                  "sequence_i":2,
+                                  "genre_s":"fantasy",
+                                  "_version_":1836275819373133824,
+                                  "_root_":"0553579908"
+                                }
+                            """)
     public SearchResponse search(
             @McpToolParam(description = "Solr collection to query") String collection,
             @McpToolParam(
-                            description = "Solr q parameter. If none specified defaults to \"*:*\"",
-                            required = false)
-                    String query,
+                    description = "Solr q parameter. If none specified defaults to \"*:*\"",
+                    required = false)
+            String query,
             @McpToolParam(description = "Solr fq parameter", required = false)
-                    List<String> filterQueries,
+            List<String> filterQueries,
             @McpToolParam(description = "Solr facet fields", required = false)
-                    List<String> facetFields,
+            List<String> facetFields,
             @McpToolParam(description = "Solr sort parameter", required = false)
-                    List<Map<String, String>> sortClauses,
+            List<Map<String, String>> sortClauses,
             @McpToolParam(description = "Starting offset for pagination", required = false)
-                    Integer start,
+            Integer start,
             @McpToolParam(description = "Number of rows to return", required = false) Integer rows)
             throws SolrServerException, IOException {
 

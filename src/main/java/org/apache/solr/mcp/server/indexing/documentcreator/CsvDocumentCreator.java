@@ -16,16 +16,17 @@
  */
 package org.apache.solr.mcp.server.indexing.documentcreator;
 
-import java.io.IOException;
-import java.io.StringReader;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.solr.common.SolrInputDocument;
 import org.springframework.stereotype.Component;
+
+import java.io.IOException;
+import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Utility class for processing CSV documents and converting them to SolrInputDocument objects.
@@ -84,7 +85,7 @@ public class CsvDocumentCreator implements SolrDocumentCreator {
      * @param csv CSV string containing document data (first row must be headers)
      * @return list of SolrInputDocument objects ready for indexing
      * @throws DocumentProcessingException if CSV parsing fails, input validation fails, or the
-     *     structure is invalid
+     *                                     structure is invalid
      * @see SolrInputDocument
      * @see FieldNameSanitizer#sanitizeFieldName(String)
      */
@@ -97,9 +98,9 @@ public class CsvDocumentCreator implements SolrDocumentCreator {
         List<SolrInputDocument> documents = new ArrayList<>();
 
         try (CSVParser parser =
-                new CSVParser(
-                        new StringReader(csv),
-                        CSVFormat.Builder.create().setHeader().setTrim(true).build())) {
+                     new CSVParser(
+                             new StringReader(csv),
+                             CSVFormat.Builder.create().setHeader().setTrim(true).build())) {
             List<String> headers = new ArrayList<>(parser.getHeaderNames());
             headers.replaceAll(FieldNameSanitizer::sanitizeFieldName);
 

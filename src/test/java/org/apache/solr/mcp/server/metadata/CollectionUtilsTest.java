@@ -16,13 +16,14 @@
  */
 package org.apache.solr.mcp.server.metadata;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import org.apache.solr.common.util.NamedList;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import org.apache.solr.common.util.NamedList;
-import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * Comprehensive test suite for the Utils utility class. Tests all public methods and edge cases for

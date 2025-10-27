@@ -16,11 +16,12 @@
  */
 package org.apache.solr.mcp.server.indexing.documentcreator;
 
-import java.nio.charset.StandardCharsets;
-import java.util.List;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.springframework.stereotype.Service;
+
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 /**
  * Spring Service responsible for creating SolrInputDocument objects from various data formats.

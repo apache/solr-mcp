@@ -16,12 +16,6 @@
  */
 package org.apache.solr.mcp.server.metadata;
 
-import static org.apache.solr.mcp.server.metadata.CollectionUtils.*;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrRequest;
@@ -31,7 +25,11 @@ import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.request.CoreAdminRequest;
 import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.LukeRequest;
-import org.apache.solr.client.solrj.response.*;
+import org.apache.solr.client.solrj.response.CollectionAdminResponse;
+import org.apache.solr.client.solrj.response.CoreAdminResponse;
+import org.apache.solr.client.solrj.response.LukeResponse;
+import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.params.CoreAdminParams;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
@@ -39,6 +37,15 @@ import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+import static org.apache.solr.mcp.server.metadata.CollectionUtils.getFloat;
+import static org.apache.solr.mcp.server.metadata.CollectionUtils.getInteger;
+import static org.apache.solr.mcp.server.metadata.CollectionUtils.getLong;
 
 /**
  * Spring Service providing comprehensive Solr collection management and monitoring capabilities for
@@ -101,10 +108,10 @@ import org.springframework.stereotype.Service;
  * }</pre>
  *
  * @version 0.0.1
- * @since 0.0.1
  * @see SolrMetrics
  * @see SolrHealthStatus
  * @see org.apache.solr.client.solrj.SolrClient
+ * @since 0.0.1
  */
 @Service
 public class CollectionService {
@@ -113,116 +120,180 @@ public class CollectionService {
     // Constants for API Parameters and Paths
     // ========================================
 
-    /** Category parameter value for cache-related MBeans requests */
+    /**
+     * Category parameter value for cache-related MBeans requests
+     */
     private static final String CACHE_CATEGORY = "CACHE";
 
-    /** Category parameter value for query handler MBeans requests */
+    /**
+     * Category parameter value for query handler MBeans requests
+     */
     private static final String QUERY_HANDLER_CATEGORY = "QUERYHANDLER";
 
-    /** Combined category parameter value for both query and update handler MBeans requests */
+    /**
+     * Combined category parameter value for both query and update handler MBeans requests
+     */
     private static final String HANDLER_CATEGORIES = "QUERYHANDLER,UPDATEHANDLER";
 
-    /** Universal Solr query pattern to match all documents in a collection */
+    /**
+     * Universal Solr query pattern to match all documents in a collection
+     */
     private static final String ALL_DOCUMENTS_QUERY = "*:*";
 
-    /** Suffix pattern used to identify shard names in SolrCloud deployments */
+    /**
+     * Suffix pattern used to identify shard names in SolrCloud deployments
+     */
     private static final String SHARD_SUFFIX = "_shard";
 
-    /** Request parameter name for enabling statistics in MBeans requests */
+    /**
+     * Request parameter name for enabling statistics in MBeans requests
+     */
     private static final String STATS_PARAM = "stats";
 
-    /** Request parameter name for specifying category filters in MBeans requests */
+    /**
+     * Request parameter name for specifying category filters in MBeans requests
+     */
     private static final String CAT_PARAM = "cat";
 
-    /** Request parameter name for specifying response writer type */
+    /**
+     * Request parameter name for specifying response writer type
+     */
     private static final String WT_PARAM = "wt";
 
-    /** JSON format specification for response writer type */
+    /**
+     * JSON format specification for response writer type
+     */
     private static final String JSON_FORMAT = "json";
 
     // ========================================
     // Constants for Response Parsing
     // ========================================
 
-    /** Key name for collections list in Collections API responses */
+    /**
+     * Key name for collections list in Collections API responses
+     */
     private static final String COLLECTIONS_KEY = "collections";
 
-    /** Key name for segment count information in Luke response */
+    /**
+     * Key name for segment count information in Luke response
+     */
     private static final String SEGMENT_COUNT_KEY = "segmentCount";
 
-    /** Key name for query result cache in MBeans cache responses */
+    /**
+     * Key name for query result cache in MBeans cache responses
+     */
     private static final String QUERY_RESULT_CACHE_KEY = "queryResultCache";
 
-    /** Key name for document cache in MBeans cache responses */
+    /**
+     * Key name for document cache in MBeans cache responses
+     */
     private static final String DOCUMENT_CACHE_KEY = "documentCache";
 
-    /** Key name for filter cache in MBeans cache responses */
+    /**
+     * Key name for filter cache in MBeans cache responses
+     */
     private static final String FILTER_CACHE_KEY = "filterCache";
 
-    /** Key name for statistics section in MBeans responses */
+    /**
+     * Key name for statistics section in MBeans responses
+     */
     private static final String STATS_KEY = "stats";
 
     // ========================================
     // Constants for Handler Paths
     // ========================================
 
-    /** URL path for Solr select (query) handler */
+    /**
+     * URL path for Solr select (query) handler
+     */
     private static final String SELECT_HANDLER_PATH = "/select";
 
-    /** URL path for Solr update handler */
+    /**
+     * URL path for Solr update handler
+     */
     private static final String UPDATE_HANDLER_PATH = "/update";
 
-    /** URL path for Solr MBeans admin endpoint */
+    /**
+     * URL path for Solr MBeans admin endpoint
+     */
     private static final String ADMIN_MBEANS_PATH = "/admin/mbeans";
 
     // ========================================
     // Constants for Statistics Field Names
     // ========================================
 
-    /** Field name for cache/handler lookup count statistics */
+    /**
+     * Field name for cache/handler lookup count statistics
+     */
     private static final String LOOKUPS_FIELD = "lookups";
 
-    /** Field name for cache hit count statistics */
+    /**
+     * Field name for cache hit count statistics
+     */
     private static final String HITS_FIELD = "hits";
 
-    /** Field name for cache hit ratio statistics */
+    /**
+     * Field name for cache hit ratio statistics
+     */
     private static final String HITRATIO_FIELD = "hitratio";
 
-    /** Field name for cache insert count statistics */
+    /**
+     * Field name for cache insert count statistics
+     */
     private static final String INSERTS_FIELD = "inserts";
 
-    /** Field name for cache eviction count statistics */
+    /**
+     * Field name for cache eviction count statistics
+     */
     private static final String EVICTIONS_FIELD = "evictions";
 
-    /** Field name for cache size statistics */
+    /**
+     * Field name for cache size statistics
+     */
     private static final String SIZE_FIELD = "size";
 
-    /** Field name for handler request count statistics */
+    /**
+     * Field name for handler request count statistics
+     */
     private static final String REQUESTS_FIELD = "requests";
 
-    /** Field name for handler error count statistics */
+    /**
+     * Field name for handler error count statistics
+     */
     private static final String ERRORS_FIELD = "errors";
 
-    /** Field name for handler timeout count statistics */
+    /**
+     * Field name for handler timeout count statistics
+     */
     private static final String TIMEOUTS_FIELD = "timeouts";
 
-    /** Field name for handler total processing time statistics */
+    /**
+     * Field name for handler total processing time statistics
+     */
     private static final String TOTAL_TIME_FIELD = "totalTime";
 
-    /** Field name for handler average time per request statistics */
+    /**
+     * Field name for handler average time per request statistics
+     */
     private static final String AVG_TIME_PER_REQUEST_FIELD = "avgTimePerRequest";
 
-    /** Field name for handler average requests per second statistics */
+    /**
+     * Field name for handler average requests per second statistics
+     */
     private static final String AVG_REQUESTS_PER_SECOND_FIELD = "avgRequestsPerSecond";
 
     // ========================================
     // Constants for Error Messages
     // ========================================
 
-    /** Error message prefix for collection not found exceptions */
+    /**
+     * Error message prefix for collection not found exceptions
+     */
     private static final String COLLECTION_NOT_FOUND_ERROR = "Collection not found: ";
 
-    /** SolrJ client for communicating with Solr server */
+    /**
+     * SolrJ client for communicating with Solr server
+     */
     private final SolrClient solrClient;
 
     /**
@@ -333,11 +404,11 @@ public class CollectionService {
      * or "show me performance stats for the search index".
      *
      * @param collection the name of the collection to analyze (supports both collection and shard
-     *     names)
+     *                   names)
      * @return comprehensive metrics object containing all collected statistics
      * @throws IllegalArgumentException if the specified collection does not exist
-     * @throws SolrServerException if there are errors communicating with Solr
-     * @throws IOException if there are I/O errors during communication
+     * @throws SolrServerException      if there are errors communicating with Solr
+     * @throws IOException              if there are I/O errors during communication
      * @see SolrMetrics
      * @see LukeRequest
      * @see #extractCollectionName(String)
@@ -345,7 +416,7 @@ public class CollectionService {
     @McpTool(description = "Get stats/metrics on a Solr collection")
     public SolrMetrics getCollectionStats(
             @McpToolParam(description = "Solr collection to get stats/metrics for")
-                    String collection)
+            String collection)
             throws SolrServerException, IOException {
         // Extract actual collection name from shard name if needed
         String actualCollection = extractCollectionName(collection);
@@ -523,8 +594,8 @@ public class CollectionService {
     private boolean isCacheStatsEmpty(CacheStats stats) {
         return stats == null
                 || (stats.queryResultCache() == null
-                        && stats.documentCache() == null
-                        && stats.filterCache() == null);
+                && stats.documentCache() == null
+                && stats.filterCache() == null);
     }
 
     /**

@@ -16,8 +16,6 @@
  */
 package org.apache.solr.mcp.server.metadata;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
@@ -28,6 +26,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 /**
  * Integration test suite for SchemaService using real Solr containers. Tests actual schema
  * retrieval functionality against a live Solr instance.
@@ -36,12 +39,12 @@ import org.springframework.context.annotation.Import;
 @Import(TestcontainersConfiguration.class)
 class SchemaServiceIntegrationTest {
 
-    @Autowired private SchemaService schemaService;
-
-    @Autowired private SolrClient solrClient;
-
     private static final String TEST_COLLECTION = "schema_test_collection";
     private static boolean initialized = false;
+    @Autowired
+    private SchemaService schemaService;
+    @Autowired
+    private SolrClient solrClient;
 
     @BeforeEach
     void setupCollection() throws Exception {

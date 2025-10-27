@@ -88,15 +88,17 @@ import org.springframework.stereotype.Service;
  * }</pre>
  *
  * @version 0.0.1
- * @since 0.0.1
  * @see SchemaRepresentation
  * @see org.apache.solr.client.solrj.request.schema.SchemaRequest
  * @see org.springframework.ai.tool.annotation.Tool
+ * @since 0.0.1
  */
 @Service
 public class SchemaService {
 
-    /** SolrJ client for communicating with Solr server */
+    /**
+     * SolrJ client for communicating with Solr server
+     */
     private final SolrClient solrClient;
 
     /**

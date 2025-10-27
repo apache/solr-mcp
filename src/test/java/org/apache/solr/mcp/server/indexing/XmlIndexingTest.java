@@ -16,16 +16,17 @@
  */
 package org.apache.solr.mcp.server.indexing;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import java.util.List;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Test class for XML indexing functionality in IndexingService.
@@ -37,7 +38,8 @@ import org.springframework.test.context.TestPropertySource;
 @TestPropertySource(locations = "classpath:application.properties")
 class XmlIndexingTest {
 
-    @Autowired private IndexingDocumentCreator indexingDocumentCreator;
+    @Autowired
+    private IndexingDocumentCreator indexingDocumentCreator;
 
     @Test
     void testCreateSchemalessDocumentsFromXmlSingleDocument() throws Exception {
@@ -45,17 +47,17 @@ class XmlIndexingTest {
 
         String xmlData =
                 """
-                <book id="123">
-                    <title>A Game of Thrones</title>
-                    <author>
-                        <name>George R.R. Martin</name>
-                        <email>george@example.com</email>
-                    </author>
-                    <price>7.99</price>
-                    <inStock>true</inStock>
-                    <genre>fantasy</genre>
-                </book>
-                """;
+                        <book id="123">
+                            <title>A Game of Thrones</title>
+                            <author>
+                                <name>George R.R. Martin</name>
+                                <email>george@example.com</email>
+                            </author>
+                            <price>7.99</price>
+                            <inStock>true</inStock>
+                            <genre>fantasy</genre>
+                        </book>
+                        """;
 
         // When
         List<SolrInputDocument> documents =
@@ -80,24 +82,24 @@ class XmlIndexingTest {
 
         String xmlData =
                 """
-                <books>
-                    <document id="1">
-                        <title>A Game of Thrones</title>
-                        <author>George R.R. Martin</author>
-                        <genre>fantasy</genre>
-                    </document>
-                    <document id="2">
-                        <title>Foundation</title>
-                        <author>Isaac Asimov</author>
-                        <genre>scifi</genre>
-                    </document>
-                    <document id="3">
-                        <title>Dune</title>
-                        <author>Frank Herbert</author>
-                        <genre>scifi</genre>
-                    </document>
-                </books>
-                """;
+                        <books>
+                            <document id="1">
+                                <title>A Game of Thrones</title>
+                                <author>George R.R. Martin</author>
+                                <genre>fantasy</genre>
+                            </document>
+                            <document id="2">
+                                <title>Foundation</title>
+                                <author>Isaac Asimov</author>
+                                <genre>scifi</genre>
+                            </document>
+                            <document id="3">
+                                <title>Dune</title>
+                                <author>Frank Herbert</author>
+                                <genre>scifi</genre>
+                            </document>
+                        </books>
+                        """;
 
         // When
         List<SolrInputDocument> documents =
@@ -134,12 +136,12 @@ class XmlIndexingTest {
 
         String xmlData =
                 """
-                <product id="P123" category="electronics" featured="true">
-                    <name lang="en">Smartphone</name>
-                    <price currency="USD">599.99</price>
-                    <description>Latest smartphone with advanced features</description>
-                </product>
-                """;
+                        <product id="P123" category="electronics" featured="true">
+                            <name lang="en">Smartphone</name>
+                            <price currency="USD">599.99</price>
+                            <description>Latest smartphone with advanced features</description>
+                        </product>
+                        """;
 
         // When
         List<SolrInputDocument> documents =
@@ -166,19 +168,19 @@ class XmlIndexingTest {
 
         String xmlData =
                 """
-                <items>
-                    <item id="1">
-                        <name>Product One</name>
-                        <description></description>
-                        <price>19.99</price>
-                    </item>
-                    <item id="2">
-                        <name></name>
-                        <description>Product with no name</description>
-                        <price>29.99</price>
-                    </item>
-                </items>
-                """;
+                        <items>
+                            <item id="1">
+                                <name>Product One</name>
+                                <description></description>
+                                <price>19.99</price>
+                            </item>
+                            <item id="2">
+                                <name></name>
+                                <description>Product with no name</description>
+                                <price>29.99</price>
+                            </item>
+                        </items>
+                        """;
 
         // When
         List<SolrInputDocument> documents =
@@ -210,20 +212,20 @@ class XmlIndexingTest {
 
         String xmlData =
                 """
-                <book>
-                    <title>Programming Book</title>
-                    <author>John Doe</author>
-                    <tags>
-                        <tag>programming</tag>
-                        <tag>java</tag>
-                        <tag>software</tag>
-                    </tags>
-                    <categories>
-                        <category>Technology</category>
-                        <category>Education</category>
-                    </categories>
-                </book>
-                """;
+                        <book>
+                            <title>Programming Book</title>
+                            <author>John Doe</author>
+                            <tags>
+                                <tag>programming</tag>
+                                <tag>java</tag>
+                                <tag>software</tag>
+                            </tags>
+                            <categories>
+                                <category>Technology</category>
+                                <category>Education</category>
+                            </categories>
+                        </book>
+                        """;
 
         // When
         List<SolrInputDocument> documents =
@@ -249,16 +251,16 @@ class XmlIndexingTest {
 
         String xmlData =
                 """
-                <article>
-                    <title>Mixed Content Example</title>
-                    <content>
-                        This is some text content with
-                        <emphasis>emphasized text</emphasis>
-                        and more content here.
-                    </content>
-                    <author>Jane Smith</author>
-                </article>
-                """;
+                        <article>
+                            <title>Mixed Content Example</title>
+                            <content>
+                                This is some text content with
+                                <emphasis>emphasized text</emphasis>
+                                and more content here.
+                            </content>
+                            <author>Jane Smith</author>
+                        </article>
+                        """;
 
         // When
         List<SolrInputDocument> documents =
@@ -282,17 +284,17 @@ class XmlIndexingTest {
 
         String malformedXml =
                 """
-                <book>
-                    <title>Incomplete Book
-                    <author>John Doe</author>
-                </book>
-                """;
+                        <book>
+                            <title>Incomplete Book
+                            <author>John Doe</author>
+                        </book>
+                        """;
 
         // When/Then
         assertThatThrownBy(
-                        () ->
-                                indexingDocumentCreator.createSchemalessDocumentsFromXml(
-                                        malformedXml))
+                () ->
+                        indexingDocumentCreator.createSchemalessDocumentsFromXml(
+                                malformedXml))
                 .isInstanceOf(RuntimeException.class);
     }
 
@@ -302,15 +304,15 @@ class XmlIndexingTest {
 
         String invalidXml =
                 """
-                <book>
-                    <title>Book with invalid character: \u0000</title>
-                    <author>John Doe</author>
-                </book>
-                """;
+                        <book>
+                            <title>Book with invalid character: \u0000</title>
+                            <author>John Doe</author>
+                        </book>
+                        """;
 
         // When/Then
         assertThatThrownBy(
-                        () -> indexingDocumentCreator.createSchemalessDocumentsFromXml(invalidXml))
+                () -> indexingDocumentCreator.createSchemalessDocumentsFromXml(invalidXml))
                 .isInstanceOf(RuntimeException.class);
     }
 
@@ -320,23 +322,23 @@ class XmlIndexingTest {
 
         String xmlWithDoctype =
                 """
-                <?xml version="1.0" encoding="UTF-8"?>
-                <!DOCTYPE book [
-                    <!ELEMENT book (title, author)>
-                    <!ELEMENT title (#PCDATA)>
-                    <!ELEMENT author (#PCDATA)>
-                ]>
-                <book>
-                    <title>Test Book</title>
-                    <author>Test Author</author>
-                </book>
-                """;
+                        <?xml version="1.0" encoding="UTF-8"?>
+                        <!DOCTYPE book [
+                            <!ELEMENT book (title, author)>
+                            <!ELEMENT title (#PCDATA)>
+                            <!ELEMENT author (#PCDATA)>
+                        ]>
+                        <book>
+                            <title>Test Book</title>
+                            <author>Test Author</author>
+                        </book>
+                        """;
 
         // When/Then - Should fail due to XXE protection
         assertThatThrownBy(
-                        () ->
-                                indexingDocumentCreator.createSchemalessDocumentsFromXml(
-                                        xmlWithDoctype))
+                () ->
+                        indexingDocumentCreator.createSchemalessDocumentsFromXml(
+                                xmlWithDoctype))
                 .isInstanceOf(RuntimeException.class);
     }
 
@@ -346,21 +348,21 @@ class XmlIndexingTest {
 
         String xmlWithExternalEntity =
                 """
-                <?xml version="1.0" encoding="UTF-8"?>
-                <!DOCTYPE book [
-                    <!ENTITY external SYSTEM "file:///etc/passwd">
-                ]>
-                <book>
-                    <title>&external;</title>
-                    <author>Test Author</author>
-                </book>
-                """;
+                        <?xml version="1.0" encoding="UTF-8"?>
+                        <!DOCTYPE book [
+                            <!ENTITY external SYSTEM "file:///etc/passwd">
+                        ]>
+                        <book>
+                            <title>&external;</title>
+                            <author>Test Author</author>
+                        </book>
+                        """;
 
         // When/Then - Should fail due to XXE protection
         assertThatThrownBy(
-                        () ->
-                                indexingDocumentCreator.createSchemalessDocumentsFromXml(
-                                        xmlWithExternalEntity))
+                () ->
+                        indexingDocumentCreator.createSchemalessDocumentsFromXml(
+                                xmlWithExternalEntity))
                 .isInstanceOf(RuntimeException.class);
     }
 
@@ -390,7 +392,7 @@ class XmlIndexingTest {
 
         // When/Then
         assertThatThrownBy(
-                        () -> indexingDocumentCreator.createSchemalessDocumentsFromXml("   \n\t  "))
+                () -> indexingDocumentCreator.createSchemalessDocumentsFromXml("   \n\t  "))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("XML input cannot be null or empty");
     }
@@ -406,11 +408,11 @@ class XmlIndexingTest {
         // Add enough data to exceed the 10MB limit
         String bookTemplate =
                 """
-                <book id="%d">
-                    <title>%s</title>
-                    <content>%s</content>
-                </book>
-                """;
+                        <book id="%d">
+                            <title>%s</title>
+                            <content>%s</content>
+                        </book>
+                        """;
 
         // Create approximately 11MB of XML data
         String longContent = "A".repeat(10000); // 10KB per book
@@ -421,9 +423,9 @@ class XmlIndexingTest {
 
         // When/Then
         assertThatThrownBy(
-                        () ->
-                                indexingDocumentCreator.createSchemalessDocumentsFromXml(
-                                        largeXml.toString()))
+                () ->
+                        indexingDocumentCreator.createSchemalessDocumentsFromXml(
+                                largeXml.toString()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("XML document too large");
     }
@@ -434,31 +436,31 @@ class XmlIndexingTest {
 
         String complexXml =
                 """
-                <product id="123" category="electronics">
-                    <details>
-                        <name lang="en">Smartphone</name>
-                        <name lang="es">Teléfono inteligente</name>
-                        <specifications>
-                            <screen size="6.1" type="OLED">Full HD+</screen>
-                            <camera type="main" resolution="12MP">Primary camera</camera>
-                            <camera type="selfie" resolution="8MP">Front camera</camera>
-                            <storage>
-                                <internal>128GB</internal>
-                                <expandable>Yes</expandable>
-                            </storage>
-                        </specifications>
-                    </details>
-                    <pricing currency="USD">599.99</pricing>
-                    <availability>
-                        <regions>
-                            <region>US</region>
-                            <region>EU</region>
-                            <region>APAC</region>
-                        </regions>
-                        <inStock>true</inStock>
-                    </availability>
-                </product>
-                """;
+                        <product id="123" category="electronics">
+                            <details>
+                                <name lang="en">Smartphone</name>
+                                <name lang="es">Teléfono inteligente</name>
+                                <specifications>
+                                    <screen size="6.1" type="OLED">Full HD+</screen>
+                                    <camera type="main" resolution="12MP">Primary camera</camera>
+                                    <camera type="selfie" resolution="8MP">Front camera</camera>
+                                    <storage>
+                                        <internal>128GB</internal>
+                                        <expandable>Yes</expandable>
+                                    </storage>
+                                </specifications>
+                            </details>
+                            <pricing currency="USD">599.99</pricing>
+                            <availability>
+                                <regions>
+                                    <region>US</region>
+                                    <region>EU</region>
+                                    <region>APAC</region>
+                                </regions>
+                                <inStock>true</inStock>
+                            </availability>
+                        </product>
+                        """;
 
         // When
         List<SolrInputDocument> documents =
@@ -507,15 +509,15 @@ class XmlIndexingTest {
 
         String xmlWithSpecialChars =
                 """
-                <product_data id="123">
-                    <product_name>Test Product</product_name>
-                    <price_USD>99.99</price_USD>
-                    <category_type>electronics</category_type>
-                    <field__with__multiple__underscores>value</field__with__multiple__underscores>
-                    <field_with_dashes>dashed value</field_with_dashes>
-                    <UPPERCASE_FIELD>uppercase value</UPPERCASE_FIELD>
-                </product_data>
-                """;
+                        <product_data id="123">
+                            <product_name>Test Product</product_name>
+                            <price_USD>99.99</price_USD>
+                            <category_type>electronics</category_type>
+                            <field__with__multiple__underscores>value</field__with__multiple__underscores>
+                            <field_with_dashes>dashed value</field_with_dashes>
+                            <UPPERCASE_FIELD>uppercase value</UPPERCASE_FIELD>
+                        </product_data>
+                        """;
 
         // When
         List<SolrInputDocument> documents =

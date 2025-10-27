@@ -16,14 +16,19 @@
  */
 package org.apache.solr.mcp.server;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.spec.McpClientTransport;
 import io.modelcontextprotocol.spec.McpSchema.ListToolsResult;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
+
 import java.util.List;
 import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Sample MCP client for testing and demonstrating Solr MCP Server functionality.
@@ -70,10 +75,10 @@ import java.util.Set;
  * compliance.
  *
  * @version 0.0.1
- * @since 0.0.1
  * @see McpClient
  * @see McpClientTransport
  * @see io.modelcontextprotocol.spec.McpSchema.Tool
+ * @since 0.0.1
  */
 public class SampleClient {
 
@@ -114,15 +119,15 @@ public class SampleClient {
      * </ol>
      *
      * @throws RuntimeException if any test assertion fails or MCP operations encounter errors
-     * @throws AssertionError if expected tools are missing or tool validation fails
+     * @throws AssertionError   if expected tools are missing or tool validation fails
      */
     public void run() {
 
         try (var client =
-                McpClient.sync(this.transport)
-                        .loggingConsumer(
-                                message -> System.out.println(">> Client Logging: " + message))
-                        .build()) {
+                     McpClient.sync(this.transport)
+                             .loggingConsumer(
+                                     message -> System.out.println(">> Client Logging: " + message))
+                             .build()) {
 
             // Assert client initialization succeeds
             assertDoesNotThrow(

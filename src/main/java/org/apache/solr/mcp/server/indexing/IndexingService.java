@@ -16,9 +16,6 @@
  */
 package org.apache.solr.mcp.server.indexing;
 
-import java.io.IOException;
-import java.util.List;
-import javax.xml.parsers.ParserConfigurationException;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrInputDocument;
@@ -27,6 +24,10 @@ import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Service;
 import org.xml.sax.SAXException;
+
+import javax.xml.parsers.ParserConfigurationException;
+import java.io.IOException;
+import java.util.List;
 
 /**
  * Spring Service providing comprehensive document indexing capabilities for Apache Solr collections
@@ -82,20 +83,24 @@ import org.xml.sax.SAXException;
  * }</pre>
  *
  * @version 0.0.1
- * @since 0.0.1
  * @see SolrInputDocument
  * @see SolrClient
  * @see org.springframework.ai.tool.annotation.Tool
+ * @since 0.0.1
  */
 @Service
 public class IndexingService {
 
     private static final int DEFAULT_BATCH_SIZE = 1000;
 
-    /** SolrJ client for communicating with Solr server */
+    /**
+     * SolrJ client for communicating with Solr server
+     */
     private final SolrClient solrClient;
 
-    /** Service for creating SolrInputDocument objects from various data formats */
+    /**
+     * Service for creating SolrInputDocument objects from various data formats
+     */
     private final IndexingDocumentCreator indexingDocumentCreator;
 
     /**
@@ -149,8 +154,8 @@ public class IndexingService {
      * troubleshooting purposes.
      *
      * @param collection the name of the Solr collection to index documents into
-     * @param json JSON string containing an array of documents to index
-     * @throws IOException if there are critical errors in JSON parsing or Solr communication
+     * @param json       JSON string containing an array of documents to index
+     * @throws IOException         if there are critical errors in JSON parsing or Solr communication
      * @throws SolrServerException if Solr server encounters errors during indexing
      * @see IndexingDocumentCreator#createSchemalessDocumentsFromJson(String)
      * @see #indexDocuments(String, List)
@@ -203,8 +208,8 @@ public class IndexingService {
      * troubleshooting purposes.
      *
      * @param collection the name of the Solr collection to index documents into
-     * @param csv CSV string containing documents to index (first row must be headers)
-     * @throws IOException if there are critical errors in CSV parsing or Solr communication
+     * @param csv        CSV string containing documents to index (first row must be headers)
+     * @throws IOException         if there are critical errors in CSV parsing or Solr communication
      * @throws SolrServerException if Solr server encounters errors during indexing
      * @see IndexingDocumentCreator#createSchemalessDocumentsFromCsv(String)
      * @see #indexDocuments(String, List)
@@ -277,11 +282,11 @@ public class IndexingService {
      * }</pre>
      *
      * @param collection the name of the Solr collection to index documents into
-     * @param xml XML string containing documents to index
+     * @param xml        XML string containing documents to index
      * @throws ParserConfigurationException if XML parser configuration fails
-     * @throws SAXException if XML parsing fails due to malformed content
-     * @throws IOException if I/O errors occur during parsing or Solr communication
-     * @throws SolrServerException if Solr server encounters errors during indexing
+     * @throws SAXException                 if XML parsing fails due to malformed content
+     * @throws IOException                  if I/O errors occur during parsing or Solr communication
+     * @throws SolrServerException          if Solr server encounters errors during indexing
      * @see IndexingDocumentCreator#createSchemalessDocumentsFromXml(String)
      * @see #indexDocuments(String, List)
      */
@@ -336,10 +341,10 @@ public class IndexingService {
      * performance through batching.
      *
      * @param collection the name of the Solr collection to index into
-     * @param documents list of SolrInputDocument objects to index
+     * @param documents  list of SolrInputDocument objects to index
      * @return the number of documents successfully indexed
      * @throws SolrServerException if there are critical errors in Solr communication
-     * @throws IOException if there are critical errors in commit operations
+     * @throws IOException         if there are critical errors in commit operations
      * @see SolrInputDocument
      * @see SolrClient#add(String, java.util.Collection)
      * @see SolrClient#commit(String)

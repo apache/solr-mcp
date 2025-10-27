@@ -16,15 +16,16 @@
  */
 package org.apache.solr.mcp.server.indexing;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-import java.util.List;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Test class for CSV indexing functionality in IndexingService.
@@ -36,7 +37,8 @@ import org.springframework.test.context.TestPropertySource;
 @TestPropertySource(locations = "classpath:application.properties")
 class CsvIndexingTest {
 
-    @Autowired private IndexingDocumentCreator indexingDocumentCreator;
+    @Autowired
+    private IndexingDocumentCreator indexingDocumentCreator;
 
     @Test
     void testCreateSchemalessDocumentsFromCsv() throws Exception {
@@ -44,11 +46,11 @@ class CsvIndexingTest {
 
         String csvData =
                 """
-id,cat,name,price,inStock,author,series_t,sequence_i,genre_s
-0553573403,book,A Game of Thrones,7.99,true,George R.R. Martin,"A Song of Ice and Fire",1,fantasy
-0553579908,book,A Clash of Kings,7.99,true,George R.R. Martin,"A Song of Ice and Fire",2,fantasy
-0553293354,book,Foundation,7.99,true,Isaac Asimov,Foundation Novels,1,scifi
-""";
+                        id,cat,name,price,inStock,author,series_t,sequence_i,genre_s
+                        0553573403,book,A Game of Thrones,7.99,true,George R.R. Martin,"A Song of Ice and Fire",1,fantasy
+                        0553579908,book,A Clash of Kings,7.99,true,George R.R. Martin,"A Song of Ice and Fire",2,fantasy
+                        0553293354,book,Foundation,7.99,true,Isaac Asimov,Foundation Novels,1,scifi
+                        """;
 
         // When
         List<SolrInputDocument> documents =
@@ -89,11 +91,11 @@ id,cat,name,price,inStock,author,series_t,sequence_i,genre_s
 
         String csvData =
                 """
-                id,name,description
-                1,Test Product,Some description
-                2,Another Product,
-                3,,Empty name
-                """;
+                        id,name,description
+                        1,Test Product,Some description
+                        2,Another Product,
+                        3,,Empty name
+                        """;
 
         // When
         List<SolrInputDocument> documents =
@@ -127,10 +129,10 @@ id,cat,name,price,inStock,author,series_t,sequence_i,genre_s
 
         String csvData =
                 """
-                id,name,description
-                1,"Quoted Name","Quoted description"
-                2,Regular Name,Regular description
-                """;
+                        id,name,description
+                        1,"Quoted Name","Quoted description"
+                        2,Regular Name,Regular description
+                        """;
 
         // When
         List<SolrInputDocument> documents =

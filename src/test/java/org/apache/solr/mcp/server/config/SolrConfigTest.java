@@ -16,8 +16,6 @@
  */
 package org.apache.solr.mcp.server.config;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
@@ -29,15 +27,20 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.testcontainers.containers.SolrContainer;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
 class SolrConfigTest {
 
-    @Autowired private SolrClient solrClient;
-
-    @Autowired SolrContainer solrContainer;
-
-    @Autowired private SolrConfigurationProperties properties;
+    @Autowired
+    SolrContainer solrContainer;
+    @Autowired
+    private SolrClient solrClient;
+    @Autowired
+    private SolrConfigurationProperties properties;
 
     @Test
     void testSolrClientConfiguration() {
@@ -73,11 +76,11 @@ class SolrConfigTest {
 
     @ParameterizedTest
     @CsvSource({
-        "http://localhost:8983, http://localhost:8983/solr",
-        "http://localhost:8983/, http://localhost:8983/solr",
-        "http://localhost:8983/solr, http://localhost:8983/solr",
-        "http://localhost:8983/solr/, http://localhost:8983/solr",
-        "http://localhost:8983/custom/solr/, http://localhost:8983/custom/solr"
+            "http://localhost:8983, http://localhost:8983/solr",
+            "http://localhost:8983/, http://localhost:8983/solr",
+            "http://localhost:8983/solr, http://localhost:8983/solr",
+            "http://localhost:8983/solr/, http://localhost:8983/solr",
+            "http://localhost:8983/custom/solr/, http://localhost:8983/custom/solr"
     })
     void testUrlNormalization(String inputUrl, String expectedUrl) {
         // Create a test properties object

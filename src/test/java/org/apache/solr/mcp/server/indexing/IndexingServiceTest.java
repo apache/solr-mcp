@@ -16,15 +16,6 @@
  */
 package org.apache.solr.mcp.server.indexing;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
@@ -48,18 +39,40 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.testcontainers.containers.SolrContainer;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
 class IndexingServiceTest {
 
-    private static boolean initialized = false;
-
     private static final String COLLECTION_NAME = "indexing_test_" + System.currentTimeMillis();
-    @Autowired private SolrContainer solrContainer;
-    @Autowired private IndexingDocumentCreator indexingDocumentCreator;
-    @Autowired private IndexingService indexingService;
-    @Autowired private SearchService searchService;
-    @Autowired private SolrClient solrClient;
+    private static boolean initialized = false;
+    @Autowired
+    private SolrContainer solrContainer;
+    @Autowired
+    private IndexingDocumentCreator indexingDocumentCreator;
+    @Autowired
+    private IndexingService indexingService;
+    @Autowired
+    private SearchService searchService;
+    @Autowired
+    private SolrClient solrClient;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -90,20 +103,20 @@ class IndexingServiceTest {
         // Test JSON string
         String json =
                 """
-                [
-                  {
-                    "id": "test001",
-                    "cat": ["book"],
-                    "name": ["Test Book 1"],
-                    "price": [9.99],
-                    "inStock": [true],
-                    "author": ["Test Author"],
-                    "series_t": "Test Series",
-                    "sequence_i": 1,
-                    "genre_s": "test"
-                  }
-                ]
-                """;
+                        [
+                          {
+                            "id": "test001",
+                            "cat": ["book"],
+                            "name": ["Test Book 1"],
+                            "price": [9.99],
+                            "inStock": [true],
+                            "author": ["Test Author"],
+                            "series_t": "Test Series",
+                            "sequence_i": 1,
+                            "genre_s": "test"
+                          }
+                        ]
+                        """;
 
         // Create documents
         List<SolrInputDocument> documents =
@@ -162,27 +175,27 @@ class IndexingServiceTest {
         // Test JSON string with multiple documents
         String json =
                 """
-                [
-                  {
-                    "id": "test002",
-                    "cat": ["book"],
-                    "name": ["Test Book 2"],
-                    "price": [19.99],
-                    "inStock": [true],
-                    "author": ["Test Author 2"],
-                    "genre_s": "scifi"
-                  },
-                  {
-                    "id": "test003",
-                    "cat": ["book"],
-                    "name": ["Test Book 3"],
-                    "price": [29.99],
-                    "inStock": [false],
-                    "author": ["Test Author 3"],
-                    "genre_s": "fantasy"
-                  }
-                ]
-                """;
+                        [
+                          {
+                            "id": "test002",
+                            "cat": ["book"],
+                            "name": ["Test Book 2"],
+                            "price": [19.99],
+                            "inStock": [true],
+                            "author": ["Test Author 2"],
+                            "genre_s": "scifi"
+                          },
+                          {
+                            "id": "test003",
+                            "cat": ["book"],
+                            "name": ["Test Book 3"],
+                            "price": [29.99],
+                            "inStock": [false],
+                            "author": ["Test Author 3"],
+                            "genre_s": "fantasy"
+                          }
+                        ]
+                        """;
 
         // Index documents
         indexingService.indexJsonDocuments(COLLECTION_NAME, json);
@@ -275,21 +288,21 @@ class IndexingServiceTest {
         // Test JSON string with nested objects
         String json =
                 """
-                [
-                  {
-                    "id": "test004",
-                    "cat": ["book"],
-                    "name": ["Test Book 4"],
-                    "price": [39.99],
-                    "details": {
-                      "publisher": "Test Publisher",
-                      "year": 2023,
-                      "edition": 1
-                    },
-                    "author": ["Test Author 4"]
-                  }
-                ]
-                """;
+                        [
+                          {
+                            "id": "test004",
+                            "cat": ["book"],
+                            "name": ["Test Book 4"],
+                            "price": [39.99],
+                            "details": {
+                              "publisher": "Test Publisher",
+                              "year": 2023,
+                              "edition": 1
+                            },
+                            "author": ["Test Author 4"]
+                          }
+                        ]
+                        """;
 
         // Index documents
         indexingService.indexJsonDocuments(COLLECTION_NAME, json);
@@ -346,16 +359,16 @@ class IndexingServiceTest {
         // Test JSON string with field names that need sanitizing
         String json =
                 """
-                [
-                  {
-                    "id": "test005",
-                    "invalid-field": "Value with hyphen",
-                    "another.invalid": "Value with dot",
-                    "UPPERCASE": "Value with uppercase",
-                    "multiple__underscores": "Value with multiple underscores"
-                  }
-                ]
-                """;
+                        [
+                          {
+                            "id": "test005",
+                            "invalid-field": "Value with hyphen",
+                            "another.invalid": "Value with dot",
+                            "UPPERCASE": "Value with uppercase",
+                            "multiple__underscores": "Value with multiple underscores"
+                          }
+                        ]
+                        """;
 
         // Index documents
         indexingService.indexJsonDocuments(COLLECTION_NAME, json);
@@ -414,44 +427,44 @@ class IndexingServiceTest {
         // Test JSON string with deeply nested objects (3+ levels)
         String json =
                 """
-                [
-                  {
-                    "id": "nested001",
-                    "title": "Deeply nested document",
-                    "metadata": {
-                      "publication": {
-                        "publisher": {
-                          "name": "Deep Nest Publishing",
-                          "location": {
-                            "city": "Nestville",
-                            "country": "Nestland",
-                            "coordinates": {
-                              "latitude": 42.123,
-                              "longitude": -71.456
+                        [
+                          {
+                            "id": "nested001",
+                            "title": "Deeply nested document",
+                            "metadata": {
+                              "publication": {
+                                "publisher": {
+                                  "name": "Deep Nest Publishing",
+                                  "location": {
+                                    "city": "Nestville",
+                                    "country": "Nestland",
+                                    "coordinates": {
+                                      "latitude": 42.123,
+                                      "longitude": -71.456
+                                    }
+                                  }
+                                },
+                                "year": 2023,
+                                "edition": {
+                                  "number": 1,
+                                  "type": "First Edition",
+                                  "notes": {
+                                    "condition": "New",
+                                    "availability": "Limited"
+                                  }
+                                }
+                              },
+                              "classification": {
+                                "primary": "Test",
+                                "secondary": {
+                                  "category": "Nested",
+                                  "subcategory": "Deep"
+                                }
+                              }
                             }
                           }
-                        },
-                        "year": 2023,
-                        "edition": {
-                          "number": 1,
-                          "type": "First Edition",
-                          "notes": {
-                            "condition": "New",
-                            "availability": "Limited"
-                          }
-                        }
-                      },
-                      "classification": {
-                        "primary": "Test",
-                        "secondary": {
-                          "category": "Nested",
-                          "subcategory": "Deep"
-                        }
-                      }
-                    }
-                  }
-                ]
-                """;
+                        ]
+                        """;
 
         // Index documents
         indexingService.indexJsonDocuments(COLLECTION_NAME, json);
@@ -482,9 +495,9 @@ class IndexingServiceTest {
         assertEquals(
                 42.123,
                 ((Number)
-                                getFieldValue(
-                                        doc,
-                                        "metadata_publication_publisher_location_coordinates_latitude"))
+                        getFieldValue(
+                                doc,
+                                "metadata_publication_publisher_location_coordinates_latitude"))
                         .doubleValue(),
                 0.001);
 
@@ -510,36 +523,36 @@ class IndexingServiceTest {
         // Test JSON string with field names containing various special characters
         String json =
                 """
-                [
-                  {
-                    "id": "special_fields_001",
-                    "field@with@at": "Value with @ symbols",
-                    "field#with#hash": "Value with # symbols",
-                    "field$with$dollar": "Value with $ symbols",
-                    "field%with%percent": "Value with % symbols",
-                    "field^with^caret": "Value with ^ symbols",
-                    "field&with&ampersand": "Value with & symbols",
-                    "field*with*asterisk": "Value with * symbols",
-                    "field(with)parentheses": "Value with parentheses",
-                    "field[with]brackets": "Value with brackets",
-                    "field{with}braces": "Value with braces",
-                    "field+with+plus": "Value with + symbols",
-                    "field=with=equals": "Value with = symbols",
-                    "field:with:colon": "Value with : symbols",
-                    "field;with;semicolon": "Value with ; symbols",
-                    "field'with'quotes": "Value with ' symbols",
-                    "field\\"with\\"doublequotes": "Value with \\" symbols",
-                    "field<with>anglebrackets": "Value with angle brackets",
-                    "field,with,commas": "Value with , symbols",
-                    "field?with?question": "Value with ? symbols",
-                    "field/with/slashes": "Value with / symbols",
-                    "field\\\\with\\\\backslashes": "Value with \\\\ symbols",
-                    "field|with|pipes": "Value with | symbols",
-                    "field`with`backticks": "Value with ` symbols",
-                    "field~with~tildes": "Value with ~ symbols"
-                  }
-                ]
-                """;
+                        [
+                          {
+                            "id": "special_fields_001",
+                            "field@with@at": "Value with @ symbols",
+                            "field#with#hash": "Value with # symbols",
+                            "field$with$dollar": "Value with $ symbols",
+                            "field%with%percent": "Value with % symbols",
+                            "field^with^caret": "Value with ^ symbols",
+                            "field&with&ampersand": "Value with & symbols",
+                            "field*with*asterisk": "Value with * symbols",
+                            "field(with)parentheses": "Value with parentheses",
+                            "field[with]brackets": "Value with brackets",
+                            "field{with}braces": "Value with braces",
+                            "field+with+plus": "Value with + symbols",
+                            "field=with=equals": "Value with = symbols",
+                            "field:with:colon": "Value with : symbols",
+                            "field;with;semicolon": "Value with ; symbols",
+                            "field'with'quotes": "Value with ' symbols",
+                            "field\\"with\\"doublequotes": "Value with \\" symbols",
+                            "field<with>anglebrackets": "Value with angle brackets",
+                            "field,with,commas": "Value with , symbols",
+                            "field?with?question": "Value with ? symbols",
+                            "field/with/slashes": "Value with / symbols",
+                            "field\\\\with\\\\backslashes": "Value with \\\\ symbols",
+                            "field|with|pipes": "Value with | symbols",
+                            "field`with`backticks": "Value with ` symbols",
+                            "field~with~tildes": "Value with ~ symbols"
+                          }
+                        ]
+                        """;
 
         // Index documents
         indexingService.indexJsonDocuments(COLLECTION_NAME, json);
@@ -594,43 +607,43 @@ class IndexingServiceTest {
         // Test JSON string with arrays of objects
         String json =
                 """
-                [
-                  {
-                    "id": "array_objects_001",
-                    "title": "Document with arrays of objects",
-                    "authors": [
-                      {
-                        "name": "Author One",
-                        "email": "author1@example.com",
-                        "affiliation": "University A"
-                      },
-                      {
-                        "name": "Author Two",
-                        "email": "author2@example.com",
-                        "affiliation": "University B"
-                      }
-                    ],
-                    "reviews": [
-                      {
-                        "reviewer": "Reviewer A",
-                        "rating": 4,
-                        "comments": "Good document"
-                      },
-                      {
-                        "reviewer": "Reviewer B",
-                        "rating": 5,
-                        "comments": "Excellent document"
-                      },
-                      {
-                        "reviewer": "Reviewer C",
-                        "rating": 3,
-                        "comments": "Average document"
-                      }
-                    ],
-                    "keywords": ["arrays", "objects", "testing"]
-                  }
-                ]
-                """;
+                        [
+                          {
+                            "id": "array_objects_001",
+                            "title": "Document with arrays of objects",
+                            "authors": [
+                              {
+                                "name": "Author One",
+                                "email": "author1@example.com",
+                                "affiliation": "University A"
+                              },
+                              {
+                                "name": "Author Two",
+                                "email": "author2@example.com",
+                                "affiliation": "University B"
+                              }
+                            ],
+                            "reviews": [
+                              {
+                                "reviewer": "Reviewer A",
+                                "rating": 4,
+                                "comments": "Good document"
+                              },
+                              {
+                                "reviewer": "Reviewer B",
+                                "rating": 5,
+                                "comments": "Excellent document"
+                              },
+                              {
+                                "reviewer": "Reviewer C",
+                                "rating": 3,
+                                "comments": "Average document"
+                              }
+                            ],
+                            "keywords": ["arrays", "objects", "testing"]
+                          }
+                        ]
+                        """;
 
         // Index documents
         indexingService.indexJsonDocuments(COLLECTION_NAME, json);
@@ -680,13 +693,13 @@ class IndexingServiceTest {
         // Test JSON string that is not an array but a single object
         String json =
                 """
-                {
-                  "id": "single_object_001",
-                  "title": "Single Object Document",
-                  "author": "Test Author",
-                  "year": 2023
-                }
-                """;
+                        {
+                          "id": "single_object_001",
+                          "title": "Single Object Document",
+                          "author": "Test Author",
+                          "year": 2023
+                        }
+                        """;
 
         // Create documents
         List<SolrInputDocument> documents =
@@ -702,17 +715,17 @@ class IndexingServiceTest {
         // Test JSON with different value types
         String json =
                 """
-                [
-                  {
-                    "id": "value_types_001",
-                    "boolean_value": true,
-                    "int_value": 42,
-                    "double_value": 3.14159,
-                    "long_value": 9223372036854775807,
-                    "text_value": "This is a text value"
-                  }
-                ]
-                """;
+                        [
+                          {
+                            "id": "value_types_001",
+                            "boolean_value": true,
+                            "int_value": 42,
+                            "double_value": 3.14159,
+                            "long_value": 9223372036854775807,
+                            "text_value": "This is a text value"
+                          }
+                        ]
+                        """;
 
         // Create documents
         List<SolrInputDocument> documents =
@@ -739,19 +752,19 @@ class IndexingServiceTest {
         // Create a document with field names that need sanitizing
         String json =
                 """
-                [
-                  {
-                    "id": "field_names_001",
-                    "field-with-hyphens": "Value 1",
-                    "field.with.dots": "Value 2",
-                    "field with spaces": "Value 3",
-                    "UPPERCASE_FIELD": "Value 4",
-                    "__leading_underscores__": "Value 5",
-                    "trailing_underscores___": "Value 6",
-                    "multiple___underscores": "Value 7"
-                  }
-                ]
-                """;
+                        [
+                          {
+                            "id": "field_names_001",
+                            "field-with-hyphens": "Value 1",
+                            "field.with.dots": "Value 2",
+                            "field with spaces": "Value 3",
+                            "UPPERCASE_FIELD": "Value 4",
+                            "__leading_underscores__": "Value 5",
+                            "trailing_underscores___": "Value 6",
+                            "multiple___underscores": "Value 7"
+                          }
+                        ]
+                        """;
 
         // Create documents
         List<SolrInputDocument> documents =
@@ -779,9 +792,11 @@ class IndexingServiceTest {
 @ExtendWith(MockitoExtension.class)
 class UnitTests {
 
-    @Mock private SolrClient solrClient;
+    @Mock
+    private SolrClient solrClient;
 
-    @Mock private IndexingDocumentCreator indexingDocumentCreator;
+    @Mock
+    private IndexingDocumentCreator indexingDocumentCreator;
 
     private IndexingService indexingService;
 

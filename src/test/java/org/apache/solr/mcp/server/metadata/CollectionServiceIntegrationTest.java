@@ -16,9 +16,6 @@
  */
 package org.apache.solr.mcp.server.metadata;
 
-import static org.junit.jupiter.api.Assertions.*;
-
-import java.util.List;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
@@ -28,14 +25,24 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
 class CollectionServiceIntegrationTest {
 
     private static final String TEST_COLLECTION = "test_collection";
-    @Autowired private CollectionService collectionService;
-    @Autowired private SolrClient solrClient;
     private static boolean initialized = false;
+    @Autowired
+    private CollectionService collectionService;
+    @Autowired
+    private SolrClient solrClient;
 
     @BeforeEach
     void setupCollection() throws Exception {
@@ -72,7 +79,7 @@ class CollectionServiceIntegrationTest {
         boolean testCollectionExists =
                 collections.contains(TEST_COLLECTION)
                         || collections.stream()
-                                .anyMatch(col -> col.startsWith(TEST_COLLECTION + "_shard"));
+                        .anyMatch(col -> col.startsWith(TEST_COLLECTION + "_shard"));
         assertTrue(
                 testCollectionExists,
                 "Collections should contain the test collection: "

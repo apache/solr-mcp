@@ -16,16 +16,6 @@
  */
 package org.apache.solr.mcp.server.metadata;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
-
-import java.io.IOException;
-import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -41,18 +31,42 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.IOException;
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
+
 @ExtendWith(MockitoExtension.class)
 class CollectionServiceTest {
 
-    @Mock private SolrClient solrClient;
+    @Mock
+    private SolrClient solrClient;
 
-    @Mock private CloudSolrClient cloudSolrClient;
+    @Mock
+    private CloudSolrClient cloudSolrClient;
 
-    @Mock private QueryResponse queryResponse;
+    @Mock
+    private QueryResponse queryResponse;
 
-    @Mock private LukeResponse lukeResponse;
+    @Mock
+    private LukeResponse lukeResponse;
 
-    @Mock private SolrPingResponse pingResponse;
+    @Mock
+    private SolrPingResponse pingResponse;
 
     private CollectionService collectionService;
 
@@ -68,7 +82,7 @@ class CollectionServiceTest {
     }
 
     @Test
-    void listCollections_WithCloudSolrClient_ShouldReturnCollections() throws Exception {
+    void listCollections_WithCloudSolrClient_ShouldReturnCollections() {
         // Given - This test verifies the service can be constructed with CloudSolrClient
         CollectionService cloudService = new CollectionService(cloudSolrClient);
 
@@ -81,7 +95,7 @@ class CollectionServiceTest {
     }
 
     @Test
-    void listCollections_WhenExceptionOccurs_ShouldReturnEmptyList() throws Exception {
+    void listCollections_WhenExceptionOccurs_ShouldReturnEmptyList() {
         // Note: This test cannot fully exercise listCollections() with mock SolrClient
         // because it requires mocking CoreAdminRequest processing. The actual error
         // handling behavior is tested in integration tests.
@@ -146,7 +160,7 @@ class CollectionServiceTest {
 
     @Test
     void
-            extractCollectionName_WithCollectionNameContainingUnderscore_ShouldOnlyExtractBeforeShard() {
+    extractCollectionName_WithCollectionNameContainingUnderscore_ShouldOnlyExtractBeforeShard() {
         // Given - collection name itself contains underscore
         String complexName = "my_complex_collection_shard1_replica_n1";
 

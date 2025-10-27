@@ -34,13 +34,17 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @ActiveProfiles("test")
 class MainTest {
 
-    @MockitoBean private SearchService searchService;
+    @MockitoBean
+    private SearchService searchService;
 
-    @MockitoBean private IndexingService indexingService;
+    @MockitoBean
+    private IndexingService indexingService;
 
-    @MockitoBean private CollectionService collectionService;
+    @MockitoBean
+    private CollectionService collectionService;
 
-    @MockitoBean private SchemaService schemaService;
+    @MockitoBean
+    private SchemaService schemaService;
 
     @Test
     void contextLoads() {
