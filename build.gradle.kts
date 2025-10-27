@@ -7,6 +7,7 @@ plugins {
     jacoco
     alias(libs.plugins.errorprone)
     alias(libs.plugins.spotless)
+    alias(libs.plugins.jib)
 }
 
 group = "org.apache.solr"
@@ -97,5 +98,131 @@ spotless {
     kotlinGradle {
         target("*.gradle.kts")
         ktlint()
+    }
+}
+
+// Jib Plugin Configuration
+// =========================
+// Jib is a Gradle plugin that builds optimized Docker images without requiring Docker installed.
+// It creates layered images for faster rebuilds and smaller image sizes.
+//
+// Key features:
+// - Multi-platform support (amd64 and arm64)
+// - No Docker daemon required
+// - Reproducible builds
+// - Optimized layering for faster deployments
+//
+// Building Images:
+// ----------------
+// 1. Build to Docker daemon (requires Docker installed):
+//    ./gradlew jibDockerBuild
+//    Creates image: solr-mcp-server:0.0.1-SNAPSHOT
+//
+// 2. Build to local tar file (no Docker required):
+//    ./gradlew jibBuildTar
+//    Creates: build/jib-image.tar
+//    Load with: docker load < build/jib-image.tar
+//
+// 3. Push to Docker Hub (requires authentication):
+//    docker login
+//    ./gradlew jib -Djib.to.image=dockerhub-username/solr-mcp-server:0.0.1-SNAPSHOT
+//
+// 4. Push to GitHub Container Registry (requires authentication):
+//    echo $GITHUB_TOKEN | docker login ghcr.io -u GITHUB_USERNAME --password-stdin
+//    ./gradlew jib -Djib.to.image=ghcr.io/github-username/solr-mcp-server:0.0.1-SNAPSHOT
+//
+// Authentication:
+// ---------------
+// For Docker Hub:
+//   docker login
+//
+// For GitHub Container Registry:
+//   Create a Personal Access Token (classic) with write:packages scope at:
+//   https://github.com/settings/tokens
+//   Then authenticate:
+//   echo YOUR_TOKEN | docker login ghcr.io -u YOUR_USERNAME --password-stdin
+//
+// Alternative: Set credentials in ~/.gradle/gradle.properties:
+//   jib.to.auth.username=YOUR_USERNAME
+//   jib.to.auth.password=YOUR_TOKEN_OR_PASSWORD
+//
+// Environment Variables:
+// ----------------------
+// The container is pre-configured with:
+// - SPRING_DOCKER_COMPOSE_ENABLED=false (Docker Compose disabled in container)
+// - SOLR_URL=http://host.docker.internal:8983/solr/ (default Solr connection)
+//
+// These can be overridden at runtime:
+//   docker run -e SOLR_URL=http://custom-solr:8983/solr/ solr-mcp-server:0.0.1-SNAPSHOT
+jib {
+    from {
+        // Use Eclipse Temurin JRE 25 as the base image
+        // Temurin is the open-source build of OpenJDK from Adoptium
+        image = "eclipse-temurin:25-jre"
+
+        // Multi-platform support for both AMD64 and ARM64 architectures
+        // This allows the image to run on x86_64 machines and Apple Silicon (M1/M2/M3)
+        platforms {
+            platform {
+                architecture = "amd64"
+                os = "linux"
+            }
+            platform {
+                architecture = "arm64"
+                os = "linux"
+            }
+        }
+    }
+
+    to {
+        // Default image name (can be overridden with -Djib.to.image=...)
+        // Format: repository/image-name:tag
+        image = "solr-mcp-server:$version"
+
+        // Tags to apply to the image
+        // The version tag is applied by default, plus "latest" tag
+        tags = setOf("latest")
+    }
+
+    container {
+        // Container environment variables
+        // These are baked into the image but can be overridden at runtime
+        environment =
+            mapOf(
+                // Disable Spring Boot Docker Compose support when running in container
+                "SPRING_DOCKER_COMPOSE_ENABLED" to "false",
+                // Default Solr URL using host.docker.internal to reach host machine
+                // On Linux, use --add-host=host.docker.internal:host-gateway
+                "SOLR_URL" to "http://host.docker.internal:8983/solr/",
+            )
+
+        // JVM flags for containerized environments
+        // These optimize the JVM for running in containers
+        jvmFlags =
+            listOf(
+                // Use container-aware memory settings
+                "-XX:+UseContainerSupport",
+                // Set max RAM percentage (default 75%)
+                "-XX:MaxRAMPercentage=75.0",
+            )
+
+        // Main class to run (auto-detected from Spring Boot plugin)
+        // mainClass is automatically set by Spring Boot Gradle plugin
+
+        // Port exposures (for documentation purposes)
+        // The application doesn't expose ports by default (STDIO mode)
+        // If running in HTTP mode, the port would be 8080
+        ports = listOf("8080")
+
+        // Labels for image metadata
+        labels.set(
+            mapOf(
+                "org.opencontainers.image.title" to "Solr MCP Server",
+                "org.opencontainers.image.description" to "Spring AI MCP Server for Apache Solr",
+                "org.opencontainers.image.version" to version.toString(),
+                "org.opencontainers.image.vendor" to "Apache Software Foundation",
+                "org.opencontainers.image.licenses" to "Apache-2.0",
+            ),
+        )
     }
 }
