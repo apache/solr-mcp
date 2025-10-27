@@ -90,12 +90,12 @@ public interface SolrDocumentCreator {
      * </ul>
      *
      * @param content the content string to be parsed and converted to SolrInputDocument objects.
-     *                The format depends on the implementing class (JSON array, CSV data, XML, etc.)
+     *     The format depends on the implementing class (JSON array, CSV data, XML, etc.)
      * @return a list of SolrInputDocument objects created from the parsed content. Returns empty
-     * list if content is empty or contains no valid documents
+     *     list if content is empty or contains no valid documents
      * @throws DocumentProcessingException if the content cannot be parsed or converted due to
-     *                                     format errors, invalid structure, or processing failures
-     * @throws IllegalArgumentException    if content is null (implementation-dependent)
+     *     format errors, invalid structure, or processing failures
+     * @throws IllegalArgumentException if content is null (implementation-dependent)
      */
     List<SolrInputDocument> create(String content) throws DocumentProcessingException;
 }

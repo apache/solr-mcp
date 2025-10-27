@@ -50,7 +50,7 @@ public class DocumentProcessingException extends RuntimeException {
      * additional context about the document processing failure.
      *
      * @param message the detail message explaining the error
-     * @param cause   the cause of this exception (which is saved for later retrieval)
+     * @param cause the cause of this exception (which is saved for later retrieval)
      */
     public DocumentProcessingException(String message, Throwable cause) {
         super(message, cause);

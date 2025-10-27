@@ -170,16 +170,16 @@ public class SearchService {
      * Searches a Solr collection with the specified parameters. This method is exposed as a tool
      * for MCP clients to use.
      *
-     * @param collection    The Solr collection to query
-     * @param query         The Solr query string (q parameter). Defaults to "*:*" if not specified
+     * @param collection The Solr collection to query
+     * @param query The Solr query string (q parameter). Defaults to "*:*" if not specified
      * @param filterQueries List of filter queries (fq parameter)
-     * @param facetFields   List of fields to facet on
-     * @param sortClauses   List of sort clauses for ordering results
-     * @param start         Starting offset for pagination
-     * @param rows          Number of rows to return
+     * @param facetFields List of fields to facet on
+     * @param sortClauses List of sort clauses for ordering results
+     * @param start Starting offset for pagination
+     * @param rows Number of rows to return
      * @return A SearchResponse containing the search results and facets
      * @throws SolrServerException If there's an error communicating with Solr
-     * @throws IOException         If there's an I/O error
+     * @throws IOException If there's an I/O error
      */
     @McpTool(
             name = "Search",

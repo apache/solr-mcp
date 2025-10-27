@@ -119,7 +119,7 @@ public class SampleClient {
      * </ol>
      *
      * @throws RuntimeException if any test assertion fails or MCP operations encounter errors
-     * @throws AssertionError   if expected tools are missing or tool validation fails
+     * @throws AssertionError if expected tools are missing or tool validation fails
      */
     public void run() {
 

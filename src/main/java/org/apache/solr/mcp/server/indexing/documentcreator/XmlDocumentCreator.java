@@ -59,7 +59,7 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
      * @param xml the XML content to process
      * @return list of SolrInputDocument objects ready for indexing
      * @throws DocumentProcessingException if XML parsing fails, parser configuration fails, or
-     *                                     structural errors occur
+     *     structural errors occur
      */
     public List<SolrInputDocument> create(String xml) throws DocumentProcessingException {
         try {
@@ -87,9 +87,7 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
         return doc.getDocumentElement();
     }
 
-    /**
-     * Creates a secure DocumentBuilderFactory with XXE protection.
-     */
+    /** Creates a secure DocumentBuilderFactory with XXE protection. */
     private DocumentBuilderFactory createSecureDocumentBuilderFactory()
             throws ParserConfigurationException {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -102,9 +100,7 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
         return factory;
     }
 
-    /**
-     * Processes the root element and determines document structure strategy.
-     */
+    /** Processes the root element and determines document structure strategy. */
     private List<SolrInputDocument> processRootElement(Element rootElement) {
         List<Element> childElements = extractChildElements(rootElement);
 
@@ -115,9 +111,7 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
         }
     }
 
-    /**
-     * Extracts child elements from the root element.
-     */
+    /** Extracts child elements from the root element. */
     private List<Element> extractChildElements(Element rootElement) {
         NodeList children = rootElement.getChildNodes();
         List<Element> childElements = new ArrayList<>();
@@ -131,9 +125,7 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
         return childElements;
     }
 
-    /**
-     * Determines if child elements should be treated as separate documents.
-     */
+    /** Determines if child elements should be treated as separate documents. */
     private boolean shouldTreatChildrenAsDocuments(List<Element> childElements) {
         Map<String, Integer> childElementCounts = new HashMap<>();
 
@@ -145,9 +137,7 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
         return childElementCounts.values().stream().anyMatch(count -> count > 1);
     }
 
-    /**
-     * Creates documents from child elements (multiple documents strategy).
-     */
+    /** Creates documents from child elements (multiple documents strategy). */
     private List<SolrInputDocument> createDocumentsFromChildren(List<Element> childElements) {
         List<SolrInputDocument> documents = new ArrayList<>();
 
@@ -162,9 +152,7 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
         return documents;
     }
 
-    /**
-     * Creates a single document from the root element.
-     */
+    /** Creates a single document from the root element. */
     private List<SolrInputDocument> createSingleDocument(Element rootElement) {
         List<SolrInputDocument> documents = new ArrayList<>();
         SolrInputDocument solrDoc = new SolrInputDocument();
@@ -202,9 +190,9 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
      *   <li>All field names are sanitized for Solr compatibility
      * </ul>
      *
-     * @param doc     the SolrInputDocument to add fields to
+     * @param doc the SolrInputDocument to add fields to
      * @param element the XML element to process
-     * @param prefix  current field name prefix for nested element flattening
+     * @param prefix current field name prefix for nested element flattening
      * @see FieldNameSanitizer#sanitizeFieldName(String)
      */
     private void addXmlElementFields(SolrInputDocument doc, Element element, String prefix) {
@@ -220,9 +208,7 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
         processXmlChildElements(doc, children, currentPrefix);
     }
 
-    /**
-     * Processes XML element attributes and adds them as fields to the document.
-     */
+    /** Processes XML element attributes and adds them as fields to the document. */
     private void processXmlAttributes(
             SolrInputDocument doc, Element element, String prefix, String currentPrefix) {
         if (!element.hasAttributes()) {
@@ -241,9 +227,7 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
         }
     }
 
-    /**
-     * Checks if the node list contains any child elements.
-     */
+    /** Checks if the node list contains any child elements. */
     private boolean hasChildElements(NodeList children) {
         for (int i = 0; i < children.getLength(); i++) {
             if (children.item(i).getNodeType() == Node.ELEMENT_NODE) {
@@ -253,9 +237,7 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
         return false;
     }
 
-    /**
-     * Processes XML text content and adds it as a field to the document.
-     */
+    /** Processes XML text content and adds it as a field to the document. */
     private void processXmlTextContent(
             SolrInputDocument doc,
             String elementName,
@@ -270,9 +252,7 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
         }
     }
 
-    /**
-     * Extracts text content from child nodes.
-     */
+    /** Extracts text content from child nodes. */
     private String extractTextContent(NodeList children) {
         StringBuilder textContent = new StringBuilder();
 
@@ -289,9 +269,7 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
         return textContent.toString().trim();
     }
 
-    /**
-     * Recursively processes XML child elements.
-     */
+    /** Recursively processes XML child elements. */
     private void processXmlChildElements(
             SolrInputDocument doc, NodeList children, String currentPrefix) {
         for (int i = 0; i < children.getLength(); i++) {

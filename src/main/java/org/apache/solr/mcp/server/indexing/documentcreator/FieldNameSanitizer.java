@@ -82,9 +82,9 @@ public final class FieldNameSanitizer {
      *
      * @param fieldName the original field name to sanitize
      * @return sanitized field name compatible with Solr requirements, or "field" if input is
-     * null/empty
+     *     null/empty
      * @see <a href="https://solr.apache.org/guide/solr/latest/indexing-guide/fields.html">Solr
-     * Field Guide</a>
+     *     Field Guide</a>
      */
     public static String sanitizeFieldName(String fieldName) {
 

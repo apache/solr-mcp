@@ -85,7 +85,7 @@ public class CsvDocumentCreator implements SolrDocumentCreator {
      * @param csv CSV string containing document data (first row must be headers)
      * @return list of SolrInputDocument objects ready for indexing
      * @throws DocumentProcessingException if CSV parsing fails, input validation fails, or the
-     *                                     structure is invalid
+     *     structure is invalid
      * @see SolrInputDocument
      * @see FieldNameSanitizer#sanitizeFieldName(String)
      */

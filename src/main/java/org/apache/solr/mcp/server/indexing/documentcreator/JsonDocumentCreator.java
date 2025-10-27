@@ -81,7 +81,7 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
      * @param json JSON string containing document data (must be an array)
      * @return list of SolrInputDocument objects ready for indexing
      * @throws DocumentProcessingException if JSON parsing fails, input validation fails, or the
-     *                                     structure is invalid
+     *     structure is invalid
      * @see SolrInputDocument
      * @see #addAllFieldsFlat(SolrInputDocument, JsonNode, String)
      * @see FieldNameSanitizer#sanitizeFieldName(String)
@@ -130,8 +130,8 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
      *   <li><strong>Primitives</strong>: Directly added with appropriate type conversion
      * </ul>
      *
-     * @param doc    the SolrInputDocument to add fields to
-     * @param node   the JSON node to process
+     * @param doc the SolrInputDocument to add fields to
+     * @param node the JSON node to process
      * @param prefix current field name prefix for nested object flattening
      * @see #convertJsonValue(JsonNode)
      * @see FieldNameSanitizer#sanitizeFieldName(String)
@@ -150,8 +150,8 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
      * Processes the provided field value and adds it to the given SolrInputDocument. Handles cases
      * where the field value is an array, object, or a simple value.
      *
-     * @param doc       the SolrInputDocument to which the field value will be added
-     * @param value     the JsonNode representing the field value to be processed
+     * @param doc the SolrInputDocument to which the field value will be added
+     * @param value the JsonNode representing the field value to be processed
      * @param fieldName the name of the field to be added to the SolrInputDocument
      */
     private void processFieldValue(SolrInputDocument doc, JsonNode value, String fieldName) {
@@ -172,10 +172,10 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
      * Processes a JSON array field and adds its non-object elements to the specified field in the
      * given SolrInputDocument.
      *
-     * @param doc        the SolrInputDocument to which the processed field will be added
+     * @param doc the SolrInputDocument to which the processed field will be added
      * @param arrayValue the JSON array node to process
-     * @param fieldName  the name of the field in the SolrInputDocument to which the array values
-     *                   will be added
+     * @param fieldName the name of the field in the SolrInputDocument to which the array values
+     *     will be added
      */
     private void processArrayField(SolrInputDocument doc, JsonNode arrayValue, String fieldName) {
         List<Object> values = new ArrayList<>();
