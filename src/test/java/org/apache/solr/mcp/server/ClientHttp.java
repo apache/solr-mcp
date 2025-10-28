@@ -26,5 +26,4 @@ public class ClientHttp {
         var transport = HttpClientStreamableHttpTransport.builder("http://localhost:8080").build();
         new SampleClient(transport).run();
     }
-
 }

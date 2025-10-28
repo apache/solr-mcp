@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.spring.dependency.management)
     jacoco
     alias(libs.plugins.errorprone)
+    alias(libs.plugins.spotless)
 }
 
 group = "org.apache.solr"
@@ -76,5 +77,25 @@ tasks.withType<JavaCompile>().configureEach {
         disableAllChecks.set(true) // Other error prone checks are disabled
         option("NullAway:OnlyNullMarked", "true") // Enable nullness checks only in null-marked code
         error("NullAway") // bump checks from warnings (default) to errors
+    }
+}
+
+tasks.build {
+    dependsOn(tasks.spotlessApply)
+}
+
+spotless {
+    java {
+        target("src/**/*.java")
+        googleJavaFormat().aosp().reflowLongStrings()
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        endWithNewline()
+        importOrder()
+        formatAnnotations()
+    }
+    kotlinGradle {
+        target("*.gradle.kts")
+        ktlint()
     }
 }
