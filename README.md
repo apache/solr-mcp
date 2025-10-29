@@ -38,8 +38,8 @@ The server supports two transport modes:
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/solr-mcp-server.git
-cd solr-mcp-server
+git clone https://github.com/yourusername/solr-mcp.git
+cd solr-mcp
 ```
 
 ### 2. Start Solr using Docker Compose
