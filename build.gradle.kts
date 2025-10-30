@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import net.ltgt.gradle.errorprone.errorprone
 
 plugins {
@@ -59,9 +76,38 @@ dependencyManagement {
     }
 }
 
+// Configures Spring Boot plugin to generate build metadata at build time
+// This creates META-INF/build-info.properties containing:
+//   - build.artifact: The artifact name (e.g., "solr-mcp-server")
+//   - build.group: The group ID (e.g., "org.apache.solr")
+//   - build.name: The project name
+//   - build.version: The version (e.g., "0.0.1-SNAPSHOT")
+//   - build.time: The timestamp when the build was executed
+//
+// When it executes:
+//   - bootBuildInfo task runs before processResources during any build
+//   - Triggered by: ./gradlew build, bootJar, test, classes, etc.
+//   - The generated file is included in the JAR's classpath
+//   - Tests can access it via: getResourceAsStream("/META-INF/build-info.properties")
+//
+// Use cases:
+//   - Runtime version introspection via Spring Boot Actuator
+//   - Dynamic JAR path resolution in tests (e.g., ClientStdio.java)
+//   - Application metadata exposure through /actuator/info endpoint
+springBoot {
+    buildInfo()
+}
+
 tasks.withType<Test> {
-    useJUnitPlatform()
-    finalizedBy(tasks.jacocoTestReport)
+    useJUnitPlatform {
+        // Only exclude docker integration tests from regular test runs, not from dockerIntegrationTest
+        if (name != "dockerIntegrationTest") {
+            excludeTags("docker-integration")
+        }
+    }
+    if (name != "dockerIntegrationTest") {
+        finalizedBy(tasks.jacocoTestReport)
+    }
 }
 
 tasks.jacocoTestReport {
@@ -71,6 +117,19 @@ tasks.jacocoTestReport {
         html.required.set(true)
         csv.required.set(false)
     }
+    // Exclude docker integration tests from coverage
+    classDirectories.setFrom(
+        files(
+            classDirectories.files.map {
+                fileTree(it) {
+                    exclude(
+                        "**/DockerImageStdioIntegrationTest*.class",
+                        "**/DockerImageHttpIntegrationTest*.class",
+                    )
+                }
+            },
+        ),
+    )
 }
 
 tasks.withType<JavaCompile>().configureEach {
@@ -98,6 +157,87 @@ spotless {
     kotlinGradle {
         target("*.gradle.kts")
         ktlint()
+    }
+}
+
+// Docker Integration Test Task
+// =============================
+// This task runs integration tests for the Docker image produced by Jib.
+// It is separate from the regular test task and must be explicitly invoked.
+//
+// Usage:
+//   ./gradlew dockerIntegrationTest
+//
+// Prerequisites:
+//   - Docker must be installed and running
+//   - The task will automatically build the Docker image using jibDockerBuild
+//
+// The task:
+//   - Checks if Docker is available
+//   - Builds the Docker image using Jib (if Docker is available)
+//   - Runs tests tagged with "docker-integration"
+//   - Uses the same test configuration as regular tests
+//
+// Notes:
+//   - If Docker is not available, the task will fail with a helpful error message
+//   - The test will verify the Docker image starts correctly and remains stable
+//   - Tests run in isolation from regular unit tests
+tasks.register<Test>("dockerIntegrationTest") {
+    description = "Runs integration tests for the Docker image"
+    group = "verification"
+
+    // Always run this task, don't use Gradle's up-to-date checking
+    // Docker images can change without Gradle knowing
+    outputs.upToDateWhen { false }
+
+    // Check if Docker is available
+    val dockerAvailable =
+        try {
+            val process = ProcessBuilder("docker", "info").start()
+            process.waitFor() == 0
+        } catch (e: Exception) {
+            false
+        }
+
+    if (!dockerAvailable) {
+        doFirst {
+            throw GradleException(
+                "Docker is not available. Please ensure Docker is installed and running.",
+            )
+        }
+    }
+
+    // Depend on building the Docker image first (only if Docker is available)
+    if (dockerAvailable) {
+        dependsOn(tasks.jibDockerBuild)
+    }
+
+    // Configure test task to only run docker integration tests
+    useJUnitPlatform {
+        includeTags("docker-integration")
+    }
+
+    // Use the same test classpath and configuration as regular tests
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+
+    // Ensure this doesn't trigger the regular test task or jacocoTestReport
+    mustRunAfter(tasks.test)
+
+    // Set longer timeout for Docker tests
+    systemProperty("junit.jupiter.execution.timeout.default", "5m")
+
+    // Output test results
+    testLogging {
+        events("passed", "skipped", "failed", "standardOut", "standardError")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showStandardStreams = true
+    }
+
+    // Generate separate test report in a different directory
+    reports {
+        html.outputLocation.set(layout.buildDirectory.dir("reports/dockerIntegrationTest"))
+        junitXml.outputLocation.set(layout.buildDirectory.dir("test-results/dockerIntegrationTest"))
     }
 }
 
@@ -191,9 +331,6 @@ jib {
             mapOf(
                 // Disable Spring Boot Docker Compose support when running in container
                 "SPRING_DOCKER_COMPOSE_ENABLED" to "false",
-                // Default Solr URL using host.docker.internal to reach host machine
-                // On Linux, use --add-host=host.docker.internal:host-gateway
-                "SOLR_URL" to "http://host.docker.internal:8983/solr/",
             )
 
         // JVM flags for containerized environments
@@ -206,8 +343,8 @@ jib {
                 "-XX:MaxRAMPercentage=75.0",
             )
 
-        // Main class to run (auto-detected from Spring Boot plugin)
-        // mainClass is automatically set by Spring Boot Gradle plugin
+        // Explicitly set main class to avoid ASM scanning issues with newer Java versions
+        mainClass = "org.apache.solr.mcp.server.Main"
 
         // Port exposures (for documentation purposes)
         // The application doesn't expose ports by default (STDIO mode)
