@@ -1,12 +1,18 @@
+[![Project Status: Incubating](https://img.shields.io/badge/status-incubating-yellow.svg)](https://github.com/apache/solr-mcp)
+
 # Solr MCP Server
 
-A Spring AI Model Context Protocol (MCP) server that provides tools for interacting with Apache Solr. This server enables AI assistants like Claude to search, index, and manage Solr collections through the MCP protocol.
+A Spring AI Model Context Protocol (MCP) server that provides tools for interacting with Apache Solr. This server
+enables AI assistants like Claude to search, index, and manage Solr collections through the MCP protocol.
 
 ## Overview
 
-This project provides a set of tools that allow AI assistants to interact with Apache Solr, a powerful open-source search platform. By implementing the Spring AI MCP protocol, these tools can be used by any MCP-compatible client, including Claude Desktop. The project uses SolrJ, the official Java client for Solr, to communicate with Solr instances.
+This project provides a set of tools that allow AI assistants to interact with Apache Solr, a powerful open-source
+search platform. By implementing the Spring AI MCP protocol, these tools can be used by any MCP-compatible client,
+including Claude Desktop. The project uses SolrJ, the official Java client for Solr, to communicate with Solr instances.
 
 The server provides the following capabilities:
+
 - Search Solr collections with advanced query options
 - Index documents into Solr collections
 - Manage and monitor Solr collections
@@ -32,8 +38,8 @@ The server supports two transport modes:
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/solr-mcp-server.git
-cd solr-mcp-server
+git clone https://github.com/yourusername/solr-mcp.git
+cd solr-mcp
 ```
 
 ### 2. Start Solr using Docker Compose
@@ -43,6 +49,7 @@ docker-compose up -d
 ```
 
 This will start a Solr instance in SolrCloud mode with ZooKeeper and create two sample collections:
+
 - `books` - A collection with sample book data
 - `films` - A collection with sample film data
 
@@ -66,6 +73,127 @@ The build produces two JAR files in `build/libs/`:
 
 - `solr-mcp-server-0.0.1-SNAPSHOT.jar` - Executable JAR with all dependencies (fat JAR)
 - `solr-mcp-server-0.0.1-SNAPSHOT-plain.jar` - Plain JAR without dependencies
+
+### 4. Building Docker Images (Optional)
+
+This project uses [Jib](https://github.com/GoogleContainerTools/jib) to build optimized Docker images without requiring
+Docker installed. Jib creates layered images for faster rebuilds and smaller image sizes.
+
+#### Option 1: Build to Docker Daemon (Recommended)
+
+Build directly to your local Docker daemon (requires Docker installed):
+
+```bash
+./gradlew jibDockerBuild
+```
+
+This creates a local Docker image: `solr-mcp-server:0.0.1-SNAPSHOT`
+
+Verify the image:
+
+```bash
+docker images | grep solr-mcp-server
+```
+
+#### Option 2: Build to Tar File (No Docker Required)
+
+Build to a tar file without Docker installed:
+
+```bash
+./gradlew jibBuildTar
+```
+
+This creates `build/jib-image.tar`. Load it into Docker:
+
+```bash
+docker load < build/jib-image.tar
+```
+
+#### Option 3: Push to Docker Hub
+
+Authenticate with Docker Hub and push:
+
+```bash
+# Login to Docker Hub
+docker login
+
+# Build and push
+./gradlew jib -Djib.to.image=YOUR_DOCKERHUB_USERNAME/solr-mcp-server:0.0.1-SNAPSHOT
+```
+
+#### Option 4: Push to GitHub Container Registry
+
+Authenticate with GitHub Container Registry and push:
+
+```bash
+# Create a Personal Access Token (classic) with write:packages scope at:
+# https://github.com/settings/tokens
+
+# Login to GitHub Container Registry
+export GITHUB_TOKEN=YOUR_GITHUB_TOKEN
+echo $GITHUB_TOKEN | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
+
+# Build and push
+./gradlew jib -Djib.to.image=ghcr.io/YOUR_GITHUB_USERNAME/solr-mcp-server:0.0.1-SNAPSHOT
+```
+
+#### Multi-Platform Support
+
+The Docker images are built with multi-platform support for:
+
+- `linux/amd64` (Intel/AMD 64-bit)
+- `linux/arm64` (Apple Silicon M1/M2/M3)
+
+#### Automated Builds with GitHub Actions
+
+This project includes a GitHub Actions workflow that automatically builds and publishes Docker images to both GitHub
+Container Registry and Docker Hub.
+
+**Triggers:**
+
+- Push to `main` branch - Builds and publishes images tagged with `version-SHA` and `latest`
+- Version tags (e.g., `v1.0.0`) - Builds and publishes images tagged with the version number and `latest`
+- Pull requests - Builds and tests only (no publishing)
+
+**Published Images:**
+
+- GitHub Container Registry: `ghcr.io/OWNER/solr-mcp-server:TAG`
+- Docker Hub: `DOCKERHUB_USERNAME/solr-mcp-server:TAG`
+
+**Setup for Docker Hub Publishing:**
+
+To enable Docker Hub publishing, configure these repository secrets:
+
+1. Go to your GitHub repository Settings > Secrets and variables > Actions
+2. Add the following secrets:
+    - `DOCKERHUB_USERNAME`: Your Docker Hub username
+    - `DOCKERHUB_TOKEN`: Docker Hub access token (create at https://hub.docker.com/settings/security)
+
+**Note:** GitHub Container Registry publishing works automatically using the `GITHUB_TOKEN` provided by GitHub Actions.
+
+#### Running the Docker Container
+
+Run the container with STDIO mode:
+
+```bash
+docker run -i --rm solr-mcp-server:0.0.1-SNAPSHOT
+```
+
+Or with custom Solr URL:
+
+```bash
+docker run -i --rm \
+  -e SOLR_URL=http://your-solr-host:8983/solr/ \
+  solr-mcp-server:0.0.1-SNAPSHOT
+```
+
+**Note for Linux users:** If you need to connect to Solr running on the host machine, add the `--add-host` flag:
+
+```bash
+docker run -i --rm \
+  --add-host=host.docker.internal:host-gateway \
+  solr-mcp-server:0.0.1-SNAPSHOT
+```
 
 ## Project Structure
 
@@ -108,7 +236,7 @@ src/main/java/org/apache/solr/mcp/server/
 - **Configuration**: Spring Boot configuration using properties files
     - `application.properties` - Default configuration
     - `application-stdio.properties` - STDIO transport profile
-  - `application-http.properties` - HTTP transport profile
+    - `application-http.properties` - HTTP transport profile
 
 - **Document Creators**: Strategy pattern implementation for parsing different document formats
     - Automatically sanitizes field names to comply with Solr schema requirements
@@ -194,7 +322,9 @@ Parameters:
 
 ## Adding to Claude Desktop
 
-To add this MCP server to Claude Desktop:
+You can add this MCP server to Claude Desktop using either the JAR file or Docker container.
+
+### Option 1: Using JAR File
 
 1. Build the project as a standalone JAR:
 
@@ -220,13 +350,118 @@ To add this MCP server to Claude Desktop:
                 "PROFILES": "stdio"
             }
         }
-  }
+    }
 }
 ```
 
 **Note:** Replace `/absolute/path/to/solr-mcp-server` with the actual path to your project directory.
 
-### 4. Restart Claude Desktop & Invoke
+### Option 2: Using Docker Container
+
+1. Build the Docker image:
+
+```bash
+./gradlew jibDockerBuild
+```
+
+2. In Claude Desktop, go to Settings > Developer > Edit Config
+
+3. Add the following configuration to your MCP settings:
+
+```json
+{
+    "mcpServers": {
+        "solr-search-mcp": {
+            "command": "docker",
+            "args": [
+                "run",
+                "-i",
+                "--rm",
+                "solr-mcp-server:0.0.1-SNAPSHOT"
+            ],
+            "env": {
+                "SOLR_URL": "http://localhost:8983/solr/"
+            }
+        }
+    }
+}
+```
+
+**Note for macOS/Windows users:** Docker Desktop automatically provides `host.docker.internal` for accessing services on
+the host machine. The container is pre-configured to use this.
+
+**Note for Linux users:** You need to add the `--add-host` flag to enable communication with services running on the
+host:
+
+```json
+{
+    "mcpServers": {
+        "solr-search-mcp": {
+            "command": "docker",
+            "args": [
+                "run",
+                "-i",
+                "--rm",
+                "--add-host=host.docker.internal:host-gateway",
+                "solr-mcp-server:0.0.1-SNAPSHOT"
+            ],
+            "env": {
+                "SOLR_URL": "http://host.docker.internal:8983/solr/"
+            }
+        }
+    }
+}
+```
+
+### Using a Public Docker Image
+
+If you've pushed the image to Docker Hub or GitHub Container Registry, you can use it directly:
+
+#### Docker Hub
+
+```json
+{
+    "mcpServers": {
+        "solr-search-mcp": {
+            "command": "docker",
+            "args": [
+                "run",
+                "-i",
+                "--rm",
+                "YOUR_DOCKERHUB_USERNAME/solr-mcp-server:0.0.1-SNAPSHOT"
+            ],
+            "env": {
+                "SOLR_URL": "http://localhost:8983/solr/"
+            }
+        }
+    }
+}
+```
+
+#### GitHub Container Registry
+
+```json
+{
+    "mcpServers": {
+        "solr-search-mcp": {
+            "command": "docker",
+            "args": [
+                "run",
+                "-i",
+                "--rm",
+                "ghcr.io/YOUR_GITHUB_USERNAME/solr-mcp-server:0.0.1-SNAPSHOT"
+            ],
+            "env": {
+                "SOLR_URL": "http://localhost:8983/solr/"
+            }
+        }
+    }
+}
+```
+
+### Restart Claude Desktop & Invoke
+
+After configuring, restart Claude Desktop to load the MCP server.
 
 ![claude-stdio.png](images/claude-stdio.png)
 
@@ -440,11 +675,35 @@ controls:
 
 If you encounter issues:
 
-1. Ensure Solr is running and accessible. By default, the server connects to http://localhost:8983/solr/, but you can set the `SOLR_URL` environment variable to point to a different Solr instance.
+1. Ensure Solr is running and accessible. By default, the server connects to http://localhost:8983/solr/, but you can
+   set the `SOLR_URL` environment variable to point to a different Solr instance.
 2. Check the logs for any error messages
 3. Verify that the collections exist using the Solr Admin UI
 4. If using HTTP mode, ensure the server is running on the expected port (default: 8080)
 5. For STDIO mode with Claude Desktop, verify the JAR path is absolute and correct in the configuration
+
+## FAQ
+
+### Why use Jib instead of Spring Boot Buildpacks?
+
+This project uses [Jib](https://github.com/GoogleContainerTools/jib) for building Docker images instead of Spring Boot
+Buildpacks for a critical compatibility reason:
+
+**STDIO Mode Compatibility**: Docker images built with Spring Boot Buildpacks were outputting logs and diagnostic
+information to stdout, which interfered with the MCP protocol's STDIO transport. The MCP protocol requires a clean
+stdout channel for protocol messages - any extraneous output causes connection errors and prevents the server from
+working properly with MCP clients like Claude Desktop.
+
+Jib provides additional benefits:
+
+- **Clean stdout**: Jib-built images don't pollute stdout with build information or runtime logs
+- **No Docker daemon required**: Jib can build images without Docker installed
+- **Faster builds**: Layered image building with better caching
+- **Smaller images**: More efficient layer organization
+- **Multi-platform support**: Easy cross-platform image building for amd64 and arm64
+
+If you're building an MCP server with Docker support, ensure your containerization approach maintains a clean stdout
+channel when running in STDIO mode.
 
 ## License
 
