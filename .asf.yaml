@@ -23,7 +23,7 @@ github:
   protected_branches:
     main: {}
     
-  del_branch_on_merge: tr
+  del_branch_on_merge: true
 
   protected_tags:
     - "releases/*"
