@@ -54,7 +54,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * ./gradlew jibDockerBuild
  * }</pre>
  *
- * <p>This will create the image: {@code solr-mcp-server:0.0.1-SNAPSHOT}
+ * <p>This will create the image: {@code solr-mcp:0.0.1-SNAPSHOT}
  *
  * <p><strong>Test Architecture:</strong>
  *
@@ -77,7 +77,7 @@ class DockerImageStdioIntegrationTest {
             LoggerFactory.getLogger(DockerImageStdioIntegrationTest.class);
 
     // Docker image name and tag from build.gradle.kts
-    private static final String DOCKER_IMAGE = "solr-mcp-server:0.0.1-SNAPSHOT";
+    private static final String DOCKER_IMAGE = "solr-mcp:0.0.1-SNAPSHOT";
     private static final String SOLR_IMAGE = "solr:9.9-slim";
 
     // Network for container communication

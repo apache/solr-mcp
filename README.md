@@ -71,8 +71,129 @@ centrally managed in `gradle/libs.versions.toml`.
 
 The build produces two JAR files in `build/libs/`:
 
-- `solr-mcp-server-0.0.1-SNAPSHOT.jar` - Executable JAR with all dependencies (fat JAR)
-- `solr-mcp-server-0.0.1-SNAPSHOT-plain.jar` - Plain JAR without dependencies
+- `solr-mcp-0.0.1-SNAPSHOT.jar` - Executable JAR with all dependencies (fat JAR)
+- `solr-mcp-0.0.1-SNAPSHOT-plain.jar` - Plain JAR without dependencies
+
+### 4. Building Docker Images (Optional)
+
+This project uses [Jib](https://github.com/GoogleContainerTools/jib) to build optimized Docker images without requiring
+Docker installed. Jib creates layered images for faster rebuilds and smaller image sizes.
+
+#### Option 1: Build to Docker Daemon (Recommended)
+
+Build directly to your local Docker daemon (requires Docker installed):
+
+```bash
+./gradlew jibDockerBuild
+```
+
+This creates a local Docker image: `solr-mcp:0.0.1-SNAPSHOT`
+
+Verify the image:
+
+```bash
+docker images | grep solr-mcp
+```
+
+#### Option 2: Build to Tar File (No Docker Required)
+
+Build to a tar file without Docker installed:
+
+```bash
+./gradlew jibBuildTar
+```
+
+This creates `build/jib-image.tar`. Load it into Docker:
+
+```bash
+docker load < build/jib-image.tar
+```
+
+#### Option 3: Push to Docker Hub
+
+Authenticate with Docker Hub and push:
+
+```bash
+# Login to Docker Hub
+docker login
+
+# Build and push
+./gradlew jib -Djib.to.image=YOUR_DOCKERHUB_USERNAME/solr-mcp:0.0.1-SNAPSHOT
+```
+
+#### Option 4: Push to GitHub Container Registry
+
+Authenticate with GitHub Container Registry and push:
+
+```bash
+# Create a Personal Access Token (classic) with write:packages scope at:
+# https://github.com/settings/tokens
+
+# Login to GitHub Container Registry
+export GITHUB_TOKEN=YOUR_GITHUB_TOKEN
+echo $GITHUB_TOKEN | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
+
+# Build and push
+./gradlew jib -Djib.to.image=ghcr.io/YOUR_GITHUB_USERNAME/solr-mcp:0.0.1-SNAPSHOT
+```
+
+#### Multi-Platform Support
+
+The Docker images are built with multi-platform support for:
+
+- `linux/amd64` (Intel/AMD 64-bit)
+- `linux/arm64` (Apple Silicon M1/M2/M3)
+
+#### Automated Builds with GitHub Actions
+
+This project includes a GitHub Actions workflow that automatically builds and publishes Docker images to both GitHub
+Container Registry and Docker Hub.
+
+**Triggers:**
+
+- Push to `main` branch - Builds and publishes images tagged with `version-SHA` and `latest`
+- Version tags (e.g., `v1.0.0`) - Builds and publishes images tagged with the version number and `latest`
+- Pull requests - Builds and tests only (no publishing)
+
+**Published Images:**
+
+- GitHub Container Registry: `ghcr.io/OWNER/solr-mcp:TAG`
+- Docker Hub: `DOCKERHUB_USERNAME/solr-mcp:TAG`
+
+**Setup for Docker Hub Publishing:**
+
+To enable Docker Hub publishing, configure these repository secrets:
+
+1. Go to your GitHub repository Settings > Secrets and variables > Actions
+2. Add the following secrets:
+    - `DOCKERHUB_USERNAME`: Your Docker Hub username
+    - `DOCKERHUB_TOKEN`: Docker Hub access token (create at https://hub.docker.com/settings/security)
+
+**Note:** GitHub Container Registry publishing works automatically using the `GITHUB_TOKEN` provided by GitHub Actions.
+
+#### Running the Docker Container
+
+Run the container with STDIO mode:
+
+```bash
+docker run -i --rm solr-mcp:0.0.1-SNAPSHOT
+```
+
+Or with custom Solr URL:
+
+```bash
+docker run -i --rm \
+  -e SOLR_URL=http://your-solr-host:8983/solr/ \
+  solr-mcp:0.0.1-SNAPSHOT
+```
+
+**Note for Linux users:** If you need to connect to Solr running on the host machine, add the `--add-host` flag:
+
+```bash
+docker run -i --rm \
+  --add-host=host.docker.internal:host-gateway \
+  solr-mcp:0.0.1-SNAPSHOT
+```
 
 ### 4. Building Docker Images (Optional)
 
@@ -343,7 +464,7 @@ You can add this MCP server to Claude Desktop using either the JAR file or Docke
             "command": "java",
             "args": [
                 "-jar",
-                "/absolute/path/to/solr-mcp-server/build/libs/solr-mcp-server-0.0.1-SNAPSHOT.jar"
+                "/absolute/path/to/solr-mcp/build/libs/solr-mcp-0.0.1-SNAPSHOT.jar"
             ],
             "env": {
                 "SOLR_URL": "http://localhost:8983/solr/",
@@ -354,7 +475,7 @@ You can add this MCP server to Claude Desktop using either the JAR file or Docke
 }
 ```
 
-**Note:** Replace `/absolute/path/to/solr-mcp-server` with the actual path to your project directory.
+**Note:** Replace `/absolute/path/to/solr-mcp` with the actual path to your project directory.
 
 ### Option 2: Using Docker Container
 
@@ -377,7 +498,7 @@ You can add this MCP server to Claude Desktop using either the JAR file or Docke
                 "run",
                 "-i",
                 "--rm",
-                "solr-mcp-server:0.0.1-SNAPSHOT"
+                "solr-mcp:0.0.1-SNAPSHOT"
             ],
             "env": {
                 "SOLR_URL": "http://localhost:8983/solr/"
@@ -403,7 +524,7 @@ host:
                 "-i",
                 "--rm",
                 "--add-host=host.docker.internal:host-gateway",
-                "solr-mcp-server:0.0.1-SNAPSHOT"
+                "solr-mcp:0.0.1-SNAPSHOT"
             ],
             "env": {
                 "SOLR_URL": "http://host.docker.internal:8983/solr/"
@@ -428,7 +549,7 @@ If you've pushed the image to Docker Hub or GitHub Container Registry, you can u
                 "run",
                 "-i",
                 "--rm",
-                "YOUR_DOCKERHUB_USERNAME/solr-mcp-server:0.0.1-SNAPSHOT"
+                "YOUR_DOCKERHUB_USERNAME/solr-mcp:0.0.1-SNAPSHOT"
             ],
             "env": {
                 "SOLR_URL": "http://localhost:8983/solr/"
@@ -449,7 +570,7 @@ If you've pushed the image to Docker Hub or GitHub Container Registry, you can u
                 "run",
                 "-i",
                 "--rm",
-                "ghcr.io/YOUR_GITHUB_USERNAME/solr-mcp-server:0.0.1-SNAPSHOT"
+                "ghcr.io/YOUR_GITHUB_USERNAME/solr-mcp:0.0.1-SNAPSHOT"
             ],
             "env": {
                 "SOLR_URL": "http://localhost:8983/solr/"

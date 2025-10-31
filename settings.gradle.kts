@@ -15,4 +15,4 @@
  * limitations under the License.
  */
 
-rootProject.name = "solr-mcp-server"
+rootProject.name = "solr-mcp"

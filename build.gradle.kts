@@ -78,7 +78,7 @@ dependencyManagement {
 
 // Configures Spring Boot plugin to generate build metadata at build time
 // This creates META-INF/build-info.properties containing:
-//   - build.artifact: The artifact name (e.g., "solr-mcp-server")
+//   - build.artifact: The artifact name (e.g., "solr-mcp")
 //   - build.group: The group ID (e.g., "org.apache.solr")
 //   - build.name: The project name
 //   - build.version: The version (e.g., "0.0.1-SNAPSHOT")
@@ -256,7 +256,7 @@ tasks.register<Test>("dockerIntegrationTest") {
 // ----------------
 // 1. Build to Docker daemon (requires Docker installed):
 //    ./gradlew jibDockerBuild
-//    Creates image: solr-mcp-server:0.0.1-SNAPSHOT
+//    Creates image: solr-mcp:0.0.1-SNAPSHOT
 //
 // 2. Build to local tar file (no Docker required):
 //    ./gradlew jibBuildTar
@@ -265,11 +265,11 @@ tasks.register<Test>("dockerIntegrationTest") {
 //
 // 3. Push to Docker Hub (requires authentication):
 //    docker login
-//    ./gradlew jib -Djib.to.image=dockerhub-username/solr-mcp-server:0.0.1-SNAPSHOT
+//    ./gradlew jib -Djib.to.image=dockerhub-username/solr-mcp:0.0.1-SNAPSHOT
 //
 // 4. Push to GitHub Container Registry (requires authentication):
 //    echo $GITHUB_TOKEN | docker login ghcr.io -u GITHUB_USERNAME --password-stdin
-//    ./gradlew jib -Djib.to.image=ghcr.io/github-username/solr-mcp-server:0.0.1-SNAPSHOT
+//    ./gradlew jib -Djib.to.image=ghcr.io/github-username/solr-mcp:0.0.1-SNAPSHOT
 //
 // Authentication:
 // ---------------
@@ -293,7 +293,7 @@ tasks.register<Test>("dockerIntegrationTest") {
 // - SOLR_URL=http://host.docker.internal:8983/solr/ (default Solr connection)
 //
 // These can be overridden at runtime:
-//   docker run -e SOLR_URL=http://custom-solr:8983/solr/ solr-mcp-server:0.0.1-SNAPSHOT
+//   docker run -e SOLR_URL=http://custom-solr:8983/solr/ solr-mcp:0.0.1-SNAPSHOT
 jib {
     from {
         // Use Eclipse Temurin JRE 25 as the base image
@@ -317,7 +317,7 @@ jib {
     to {
         // Default image name (can be overridden with -Djib.to.image=...)
         // Format: repository/image-name:tag
-        image = "solr-mcp-server:$version"
+        image = "solr-mcp:$version"
 
         // Tags to apply to the image
         // The version tag is applied by default, plus "latest" tag
