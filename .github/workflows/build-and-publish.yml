@@ -200,7 +200,7 @@ jobs:
                     # Get version from build.gradle.kts
                     VERSION=$(grep '^version = ' build.gradle.kts | sed 's/version = "\(.*\)"/\1/')
                     echo "version=$VERSION" >> $GITHUB_OUTPUT
-                    
+
                     # Determine image tags based on trigger type
                     if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
                       # For version tags (e.g., v1.0.0), use semantic version
@@ -271,7 +271,7 @@ jobs:
                 run: |
                     TAGS="${{ steps.meta.outputs.tags }}"
                     IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
-                    
+
                     # Build and push each tag to GHCR
                     # Jib automatically handles multi-platform builds (amd64, arm64)
                     for TAG in "${TAG_ARRAY[@]}"; do
@@ -290,7 +290,7 @@ jobs:
                 run: |
                     TAGS="${{ steps.meta.outputs.tags }}"
                     IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
-                    
+
                     # Build and push each tag to Docker Hub
                     for TAG in "${TAG_ARRAY[@]}"; do
                       echo "Building and pushing ${{ secrets.DOCKERHUB_USERNAME }}/solr-mcp:$TAG"
@@ -313,7 +313,7 @@ jobs:
                     for TAG in "${TAG_ARRAY[@]}"; do
                       echo "- \`ghcr.io/${{ steps.repo.outputs.owner_lc }}/solr-mcp:$TAG\`" >> $GITHUB_STEP_SUMMARY
                     done
-                    
+
                     # Only show Docker Hub section if secrets are configured
                     if [[ "${{ secrets.DOCKERHUB_USERNAME }}" != "" ]]; then
                       echo "" >> $GITHUB_STEP_SUMMARY
