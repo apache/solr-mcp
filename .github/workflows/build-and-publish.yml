@@ -33,8 +33,8 @@
 #
 # Published Images:
 # ----------------
-# - GitHub Container Registry: ghcr.io/OWNER/solr-mcp-server:TAG
-# - Docker Hub: DOCKERHUB_USERNAME/solr-mcp-server:TAG
+# - GitHub Container Registry: ghcr.io/OWNER/solr-mcp:TAG
+# - Docker Hub: DOCKERHUB_USERNAME/solr-mcp:TAG
 #
 # Image Tagging Strategy:
 # ----------------------
@@ -114,8 +114,8 @@ jobs:
             -   name: Upload JAR artifact
                 uses: actions/upload-artifact@v4
                 with:
-                    name: solr-mcp-server-jar
-                    path: build/libs/solr-mcp-server-*.jar
+                    name: solr-mcp-jar
+                    path: build/libs/solr-mcp-*.jar
                     retention-days: 7
 
             # Upload JUnit test results
@@ -275,9 +275,9 @@ jobs:
                     # Build and push each tag to GHCR
                     # Jib automatically handles multi-platform builds (amd64, arm64)
                     for TAG in "${TAG_ARRAY[@]}"; do
-                      echo "Building and pushing ghcr.io/${{ steps.repo.outputs.owner_lc }}/solr-mcp-server:$TAG"
+                      echo "Building and pushing ghcr.io/${{ steps.repo.outputs.owner_lc }}/solr-mcp:$TAG"
                       ./gradlew jib \
-                        -Djib.to.image=ghcr.io/${{ steps.repo.outputs.owner_lc }}/solr-mcp-server:$TAG \
+                        -Djib.to.image=ghcr.io/${{ steps.repo.outputs.owner_lc }}/solr-mcp:$TAG \
                         -Djib.to.auth.username=${{ github.actor }} \
                         -Djib.to.auth.password=${{ secrets.GITHUB_TOKEN }}
                     done
@@ -293,9 +293,9 @@ jobs:
                     
                     # Build and push each tag to Docker Hub
                     for TAG in "${TAG_ARRAY[@]}"; do
-                      echo "Building and pushing ${{ secrets.DOCKERHUB_USERNAME }}/solr-mcp-server:$TAG"
+                      echo "Building and pushing ${{ secrets.DOCKERHUB_USERNAME }}/solr-mcp:$TAG"
                       ./gradlew jib \
-                        -Djib.to.image=${{ secrets.DOCKERHUB_USERNAME }}/solr-mcp-server:$TAG \
+                        -Djib.to.image=${{ secrets.DOCKERHUB_USERNAME }}/solr-mcp:$TAG \
                         -Djib.to.auth.username=${{ secrets.DOCKERHUB_USERNAME }} \
                         -Djib.to.auth.password=${{ secrets.DOCKERHUB_TOKEN }}
                     done
@@ -311,7 +311,7 @@ jobs:
                     TAGS="${{ steps.meta.outputs.tags }}"
                     IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
                     for TAG in "${TAG_ARRAY[@]}"; do
-                      echo "- \`ghcr.io/${{ steps.repo.outputs.owner_lc }}/solr-mcp-server:$TAG\`" >> $GITHUB_STEP_SUMMARY
+                      echo "- \`ghcr.io/${{ steps.repo.outputs.owner_lc }}/solr-mcp:$TAG\`" >> $GITHUB_STEP_SUMMARY
                     done
                     
                     # Only show Docker Hub section if secrets are configured
@@ -319,6 +319,6 @@ jobs:
                       echo "" >> $GITHUB_STEP_SUMMARY
                       echo "#### Docker Hub" >> $GITHUB_STEP_SUMMARY
                       for TAG in "${TAG_ARRAY[@]}"; do
-                        echo "- \`${{ secrets.DOCKERHUB_USERNAME }}/solr-mcp-server:$TAG\`" >> $GITHUB_STEP_SUMMARY
+                        echo "- \`${{ secrets.DOCKERHUB_USERNAME }}/solr-mcp:$TAG\`" >> $GITHUB_STEP_SUMMARY
                       done
                     fi
