@@ -10,6 +10,10 @@ github:
     - java
     - mcp
 
+  features:
+    # Enable issue management
+    issues: true
+  
   enabled_merge_buttons:
     squash: true
     merge:  false
@@ -18,6 +22,8 @@ github:
   # TODO: Add to this list for each new minor release
   protected_branches:
     main: {}
+    
+  del_branch_on_merge: tr
 
   protected_tags:
     - "releases/*"
