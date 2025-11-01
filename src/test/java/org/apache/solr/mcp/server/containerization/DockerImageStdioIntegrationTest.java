@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.solr.mcp.server;
+package org.apache.solr.mcp.server.containerization;
 
+import org.apache.solr.mcp.server.BuildInfoReader;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -25,35 +26,26 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.SolrContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
-import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Integration test for the Docker image produced by Jib running in HTTP mode (streamable HTTP).
+ * Integration test for the Docker image produced by Jib running in STDIO mode.
  *
  * <p>This test verifies that the Docker image built by Jib:
  *
  * <ul>
- *   <li>Starts successfully without errors in HTTP mode
+ *   <li>Starts successfully without errors in STDIO mode
  *   <li>Runs the Spring Boot MCP server application correctly
- *   <li>Exposes HTTP endpoint on port 8080
- *   <li>Responds to HTTP requests
+ *   <li>Doesn't crash during initial startup period
  *   <li>Can connect to an external Solr instance
  * </ul>
  *
@@ -63,16 +55,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * ./gradlew jibDockerBuild
  * }</pre>
  *
- * <p>This will create the image: {@code solr-mcp:0.0.1-SNAPSHOT}
+ * <p>The image name and version are read from {@code META-INF/build-info.properties}
  *
  * <p><strong>Test Architecture:</strong>
  *
  * <ol>
  *   <li>Creates a shared Docker network for inter-container communication
  *   <li>Starts a Solr container on the network
- *   <li>Starts the MCP server Docker image in HTTP mode with connection to Solr
- *   <li>Verifies the container starts and HTTP endpoint is accessible
- *   <li>Validates HTTP responses and container health
+ *   <li>Starts the MCP server Docker image in STDIO mode with connection to Solr
+ *   <li>Verifies the container starts and remains stable
+ *   <li>Validates container health over time
  * </ol>
  *
  * <p><strong>Note:</strong> This test is tagged with "docker-integration" and is designed to run
@@ -80,15 +72,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @Testcontainers
 @Tag("docker-integration")
-class DockerImageHttpIntegrationTest {
+class DockerImageStdioIntegrationTest {
 
     private static final Logger log =
-            LoggerFactory.getLogger(DockerImageHttpIntegrationTest.class);
+            LoggerFactory.getLogger(DockerImageStdioIntegrationTest.class);
 
-    // Docker image name and tag from build.gradle.kts
-    private static final String DOCKER_IMAGE = "solr-mcp:0.0.1-SNAPSHOT";
+    // Docker image name and tag from build-info.properties
+    private static final String DOCKER_IMAGE = BuildInfoReader.getDockerImageName();
     private static final String SOLR_IMAGE = "solr:9.9-slim";
-    private static final int HTTP_PORT = 8080;
 
     // Network for container communication
     private static final Network network = Network.newNetwork();
@@ -107,38 +98,29 @@ class DockerImageHttpIntegrationTest {
                     .withLogConsumer(new Slf4jLogConsumer(log).withPrefix("SOLR"));
 
     // MCP Server container (the image we're testing)
-    // Note: In HTTP mode, the application exposes a web server on port 8080
+    // Note: In STDIO mode, the application doesn't produce logs to stdout that we can wait for,
+    // so we use a simple startup delay and then verify the container is running
     @Container
     private static final GenericContainer<?> mcpServerContainer =
             new GenericContainer<>(DockerImageName.parse(DOCKER_IMAGE))
                     .withNetwork(network)
                     .withEnv("SOLR_URL", "http://solr:8983/solr/")
                     .withEnv("SPRING_DOCKER_COMPOSE_ENABLED", "false")
-                    .withEnv("PROFILES", "http")
-                    .withExposedPorts(HTTP_PORT)
-                    .withLogConsumer(new Slf4jLogConsumer(log).withPrefix("MCP-SERVER-HTTP"))
-                    // Wait for HTTP endpoint to be ready
-                    .waitingFor(
-                            Wait.forHttp("/actuator/health")
-                                    .forPort(HTTP_PORT)
-                                    .withStartupTimeout(Duration.ofSeconds(60)));
-
-    private static HttpClient httpClient;
-    private static String baseUrl;
+                    .withLogConsumer(new Slf4jLogConsumer(log).withPrefix("MCP-SERVER"))
+                    // Give the application time to start (STDIO mode doesn't produce logs to wait
+                    // for)
+                    .withStartupTimeout(Duration.ofSeconds(60));
 
     @BeforeAll
-    static void setup() {
+    static void setup() throws InterruptedException {
         log.info("Solr container started. Internal URL: http://solr:8983/solr/");
-        log.info("MCP Server container started in HTTP mode");
+        log.info("MCP Server container starting. Waiting for initialization...");
 
-        // Initialize HTTP client
-        httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+        // Give the MCP server a few seconds to initialize
+        // In STDIO mode, the app runs but doesn't produce logs we can monitor
+        Thread.sleep(5000);
 
-        // Get the mapped port for accessing the container from the host
-        Integer mappedPort = mcpServerContainer.getMappedPort(HTTP_PORT);
-        baseUrl = "http://localhost:" + mappedPort;
-
-        log.info("MCP Server HTTP endpoint available at: {}", baseUrl);
+        log.info("Initialization wait complete. Beginning tests.");
     }
 
     @Test
@@ -185,27 +167,11 @@ class DockerImageHttpIntegrationTest {
                 logs.contains("fatal error") || logs.contains("JVM crash"),
                 "Logs should not contain JVM crash messages");
 
+        assertFalse(
+                logs.contains("exec format error"),
+                "Logs should not contain platform compatibility errors");
+
         log.info("No critical errors found in container logs");
-    }
-
-    @Test
-    void testHttpEndpointResponds() throws IOException, InterruptedException {
-        // Test that the HTTP endpoint is accessible
-        HttpRequest request =
-                HttpRequest.newBuilder()
-                        .uri(URI.create(baseUrl + "/actuator/health"))
-                        .timeout(Duration.ofSeconds(10))
-                        .GET()
-                        .build();
-
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-        assertEquals(200, response.statusCode(), "Health endpoint should return 200 OK");
-        assertTrue(
-                response.body().contains("UP") || response.body().contains("\"status\""),
-                "Health endpoint should return UP status or status field");
-
-        log.info("HTTP endpoint responded successfully with status: {}", response.statusCode());
     }
 
     @Test
@@ -222,27 +188,5 @@ class DockerImageHttpIntegrationTest {
                 "Logs should not contain unknown host exceptions");
 
         log.info("Container can connect to Solr without errors");
-    }
-
-    @Test
-    void testHttpModeConfiguration() {
-        String logs = mcpServerContainer.getLogs();
-
-        // Verify HTTP mode is active by checking for typical Spring Boot web server logs
-        assertTrue(
-                logs.contains("Tomcat started on port") || logs.contains("Netty started on port"),
-                "Logs should indicate web server started on a port");
-
-        log.info("HTTP mode configuration verified");
-    }
-
-    @Test
-    void testPortExposure() {
-        // Verify the port is exposed and mapped
-        Integer mappedPort = mcpServerContainer.getMappedPort(HTTP_PORT);
-        assertNotNull(mappedPort, "HTTP port should be exposed and mapped");
-        assertTrue(mappedPort > 0, "Mapped port should be a valid port number");
-
-        log.info("Port {} is properly exposed and mapped to {}", HTTP_PORT, mappedPort);
     }
 }

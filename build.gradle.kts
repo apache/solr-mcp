@@ -258,16 +258,11 @@ tasks.register<Test>("dockerIntegrationTest") {
 //    ./gradlew jibDockerBuild
 //    Creates image: solr-mcp:0.0.1-SNAPSHOT
 //
-// 2. Build to local tar file (no Docker required):
-//    ./gradlew jibBuildTar
-//    Creates: build/jib-image.tar
-//    Load with: docker load < build/jib-image.tar
-//
-// 3. Push to Docker Hub (requires authentication):
+// 2. Push to Docker Hub (requires authentication):
 //    docker login
 //    ./gradlew jib -Djib.to.image=dockerhub-username/solr-mcp:0.0.1-SNAPSHOT
 //
-// 4. Push to GitHub Container Registry (requires authentication):
+// 3. Push to GitHub Container Registry (requires authentication):
 //    echo $GITHUB_TOKEN | docker login ghcr.io -u GITHUB_USERNAME --password-stdin
 //    ./gradlew jib -Djib.to.image=ghcr.io/github-username/solr-mcp:0.0.1-SNAPSHOT
 //
