@@ -33,17 +33,16 @@ This project uses Gradle with version catalogs for dependency management. All de
 
 ### Build Outputs
 
-The build produces two JAR files in `build/libs/`:
+The build produces an executable JAR in `build/libs/`:
 
-- `solr-mcp-0.0.1-SNAPSHOT.jar` - Executable JAR with all dependencies (fat JAR)
-- `solr-mcp-0.0.1-SNAPSHOT-plain.jar` - Plain JAR without dependencies
+- `solr-mcp-0.0.1-SNAPSHOT.jar` — Spring Boot executable (fat) JAR
 
 ## Running Locally
 
 ### Start Solr
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 This starts a Solr instance in SolrCloud mode with ZooKeeper and creates two sample collections:
@@ -278,7 +277,7 @@ Standard debugging works normally:
 1. Update `application.properties` for defaults
 2. Update profile-specific properties as needed
 3. Update `SolrConfigurationProperties` if adding new properties
-4. Document in README
+4. Document changes in docs/ (e.g., DEVELOPMENT.md or DEPLOYMENT.md) and link from README
 
 ## Performance Testing
 
@@ -308,13 +307,13 @@ Analyze with Java Mission Control.
 ## Continuous Integration
 
 The project uses GitHub Actions for CI/CD. See:
-- `.github/workflows/build.yml` - Build and test
-- `.github/workflows/build-and-publish.yml` - Docker image publishing
-- `.github/workflows/publish-mcp.yml` - MCP Registry publishing
+
+- `.github/workflows/build.yml` - Build, test, and SonarQube analysis
+- `.github/workflows/publish-mcp.yml` - Publish to the MCP Registry on version tags
 
 Local CI simulation:
 
 ```bash
-# Run what CI runs
-./gradlew clean build spotlessCheck dockerIntegrationTest
+# Approximate what CI runs (minus Sonar)
+./gradlew clean build spotlessCheck
 ```

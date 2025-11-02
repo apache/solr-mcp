@@ -94,31 +94,27 @@ docker run -i --rm \
 
 ## GitHub Actions CI/CD
 
-### Automated Docker Publishing
+### Workflows
 
-The project includes GitHub Actions workflows for automated builds and publishing.
+- `.github/workflows/build.yml` — Build, test, and SonarQube analysis
+- `.github/workflows/publish-mcp.yml` — Publish to the Model Context Protocol Registry on version tags
 
-#### Build and Publish Docker Images
+### Docker image publishing
 
-`.github/workflows/build-and-publish.yml` automatically:
+Automated Docker image publishing is not configured in this repository.
+To publish images, use Jib from your local machine or set up your own workflow:
 
-**Triggers:**
-- Push to `main` branch → Build and publish with `version-SHA` and `latest` tags
-- Version tags (e.g., `v1.0.0`) → Build and publish with version number and `latest` tags
-- Pull requests → Build and test only (no publishing)
-
-**Published to:**
-- GitHub Container Registry: `ghcr.io/OWNER/solr-mcp:TAG`
-- Docker Hub: `DOCKERHUB_USERNAME/solr-mcp:TAG` (requires secrets)
-
-**Setup for Docker Hub:**
-
-1. Go to repository Settings → Secrets and variables → Actions
-2. Add secrets:
-   - `DOCKERHUB_USERNAME`: Your Docker Hub username
-   - `DOCKERHUB_TOKEN`: Access token from https://hub.docker.com/settings/security
-
-GitHub Container Registry works automatically using `GITHUB_TOKEN`.
+- Docker Hub:
+  ```bash
+  docker login
+  ./gradlew jib -Djib.to.image=DOCKERHUB_USERNAME/solr-mcp:0.0.1-SNAPSHOT
+  ```
+- GitHub Container Registry (GHCR):
+  ```bash
+  export GITHUB_TOKEN=YOUR_GITHUB_TOKEN
+  echo $GITHUB_TOKEN | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
+  ./gradlew jib -Djib.to.image=ghcr.io/YOUR_GITHUB_USERNAME/solr-mcp:0.0.1-SNAPSHOT
+  ```
 
 ### MCP Registry Publishing
 
@@ -238,7 +234,7 @@ systemProp.DOCKER_EXECUTABLE=/custom/path/to/docker
 
 ### Using Docker Compose
 
-Example `docker-compose.yml`:
+Example `compose.yaml`:
 
 ```yaml
 version: '3.8'
@@ -346,7 +342,7 @@ curl http://localhost:8080/actuator/info
 
 ### Docker Health Check
 
-Add to Dockerfile or docker-compose.yml:
+Add to Dockerfile or compose.yaml:
 
 ```yaml
 healthcheck:

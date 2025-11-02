@@ -18,11 +18,11 @@ src/main/java/org/apache/solr/mcp/server/
 ├── indexing/                           # Document indexing functionality
 │   ├── IndexingService.java           # MCP tool for indexing documents
 │   └── documentcreator/               # Document format parsers
-│       ├── IndexingDocumentCreator.java    # Interface for document creators
-│       ├── JsonDocumentCreator.java        # JSON document parser
-│       ├── CsvDocumentCreator.java         # CSV document parser
-│       ├── XmlDocumentCreator.java         # XML document parser
-│       ├── SolrDocumentCreator.java        # Factory for document creators
+│       ├── IndexingDocumentCreator.java    # Orchestrator that delegates to format-specific creators
+│       ├── JsonDocumentCreator.java        # JSON document parser (implements SolrDocumentCreator)
+│       ├── CsvDocumentCreator.java         # CSV document parser (implements SolrDocumentCreator)
+│       ├── XmlDocumentCreator.java         # XML document parser (implements SolrDocumentCreator)
+│       ├── SolrDocumentCreator.java        # Common interface for document creators
 │       ├── FieldNameSanitizer.java         # Field name sanitization utility
 │       └── DocumentProcessingException.java # Indexing exceptions
 └── metadata/                           # Collection management functionality
@@ -57,15 +57,15 @@ Strategy pattern implementation for parsing different document formats:
 
 - Automatically sanitizes field names to comply with Solr schema requirements
 - Supports nested JSON structures and multi-valued fields
-- Factory pattern for selecting appropriate creator based on content type
+- Delegation via service composition (IndexingDocumentCreator) to the appropriate format-specific creator
 
 ### DTOs
 
-Java records for immutable data transfer objects:
+Plain Java classes (POJOs) used as data transfer objects:
 
-- Replaced Lombok to reduce dependencies
-- Type-safe, immutable data structures
-- Clean serialization/deserialization
+- No Lombok dependency; simple, explicit types
+- Designed for straightforward serialization/deserialization
+- Favor clarity; immutability can be introduced where it adds value
 
 ## Design Decisions
 
@@ -109,7 +109,7 @@ The document creator pattern allows for:
 - **Extensibility**: Easy to add new format parsers
 - **Testability**: Each creator can be tested independently
 - **Field Sanitization**: Automatic conversion of field names to Solr-compatible format
-- **Type Detection**: Automatic format detection from content
+- **Explicit Format Selection**: Separate methods for JSON/CSV/XML (no automatic detection)
 
 ### Error Handling
 
@@ -133,7 +133,8 @@ The document creator pattern allows for:
 ```
 src/test/java/org/apache/solr/mcp/server/
 ├── McpToolRegistrationTest.java       # MCP tool registration tests
-├── SampleClient.java                   # Example MCP client
+├── BuildInfoReader.java               # Test utility for build metadata
+├── SampleClient.java                  # Example MCP client
 ├── search/
 │   ├── SearchServiceTest.java         # Unit tests
 │   └── SearchServiceDirectTest.java   # Integration tests
@@ -149,8 +150,7 @@ src/test/java/org/apache/solr/mcp/server/
 │   └── SchemaServiceIntegrationTest.java
 └── containerization/
     ├── DockerImageStdioIntegrationTest.java
-    ├── DockerImageHttpIntegrationTest.java
-    └── BuildInfoReader.java          # Test utility for build metadata
+    └── DockerImageHttpIntegrationTest.java
 ```
 
 ## Dependency Management

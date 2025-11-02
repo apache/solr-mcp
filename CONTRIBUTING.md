@@ -20,7 +20,7 @@ Thank you for your interest in contributing to the Solr MCP Server! This documen
 
 2. **Start Solr**
    ```bash
-   docker-compose up -d
+   docker compose up -d
    ```
 
 3. **Build the project**
@@ -191,7 +191,7 @@ public String myTool(
 
 ### Project Structure
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed project structure and design decisions.
+See [docs/ARCHITECTURE.md](dev-docs/ARCHITECTURE.md) for detailed project structure and design decisions.
 
 ### Dependencies
 

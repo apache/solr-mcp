@@ -15,7 +15,7 @@ Common issues and solutions when working with the Solr MCP Server.
 
 1. **Verify Solr is running**
    ```bash
-   docker-compose ps
+   docker compose ps
    # or
    curl http://localhost:8983/solr/admin/info/system
    ```
@@ -55,7 +55,7 @@ Common issues and solutions when working with the Solr MCP Server.
 
 2. **Create missing collection**
    ```bash
-   docker-compose up -d  # Creates sample collections
+   docker compose up -d  # Creates sample collections
    # or manually:
    curl "http://localhost:8983/solr/admin/collections?action=CREATE&name=books&numShards=1"
    ```
@@ -214,7 +214,7 @@ Jib automatically builds for the local platform or the first specified platform.
 
 1. **Ensure Solr is running** for integration tests
    ```bash
-   docker-compose up -d
+   docker compose up -d
    ```
 
 2. **Check Docker is available** for Docker integration tests
@@ -415,10 +415,10 @@ If you're still having issues:
 
 ```bash
 # Docker Compose
-docker-compose logs solr
+docker compose logs solr
 
 # Follow logs
-docker-compose logs -f solr
+docker compose logs -f solr
 ```
 
 ### Docker Logs
