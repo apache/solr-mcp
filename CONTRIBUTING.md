@@ -2,63 +2,23 @@
 
 Thank you for your interest in contributing to the Solr MCP Server! This document provides guidelines for contributing to the project.
 
-## Getting Started
+## Developer documentation
 
-### Prerequisites
+To avoid duplication, the environment setup, build/run/test workflows, and detailed developer guides live in the dev-docs folder:
 
-- Java 25 or higher
-- Docker and Docker Compose (for running Solr)
-- Gradle 9.1.0+ (wrapper included)
+- Development Guide (build, run, test, IDE, CI): dev-docs/DEVELOPMENT.md
+- Architecture: dev-docs/ARCHITECTURE.md
+- Deployment (Docker, HTTP vs STDIO): dev-docs/DEPLOYMENT.md
+- Troubleshooting: dev-docs/TROUBLESHOOTING.md
 
-### Development Setup
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/apache/solr-mcp.git
-   cd solr-mcp
-   ```
-
-2. **Start Solr**
-   ```bash
-   docker compose up -d
-   ```
-
-3. **Build the project**
-   ```bash
-   ./gradlew build
-   ```
-
-4. **Run tests**
-   ```bash
-   ./gradlew test
-   ```
-
-5. **Run the server locally**
-   ```bash
-   # STDIO mode
-   ./gradlew bootRun
-
-   # HTTP mode
-   ./gradlew bootRun --args='--spring.profiles.active=http'
-   ```
+If you're ready to contribute code, see Submitting Changes below.
 
 ## Code Style and Quality
 
-This project uses [Spotless](https://github.com/diffplug/spotless) for code formatting and style enforcement.
+We use Spotless for code formatting and style enforcement. CI enforces `spotlessCheck` on pull requests.
 
-### Format your code
-
-Before committing, ensure your code is properly formatted:
-
-```bash
-# Check formatting
-./gradlew spotlessCheck
-
-# Apply formatting automatically
-./gradlew spotlessApply
-```
-
-**Important**: All code must pass `spotlessCheck` before being merged. The CI pipeline will reject PRs with formatting issues.
+- Commands and details: dev-docs/DEVELOPMENT.md#common-gradle-tasks
+- Build system overview: dev-docs/DEVELOPMENT.md#build-system
 
 ### Coding Standards
 
@@ -70,31 +30,13 @@ Before committing, ensure your code is properly formatted:
 
 ## Testing
 
-### Running Tests
+To keep this document concise, please see the Development Guide for all testing workflows and tips:
 
-```bash
-# Run all tests
-./gradlew test
-
-# Run specific test class
-./gradlew test --tests SearchServiceTest
-
-# Run Docker integration tests
-./gradlew dockerIntegrationTest
-```
-
-### Test Coverage
-
-- Aim for >80% test coverage for new code
-- Include both unit tests and integration tests
-- Test edge cases and error conditions
-
-### Writing Tests
-
-- Use JUnit 5 for unit tests
-- Use Testcontainers for integration tests
-- Mock external dependencies when appropriate
-- Follow the Arrange-Act-Assert pattern
+- Testing overview: dev-docs/DEVELOPMENT.md#testing
+- Unit tests: dev-docs/DEVELOPMENT.md#unit-tests
+- Integration tests: dev-docs/DEVELOPMENT.md#integration-tests
+- Docker image tests: dev-docs/DEVELOPMENT.md#docker-integration-tests
+- Coverage reports: dev-docs/DEVELOPMENT.md#testing
 
 ## Submitting Changes
 
@@ -165,46 +107,15 @@ docs: update installation instructions
 test: add integration tests for collection service
 ```
 
-## Development Guidelines
+## Development workflow references
 
-### Adding New MCP Tools
+For implementation details and examples, see the Development Guide:
 
-1. Create a service class in the appropriate package
-2. Annotate methods with `@McpTool`
-3. Add proper parameter validation
-4. Include comprehensive tests
-5. Update documentation
-
-Example:
-```java
-@McpTool(
-    name = "my_tool",
-    description = "Description of what this tool does"
-)
-public String myTool(
-    @McpToolParameter(description = "Parameter description")
-    String param
-) {
-    // Implementation
-}
-```
-
-### Project Structure
-
-See [docs/ARCHITECTURE.md](dev-docs/ARCHITECTURE.md) for detailed project structure and design decisions.
-
-### Dependencies
-
-- All dependencies are managed via Gradle version catalogs in `gradle/libs.versions.toml`
-- Discuss major dependency additions in an issue before implementing
-- Keep dependencies up to date
-
-## Documentation
-
-- Update README.md for user-facing changes
-- Update docs/ for developer-facing changes
-- Add JavaDoc for public APIs
-- Include code examples where helpful
+- Adding new MCP tools: dev-docs/DEVELOPMENT.md#adding-a-new-mcp-tool
+- Adding a new document format: dev-docs/DEVELOPMENT.md#adding-a-new-document-format
+- Project structure and architecture: dev-docs/ARCHITECTURE.md
+- Dependencies and version catalogs: dev-docs/DEVELOPMENT.md#build-system
+- Documentation practices: dev-docs/DEVELOPMENT.md#modifying-configuration
 
 ## Questions or Need Help?
 

@@ -308,12 +308,12 @@ Analyze with Java Mission Control.
 
 The project uses GitHub Actions for CI/CD. See:
 
-- `.github/workflows/build.yml` - Build, test, and SonarQube analysis
+- `.github/workflows/build-and-publish.yml` - Build, test, and publish Docker images
 - `.github/workflows/publish-mcp.yml` - Publish to the MCP Registry on version tags
 
 Local CI simulation:
 
 ```bash
-# Approximate what CI runs (minus Sonar)
+# Approximate what CI runs
 ./gradlew clean build spotlessCheck
 ```

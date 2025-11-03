@@ -96,7 +96,7 @@ docker run -i --rm \
 
 ### Workflows
 
-- `.github/workflows/build.yml` — Build, test, and SonarQube analysis
+- `.github/workflows/build-and-publish.yml` — Build, test, and publish Docker images
 - `.github/workflows/publish-mcp.yml` — Publish to the Model Context Protocol Registry on version tags
 
 ### Docker image publishing
