@@ -258,16 +258,11 @@ tasks.register<Test>("dockerIntegrationTest") {
 //    ./gradlew jibDockerBuild
 //    Creates image: solr-mcp:0.0.1-SNAPSHOT
 //
-// 2. Build to local tar file (no Docker required):
-//    ./gradlew jibBuildTar
-//    Creates: build/jib-image.tar
-//    Load with: docker load < build/jib-image.tar
-//
-// 3. Push to Docker Hub (requires authentication):
+// 2. Push to Docker Hub (requires authentication):
 //    docker login
 //    ./gradlew jib -Djib.to.image=dockerhub-username/solr-mcp:0.0.1-SNAPSHOT
 //
-// 4. Push to GitHub Container Registry (requires authentication):
+// 3. Push to GitHub Container Registry (requires authentication):
 //    echo $GITHUB_TOKEN | docker login ghcr.io -u GITHUB_USERNAME --password-stdin
 //    ./gradlew jib -Djib.to.image=ghcr.io/github-username/solr-mcp:0.0.1-SNAPSHOT
 //
@@ -286,6 +281,20 @@ tasks.register<Test>("dockerIntegrationTest") {
 //   jib.to.auth.username=YOUR_USERNAME
 //   jib.to.auth.password=YOUR_TOKEN_OR_PASSWORD
 //
+// Docker Executable Configuration:
+// ---------------------------------
+// Jib needs to find the Docker executable to build images. By default, it uses these paths:
+// - macOS: /usr/local/bin/docker
+// - Linux: /usr/bin/docker
+// - Windows: C:\Program Files\Docker\Docker\resources\bin\docker.exe
+//
+// If Docker is installed in a different location, set the DOCKER_EXECUTABLE environment variable:
+//   export DOCKER_EXECUTABLE=/custom/path/to/docker
+//   ./gradlew jibDockerBuild
+//
+// Or in gradle.properties:
+//   systemProp.DOCKER_EXECUTABLE=/custom/path/to/docker
+//
 // Environment Variables:
 // ----------------------
 // The container is pre-configured with:
@@ -295,6 +304,22 @@ tasks.register<Test>("dockerIntegrationTest") {
 // These can be overridden at runtime:
 //   docker run -e SOLR_URL=http://custom-solr:8983/solr/ solr-mcp:0.0.1-SNAPSHOT
 jib {
+    // Configure Docker client executable path
+    // This ensures Jib can find Docker even if it's not in Gradle's PATH
+    // Can be overridden with environment variable: DOCKER_EXECUTABLE=/path/to/docker
+    dockerClient {
+        executable = System.getenv("DOCKER_EXECUTABLE") ?: when {
+            // macOS with Docker Desktop
+            org.gradle.internal.os.OperatingSystem.current().isMacOsX -> "/usr/local/bin/docker"
+            // Linux (most distributions)
+            org.gradle.internal.os.OperatingSystem.current().isLinux -> "/usr/bin/docker"
+            // Windows with Docker Desktop
+            org.gradle.internal.os.OperatingSystem.current().isWindows -> "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe"
+            // Fallback to PATH lookup
+            else -> "docker"
+        }
+    }
+
     from {
         // Use Eclipse Temurin JRE 25 as the base image
         // Temurin is the open-source build of OpenJDK from Adoptium
@@ -359,6 +384,8 @@ jib {
                 "org.opencontainers.image.version" to version.toString(),
                 "org.opencontainers.image.vendor" to "Apache Software Foundation",
                 "org.opencontainers.image.licenses" to "Apache-2.0",
+                // MCP Registry annotation for server discovery
+                "io.modelcontextprotocol.server.name" to "io.github.apache/solr-mcp"
             ),
         )
     }

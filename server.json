@@ -1,0 +1,54 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.apache/solr-mcp",
+  "description": "MCP server for Apache Solr providing search, indexing, schema and collection management",
+  "repository": {
+    "url": "https://github.com/apache/solr-mcp",
+    "source": "github"
+  },
+  "version": "0.0.1",
+  "packages": [
+    {
+      "registryType": "docker",
+      "identifier": "ghcr.io/apache/solr-mcp-server",
+      "version": "0.0.1-SNAPSHOT",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "URL of the Solr instance to connect to (default: http://localhost:8983/solr/)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "SOLR_URL"
+        }
+      ]
+    },
+    {
+      "registryType": "docker",
+      "identifier": "ghcr.io/apache/solr-mcp-server",
+      "version": "0.0.1-SNAPSHOT",
+      "transport": {
+        "type": "streamable-http",
+        "url": "http://localhost:8080/mcp"
+      },
+      "environmentVariables": [
+        {
+          "description": "URL of the Solr instance to connect to (default: http://localhost:8983/solr/)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "SOLR_URL"
+        },
+        {
+          "description": "Enable HTTP mode (set to 'http' for streamable-http transport)",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": false,
+          "name": "PROFILES"
+        }
+      ]
+    }
+  ]
+}
