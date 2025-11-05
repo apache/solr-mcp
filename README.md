@@ -21,21 +21,35 @@ A Spring AI Model Context Protocol (MCP) server that provides tools for interact
   docker compose up -d
   ```
 - Run the server:
-    - Option A (JAR):
-      ```bash
-      ./gradlew build
-      java -jar build/libs/solr-mcp-0.0.1-SNAPSHOT.jar
-      ```
-    - Option B (Docker):
-      ```bash
-      docker run -i --rm ghcr.io/apache/solr-mcp:latest
-      ```
+    - **STDIO mode (default)**:
+        - JAR:
+          ```bash
+          ./gradlew build
+          java -jar build/libs/solr-mcp-0.0.1-SNAPSHOT.jar
+          ```
+        - Docker:
+          ```bash
+          docker run -i --rm ghcr.io/apache/solr-mcp:latest
+          ```
+    - **HTTP mode**:
+        - JAR:
+          ```bash
+          PROFILES=http java -jar build/libs/solr-mcp-0.0.1-SNAPSHOT.jar
+          ```
+        - Docker:
+          ```bash
+          docker run -p 8080:8080 --rm -e PROFILES=http ghcr.io/apache/solr-mcp:latest
+          ```
 
-For more ways to run (HTTP mode, custom SOLR_URL, Linux host networking) see the Deployment Guide: docs/DEPLOYMENT.md
+For more options (custom SOLR_URL, Linux host networking) see the Deployment Guide: docs/DEPLOYMENT.md
 
 ### Claude Desktop
 
 Add this to your Claude Desktop config (macOS path shown); then restart Claude.
+
+**STDIO mode (default)**
+
+Using Docker:
 ```json
 {
   "mcpServers": {
@@ -45,6 +59,70 @@ Add this to your Claude Desktop config (macOS path shown); then restart Claude.
         "env": {
             "SOLR_URL": "http://localhost:8983/solr/"
         }
+    }
+  }
+}
+```
+
+Using JAR:
+
+```json
+{
+    "mcpServers": {
+        "solr-mcp": {
+            "command": "java",
+            "args": [
+                "-jar",
+                "/absolute/path/to/solr-mcp-0.0.1-SNAPSHOT.jar"
+            ],
+            "env": {
+                "SOLR_URL": "http://localhost:8983/solr/"
+            }
+        }
+    }
+}
+```
+
+**HTTP mode**
+
+Using Docker:
+
+```json
+{
+    "mcpServers": {
+        "solr-mcp": {
+            "command": "docker",
+            "args": [
+                "run",
+                "-p",
+                "8080:8080",
+                "--rm",
+                "ghcr.io/apache/solr-mcp:latest"
+            ],
+            "env": {
+                "PROFILES": "http",
+                "SOLR_URL": "http://localhost:8983/solr/"
+            }
+        }
+    }
+}
+```
+
+Using JAR:
+
+```json
+{
+    "mcpServers": {
+        "solr-mcp": {
+            "command": "java",
+            "args": [
+                "-jar",
+                "/absolute/path/to/solr-mcp-0.0.1-SNAPSHOT.jar"
+            ],
+            "env": {
+                "PROFILES": "http",
+                "SOLR_URL": "http://localhost:8983/solr/"
+            }
     }
   }
 }
