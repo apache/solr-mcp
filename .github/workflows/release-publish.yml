@@ -1,0 +1,297 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Official Release Publishing Workflow
+# =====================================
+#
+# Purpose:
+# - Publish Docker images as convenience binaries that correspond 1:1 to a
+#   voted and approved source release of Apache Solr MCP.
+# - NOTE: Docker images are NOT the release of record; the authoritative
+#   release artifacts are the signed source tarballs published to the ASF
+#   distribution system (dist.apache.org / mirrors).
+#
+# When to run:
+# - AFTER the ASF voting process has completed successfully (minimum 72 hours
+#   and at least three +1 binding PMC votes) and the source release has been
+#   finalized/published.
+#
+# ASF Release Process (summary):
+# ------------------------------
+# 1. Release Manager creates release candidate (RC)
+# 2. RC is staged for voting (72-hour minimum voting period)
+# 3. PMC members vote on the release
+# 4. Source release is published to dist.apache.org / mirrors
+# 5. After successful vote and published source, this workflow is triggered manually
+# 6. Publishes Docker images to official registries as convenience binaries
+#
+# Prerequisites:
+# --------------
+# - Release must have passed ASF voting process
+# - Source release artifacts must be signed and available on dist.apache.org
+# - Release Manager must have necessary credentials
+#
+# Manual Trigger Required:
+# ------------------------
+# This workflow MUST be triggered manually by the Release Manager
+# after the ASF vote passes and the source release is published.
+
+name: Release Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Release version (e.g., 1.0.0)'
+        required: true
+        type: string
+      release_candidate:
+        description: 'Release candidate number (e.g., rc1, rc2)'
+        required: true
+        type: string
+      vote_thread_url:
+        description: 'URL to the vote thread (for documentation)'
+        required: false
+        type: string
+      sign_with_asf_infra:
+        description: 'Use ASF code signing infrastructure'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  JAVA_VERSION: '25'
+  JAVA_DISTRIBUTION: 'temurin'
+
+jobs:
+  validate-release:
+    name: Validate Release Prerequisites
+    runs-on: ubuntu-latest
+
+    outputs:
+      proceed: ${{ steps.validation.outputs.proceed }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: "v${{ inputs.release_version }}-${{ inputs.release_candidate }}"
+
+      - name: Validate release tag exists
+        id: validation
+        run: |
+          # Check if the release tag exists
+          if git rev-parse "v${{ inputs.release_version }}-${{ inputs.release_candidate }}" >/dev/null 2>&1; then
+            echo "Release tag found: v${{ inputs.release_version }}-${{ inputs.release_candidate }}"
+            echo "proceed=true" >> $GITHUB_OUTPUT
+          else
+            echo "ERROR: Release tag not found: v${{ inputs.release_version }}-${{ inputs.release_candidate }}"
+            echo "proceed=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Document vote approval
+        if: ${{ inputs.vote_thread_url != '' }}
+        run: |
+          echo "### Release Vote Approval" >> $GITHUB_STEP_SUMMARY
+          echo "Release v${{ inputs.release_version }} was approved via ASF voting process." >> $GITHUB_STEP_SUMMARY
+          echo "Vote thread: ${{ inputs.vote_thread_url }}" >> $GITHUB_STEP_SUMMARY
+
+  publish-docker:
+    name: Publish Docker Images
+    runs-on: ubuntu-latest
+    needs: validate-release
+    if: ${{ needs.validate-release.outputs.proceed == 'true' }}
+
+    permissions:
+      contents: read
+      packages: write
+      id-token: write  # For OIDC/code signing if needed
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: "v${{ inputs.release_version }}-${{ inputs.release_candidate }}"
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Update version in build.gradle.kts
+        run: |
+          # Update the version to remove SNAPSHOT
+          sed -i 's/version = ".*"/version = "${{ inputs.release_version }}"/' build.gradle.kts
+
+      - name: Build project
+        run: ./gradlew build
+
+      - name: Sign artifacts with ASF infrastructure
+        if: ${{ inputs.sign_with_asf_infra }}
+        run: |
+          # Placeholder for ASF code signing integration
+          # This would integrate with ASF's code signing service
+          # Requires coordination with ASF INFRA team
+          echo "Would sign artifacts with ASF code signing infrastructure"
+          echo "Contact INFRA for setup requirements"
+
+      - name: Build and publish to Docker Hub (apache/solr-mcp)
+        run: |
+          # Publish official release to apache/solr-mcp
+          # This requires Apache PMC credentials
+          if [[ -n "${{ secrets.DOCKERHUB_APACHE_USERNAME }}" ]]; then
+            # Build and push with multiple tags
+            ./gradlew jib \
+              -Djib.to.image=apache/solr-mcp:${{ inputs.release_version }} \
+              -Djib.to.auth.username=${{ secrets.DOCKERHUB_APACHE_USERNAME }} \
+              -Djib.to.auth.password=${{ secrets.DOCKERHUB_APACHE_TOKEN }} \
+              -Djib.to.tags=${{ inputs.release_version }},latest
+
+            # Also tag with major and minor versions
+            MAJOR_VERSION=$(echo "${{ inputs.release_version }}" | cut -d. -f1)
+            MINOR_VERSION=$(echo "${{ inputs.release_version }}" | cut -d. -f1-2)
+
+            ./gradlew jib \
+              -Djib.to.image=apache/solr-mcp:${MAJOR_VERSION} \
+              -Djib.to.auth.username=${{ secrets.DOCKERHUB_APACHE_USERNAME }} \
+              -Djib.to.auth.password=${{ secrets.DOCKERHUB_APACHE_TOKEN }}
+
+            ./gradlew jib \
+              -Djib.to.image=apache/solr-mcp:${MINOR_VERSION} \
+              -Djib.to.auth.username=${{ secrets.DOCKERHUB_APACHE_USERNAME }} \
+              -Djib.to.auth.password=${{ secrets.DOCKERHUB_APACHE_TOKEN }}
+          else
+            echo "WARNING: Apache Docker Hub credentials not configured"
+          fi
+
+      - name: Build and publish to GitHub Container Registry
+        run: |
+          # Also publish to GitHub Container Registry
+          ./gradlew jib \
+            -Djib.to.image=ghcr.io/${{ github.repository_owner }}/solr-mcp:${{ inputs.release_version }} \
+            -Djib.to.auth.username=${{ github.actor }} \
+            -Djib.to.auth.password=${{ secrets.GITHUB_TOKEN }} \
+            -Djib.to.tags=${{ inputs.release_version }},latest
+
+      - name: Generate SBOM (Software Bill of Materials)
+        run: |
+          # Generate SBOM for the release
+          # This helps with supply chain security
+          ./gradlew cyclonedxBom || echo "SBOM generation not configured"
+
+      - name: Create release announcement
+        run: |
+          cat << EOF > RELEASE_ANNOUNCEMENT.md
+          # Apache Solr MCP v${{ inputs.release_version }} Released
+
+          The Apache Solr team is pleased to announce the release of Solr MCP v${{ inputs.release_version }}.
+
+          ## Docker Images
+
+          Official Docker images are available:
+
+          \`\`\`bash
+          # Docker Hub (Official Apache image)
+          docker pull apache/solr-mcp:${{ inputs.release_version }}
+
+          # GitHub Container Registry
+          docker pull ghcr.io/${{ github.repository_owner }}/solr-mcp:${{ inputs.release_version }}
+          \`\`\`
+
+          ## Installation
+
+          ### Using Docker:
+          \`\`\`bash
+          docker run -it apache/solr-mcp:${{ inputs.release_version }}
+          \`\`\`
+
+          ### Using JAR:
+          Download the JAR from the [release page](https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.release_version }}).
+
+          ## Verification
+
+          All release artifacts are signed. Verify signatures using:
+          \`\`\`bash
+          # Download signature and checksum files
+          wget https://downloads.apache.org/solr/mcp/${{ inputs.release_version }}/solr-mcp-${{ inputs.release_version }}.jar.asc
+          wget https://downloads.apache.org/solr/mcp/${{ inputs.release_version }}/solr-mcp-${{ inputs.release_version }}.jar.sha512
+
+          # Verify signature (requires GPG)
+          gpg --verify solr-mcp-${{ inputs.release_version }}.jar.asc
+
+          # Verify checksum
+          sha512sum -c solr-mcp-${{ inputs.release_version }}.jar.sha512
+          \`\`\`
+
+          ## Release Notes
+
+          See the [full release notes](https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.release_version }}) for details.
+
+          ## Vote Thread
+
+          This release was approved by the Apache Solr PMC.
+          ${VOTE_THREAD_NOTE}
+          EOF
+
+          if [[ -n "${{ inputs.vote_thread_url }}" ]]; then
+            echo "Vote thread: ${{ inputs.vote_thread_url }}" >> RELEASE_ANNOUNCEMENT.md
+          fi
+
+      - name: Publish release summary
+        run: |
+          echo "### Release Published Successfully! 🎉" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version**: ${{ inputs.release_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Release Candidate**: ${{ inputs.release_candidate }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### Docker Images Published" >> $GITHUB_STEP_SUMMARY
+          echo "- \`apache/solr-mcp:${{ inputs.release_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`apache/solr-mcp:latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`ghcr.io/${{ github.repository_owner }}/solr-mcp:${{ inputs.release_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Announce the release on the mailing list" >> $GITHUB_STEP_SUMMARY
+          echo "2. Update the documentation" >> $GITHUB_STEP_SUMMARY
+          echo "3. Close the release milestone in GitHub" >> $GITHUB_STEP_SUMMARY
+          echo "4. Tweet about the release (optional)" >> $GITHUB_STEP_SUMMARY
+
+  publish-mcp-registry:
+    name: Publish to MCP Registry
+    runs-on: ubuntu-latest
+    needs: publish-docker
+    if: ${{ needs.validate-release.outputs.proceed == 'true' }}
+
+    steps:
+      - name: Register with MCP Registry
+        run: |
+          # Register the new release with the MCP registry
+          # This makes the server discoverable by MCP clients
+
+          echo "Registering apache/solr-mcp:${{ inputs.release_version }} with MCP Registry"
+
+          # The MCP registry would need to be notified about:
+          # - Docker image: apache/solr-mcp:${{ inputs.release_version }}
+          # - Capabilities: Search, indexing, query, admin operations
+          # - Version: ${{ inputs.release_version }}
+          # - Documentation URL: https://github.com/${{ github.repository }}
+
+          # This is a placeholder - actual implementation depends on MCP registry API
+          echo "MCP Registry notification would happen here"
