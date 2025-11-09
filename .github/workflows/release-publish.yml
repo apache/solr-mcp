@@ -50,27 +50,37 @@
 
 name: Release Publish
 
+# Trigger this workflow manually from the GitHub UI and capture structured inputs
+# - We require the GA version (e.g., 1.0.0) and the RC tag suffix (e.g., rc1)
+# - Optional inputs help document the vote thread and enable experimental signing
 on:
   workflow_dispatch:
     inputs:
+        # Semantic version of the approved release (no -rc suffix)
       release_version:
         description: 'Release version (e.g., 1.0.0)'
         required: true
         type: string
+        # Which release candidate was approved (used to check out the exact tag)
       release_candidate:
         description: 'Release candidate number (e.g., rc1, rc2)'
         required: true
         type: string
+        # Link to the public ASF vote thread for traceability in the summary
       vote_thread_url:
         description: 'URL to the vote thread (for documentation)'
         required: false
         type: string
+        # If true, attempt to use ASF Infra code-signing (placeholder; requires coordination)
       sign_with_asf_infra:
         description: 'Use ASF code signing infrastructure'
         required: false
         type: boolean
         default: false
 
+# Global environment settings used across jobs
+# - JAVA_VERSION: version of JDK used to build the project
+# - JAVA_DISTRIBUTION: OpenJDK distribution to install via actions/setup-java
 env:
   JAVA_VERSION: '25'
   JAVA_DISTRIBUTION: 'temurin'
@@ -84,11 +94,14 @@ jobs:
       proceed: ${{ steps.validation.outputs.proceed }}
 
     steps:
+        # Step: Check out the exact RC tag that was approved (e.g., v1.0.0-rc1)
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           ref: "v${{ inputs.release_version }}-${{ inputs.release_candidate }}"
 
+        # Step: Validate that the supplied tag exists in the repo
+        # - Uses `git rev-parse` to resolve the tag; sets an output flag to gate downstream jobs
       - name: Validate release tag exists
         id: validation
         run: |
@@ -102,6 +115,7 @@ jobs:
             exit 1
           fi
 
+        # Optional: Document the vote approval in the Actions summary for traceability
       - name: Document vote approval
         if: ${{ inputs.vote_thread_url != '' }}
         run: |
@@ -138,7 +152,8 @@ jobs:
 
       - name: Update version in build.gradle.kts
         run: |
-          # Update the version to remove SNAPSHOT
+            # Ensure the Gradle project version matches the GA version (removes any -SNAPSHOT)
+            # This keeps image tags and any generated artifacts consistent with the voted release
           sed -i 's/version = ".*"/version = "${{ inputs.release_version }}"/' build.gradle.kts
 
       - name: Build project
@@ -274,24 +289,86 @@ jobs:
           echo "4. Tweet about the release (optional)" >> $GITHUB_STEP_SUMMARY
 
   publish-mcp-registry:
+      # Job: Publish to MCP Registry so MCP clients can discover the server version released above
+      # ----------------------------------------------------------------------------
+      # Purpose:
+      # - Use the official MCP Publisher CLI to publish this server's metadata to
+      #   the Model Context Protocol Registry.
+      # - Runs only after Docker images for the voted source release have been pushed.
+      #
+      # Why here (and not a separate workflow):
+      # - Keeps the post-vote release actions in one place, reducing the chance of
+      #   publishing registry entries that don't correspond to an approved release.
     name: Publish to MCP Registry
     runs-on: ubuntu-latest
-    needs: publish-docker
+    needs: publish-docker  # Wait for Docker images to be published successfully
     if: ${{ needs.validate-release.outputs.proceed == 'true' }}
 
+      # Permissions required for OIDC-based auth to the MCP Registry and read access
+    permissions:
+        id-token: write   # Required for GitHub OIDC login in mcp-publisher
+        contents: read    # Read repo files (e.g., server.json)
+
     steps:
-      - name: Register with MCP Registry
+        # Checkout the exact tag that was released so server.json matches the release
+        -   name: Checkout code
+            uses: actions/checkout@v4
+            with:
+                ref: "v${{ inputs.release_version }}-${{ inputs.release_candidate }}"
+
+        # Determine the semantic version to publish to MCP (no RC suffix)
+        -   name: Prepare version for MCP
+            id: mcp_version
+            run: |
+                # For MCP, we advertise the GA version (e.g., 1.2.3)
+                echo "version=${{ inputs.release_version }}" >> $GITHUB_OUTPUT
+
+        # Update server.json with the release version to ensure consistency
+        -   name: Update server.json version
+            run: |
+                VERSION="${{ steps.mcp_version.outputs.version }}"
+                # Update the top-level server version (e.g., 1.2.3)
+                jq --arg v "$VERSION" '.version = $v' server.json > server.json.tmp
+                # Update package version (uses -SNAPSHOT suffix for image/JAR alignment if applicable)
+                jq --arg v "$VERSION-SNAPSHOT" '.packages[0].version = $v' server.json.tmp > server.json
+                rm server.json.tmp
+                # Show the final server.json for auditing
+                cat server.json
+
+        # Download the MCP Publisher CLI from its latest GitHub release
+        -   name: Download MCP Publisher
+            run: |
+                curl -L https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher-linux-amd64.tar.gz | tar xz
+                chmod +x mcp-publisher
+                ./mcp-publisher --version
+
+        # Authenticate to the MCP Registry using GitHub OIDC (no static secrets)
+        -   name: Authenticate with MCP Registry (GitHub OIDC)
+            run: |
+                ./mcp-publisher login github-oidc
+
+        # Publish this server to the MCP Registry
+        -   name: Publish to MCP Registry
         run: |
-          # Register the new release with the MCP registry
-          # This makes the server discoverable by MCP clients
+            ./mcp-publisher publish
 
-          echo "Registering apache/solr-mcp:${{ inputs.release_version }} with MCP Registry"
+        # Verify publication by querying the public registry API
+        -   name: Verify publication
+            run: |
+                echo "Waiting 10 seconds for registry to update..."
+                sleep 10
+                echo "Querying registry for published server..."
+                curl "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.apache/solr-mcp" | jq .
 
-          # The MCP registry would need to be notified about:
-          # - Docker image: apache/solr-mcp:${{ inputs.release_version }}
-          # - Capabilities: Search, indexing, query, admin operations
-          # - Version: ${{ inputs.release_version }}
-          # - Documentation URL: https://github.com/${{ github.repository }}
-
-          # This is a placeholder - actual implementation depends on MCP registry API
-          echo "MCP Registry notification would happen here"
+        # Summarize MCP publication in the GitHub Actions job summary
+        -   name: Summary
+            run: |
+                echo "### MCP Server Published Successfully! :rocket:" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "**Server Name:** io.github.apache/solr-mcp" >> $GITHUB_STEP_SUMMARY
+                echo "**Version:** ${{ steps.mcp_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+                echo "**Docker Image:** apache/solr-mcp:${{ inputs.release_version }}" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "The server is now discoverable in the MCP Registry!" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "**Registry URL:** https://registry.modelcontextprotocol.io/v0/servers?search=io.github.apache/solr-mcp" >> $GITHUB_STEP_SUMMARY

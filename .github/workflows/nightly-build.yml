@@ -31,18 +31,25 @@
 
 name: Nightly Build
 
+# Triggers for the workflow
+# - schedule: runs automatically via cron at a fixed time (02:00 UTC daily)
+# - workflow_dispatch: allow maintainers to run the workflow manually and pass inputs
 on:
   schedule:
     # Run at 2 AM UTC every day
     - cron: '0 2 * * *'
   workflow_dispatch:  # Allow manual trigger
     inputs:
+        # Optional input to skip Docker publishing if you only want to build artifacts
       skip_docker:
         description: 'Skip Docker publishing'
         required: false
         type: boolean
         default: false
 
+# Environment variables used by steps below
+# - JAVA_VERSION: selects the JDK version used to build and run Gradle
+# - JAVA_DISTRIBUTION: selects the vendor (Temurin = Eclipse Adoptium)
 env:
   JAVA_VERSION: '25'
   JAVA_DISTRIBUTION: 'temurin'
@@ -52,6 +59,9 @@ jobs:
     name: Nightly Build and Publish
     runs-on: ubuntu-latest
 
+      # Permissions required by this job:
+      # - contents:write → needed to create GitHub pre-releases and upload assets
+      # - packages:write → needed when pushing container images to registries
     permissions:
       contents: write
       packages: write
