@@ -13,6 +13,50 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║                    CONTINUOUS DEPLOYMENT WORKFLOW                          ║
+# ║                           (Development Builds)                             ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# PURPOSE: Automated development builds and Docker image publishing for CI/CD
+#
+# WHEN TO USE:
+# -----------
+# ✅ Automatic on every merge to main
+# ✅ Testing pull requests (build + test only, no publish)
+# ✅ Development/testing Docker images
+# ❌ DO NOT use for official ASF releases (use release-publish.yml instead)
+#
+# COMPARISON WITH OTHER WORKFLOWS:
+# --------------------------------
+# build-and-publish.yml (THIS FILE):
+#   - Purpose: Development CI/CD
+#   - Trigger: Automatic (push/PR)
+#   - Docker Hub: Personal namespace
+#   - ASF Vote: Not required
+#   - Use for: Daily development work
+#
+# release-publish.yml:
+#   - Purpose: Official ASF releases
+#   - Trigger: Manual (after vote)
+#   - Docker Hub: apache/solr-mcp
+#   - ASF Vote: Required (72 hours)
+#   - Use for: Production releases
+#
+# nightly-build.yml:
+#   - Purpose: Nightly builds
+#   - Trigger: Scheduled (2 AM UTC)
+#   - Docker Hub: apache/solr-mcp-nightly
+#   - Use for: Latest unstable builds
+#
+# atr-release.yml:
+#   - Purpose: Future ATR automation
+#   - Trigger: Manual (after prerequisites)
+#   - Status: Blocked (needs automated signing)
+#   - Use for: When ATR is ready
+#
+# ────────────────────────────────────────────────────────────────────────────
+#
 # GitHub Actions Workflow: Build and Publish
 # ===========================================
 #
