@@ -13,6 +13,50 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║                         NIGHTLY BUILD WORKFLOW                             ║
+# ║                        (Latest Unstable Builds)                            ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# PURPOSE: Automated nightly builds for testing latest changes
+#
+# WHEN TO USE:
+# -----------
+# ✅ Automatic daily at 2 AM UTC
+# ✅ For testing latest main branch changes
+# ✅ Provides unstable/preview builds
+# ✅ Publishes to apache/solr-mcp-nightly
+# ❌ DO NOT use for production releases
+#
+# COMPARISON WITH OTHER WORKFLOWS:
+# --------------------------------
+# nightly-build.yml (THIS FILE):
+#   - Purpose: Nightly builds
+#   - Trigger: Scheduled (2 AM UTC)
+#   - Docker Hub: apache/solr-mcp-nightly
+#   - Stability: Unstable/preview
+#   - Use for: Testing latest changes
+#
+# build-and-publish.yml:
+#   - Purpose: Development CI/CD
+#   - Trigger: Automatic (push/PR)
+#   - Docker Hub: Personal namespace
+#   - Use for: Daily development work
+#
+# release-publish.yml:
+#   - Purpose: Official ASF releases
+#   - Trigger: Manual (after vote)
+#   - Docker Hub: apache/solr-mcp
+#   - Stability: Stable/production
+#   - Use for: Production releases
+#
+# atr-release.yml:
+#   - Purpose: Future ATR automation
+#   - Status: Blocked (needs automated signing)
+#   - Use for: When ATR is ready
+#
+# ────────────────────────────────────────────────────────────────────────────
+#
 # Nightly Build Workflow for Apache Solr MCP
 # ===========================================
 #
