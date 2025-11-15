@@ -310,11 +310,17 @@ jib {
     dockerClient {
         executable = System.getenv("DOCKER_EXECUTABLE") ?: when {
             // macOS with Docker Desktop
-            org.gradle.internal.os.OperatingSystem.current().isMacOsX -> "/usr/local/bin/docker"
+            org.gradle.internal.os.OperatingSystem
+                .current()
+                .isMacOsX -> "/usr/local/bin/docker"
             // Linux (most distributions)
-            org.gradle.internal.os.OperatingSystem.current().isLinux -> "/usr/bin/docker"
+            org.gradle.internal.os.OperatingSystem
+                .current()
+                .isLinux -> "/usr/bin/docker"
             // Windows with Docker Desktop
-            org.gradle.internal.os.OperatingSystem.current().isWindows -> "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe"
+            org.gradle.internal.os.OperatingSystem
+                .current()
+                .isWindows -> "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe"
             // Fallback to PATH lookup
             else -> "docker"
         }
@@ -385,7 +391,7 @@ jib {
                 "org.opencontainers.image.vendor" to "Apache Software Foundation",
                 "org.opencontainers.image.licenses" to "Apache-2.0",
                 // MCP Registry annotation for server discovery
-                "io.modelcontextprotocol.server.name" to "io.github.apache/solr-mcp"
+                "io.modelcontextprotocol.server.name" to "io.github.apache/solr-mcp",
             ),
         )
     }
