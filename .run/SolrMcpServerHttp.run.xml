@@ -2,6 +2,9 @@
     <configuration default="false" name="SolrMcpServerHttp" type="SpringBootApplicationConfigurationType"
                    factoryName="Spring Boot">
         <option name="ACTIVE_PROFILES" value="http"/>
+        <envs>
+            <env name="OAUTH2_ISSUER_URI" value="https://dev-qa6ay6y8fhsk7m7l.us.auth0.com/"/>
+        </envs>
         <module name="solr-mcp.main"/>
         <option name="SPRING_BOOT_MAIN_CLASS" value="org.apache.solr.mcp.server.Main"/>
         <method v="2">
