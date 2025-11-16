@@ -26,7 +26,6 @@ import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.params.FacetParams;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
-import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -85,7 +84,7 @@ import java.util.Map;
  * @since 0.0.1
  * @see SearchResponse
  * @see SolrClient
- * @see Tool
+ * @see McpTool
  */
 @Service
 public class SearchService {
