@@ -16,17 +16,19 @@
  */
 package org.apache.solr.mcp.server.indexing;
 
-import java.io.IOException;
-import java.util.List;
-import javax.xml.parsers.ParserConfigurationException;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.xml.sax.SAXException;
+
+import javax.xml.parsers.ParserConfigurationException;
+import java.io.IOException;
+import java.util.List;
 
 /**
  * Spring Service providing comprehensive document indexing capabilities for Apache Solr collections
@@ -155,6 +157,7 @@ public class IndexingService {
      * @see IndexingDocumentCreator#createSchemalessDocumentsFromJson(String)
      * @see #indexDocuments(String, List)
      */
+    @PreAuthorize("isAuthenticated()")
     @McpTool(
             name = "index_json_documents",
             description = "Index documents from json String into Solr collection")
@@ -209,6 +212,7 @@ public class IndexingService {
      * @see IndexingDocumentCreator#createSchemalessDocumentsFromCsv(String)
      * @see #indexDocuments(String, List)
      */
+    @PreAuthorize("isAuthenticated()")
     @McpTool(
             name = "index_csv_documents",
             description = "Index documents from CSV string into Solr collection")
@@ -285,6 +289,7 @@ public class IndexingService {
      * @see IndexingDocumentCreator#createSchemalessDocumentsFromXml(String)
      * @see #indexDocuments(String, List)
      */
+    @PreAuthorize("isAuthenticated()")
     @McpTool(
             name = "index_xml_documents",
             description = "Index documents from XML string into Solr collection")
