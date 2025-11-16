@@ -60,13 +60,10 @@ dependencies {
     // JSpecify for nullability annotations
     implementation(libs.jspecify)
 
-    // security
-    implementation("org.springaicommunity:mcp-server-security:0.0.4")
-    implementation("org.springframework.boot:spring-boot-starter-security")
-
-// OPTIONAL
-// If you would like to use OAuth2, ensure you import the Resource Server dependencies
-    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
+    // Security
+    implementation(libs.mcp.server.security)
+    implementation(libs.spring.boot.starter.security)
+    implementation(libs.spring.boot.starter.oauth2.resource.server)
 
     // Error Prone and NullAway for null safety analysis
     errorprone(libs.errorprone.core)
