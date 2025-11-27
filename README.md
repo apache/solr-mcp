@@ -22,6 +22,10 @@ A Spring AI Model Context Protocol (MCP) server that provides tools for interact
   ```
 - Run the server:
     - **STDIO mode (default)**:
+        - Gradle:
+          ```bash
+          ./gradlew bootRun
+          ```
         - JAR:
           ```bash
           ./gradlew build
@@ -32,6 +36,10 @@ A Spring AI Model Context Protocol (MCP) server that provides tools for interact
           docker run -i --rm ghcr.io/apache/solr-mcp:latest
           ```
     - **HTTP mode**:
+        - Gradle:
+          ```bash
+          PROFILES=http ./gradlew bootRun
+          ```
         - JAR:
           ```bash
           PROFILES=http java -jar build/libs/solr-mcp-0.0.1-SNAPSHOT.jar
@@ -125,6 +133,45 @@ Using JAR:
             }
     }
   }
+}
+```
+
+**Connecting to a running HTTP server**
+
+If you already have the MCP server running in HTTP mode (via Gradle, JAR, or Docker), you can connect Claude Desktop to
+it using `mcp-remote`:
+
+Running via Gradle:
+
+```bash
+PROFILES=http ./gradlew bootRun
+```
+
+Running locally (JAR):
+
+```bash
+PROFILES=http java -jar build/libs/solr-mcp-0.0.1-SNAPSHOT.jar
+```
+
+Running via Docker:
+
+```bash
+docker run -p 8080:8080 --rm -e PROFILES=http ghcr.io/apache/solr-mcp:latest
+```
+
+Then add to your `claude_desktop_config.json`:
+
+```json
+{
+    "mcpServers": {
+        "solr-mcp-http": {
+            "command": "npx",
+            "args": [
+                "mcp-remote",
+                "http://localhost:8080/mcp"
+            ]
+        }
+    }
 }
 ```
 
