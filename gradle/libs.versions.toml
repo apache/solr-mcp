@@ -1,13 +1,13 @@
 [versions]
 # Build plugins
-spring-boot = "3.5.8"
+spring-boot = "4.0.0"
 spring-dependency-management = "1.1.7"
 errorprone-plugin = "4.2.0"
 jib = "3.4.5"
 spotless = "7.0.2"
 
 # Main dependencies
-spring-ai = "1.1.2"
+spring-ai = "2.0.0-M1"
 solr = "9.9.0"
 commons-csv = "1.10.0"
 jspecify = "1.0.0"
@@ -17,16 +17,13 @@ mcp-server-security = "0.0.4"
 errorprone-core = "2.38.0"
 nullaway = "0.12.7"
 
-# Jetty BOM version
-jetty = "10.0.22"
-
 # Test dependencies
-testcontainers = "1.21.3"
+testcontainers = "2.0.2"
 awaitility = "4.2.2"
 
 [libraries]
 # Spring
-spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
+spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
 spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security" }
 spring-boot-starter-oauth2-resource-server = { module = "org.springframework.boot:spring-boot-starter-oauth2-resource-server" }
@@ -56,14 +53,14 @@ errorprone-core = { module = "com.google.errorprone:error_prone_core", version.r
 nullaway = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }
 
 # Test dependencies
-testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter" }
-testcontainers-solr = { module = "org.testcontainers:solr", version.ref = "testcontainers" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter", version.ref = "testcontainers" }
+testcontainers-solr = { module = "org.testcontainers:testcontainers-solr", version.ref = "testcontainers" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }
 
 [bundles]
 spring-ai-mcp = [
-    "spring-boot-starter-web",
+    "spring-boot-starter-webmvc",
     "spring-ai-starter-mcp-server-webmvc"
 ]
 

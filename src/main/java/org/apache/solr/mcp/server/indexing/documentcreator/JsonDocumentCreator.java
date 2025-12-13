@@ -16,9 +16,6 @@
  */
 package org.apache.solr.mcp.server.indexing.documentcreator;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +23,9 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.solr.common.SolrInputDocument;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Utility class for processing JSON documents and converting them to
@@ -111,7 +111,7 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
 		List<SolrInputDocument> documents = new ArrayList<>();
 
 		try {
-			ObjectMapper mapper = new ObjectMapper();
+			JsonMapper mapper = JsonMapper.builder().build();
 			JsonNode rootNode = mapper.readTree(json);
 
 			if (rootNode.isArray()) {
@@ -123,7 +123,7 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
 					documents.add(doc);
 				}
 			}
-		} catch (IOException e) {
+		} catch (JacksonException e) {
 			throw new DocumentProcessingException("Failed to parse JSON document", e);
 		}
 
