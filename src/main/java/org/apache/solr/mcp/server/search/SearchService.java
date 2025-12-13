@@ -16,22 +16,26 @@
  */
 package org.apache.solr.mcp.server.search;
 
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.response.FacetField;
 import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.params.FacetParams;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Spring Service providing comprehensive search capabilities for Apache Solr collections through
@@ -80,7 +84,7 @@ import org.springframework.util.StringUtils;
  * @since 0.0.1
  * @see SearchResponse
  * @see SolrClient
- * @see org.springframework.ai.tool.annotation.Tool
+ * @see McpTool
  */
 @Service
 public class SearchService {
@@ -126,11 +130,11 @@ public class SearchService {
      *
      * @param documents the SolrDocumentList to convert from Solr's native format
      * @return a List of Maps where each Map represents a document with field names as keys
-     * @see org.apache.solr.common.SolrDocument
-     * @see org.apache.solr.common.SolrDocumentList
+     * @see SolrDocument
+     * @see SolrDocumentList
      */
     private static List<Map<String, Object>> getDocs(SolrDocumentList documents) {
-        List<Map<String, Object>> docs = new java.util.ArrayList<>(documents.size());
+        List<Map<String, Object>> docs = new ArrayList<>(documents.size());
         documents.forEach(
                 doc -> {
                     Map<String, Object> docMap = new HashMap<>();
@@ -180,6 +184,7 @@ public class SearchService {
      * @throws SolrServerException If there's an error communicating with Solr
      * @throws IOException If there's an I/O error
      */
+    @PreAuthorize("isAuthenticated()")
     @McpTool(
             name = "Search",
             description =
