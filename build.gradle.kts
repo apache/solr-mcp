@@ -101,8 +101,6 @@ dependencies {
         exclude(group = "org.apache.httpcomponents")
     }
     implementation(libs.commons.csv)
-    // JSpecify for nullability annotations
-    implementation(libs.jspecify)
 
     // Security
     implementation(libs.mcp.server.security)
