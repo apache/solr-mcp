@@ -87,13 +87,14 @@ configurations {
 
 repositories {
     mavenCentral()
+    maven { url = uri("https://repo.spring.io/milestone") }
 }
 
 dependencies {
 
     developmentOnly(libs.bundles.spring.boot.dev)
 
-    implementation(libs.spring.boot.starter.web)
+    implementation(libs.spring.boot.starter.webmvc)
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.ai.starter.mcp.server.webmvc)
     implementation(libs.solr.solrj) {
@@ -119,8 +120,6 @@ dependencies {
 dependencyManagement {
     imports {
         mavenBom("org.springframework.ai:spring-ai-bom:${libs.versions.spring.ai.get()}")
-        // Align Jetty family to 10.x compatible with SolrJ 9.x
-        mavenBom("org.eclipse.jetty:jetty-bom:${libs.versions.jetty.get()}")
     }
 }
 
