@@ -16,12 +16,13 @@
  */
 package org.apache.solr.mcp.server.config;
 
-import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.impl.Http2SolrClient;
+import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * Spring Configuration class for Apache Solr client setup and connection management.
@@ -78,7 +79,7 @@ import org.springframework.context.annotation.Configuration;
  * @version 0.0.1
  * @since 0.0.1
  * @see SolrConfigurationProperties
- * @see Http2SolrClient
+ * @see HttpJdkSolrClient
  * @see org.springframework.boot.context.properties.EnableConfigurationProperties
  */
 @Configuration
@@ -133,7 +134,7 @@ public class SolrConfig {
      *
      * @param properties the injected Solr configuration properties containing connection URL
      * @return configured SolrClient instance ready for use in application services
-     * @see Http2SolrClient.Builder
+     * @see HttpJdkSolrClient.Builder
      * @see SolrConfigurationProperties#url()
      */
     @Bean
@@ -155,8 +156,9 @@ public class SolrConfig {
             }
         }
 
-        // Use with explicit base URL
-        return new Http2SolrClient.Builder(url)
+        // Use HttpJdkSolrClient which uses the JDK's built-in HTTP client
+        // This avoids Jetty version conflicts between SolrJ and Spring Boot
+        return new HttpJdkSolrClient.Builder(url)
                 .withConnectionTimeout(CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 .withIdleTimeout(SOCKET_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 .build();
