@@ -215,6 +215,6 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
         if (value.isLong()) return value.asLong();
         if (value.isDouble()) return value.asDouble();
         if (value.isInt()) return value.asInt();
-        return value.asText();
+        return value.asString();
     }
 }
