@@ -250,6 +250,6 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
 			return value.asDouble();
 		if (value.isInt())
 			return value.asInt();
-		return value.asText();
+		return value.asString();
 	}
 }
