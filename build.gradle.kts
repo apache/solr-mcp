@@ -58,8 +58,6 @@ dependencies {
         exclude(group = "org.apache.httpcomponents")
     }
     implementation(libs.commons.csv)
-    // JSpecify for nullability annotations
-    implementation(libs.jspecify)
 
     // Error Prone and NullAway for null safety analysis
     errorprone(libs.errorprone.core)
