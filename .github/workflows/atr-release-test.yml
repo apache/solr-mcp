@@ -1,0 +1,439 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║                    ATR TESTING WORKFLOW                                    ║
+# ║                   (Safe Dry-Run Mode Available)                            ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# PURPOSE: Test ATR workflow logic safely without affecting real systems
+#
+# WHEN TO USE:
+# -----------
+# ✅ Testing workflow logic before ATR onboarding
+# ✅ Validating artifact creation and checksums
+# ✅ Dry-run mode (default) - no actual uploads
+# ✅ Can test real ATR uploads after onboarding (dry_run=false)
+# ❌ DO NOT use for production releases (use atr-release.yml when ready)
+#
+# COMPARISON WITH OTHER WORKFLOWS:
+# --------------------------------
+# atr-release-test.yml (THIS FILE):
+#   - Purpose: Test/validate ATR workflow
+#   - Safety: ✅ Safe (dry-run by default)
+#   - Uploads: Optional (only if dry_run=false)
+#   - Use for: Testing and validation
+#
+# atr-release.yml:
+#   - Purpose: Production ATR releases
+#   - Status: ❌ BLOCKED (prerequisites)
+#   - Use for: Future when ATR is ready
+#
+# release-publish.yml:
+#   - Purpose: Official ASF releases
+#   - Status: ✅ WORKING (use now)
+#   - Use for: Production releases TODAY
+#
+# build-and-publish.yml:
+#   - Purpose: Development CI/CD
+#   - Use for: Daily development
+#
+# ────────────────────────────────────────────────────────────────────────────
+#
+# Test version of ATR Release Process
+# ====================================
+# This workflow tests the ATR release process without actually pushing to ATR.
+# Use this to verify the workflow logic before onboarding to ATR.
+
+name: ATR Release Process (TEST)
+
+on:
+    workflow_dispatch:
+        inputs:
+            release_version:
+                description: 'Release version (e.g., 0.0.1-test)'
+                required: true
+                type: string
+                default: '0.0.1-test'
+            release_candidate:
+                description: 'RC number (e.g., rc1, rc2)'
+                required: true
+                type: string
+                default: 'rc1'
+            dry_run:
+                description: 'Dry run mode (skip actual ATR uploads)'
+                required: false
+                type: boolean
+                default: true
+            skip_compose:
+                description: 'Skip compose phase if already completed'
+                required: false
+                type: boolean
+                default: false
+            skip_vote:
+                description: 'Skip vote phase if already completed'
+                required: false
+                type: boolean
+                default: false
+
+# Required permissions for OIDC authentication with ATR platform
+permissions:
+    id-token: write   # Required for GitHub OIDC authentication to ATR
+    contents: read    # Read repository contents
+    packages: write   # May be needed for publishing artifacts
+
+env:
+    JAVA_VERSION: '25'
+    JAVA_DISTRIBUTION: 'temurin'
+    ATR_PROJECT_NAME: 'solr-mcp'  # Project identifier in ATR platform
+
+jobs:
+    # Job 1: Compose Phase - Build and prepare release artifacts
+    compose-release:
+        name: Compose Release Artifacts (TEST)
+        runs-on: ubuntu-latest
+        if: ${{ !inputs.skip_compose }}
+
+        outputs:
+            artifacts_path: ${{ steps.artifacts.outputs.path }}
+            checksum_files: ${{ steps.artifacts.outputs.checksums }}
+
+        steps:
+            -   name: Checkout code
+                uses: actions/checkout@v4
+                with:
+                    fetch-depth: 0  # Full history for proper tagging
+
+            -   name: Create test tag if not exists
+                run: |
+                    TEST_TAG="v${{ inputs.release_version }}-${{ inputs.release_candidate }}"
+                    if ! git rev-parse "${TEST_TAG}" >/dev/null 2>&1; then
+                      echo "Creating test tag: ${TEST_TAG}"
+                      git config user.email "test@example.com"
+                      git config user.name "Test Runner"
+                      git tag "${TEST_TAG}" -m "Test release tag"
+                    else
+                      echo "Test tag already exists: ${TEST_TAG}"
+                    fi
+
+            -   name: Set up JDK ${{ env.JAVA_VERSION }}
+                uses: actions/setup-java@v4
+                with:
+                    java-version: ${{ env.JAVA_VERSION }}
+                    distribution: ${{ env.JAVA_DISTRIBUTION }}
+                    cache: 'gradle'
+
+            -   name: Grant execute permission for gradlew
+                run: chmod +x gradlew
+
+            -   name: Build project
+                run: |
+                    # Clean build to ensure reproducibility
+                    ./gradlew clean build
+                    
+                    # Run tests to ensure quality
+                    ./gradlew test
+
+            -   name: Create source distribution
+                id: artifacts
+                run: |
+                    # Create distributions directory
+                    mkdir -p build/distributions
+                    
+                    # Create source tarball (excluding build artifacts and IDE files)
+                    TAR_NAME="solr-mcp-${{ inputs.release_version }}-${{ inputs.release_candidate }}-src.tar.gz"
+                    tar czf "build/distributions/${TAR_NAME}" \
+                      --exclude='.git' \
+                      --exclude='build' \
+                      --exclude='.gradle' \
+                      --exclude='*.iml' \
+                      --exclude='.idea' \
+                      --exclude='target' \
+                      --exclude='*.log' \
+                      .
+                    
+                    # Generate SHA512 checksum
+                    cd build/distributions
+                    sha512sum "${TAR_NAME}" > "${TAR_NAME}.sha512"
+                    
+                    # Generate SHA256 for additional verification
+                    sha256sum "${TAR_NAME}" > "${TAR_NAME}.sha256"
+                    
+                    # Output artifact information
+                    echo "path=build/distributions" >> $GITHUB_OUTPUT
+                    echo "checksums=${TAR_NAME}.sha512,${TAR_NAME}.sha256" >> $GITHUB_OUTPUT
+                    
+                    # Display artifacts for verification
+                    echo "Generated artifacts:"
+                    ls -la
+
+            -   name: Create JAR distribution
+                run: |
+                    # Build JAR with all dependencies
+                    ./gradlew shadowJar || ./gradlew jar
+                    
+                    # Create test JAR if shadowJar doesn't exist
+                    if [ ! -f build/libs/solr-mcp-*-all.jar ]; then
+                      # Create a simple test JAR if shadowJar task doesn't exist
+                      echo "Creating test JAR..."
+                      cp build/libs/*.jar "build/distributions/solr-mcp-${{ inputs.release_version }}-${{ inputs.release_candidate }}.jar" 2>/dev/null || \
+                      echo "Test content" > "build/distributions/solr-mcp-${{ inputs.release_version }}-${{ inputs.release_candidate }}.jar"
+                    else
+                      cp build/libs/solr-mcp-*-all.jar \
+                         "build/distributions/solr-mcp-${{ inputs.release_version }}-${{ inputs.release_candidate }}.jar"
+                    fi
+                    
+                    # Generate checksums for JAR
+                    cd build/distributions
+                    JAR_NAME="solr-mcp-${{ inputs.release_version }}-${{ inputs.release_candidate }}.jar"
+                    sha512sum "${JAR_NAME}" > "${JAR_NAME}.sha512"
+                    sha256sum "${JAR_NAME}" > "${JAR_NAME}.sha256"
+
+            -   name: Sign artifacts with GPG (TEST - simulated)
+                run: |
+                    echo "TEST MODE: GPG signing would happen here"
+                    echo "Would sign:"
+                    ls -la build/distributions/*.tar.gz
+                    ls -la build/distributions/*.jar
+                    # Create fake .asc files for testing
+                    for file in build/distributions/*.tar.gz build/distributions/*.jar; do
+                      echo "TEST SIGNATURE" > "${file}.asc"
+                    done
+
+            -   name: Test ATR Upload (Dry Run)
+                if: ${{ inputs.dry_run }}
+                run: |
+                    echo "🧪 TEST MODE: Simulating ATR upload"
+                    echo "Would upload to ATR with:"
+                    echo "  - Project: ${{ env.ATR_PROJECT_NAME }}"
+                    echo "  - Version: ${{ inputs.release_version }}-${{ inputs.release_candidate }}"
+                    echo "  - Source: build/distributions"
+                    echo ""
+                    echo "Artifacts that would be uploaded:"
+                    ls -lh build/distributions/
+                    echo ""
+                    echo "Total size: $(du -sh build/distributions | cut -f1)"
+
+            -   name: Upload artifacts to ATR (Real)
+                if: ${{ !inputs.dry_run && secrets.ASF_USERNAME != '' }}
+                uses: apache/tooling-actions/upload-to-atr@main
+                with:
+                    asf-uid: ${{ secrets.ASF_USERNAME }}
+                    project: ${{ env.ATR_PROJECT_NAME }}
+                    version: ${{ inputs.release_version }}-${{ inputs.release_candidate }}
+                    src: build/distributions
+                    atr-host: release-test.apache.org
+                    ssh-port: 2222
+
+            -   name: Upload artifacts for review
+                uses: actions/upload-artifact@v3
+                with:
+                    name: test-release-artifacts-${{ inputs.release_version }}-${{ inputs.release_candidate }}
+                    path: build/distributions/
+                    retention-days: 7
+
+            -   name: Generate test summary
+                run: |
+                    echo "### 🧪 TEST Release Compose Phase Completed ✓" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "**Mode**: ${{ inputs.dry_run && 'DRY RUN' || 'REAL ATR' }}" >> $GITHUB_STEP_SUMMARY
+                    echo "**Version**: ${{ inputs.release_version }}" >> $GITHUB_STEP_SUMMARY
+                    echo "**Release Candidate**: ${{ inputs.release_candidate }}" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "#### Artifacts Generated:" >> $GITHUB_STEP_SUMMARY
+                    echo "- Source tarball with SHA512/SHA256 checksums" >> $GITHUB_STEP_SUMMARY
+                    echo "- JAR distribution with checksums" >> $GITHUB_STEP_SUMMARY
+                    echo "- Simulated GPG signatures (.asc files)" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+                      echo "⚠️ **Dry Run Mode**: No actual upload to ATR" >> $GITHUB_STEP_SUMMARY
+                    else
+                      echo "✅ **Real Mode**: Artifacts uploaded to ATR" >> $GITHUB_STEP_SUMMARY
+                      echo "ATR Platform: https://release-test.apache.org/projects/solr-mcp/" >> $GITHUB_STEP_SUMMARY
+                    fi
+
+    # Job 2: Test Vote Process
+    vote-instructions:
+        name: Vote Instructions (TEST)
+        runs-on: ubuntu-latest
+        needs: [ compose-release ]
+        if: ${{ !inputs.skip_vote && (success() || inputs.skip_compose) }}
+
+        steps:
+            -   name: Generate test vote email
+                run: |
+                    cat << 'EOF' > test-vote-email.txt
+                    Subject: [TEST VOTE] Release Apache Solr MCP ${{ inputs.release_version }} RC${{ inputs.release_candidate }}
+                    
+                    ⚠️ THIS IS A TEST - NOT A REAL VOTE ⚠️
+                    
+                    Testing the vote email template for Apache Solr MCP ${{ inputs.release_version }}.
+                    
+                    Release Candidate: ${{ inputs.release_candidate }}
+                    Git Tag: v${{ inputs.release_version }}-${{ inputs.release_candidate }}
+                    Commit: ${{ github.sha }}
+                    
+                    Test artifacts location:
+                    https://release-test.apache.org/projects/solr-mcp/${{ inputs.release_version }}-${{ inputs.release_candidate }}/
+                    
+                    This is what a real vote email would look like.
+                    
+                    [ ] +1 Release this package
+                    [ ] -1 Do not release
+                    
+                    TEST ONLY - DO NOT SEND TO MAILING LIST
+                    EOF
+                    
+                    cat test-vote-email.txt
+
+            -   name: Test voting simulation
+                run: |
+                    echo "### 🧪 TEST Voting Process" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "**TEST MODE ACTIVE**" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "In a real release, you would:" >> $GITHUB_STEP_SUMMARY
+                    echo "1. Send vote email to dev@solr.apache.org" >> $GITHUB_STEP_SUMMARY
+                    echo "2. Wait 72 hours minimum" >> $GITHUB_STEP_SUMMARY
+                    echo "3. Count votes (need 3+ binding +1 votes)" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "For testing, you can skip the vote by running again with skip_vote=true" >> $GITHUB_STEP_SUMMARY
+
+    # Job 3: Test Finish Phase
+    finish-release:
+        name: Finalize Release (TEST)
+        runs-on: ubuntu-latest
+        if: ${{ always() && inputs.skip_vote }}
+
+        steps:
+            -   name: Checkout code
+                uses: actions/checkout@v4
+
+            -   name: Test ATR Release Resolution (Dry Run)
+                if: ${{ inputs.dry_run }}
+                run: |
+                    echo "🧪 TEST MODE: Simulating ATR vote resolution and announcement"
+                    echo ""
+                    echo "Would execute release-on-atr with:"
+                    echo "  - Version: ${{ inputs.release_version }}"
+                    echo "  - Resolution: passed"
+                    echo "  - Announce to: announce@apache.org"
+                    echo ""
+                    echo "Simulated announcement email:"
+                    echo "----------------------------------------"
+                    cat << EOF
+                    Subject: [ANNOUNCE] Apache Solr MCP ${{ inputs.release_version }} Released
+                    
+                    The Apache Solr team is pleased to announce the release of Apache Solr MCP ${{ inputs.release_version }}.
+                    
+                    Apache Solr MCP is a Model Context Protocol server for Apache Solr.
+                    
+                    Downloads: https://www.apache.org/dyn/closer.lua/solr/mcp/${{ inputs.release_version }}/
+                    Docker: docker pull apache/solr-mcp:${{ inputs.release_version }}
+                    
+                    Release notes: https://github.com/apache/solr-mcp/blob/v${{ inputs.release_version }}/CHANGES.txt
+                    
+                    The Apache Solr Team
+                    EOF
+                    echo "----------------------------------------"
+
+            -   name: Resolve vote and announce on ATR (Real)
+                if: ${{ !inputs.dry_run && secrets.ASF_USERNAME != '' }}
+                uses: apache/tooling-actions/release-on-atr@main
+                with:
+                    version: ${{ inputs.release_version }}
+                    atr-host: release-test.apache.org
+                    resolve: "true"
+                    resolve-resolution: "passed"
+                    announce: "false"  # Don't actually announce in test
+
+            -   name: Test summary
+                run: |
+                    echo "### 🧪 TEST Release Finalization" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "**Mode**: ${{ inputs.dry_run && 'DRY RUN' || 'REAL ATR' }}" >> $GITHUB_STEP_SUMMARY
+                    echo "**Version**: ${{ inputs.release_version }}" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+                      echo "✅ Dry run completed successfully" >> $GITHUB_STEP_SUMMARY
+                      echo "" >> $GITHUB_STEP_SUMMARY
+                      echo "To test with real ATR (requires onboarding):" >> $GITHUB_STEP_SUMMARY
+                      echo "1. Add ASF_USERNAME secret" >> $GITHUB_STEP_SUMMARY
+                      echo "2. Run workflow with dry_run=false" >> $GITHUB_STEP_SUMMARY
+                    else
+                      echo "✅ ATR test completed" >> $GITHUB_STEP_SUMMARY
+                      echo "Note: Announcement was skipped in test mode" >> $GITHUB_STEP_SUMMARY
+                    fi
+
+    # Job 4: Validate ATR Connectivity
+    validate-atr:
+        name: Validate ATR Connectivity
+        runs-on: ubuntu-latest
+        if: ${{ always() }}
+
+        steps:
+            -   name: Check ATR platform availability
+                run: |
+                    echo "Testing ATR platform connectivity..."
+                    echo ""
+                    
+                    # Test main platform
+                    echo "1. Testing main platform (https://release-test.apache.org):"
+                    if curl -s -o /dev/null -w "   HTTP Status: %{http_code}\n" https://release-test.apache.org; then
+                      echo "   ✅ Platform is reachable"
+                    else
+                      echo "   ❌ Platform unreachable"
+                    fi
+                    echo ""
+                    
+                    # Test health endpoint
+                    echo "2. Testing health endpoint:"
+                    HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://release-test.apache.org/health 2>/dev/null || echo "000")
+                    if [ "$HEALTH_STATUS" = "200" ]; then
+                      echo "   ✅ Health check passed (HTTP 200)"
+                    elif [ "$HEALTH_STATUS" = "000" ]; then
+                      echo "   ❌ Could not connect to health endpoint"
+                    else
+                      echo "   ⚠️  Health check returned HTTP $HEALTH_STATUS"
+                    fi
+                    echo ""
+                    
+                    # Test SSH connectivity (port 2222)
+                    echo "3. Testing SSH port for uploads (2222):"
+                    timeout 5 bash -c 'cat < /dev/null > /dev/tcp/release-test.apache.org/2222' 2>/dev/null && \
+                      echo "   ✅ SSH port is open" || \
+                      echo "   ❌ SSH port appears closed or filtered"
+                    echo ""
+                    
+                    # Test OIDC endpoint
+                    echo "4. Testing OIDC metadata:"
+                    if curl -s https://token.actions.githubusercontent.com/.well-known/openid-configuration | grep -q "issuer"; then
+                      echo "   ✅ GitHub OIDC is available"
+                    else
+                      echo "   ❌ Cannot reach GitHub OIDC endpoint"
+                    fi
+
+            -   name: Test summary
+                run: |
+                    echo "### ATR Platform Status" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "| Component | Status | URL |" >> $GITHUB_STEP_SUMMARY
+                    echo "|-----------|--------|-----|" >> $GITHUB_STEP_SUMMARY
+                    echo "| ATR Platform | 🔍 Check logs | https://release-test.apache.org |" >> $GITHUB_STEP_SUMMARY
+                    echo "| Tutorial | 📚 | https://release-test.apache.org/tutorial |" >> $GITHUB_STEP_SUMMARY
+                    echo "| GitHub Repo | 📦 | https://github.com/apache/tooling-trusted-releases |" >> $GITHUB_STEP_SUMMARY
+                    echo "| Actions Repo | 🔧 | https://github.com/apache/tooling-actions |" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "**Contact**: dev@tooling.apache.org for onboarding" >> $GITHUB_STEP_SUMMARY

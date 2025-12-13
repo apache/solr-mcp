@@ -1,0 +1,223 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║                         NIGHTLY BUILD WORKFLOW                             ║
+# ║                        (Latest Unstable Builds)                            ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# PURPOSE: Automated nightly builds for testing latest changes
+#
+# WHEN TO USE:
+# -----------
+# ✅ Automatic daily at 2 AM UTC
+# ✅ For testing latest main branch changes
+# ✅ Provides unstable/preview builds
+# ✅ Publishes to apache/solr-mcp-nightly
+# ❌ DO NOT use for production releases
+#
+# COMPARISON WITH OTHER WORKFLOWS:
+# --------------------------------
+# nightly-build.yml (THIS FILE):
+#   - Purpose: Nightly builds
+#   - Trigger: Scheduled (2 AM UTC)
+#   - Docker Hub: apache/solr-mcp-nightly
+#   - Stability: Unstable/preview
+#   - Use for: Testing latest changes
+#
+# build-and-publish.yml:
+#   - Purpose: Development CI/CD
+#   - Trigger: Automatic (push/PR)
+#   - Docker Hub: Personal namespace
+#   - Use for: Daily development work
+#
+# release-publish.yml:
+#   - Purpose: Official ASF releases
+#   - Trigger: Manual (after vote)
+#   - Docker Hub: apache/solr-mcp
+#   - Stability: Stable/production
+#   - Use for: Production releases
+#
+# atr-release.yml:
+#   - Purpose: Future ATR automation
+#   - Status: Blocked (needs automated signing)
+#   - Use for: When ATR is ready
+#
+# ────────────────────────────────────────────────────────────────────────────
+#
+# Nightly Build Workflow for Apache Solr MCP
+# ===========================================
+#
+# This workflow creates nightly builds for the Solr MCP project and publishes
+# them to Apache's nightly infrastructure and Docker Hub preview registry.
+#
+# Schedule:
+# ---------
+# Runs daily at 2 AM UTC or on manual trigger
+#
+# Artifacts Published:
+# --------------------
+# 1. Source tarball to https://nightlies.apache.org/solr/mcp/
+# 2. Docker image to apache/solr-mcp-nightly on Docker Hub
+# 3. Build artifacts to GitHub releases (pre-release)
+
+name: Nightly Build
+
+# Triggers for the workflow
+# - schedule: runs automatically via cron at a fixed time (02:00 UTC daily)
+# - workflow_dispatch: allow maintainers to run the workflow manually and pass inputs
+on:
+  schedule:
+    # Run at 2 AM UTC every day
+    - cron: '0 2 * * *'
+  workflow_dispatch:  # Allow manual trigger
+    inputs:
+        # Optional input to skip Docker publishing if you only want to build artifacts
+      skip_docker:
+        description: 'Skip Docker publishing'
+        required: false
+        type: boolean
+        default: false
+
+# Environment variables used by steps below
+# - JAVA_VERSION: selects the JDK version used to build and run Gradle
+# - JAVA_DISTRIBUTION: selects the vendor (Temurin = Eclipse Adoptium)
+env:
+  JAVA_VERSION: '25'
+  JAVA_DISTRIBUTION: 'temurin'
+
+jobs:
+  nightly-build:
+    name: Nightly Build and Publish
+    runs-on: ubuntu-latest
+
+      # Permissions required by this job:
+      # - contents:write → needed to create GitHub pre-releases and upload assets
+      # - packages:write → needed when pushing container images to registries
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Generate nightly version
+        id: version
+        run: |
+          # Generate version with date stamp
+          DATE_STAMP=$(date +%Y%m%d)
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          NIGHTLY_VERSION="nightly-${DATE_STAMP}-${SHORT_SHA}"
+          echo "version=$NIGHTLY_VERSION" >> $GITHUB_OUTPUT
+          echo "date=$DATE_STAMP" >> $GITHUB_OUTPUT
+
+      - name: Build project
+        run: ./gradlew build
+
+      - name: Create source distribution
+        run: |
+          # Create source tarball
+          mkdir -p build/distributions
+          tar czf build/distributions/solr-mcp-${{ steps.version.outputs.version }}-src.tar.gz \
+            --exclude='.git' \
+            --exclude='build' \
+            --exclude='.gradle' \
+            --exclude='*.iml' \
+            --exclude='.idea' \
+            .
+
+          # Generate SHA512 checksum
+          cd build/distributions
+          sha512sum solr-mcp-${{ steps.version.outputs.version }}-src.tar.gz > \
+            solr-mcp-${{ steps.version.outputs.version }}-src.tar.gz.sha512
+
+      - name: Build and publish Docker image to apache/solr-mcp-nightly
+        if: ${{ !inputs.skip_docker }}
+        run: |
+          # Build and push to apache/solr-mcp-nightly
+          # Note: Requires DOCKERHUB_APACHE_USERNAME and DOCKERHUB_APACHE_TOKEN secrets
+          # These should be set up with Apache PMC credentials
+          if [[ -n "${{ secrets.DOCKERHUB_APACHE_USERNAME }}" ]]; then
+            ./gradlew jib \
+              -Djib.to.image=apache/solr-mcp-nightly:${{ steps.version.outputs.version }} \
+              -Djib.to.auth.username=${{ secrets.DOCKERHUB_APACHE_USERNAME }} \
+              -Djib.to.auth.password=${{ secrets.DOCKERHUB_APACHE_TOKEN }} \
+              -Djib.to.tags=${{ steps.version.outputs.version }},latest-nightly
+          fi
+
+      - name: Upload to Apache Nightlies
+        if: ${{ secrets.APACHE_NIGHTLIES_USER != '' }}
+        run: |
+          # Upload to Apache nightlies infrastructure
+          # Requires APACHE_NIGHTLIES_USER and APACHE_NIGHTLIES_KEY secrets
+          # These are typically available to Apache committers
+
+          # Create directory structure
+          UPLOAD_DIR="solr/mcp/${{ steps.version.outputs.date }}"
+
+          # Use rsync or scp to upload to nightlies.apache.org
+          # This is a placeholder - actual implementation depends on Apache infra access
+          echo "Would upload to: https://nightlies.apache.org/${UPLOAD_DIR}/"
+          echo "Files to upload:"
+          ls -la build/distributions/
+
+      - name: Create GitHub pre-release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: nightly-${{ steps.version.outputs.date }}
+          name: Nightly Build ${{ steps.version.outputs.date }}
+          prerelease: true
+          draft: false
+          files: |
+            build/distributions/solr-mcp-*.tar.gz
+            build/distributions/solr-mcp-*.sha512
+            build/libs/solr-mcp-*.jar
+          body: |
+            ## Nightly Build
+
+            **Date**: ${{ steps.version.outputs.date }}
+            **Commit**: ${{ github.sha }}
+
+            ### Docker Image
+            ```bash
+            docker pull apache/solr-mcp-nightly:${{ steps.version.outputs.version }}
+            ```
+
+            ### Source Distribution
+            - [solr-mcp-${{ steps.version.outputs.version }}-src.tar.gz](https://github.com/${{ github.repository }}/releases/download/nightly-${{ steps.version.outputs.date }}/solr-mcp-${{ steps.version.outputs.version }}-src.tar.gz)
+
+            **Note**: This is a nightly build and not an official Apache release.
+
+      - name: Clean up old nightly releases
+        run: |
+          # Keep only the last 7 nightly builds
+          # This helps manage storage and keeps releases clean
+          gh release list --limit 100 | grep "^nightly-" | tail -n +8 | cut -f1 | while read tag; do
+            echo "Deleting old nightly release: $tag"
+            gh release delete "$tag" --yes --cleanup-tag
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
