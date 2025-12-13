@@ -13,6 +13,50 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║                    CONTINUOUS DEPLOYMENT WORKFLOW                          ║
+# ║                           (Development Builds)                             ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# PURPOSE: Automated development builds and Docker image publishing for CI/CD
+#
+# WHEN TO USE:
+# -----------
+# ✅ Automatic on every merge to main
+# ✅ Testing pull requests (build + test only, no publish)
+# ✅ Development/testing Docker images
+# ❌ DO NOT use for official ASF releases (use release-publish.yml instead)
+#
+# COMPARISON WITH OTHER WORKFLOWS:
+# --------------------------------
+# build-and-publish.yml (THIS FILE):
+#   - Purpose: Development CI/CD
+#   - Trigger: Automatic (push/PR)
+#   - Docker Hub: Personal namespace
+#   - ASF Vote: Not required
+#   - Use for: Daily development work
+#
+# release-publish.yml:
+#   - Purpose: Official ASF releases
+#   - Trigger: Manual (after vote)
+#   - Docker Hub: apache/solr-mcp
+#   - ASF Vote: Required (72 hours)
+#   - Use for: Production releases
+#
+# nightly-build.yml:
+#   - Purpose: Nightly builds
+#   - Trigger: Scheduled (2 AM UTC)
+#   - Docker Hub: apache/solr-mcp-nightly
+#   - Use for: Latest unstable builds
+#
+# atr-release.yml:
+#   - Purpose: Future ATR automation
+#   - Trigger: Manual (after prerequisites)
+#   - Status: Blocked (needs automated signing)
+#   - Use for: When ATR is ready
+#
+# ────────────────────────────────────────────────────────────────────────────
+#
 # GitHub Actions Workflow: Build and Publish
 # ===========================================
 #
@@ -50,17 +94,24 @@
 
 name: Build and Publish
 
+# Triggers for this workflow
+# - push: runs on commits to main and on version tags (v*)
+# - pull_request: runs on PRs targeting main (build/test only; no publishing)
+# - workflow_dispatch: allows manual execution from the Actions UI
 on:
     push:
         branches:
-            - main
+            - main            # Build + publish dev images on main merges
         tags:
-            - 'v*'  # Trigger on version tags like v1.0.0, v2.1.3, etc.
+            - 'v*'            # CAUTION (ASF): tag pushes will publish images; prefer using release-publish.yml for post-vote releases
     pull_request:
         branches:
-            - main
-    workflow_dispatch:  # Allow manual workflow runs from GitHub UI
+            - main            # Build + test validation for incoming changes
+    workflow_dispatch:        # Manual runs for maintainers
 
+# Global environment used by all jobs in this workflow
+# - JAVA_VERSION: JDK version to install for Gradle builds
+# - JAVA_DISTRIBUTION: Vendor/distribution of the JDK (Temurin is Eclipse Adoptium)
 env:
     JAVA_VERSION: '25'
     JAVA_DISTRIBUTION: 'temurin'
@@ -162,6 +213,7 @@ jobs:
         name: Publish Docker Images
         runs-on: ubuntu-latest
         needs: build  # Wait for build job to complete successfully
+        # Conditional: do not publish images for pull_request events to avoid leaking credentials or pushing unvetted builds
         if: github.event_name != 'pull_request'  # Skip for PRs
 
         # Grant permissions for GHCR publishing

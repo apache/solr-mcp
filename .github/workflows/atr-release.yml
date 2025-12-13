@@ -1,0 +1,470 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║                    APACHE TRUSTED RELEASES (ATR)                           ║
+# ║                       **FUTURE USE ONLY**                                  ║
+# ║                    (Blocked - Prerequisites Required)                      ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# PURPOSE: Automated ASF-compliant releases via ATR platform (EXPERIMENTAL)
+#
+# ⚠️ IMPORTANT: NOT CURRENTLY USABLE
+# ----------------------------------
+# This workflow is BLOCKED and cannot be used until you complete:
+# 1. Implement automated release signing (https://infra.apache.org/release-signing.html)
+# 2. Get ASF signing key from INFRA (2-4 week process)
+# 3. Request ATR onboarding from dev@tooling.apache.org
+#
+# STATUS: Workflow is ready but prerequisites are not met
+# See: dev-docs/ATR_TESTING_GUIDE.md for complete implementation path
+#
+# WHEN TO USE:
+# -----------
+# ❌ DO NOT use now - prerequisites not met
+# ✅ Use AFTER automated signing is implemented and ATR onboarding approved
+# ✅ For fully automated ASF releases in the future
+#
+# CURRENT WORKFLOW TO USE:
+# ------------------------
+# Use release-publish.yml for official releases (manual signing)
+#
+# COMPARISON WITH OTHER WORKFLOWS:
+# --------------------------------
+# atr-release.yml (THIS FILE):
+#   - Purpose: Future ATR automation
+#   - Status: ❌ BLOCKED (prerequisites required)
+#   - Trigger: Manual (when ready)
+#   - Signing: Automated
+#   - Use for: Future when ATR is ready
+#
+# release-publish.yml:
+#   - Purpose: Official ASF releases
+#   - Status: ✅ WORKING (use this now)
+#   - Trigger: Manual (after vote)
+#   - Signing: Manual by Release Manager
+#   - Use for: Production releases TODAY
+#
+# build-and-publish.yml:
+#   - Purpose: Development CI/CD
+#   - Trigger: Automatic
+#   - Use for: Daily development
+#
+# nightly-build.yml:
+#   - Purpose: Nightly builds
+#   - Trigger: Scheduled
+#   - Use for: Testing latest changes
+#
+# ────────────────────────────────────────────────────────────────────────────
+#
+# Apache Trusted Releases (ATR) Integration Workflow
+# ===================================================
+#
+# Purpose:
+# --------
+# Integrates with the Apache Trusted Releases platform to automate the ASF-compliant
+# release process including artifact upload, vote resolution, and release announcement.
+#
+# ATR Platform Overview:
+# ----------------------
+# The Apache Trusted Releases platform (currently in Alpha) provides:
+# - Secure artifact upload using OIDC authentication
+# - Vote resolution management
+# - Automated release announcements
+# - No long-lived credentials required (uses GitHub OIDC)
+#
+# Available GitHub Actions:
+# -------------------------
+# - upload-to-atr: Upload artifacts using ephemeral SSH keys and OIDC
+# - release-on-atr: Resolve votes and announce releases
+# - record-atr-distribution: Record distribution metadata
+#
+# Prerequisites:
+# --------------
+# - Project must be onboarded to ATR (contact dev@tooling.apache.org)
+# - ASF username (asf-uid) for the Release Manager
+# - GitHub workflow must have id-token: write permission for OIDC
+#
+# Resources:
+# ----------
+# - ATR Platform: https://release-test.apache.org
+# - GitHub Actions: https://github.com/apache/tooling-actions
+# - GitHub: https://github.com/apache/tooling-trusted-releases
+# - Mailing List: dev@tooling.apache.org
+#
+# Note: ATR is EXPERIMENTAL and subject to change
+
+name: ATR Release Process
+
+on:
+    workflow_dispatch:
+        inputs:
+            release_version:
+                description: 'Release version (e.g., 1.0.0)'
+                required: true
+                type: string
+            release_candidate:
+                description: 'RC number (e.g., rc1, rc2)'
+                required: true
+                type: string
+            skip_compose:
+                description: 'Skip compose phase if already completed'
+                required: false
+                type: boolean
+                default: false
+            skip_vote:
+                description: 'Skip vote phase if already completed'
+                required: false
+                type: boolean
+                default: false
+
+# Required permissions for OIDC authentication with ATR platform
+permissions:
+    id-token: write   # Required for GitHub OIDC authentication to ATR
+    contents: read    # Read repository contents
+    packages: write   # May be needed for publishing artifacts
+
+env:
+    JAVA_VERSION: '25'
+    JAVA_DISTRIBUTION: 'temurin'
+    ATR_PROJECT_NAME: 'solr-mcp'  # Project identifier in ATR platform
+
+jobs:
+    # Job 1: Compose Phase - Build and prepare release artifacts
+    compose-release:
+        name: Compose Release Artifacts
+        runs-on: ubuntu-latest
+        if: ${{ !inputs.skip_compose }}
+
+        outputs:
+            artifacts_path: ${{ steps.artifacts.outputs.path }}
+            checksum_files: ${{ steps.artifacts.outputs.checksums }}
+
+        steps:
+            -   name: Checkout release candidate tag
+                uses: actions/checkout@v4
+                with:
+                    ref: "v${{ inputs.release_version }}-${{ inputs.release_candidate }}"
+                    fetch-depth: 0  # Full history for proper tagging
+
+            -   name: Verify release tag
+                run: |
+                    if ! git rev-parse "v${{ inputs.release_version }}-${{ inputs.release_candidate }}" >/dev/null 2>&1; then
+                      echo "ERROR: Release tag not found: v${{ inputs.release_version }}-${{ inputs.release_candidate }}"
+                      exit 1
+                    fi
+                    echo "✓ Release tag verified"
+
+            -   name: Set up JDK ${{ env.JAVA_VERSION }}
+                uses: actions/setup-java@v4
+                with:
+                    java-version: ${{ env.JAVA_VERSION }}
+                    distribution: ${{ env.JAVA_DISTRIBUTION }}
+                    cache: 'gradle'
+
+            -   name: Grant execute permission for gradlew
+                run: chmod +x gradlew
+
+            -   name: Build project
+                run: |
+                    # Clean build to ensure reproducibility
+                    ./gradlew clean build
+                    
+                    # Run tests to ensure quality
+                    ./gradlew test
+
+            -   name: Create source distribution
+                id: artifacts
+                run: |
+                    # Create distributions directory
+                    mkdir -p build/distributions
+                    
+                    # Create source tarball (excluding build artifacts and IDE files)
+                    TAR_NAME="solr-mcp-${{ inputs.release_version }}-${{ inputs.release_candidate }}-src.tar.gz"
+                    tar czf "build/distributions/${TAR_NAME}" \
+                      --exclude='.git' \
+                      --exclude='build' \
+                      --exclude='.gradle' \
+                      --exclude='*.iml' \
+                      --exclude='.idea' \
+                      --exclude='target' \
+                      --exclude='*.log' \
+                      .
+                    
+                    # Generate SHA512 checksum
+                    cd build/distributions
+                    sha512sum "${TAR_NAME}" > "${TAR_NAME}.sha512"
+                    
+                    # Generate SHA256 for additional verification
+                    sha256sum "${TAR_NAME}" > "${TAR_NAME}.sha256"
+                    
+                    # Output artifact information
+                    echo "path=build/distributions" >> $GITHUB_OUTPUT
+                    echo "checksums=${TAR_NAME}.sha512,${TAR_NAME}.sha256" >> $GITHUB_OUTPUT
+                    
+                    # Display artifacts for verification
+                    echo "Generated artifacts:"
+                    ls -la
+
+            -   name: Create JAR distribution
+                run: |
+                    # Build JAR with all dependencies
+                    ./gradlew shadowJar
+                    
+                    # Copy to distributions with versioned name
+                    cp build/libs/solr-mcp-*-all.jar \
+                       "build/distributions/solr-mcp-${{ inputs.release_version }}-${{ inputs.release_candidate }}.jar"
+                    
+                    # Generate checksums for JAR
+                    cd build/distributions
+                    JAR_NAME="solr-mcp-${{ inputs.release_version }}-${{ inputs.release_candidate }}.jar"
+                    sha512sum "${JAR_NAME}" > "${JAR_NAME}.sha512"
+                    sha256sum "${JAR_NAME}" > "${JAR_NAME}.sha256"
+
+            -   name: Sign artifacts with GPG (optional)
+                if: ${{ env.GPG_KEY_ID != '' }}
+                run: |
+                    # Import GPG key if available (for automated signing)
+                    # Note: Manual GPG signing by Release Manager is also acceptable
+                    echo "GPG signing would be performed here if GPG_KEY_ID secret is configured"
+                    # gpg --armor --detach-sign build/distributions/*.tar.gz
+                    # gpg --armor --detach-sign build/distributions/*.jar
+
+            -   name: Upload artifacts to ATR
+                uses: apache/tooling-actions/upload-to-atr@main
+                with:
+                    asf-uid: ${{ secrets.ASF_USERNAME }}
+                    project: ${{ env.ATR_PROJECT_NAME }}
+                    version: ${{ inputs.release_version }}-${{ inputs.release_candidate }}
+                    src: build/distributions
+                    atr-host: release-test.apache.org
+                    ssh-port: 2222
+
+            -   name: Upload artifacts for review
+                uses: actions/upload-artifact@v3
+                with:
+                    name: release-artifacts-${{ inputs.release_version }}-${{ inputs.release_candidate }}
+                    path: build/distributions/
+                    retention-days: 30
+
+            -   name: Generate compose summary
+                run: |
+                    echo "### Release Compose Phase Completed ✓" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "**Version**: ${{ inputs.release_version }}" >> $GITHUB_STEP_SUMMARY
+                    echo "**Release Candidate**: ${{ inputs.release_candidate }}" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "#### Artifacts Generated:" >> $GITHUB_STEP_SUMMARY
+                    echo "- Source tarball with SHA512/SHA256 checksums" >> $GITHUB_STEP_SUMMARY
+                    echo "- JAR distribution with checksums" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "#### Next Steps:" >> $GITHUB_STEP_SUMMARY
+                    echo "1. Review artifacts in ATR platform" >> $GITHUB_STEP_SUMMARY
+                    echo "2. Proceed with vote phase when ready" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "ATR Platform: https://release-test.apache.org" >> $GITHUB_STEP_SUMMARY
+
+    # Job 2: Manual Vote Instructions
+    vote-instructions:
+        name: Vote Instructions
+        runs-on: ubuntu-latest
+        needs: [ compose-release ]
+        if: ${{ !inputs.skip_vote && (success() || inputs.skip_compose) }}
+
+        steps:
+            -   name: Generate vote email template
+                run: |
+                    cat << 'EOF' > vote-email.txt
+                    Subject: [VOTE] Release Apache Solr MCP ${{ inputs.release_version }} RC${{ inputs.release_candidate }}
+                    
+                    Hi all,
+                    
+                    I'd like to call a vote to release Apache Solr MCP ${{ inputs.release_version }}.
+                    
+                    Release Candidate: ${{ inputs.release_candidate }}
+                    Git Tag: v${{ inputs.release_version }}-${{ inputs.release_candidate }}
+                    Commit: ${{ github.sha }}
+                    
+                    Artifacts are available on ATR:
+                    https://release-test.apache.org/projects/solr-mcp/${{ inputs.release_version }}-${{ inputs.release_candidate }}/
+                    
+                    Release notes:
+                    [Add release notes here or link to CHANGES.txt]
+                    
+                    Please vote to approve this release:
+                    [ ] +1 Release this package
+                    [ ] -1 Do not release (please provide specific comments)
+                    
+                    This vote will be open for at least 72 hours.
+                    
+                    Thanks,
+                    [Your name]
+                    EOF
+                    
+                    cat vote-email.txt
+
+            -   name: Manual voting instructions
+                run: |
+                    echo "### Manual Voting Process Required 🗳️" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "**Version**: ${{ inputs.release_version }}-${{ inputs.release_candidate }}" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "#### Next Steps (Release Manager):" >> $GITHUB_STEP_SUMMARY
+                    echo "1. Review artifacts on ATR: https://release-test.apache.org/projects/solr-mcp/" >> $GITHUB_STEP_SUMMARY
+                    echo "2. Send vote email to dev@solr.apache.org (template generated above)" >> $GITHUB_STEP_SUMMARY
+                    echo "3. Wait for 72-hour minimum voting period" >> $GITHUB_STEP_SUMMARY
+                    echo "4. Ensure at least 3 binding +1 votes from PMC members" >> $GITHUB_STEP_SUMMARY
+                    echo "5. After vote passes, run this workflow again with skip_vote=true" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "#### Vote Requirements:" >> $GITHUB_STEP_SUMMARY
+                    echo "- Minimum 3 binding +1 votes from PMC members" >> $GITHUB_STEP_SUMMARY
+                    echo "- No binding -1 votes" >> $GITHUB_STEP_SUMMARY
+                    echo "- 72-hour minimum voting period" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "**Note**: ATR voting automation is not yet available. Manual process required." >> $GITHUB_STEP_SUMMARY
+
+            -   name: Upload vote email template
+                uses: actions/upload-artifact@v3
+                with:
+                    name: vote-email-template
+                    path: vote-email.txt
+
+    # Job 3: Finish Phase - Resolve vote and announce release
+    finish-release:
+        name: Finalize and Announce Release
+        runs-on: ubuntu-latest
+        if: ${{ always() && inputs.skip_vote }}  # Manual trigger after vote passes
+
+        steps:
+            -   name: Checkout code
+                uses: actions/checkout@v4
+                with:
+                    ref: "v${{ inputs.release_version }}-${{ inputs.release_candidate }}"
+
+            -   name: Resolve vote and announce on ATR
+                uses: apache/tooling-actions/release-on-atr@main
+                with:
+                    version: ${{ inputs.release_version }}
+                    atr-host: release-test.apache.org
+                    resolve: "true"
+                    resolve-resolution: "passed"
+                    announce: "true"
+                    announce-email-to: "announce@apache.org"
+                    announce-subject: "[ANNOUNCE] Apache Solr MCP ${{ inputs.release_version }} Released"
+                    announce-body: |
+                        The Apache Solr team is pleased to announce the release of Apache Solr MCP ${{ inputs.release_version }}.
+                        
+                        Apache Solr MCP is a Model Context Protocol server for Apache Solr.
+                        
+                        Downloads are available from:
+                        https://www.apache.org/dyn/closer.lua/solr/mcp/${{ inputs.release_version }}/
+                        
+                        Docker images:
+                        docker pull apache/solr-mcp:${{ inputs.release_version }}
+                        
+                        Release notes are available at:
+                        https://github.com/apache/solr-mcp/blob/v${{ inputs.release_version }}/CHANGES.txt
+                        
+                        The Apache Solr Team
+                    announce-path-suffix: "solr/mcp/${{ inputs.release_version }}"
+
+            -   name: Create GitHub Release
+                uses: softprops/action-gh-release@v1
+                with:
+                    tag_name: v${{ inputs.release_version }}
+                    name: Apache Solr MCP ${{ inputs.release_version }}
+                    draft: false
+                    prerelease: false
+                    body: |
+                        ## Apache Solr MCP ${{ inputs.release_version }}
+                        
+                        This release was approved through the Apache voting process.
+                        
+                        ### Installation
+                        
+                        **Docker:**
+                        ```bash
+                        docker pull apache/solr-mcp:${{ inputs.release_version }}
+                        ```
+                        
+                        **JAR:**
+                        Download from [Apache Mirrors](https://www.apache.org/dyn/closer.lua/solr/mcp/${{ inputs.release_version }}/)
+                        
+                        ### Verification
+                        
+                        All release artifacts are signed. Verify using:
+                        ```bash
+                        gpg --verify solr-mcp-${{ inputs.release_version }}.jar.asc
+                        sha512sum -c solr-mcp-${{ inputs.release_version }}.jar.sha512
+                        ```
+                        
+                        ### Release Notes
+                        See [CHANGES.txt](https://github.com/apache/solr-mcp/blob/v${{ inputs.release_version }}/CHANGES.txt)
+
+            -   name: Trigger Docker publishing workflow
+                uses: peter-evans/repository-dispatch@v2
+                with:
+                    token: ${{ secrets.GITHUB_TOKEN }}
+                    event-type: release-approved
+                    client-payload: |
+                        {
+                          "release_version": "${{ inputs.release_version }}",
+                          "release_candidate": "${{ inputs.release_candidate }}"
+                        }
+
+            -   name: Final summary
+                run: |
+                    echo "### Release Published Successfully! 🎉" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "**Version**: ${{ inputs.release_version }}" >> $GITHUB_STEP_SUMMARY
+                    echo "**Status**: Published to dist.apache.org" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "#### Distribution:" >> $GITHUB_STEP_SUMMARY
+                    echo "- Apache Mirrors: https://www.apache.org/dyn/closer.lua/solr/mcp/${{ inputs.release_version }}/" >> $GITHUB_STEP_SUMMARY
+                    echo "- Docker Hub: `apache/solr-mcp:${{ inputs.release_version }}`" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "#### Next Steps:" >> $GITHUB_STEP_SUMMARY
+                    echo "1. Send announcement to announce@apache.org" >> $GITHUB_STEP_SUMMARY
+                    echo "2. Update website documentation" >> $GITHUB_STEP_SUMMARY
+                    echo "3. Tweet from @ApacheSolr (optional)" >> $GITHUB_STEP_SUMMARY
+                    echo "4. Close GitHub milestone" >> $GITHUB_STEP_SUMMARY
+
+    # Job 4: Monitoring - Check ATR platform status
+    check-atr-status:
+        name: Check ATR Platform Status
+        runs-on: ubuntu-latest
+        if: ${{ always() }}
+
+        steps:
+            -   name: Check ATR platform availability
+                run: |
+                    echo "Checking ATR platform status..."
+                    
+                    # Check if ATR platform is accessible
+                    if curl -s -o /dev/null -w "%{http_code}" https://release-test.apache.org/health | grep -q "200"; then
+                      echo "✓ ATR platform is available"
+                    else
+                      echo "⚠ ATR platform may be unavailable. Check https://release-test.apache.org"
+                    fi
+
+            -   name: Display ATR resources
+                run: |
+                    echo "### ATR Resources" >> $GITHUB_STEP_SUMMARY
+                    echo "" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Platform**: https://release-test.apache.org" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Tutorial**: https://release-test.apache.org/tutorial" >> $GITHUB_STEP_SUMMARY
+                    echo "- **API Docs**: https://release-test.apache.org/api/docs" >> $GITHUB_STEP_SUMMARY
+                    echo "- **GitHub**: https://github.com/apache/tooling-trusted-releases" >> $GITHUB_STEP_SUMMARY
+                    echo "- **Support**: dev@tooling.apache.org" >> $GITHUB_STEP_SUMMARY
