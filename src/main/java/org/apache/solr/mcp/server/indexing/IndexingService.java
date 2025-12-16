@@ -16,6 +16,9 @@
  */
 package org.apache.solr.mcp.server.indexing;
 
+import java.io.IOException;
+import java.util.List;
+import javax.xml.parsers.ParserConfigurationException;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrInputDocument;
@@ -25,10 +28,6 @@ import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.xml.sax.SAXException;
-
-import javax.xml.parsers.ParserConfigurationException;
-import java.io.IOException;
-import java.util.List;
 
 /**
  * Spring Service providing comprehensive document indexing capabilities for
