@@ -227,10 +227,9 @@ jobs:
                     echo "Total size: $(du -sh build/distributions | cut -f1)"
 
             -   name: Upload artifacts to ATR (Real)
-                if: ${{ !inputs.dry_run && secrets.ASF_USERNAME != '' }}
+                if: ${{ !inputs.dry_run }}
                 uses: apache/tooling-actions/upload-to-atr@main
                 with:
-                    asf-uid: ${{ secrets.ASF_USERNAME }}
                     project: ${{ env.ATR_PROJECT_NAME }}
                     version: ${{ inputs.release_version }}-${{ inputs.release_candidate }}
                     src: build/distributions
@@ -238,7 +237,7 @@ jobs:
                     ssh-port: 2222
 
             -   name: Upload artifacts for review
-                uses: actions/upload-artifact@v3
+                uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # 6.0.0
                 with:
                     name: test-release-artifacts-${{ inputs.release_version }}-${{ inputs.release_candidate }}
                     path: build/distributions/
@@ -350,7 +349,7 @@ jobs:
                     echo "----------------------------------------"
 
             -   name: Resolve vote and announce on ATR (Real)
-                if: ${{ !inputs.dry_run && secrets.ASF_USERNAME != '' }}
+                if: ${{ !inputs.dry_run }}
                 uses: apache/tooling-actions/release-on-atr@main
                 with:
                     version: ${{ inputs.release_version }}
@@ -370,7 +369,6 @@ jobs:
                       echo "✅ Dry run completed successfully" >> $GITHUB_STEP_SUMMARY
                       echo "" >> $GITHUB_STEP_SUMMARY
                       echo "To test with real ATR (requires onboarding):" >> $GITHUB_STEP_SUMMARY
-                      echo "1. Add ASF_USERNAME secret" >> $GITHUB_STEP_SUMMARY
                       echo "2. Run workflow with dry_run=false" >> $GITHUB_STEP_SUMMARY
                     else
                       echo "✅ ATR test completed" >> $GITHUB_STEP_SUMMARY
