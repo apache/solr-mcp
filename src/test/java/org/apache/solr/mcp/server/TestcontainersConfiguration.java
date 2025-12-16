@@ -25,23 +25,16 @@ import org.testcontainers.utility.DockerImageName;
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfiguration {
 
-    private static final int SOLR_PORT = 8983;
+	private static final int SOLR_PORT = 8983;
 
-    @Bean
-    SolrContainer solr() {
-        return new SolrContainer(DockerImageName.parse("solr:9.9-slim"));
-    }
+	@Bean
+	SolrContainer solr() {
+		return new SolrContainer(DockerImageName.parse("solr:9.9-slim"));
+	}
 
-    @Bean
-    DynamicPropertyRegistrar propertiesRegistrar(SolrContainer solr) {
-        return registry ->
-                registry.add(
-                        "solr.url",
-                        () ->
-                                "http://"
-                                        + solr.getHost()
-                                        + ":"
-                                        + solr.getMappedPort(SOLR_PORT)
-                                        + "/solr/");
-    }
+	@Bean
+	DynamicPropertyRegistrar propertiesRegistrar(SolrContainer solr) {
+		return registry -> registry.add("solr.url",
+				() -> "http://" + solr.getHost() + ":" + solr.getMappedPort(SOLR_PORT) + "/solr/");
+	}
 }

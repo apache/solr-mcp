@@ -39,153 +39,143 @@ import org.testcontainers.utility.DockerImageName;
 /**
  * Integration test for the Docker image produced by Jib running in STDIO mode.
  *
- * <p>This test verifies that the Docker image built by Jib:
+ * <p>
+ * This test verifies that the Docker image built by Jib:
  *
  * <ul>
- *   <li>Starts successfully without errors in STDIO mode
- *   <li>Runs the Spring Boot MCP server application correctly
- *   <li>Doesn't crash during initial startup period
- *   <li>Can connect to an external Solr instance
+ * <li>Starts successfully without errors in STDIO mode
+ * <li>Runs the Spring Boot MCP server application correctly
+ * <li>Doesn't crash during initial startup period
+ * <li>Can connect to an external Solr instance
  * </ul>
  *
- * <p><strong>Prerequisites:</strong> Before running this test, you must build the Docker image:
+ * <p>
+ * <strong>Prerequisites:</strong> Before running this test, you must build the
+ * Docker image:
  *
  * <pre>{@code
  * ./gradlew jibDockerBuild
  * }</pre>
  *
- * <p>The image name and version are read from {@code META-INF/build-info.properties}
+ * <p>
+ * The image name and version are read from
+ * {@code META-INF/build-info.properties}
  *
- * <p><strong>Test Architecture:</strong>
+ * <p>
+ * <strong>Test Architecture:</strong>
  *
  * <ol>
- *   <li>Creates a shared Docker network for inter-container communication
- *   <li>Starts a Solr container on the network
- *   <li>Starts the MCP server Docker image in STDIO mode with connection to Solr
- *   <li>Verifies the container starts and remains stable
- *   <li>Validates container health over time
+ * <li>Creates a shared Docker network for inter-container communication
+ * <li>Starts a Solr container on the network
+ * <li>Starts the MCP server Docker image in STDIO mode with connection to Solr
+ * <li>Verifies the container starts and remains stable
+ * <li>Validates container health over time
  * </ol>
  *
- * <p><strong>Note:</strong> This test is tagged with "docker-integration" and is designed to run
- * separately from regular unit tests using the {@code dockerIntegrationTest} Gradle task.
+ * <p>
+ * <strong>Note:</strong> This test is tagged with "docker-integration" and is
+ * designed to run separately from regular unit tests using the
+ * {@code dockerIntegrationTest} Gradle task.
  */
 @Testcontainers
 @Tag("docker-integration")
 class DockerImageStdioIntegrationTest {
 
-    private static final Logger log =
-            LoggerFactory.getLogger(DockerImageStdioIntegrationTest.class);
+	private static final Logger log = LoggerFactory.getLogger(DockerImageStdioIntegrationTest.class);
 
-    // Docker image name and tag from build-info.properties
-    private static final String DOCKER_IMAGE = BuildInfoReader.getDockerImageName();
-    private static final String SOLR_IMAGE = "solr:9.9-slim";
+	// Docker image name and tag from build-info.properties
+	private static final String DOCKER_IMAGE = BuildInfoReader.getDockerImageName();
+	private static final String SOLR_IMAGE = "solr:9.9-slim";
 
-    // Network for container communication
-    private static final Network network = Network.newNetwork();
+	// Network for container communication
+	private static final Network network = Network.newNetwork();
 
-    // Solr container for backend
-    // Note: This field is used implicitly through the @Container annotation.
-    // Testcontainers JUnit extension automatically:
-    // 1. Starts this container before tests run
-    // 2. Makes it accessible via network alias "solr" at http://solr:8983/solr/
-    // 3. Stops and cleans up the container after tests complete
-    @Container
-    private static final SolrContainer solrContainer =
-            new SolrContainer(DockerImageName.parse(SOLR_IMAGE))
-                    .withNetwork(network)
-                    .withNetworkAliases("solr")
-                    .withLogConsumer(new Slf4jLogConsumer(log).withPrefix("SOLR"));
+	// Solr container for backend
+	// Note: This field is used implicitly through the @Container annotation.
+	// Testcontainers JUnit extension automatically:
+	// 1. Starts this container before tests run
+	// 2. Makes it accessible via network alias "solr" at http://solr:8983/solr/
+	// 3. Stops and cleans up the container after tests complete
+	@Container
+	private static final SolrContainer solrContainer = new SolrContainer(DockerImageName.parse(SOLR_IMAGE))
+			.withNetwork(network).withNetworkAliases("solr")
+			.withLogConsumer(new Slf4jLogConsumer(log).withPrefix("SOLR"));
 
-    // MCP Server container (the image we're testing)
-    // Note: In STDIO mode, the application doesn't produce logs to stdout that we can wait for,
-    // so we use a simple startup delay and then verify the container is running
-    @Container
-    private static final GenericContainer<?> mcpServerContainer =
-            new GenericContainer<>(DockerImageName.parse(DOCKER_IMAGE))
-                    .withNetwork(network)
-                    .withEnv("SOLR_URL", "http://solr:8983/solr/")
-                    .withEnv("SPRING_DOCKER_COMPOSE_ENABLED", "false")
-                    .withLogConsumer(new Slf4jLogConsumer(log).withPrefix("MCP-SERVER"))
-                    // Give the application time to start (STDIO mode doesn't produce logs to wait
-                    // for)
-                    .withStartupTimeout(Duration.ofSeconds(60));
+	// MCP Server container (the image we're testing)
+	// Note: In STDIO mode, the application doesn't produce logs to stdout that we
+	// can wait for,
+	// so we use a simple startup delay and then verify the container is running
+	@Container
+	private static final GenericContainer<?> mcpServerContainer = new GenericContainer<>(
+			DockerImageName.parse(DOCKER_IMAGE)).withNetwork(network).withEnv("SOLR_URL", "http://solr:8983/solr/")
+			.withEnv("SPRING_DOCKER_COMPOSE_ENABLED", "false")
+			.withLogConsumer(new Slf4jLogConsumer(log).withPrefix("MCP-SERVER"))
+			// Give the application time to start (STDIO mode doesn't produce logs to wait
+			// for)
+			.withStartupTimeout(Duration.ofSeconds(60));
 
-    @BeforeAll
-    static void setup() throws InterruptedException {
-        log.info("Solr container started. Internal URL: http://solr:8983/solr/");
-        log.info("MCP Server container starting. Waiting for initialization...");
+	@BeforeAll
+	static void setup() throws InterruptedException {
+		log.info("Solr container started. Internal URL: http://solr:8983/solr/");
+		log.info("MCP Server container starting. Waiting for initialization...");
 
-        // Give the MCP server a few seconds to initialize
-        // In STDIO mode, the app runs but doesn't produce logs we can monitor
-        Thread.sleep(5000);
+		// Give the MCP server a few seconds to initialize
+		// In STDIO mode, the app runs but doesn't produce logs we can monitor
+		Thread.sleep(5000);
 
-        log.info("Initialization wait complete. Beginning tests.");
-    }
+		log.info("Initialization wait complete. Beginning tests.");
+	}
 
-    @Test
-    void testSolrContainerIsRunning() {
-        // Verify Solr container started successfully
-        // This is essential because MCP server depends on Solr being available
-        assertTrue(solrContainer.isRunning(), "Solr container should be running");
+	@Test
+	void testSolrContainerIsRunning() {
+		// Verify Solr container started successfully
+		// This is essential because MCP server depends on Solr being available
+		assertTrue(solrContainer.isRunning(), "Solr container should be running");
 
-        log.info("Solr container is running and available at http://solr:8983/solr/");
-    }
+		log.info("Solr container is running and available at http://solr:8983/solr/");
+	}
 
-    @Test
-    void testContainerStartsAndRemainsStable() {
-        // Verify initial startup
-        assertTrue(mcpServerContainer.isRunning(), "Container should start successfully");
+	@Test
+	void testContainerStartsAndRemainsStable() {
+		// Verify initial startup
+		assertTrue(mcpServerContainer.isRunning(), "Container should start successfully");
 
-        // Monitor container stability over 10 seconds to ensure it doesn't crash
-        await().atMost(10, TimeUnit.SECONDS)
-                .pollInterval(1, TimeUnit.SECONDS)
-                .pollDelay(Duration.ZERO)
-                .untilAsserted(() -> assertTrue(mcpServerContainer.isRunning()));
+		// Monitor container stability over 10 seconds to ensure it doesn't crash
+		await().atMost(10, TimeUnit.SECONDS).pollInterval(1, TimeUnit.SECONDS).pollDelay(Duration.ZERO)
+				.untilAsserted(() -> assertTrue(mcpServerContainer.isRunning()));
 
-        log.info("Container started successfully and remained stable for 10 seconds");
-    }
+		log.info("Container started successfully and remained stable for 10 seconds");
+	}
 
-    @Test
-    void testNoErrorsInLogs() {
-        String logs = mcpServerContainer.getLogs();
+	@Test
+	void testNoErrorsInLogs() {
+		String logs = mcpServerContainer.getLogs();
 
-        // Check for critical error patterns
-        assertFalse(
-                logs.contains("Exception in thread \"main\""),
-                "Logs should not contain main thread exceptions");
+		// Check for critical error patterns
+		assertFalse(logs.contains("Exception in thread \"main\""), "Logs should not contain main thread exceptions");
 
-        assertFalse(
-                logs.contains("Application run failed"),
-                "Logs should not contain application failure messages");
+		assertFalse(logs.contains("Application run failed"), "Logs should not contain application failure messages");
 
-        assertFalse(
-                logs.contains("ERROR") && logs.contains("Failed to start"),
-                "Logs should not contain startup failure errors");
+		assertFalse(logs.contains("ERROR") && logs.contains("Failed to start"),
+				"Logs should not contain startup failure errors");
 
-        assertFalse(
-                logs.contains("fatal error") || logs.contains("JVM crash"),
-                "Logs should not contain JVM crash messages");
+		assertFalse(logs.contains("fatal error") || logs.contains("JVM crash"),
+				"Logs should not contain JVM crash messages");
 
-        assertFalse(
-                logs.contains("exec format error"),
-                "Logs should not contain platform compatibility errors");
+		assertFalse(logs.contains("exec format error"), "Logs should not contain platform compatibility errors");
 
-        log.info("No critical errors found in container logs");
-    }
+		log.info("No critical errors found in container logs");
+	}
 
-    @Test
-    void testSolrConnectivity() {
-        // Verify environment variables are working and Solr is accessible
-        String logs = mcpServerContainer.getLogs();
+	@Test
+	void testSolrConnectivity() {
+		// Verify environment variables are working and Solr is accessible
+		String logs = mcpServerContainer.getLogs();
 
-        assertFalse(
-                logs.contains("Connection refused"),
-                "Logs should not contain connection refused errors");
+		assertFalse(logs.contains("Connection refused"), "Logs should not contain connection refused errors");
 
-        assertFalse(
-                logs.contains("UnknownHostException"),
-                "Logs should not contain unknown host exceptions");
+		assertFalse(logs.contains("UnknownHostException"), "Logs should not contain unknown host exceptions");
 
-        log.info("Container can connect to Solr without errors");
-    }
+		log.info("Container can connect to Solr without errors");
+	}
 }

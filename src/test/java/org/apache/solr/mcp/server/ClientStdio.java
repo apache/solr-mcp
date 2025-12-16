@@ -25,15 +25,14 @@ import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
 // connected to a running solr"
 public class ClientStdio {
 
-    static void main() {
+	static void main() {
 
-        String jarName = String.format("build/libs/%s", BuildInfoReader.getJarFileName());
+		String jarName = String.format("build/libs/%s", BuildInfoReader.getJarFileName());
 
-        var stdioParams = ServerParameters.builder("java").args("-jar", jarName).build();
+		var stdioParams = ServerParameters.builder("java").args("-jar", jarName).build();
 
-        var transport =
-                new StdioClientTransport(stdioParams, new JacksonMcpJsonMapper(new ObjectMapper()));
+		var transport = new StdioClientTransport(stdioParams, new JacksonMcpJsonMapper(new ObjectMapper()));
 
-        new SampleClient(transport).run();
-    }
+		new SampleClient(transport).run();
+	}
 }
