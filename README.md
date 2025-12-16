@@ -4,13 +4,14 @@
 
 A Spring AI Model Context Protocol (MCP) server that provides tools for interacting with Apache Solr. Enables AI assistants like Claude to search, index, and manage Solr collections through the MCP protocol.
 
-## What’s inside
+## What's inside
 
 - 🔍 Search Solr collections with filtering, faceting, and pagination
 - 📝 Index documents in JSON, CSV, and XML
 - 📊 Manage collections and view statistics
 - 🔧 Inspect schema
 - 🔌 Transports: STDIO (Claude Desktop) and HTTP (MCP Inspector)
+- 🔐 OAuth2 security with Auth0 (HTTP mode only)
 - 🐳 Docker images built with Jib
 
 ## Get started (users)
@@ -22,6 +23,10 @@ A Spring AI Model Context Protocol (MCP) server that provides tools for interact
   ```
 - Run the server:
     - **STDIO mode (default)**:
+        - Gradle:
+          ```bash
+          ./gradlew bootRun
+          ```
         - JAR:
           ```bash
           ./gradlew build
@@ -32,6 +37,10 @@ A Spring AI Model Context Protocol (MCP) server that provides tools for interact
           docker run -i --rm ghcr.io/apache/solr-mcp:latest
           ```
     - **HTTP mode**:
+        - Gradle:
+          ```bash
+          PROFILES=http ./gradlew bootRun
+          ```
         - JAR:
           ```bash
           PROFILES=http java -jar build/libs/solr-mcp-0.0.1-SNAPSHOT.jar
@@ -128,7 +137,92 @@ Using JAR:
 }
 ```
 
+**Connecting to a running HTTP server**
+
+If you already have the MCP server running in HTTP mode (via Gradle, JAR, or Docker), you can connect Claude Desktop to
+it using `mcp-remote`:
+
+Running via Gradle:
+
+```bash
+PROFILES=http ./gradlew bootRun
+```
+
+Running locally (JAR):
+
+```bash
+PROFILES=http java -jar build/libs/solr-mcp-0.0.1-SNAPSHOT.jar
+```
+
+Running via Docker:
+
+```bash
+docker run -p 8080:8080 --rm -e PROFILES=http ghcr.io/apache/solr-mcp:latest
+```
+
+Then add to your `claude_desktop_config.json`:
+
+```json
+{
+    "mcpServers": {
+        "solr-mcp-http": {
+            "command": "npx",
+            "args": [
+                "mcp-remote",
+                "http://localhost:8080/mcp"
+            ]
+        }
+    }
+}
+```
+
 More configuration options: docs/DEPLOYMENT.md#docker-images-with-jib
+
+## Security (OAuth2)
+
+The Solr MCP server supports OAuth2 authentication when running in HTTP mode, providing secure access control for your
+MCP tools.
+
+### Features
+
+- **OAuth2 Resource Server**: JWT token validation using Auth0 (or any OAuth2 provider)
+- **HTTP Mode Only**: Security is only active when using the `http` profile
+- **CORS Support**: Enabled for MCP Inspector compatibility
+- **Machine-to-Machine**: Uses Client Credentials flow for service authentication
+
+### Quick Setup
+
+1. **Configure Auth0** (see detailed guide: [docs/AUTH0_SETUP.md](docs/AUTH0_SETUP.md))
+    - Create an Auth0 Application (Machine to Machine)
+    - Create an Auth0 API with your audience identifier
+    - Note your Domain, Client ID, Client Secret, and Audience
+
+2. **Set Environment Variable**:
+   ```bash
+   export OAUTH2_ISSUER_URI=https://your-tenant.auth0.com/
+   export PROFILES=http
+   ```
+
+3. **Run the Server**:
+   ```bash
+   ./gradlew bootRun
+   ```
+
+4. **Get Access Token** (using convenience script):
+   ```bash
+   ./scripts/get-auth0-token.sh --domain your-tenant.auth0.com \
+     --client-id YOUR_CLIENT_ID \
+     --client-secret YOUR_CLIENT_SECRET \
+     --audience https://solr-mcp-api
+   ```
+
+5. **Use the Token**:
+   ```bash
+   curl -H "Authorization: Bearer YOUR_TOKEN" \
+     http://localhost:8080/mcp
+   ```
+
+For complete setup instructions, see [docs/AUTH0_SETUP.md](docs/AUTH0_SETUP.md)
 
 ## Available MCP tools
 
@@ -151,23 +245,27 @@ More configuration options: docs/DEPLOYMENT.md#docker-images-with-jib
 
   ![MCP Inspector HTTP](images/mcp-inspector-http.png)
 
+- MCP Inspector (HTTP with OAuth2 - Success):
+
+  ![MCP Inspector HTTP OAuth Success](images/mcp-inspector-http-oauth-success.png)
+
+- MCP Inspector (HTTP with OAuth2 - Failure):
+
+  ![MCP Inspector HTTP OAuth Failure](images/mcp-inspector-http-oauth-failure.png)
+
 - MCP Inspector (STDIO):
 
   ![MCP Inspector STDIO](images/mcp-inspector-stdio.png)
 
 ## Documentation
 
-- Architecture: docs/ARCHITECTURE.md
-- Development (build, run, test, add features): docs/DEVELOPMENT.md
-- Deployment (Docker, HTTP vs STDIO, CI/CD, MCP Registry): docs/DEPLOYMENT.md
-- Troubleshooting: docs/TROUBLESHOOTING.md
+- [Auth0 Setup (OAuth2 configuration)](docs/AUTH0_SETUP.md)
 
 ## Contributing
 
 We welcome contributions!
 
-- Start here: CONTRIBUTING.md
-- Developer workflows, coding standards, and tests: docs/DEVELOPMENT.md
+- Start here: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Support
 
@@ -186,3 +284,4 @@ Built with:
 - Apache Solr — https://solr.apache.org/
 - Jib — https://github.com/GoogleContainerTools/jib
 - Testcontainers — https://www.testcontainers.org/
+- Spring AI MCP Security — https://github.com/spring-ai-community/mcp-security
