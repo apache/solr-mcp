@@ -53,7 +53,7 @@ public class BuildInfoReader {
     private static Properties loadBuildInfo() {
         Properties properties = new Properties();
         try (InputStream input =
-                     BuildInfoReader.class.getResourceAsStream(BUILD_INFO_PROPERTIES_PATH)) {
+                BuildInfoReader.class.getResourceAsStream(BUILD_INFO_PROPERTIES_PATH)) {
             if (input == null) {
                 throw new IllegalStateException(
                         "build-info.properties not found at "
