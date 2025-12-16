@@ -33,151 +33,139 @@ import org.testcontainers.containers.SolrContainer;
 @Import(TestcontainersConfiguration.class)
 class SolrConfigTest {
 
-    @Autowired private SolrClient solrClient;
+	@Autowired
+	private SolrClient solrClient;
 
-    @Autowired SolrContainer solrContainer;
+	@Autowired
+	SolrContainer solrContainer;
 
-    @Autowired private SolrConfigurationProperties properties;
+	@Autowired
+	private SolrConfigurationProperties properties;
 
-    @Test
-    void testSolrClientConfiguration() {
-        // Verify that the SolrClient is properly configured
-        assertNotNull(solrClient);
+	@Test
+	void testSolrClientConfiguration() {
+		// Verify that the SolrClient is properly configured
+		assertNotNull(solrClient);
 
-        // Verify that the SolrClient is using the correct URL
-        // Note: SolrConfig normalizes the URL to have trailing slash, but Http2SolrClient removes
-        // it
-        var httpSolrClient = assertInstanceOf(Http2SolrClient.class, solrClient);
-        String expectedUrl =
-                "http://"
-                        + solrContainer.getHost()
-                        + ":"
-                        + solrContainer.getMappedPort(8983)
-                        + "/solr";
-        assertEquals(expectedUrl, httpSolrClient.getBaseURL());
-    }
+		// Verify that the SolrClient is using the correct URL
+		// Note: SolrConfig normalizes the URL to have trailing slash, but
+		// Http2SolrClient removes
+		// it
+		var httpSolrClient = assertInstanceOf(Http2SolrClient.class, solrClient);
+		String expectedUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr";
+		assertEquals(expectedUrl, httpSolrClient.getBaseURL());
+	}
 
-    @Test
-    void testSolrConfigurationProperties() {
-        // Verify that the properties are correctly loaded
-        assertNotNull(properties);
-        assertNotNull(properties.url());
-        assertEquals(
-                "http://"
-                        + solrContainer.getHost()
-                        + ":"
-                        + solrContainer.getMappedPort(8983)
-                        + "/solr/",
-                properties.url());
-    }
+	@Test
+	void testSolrConfigurationProperties() {
+		// Verify that the properties are correctly loaded
+		assertNotNull(properties);
+		assertNotNull(properties.url());
+		assertEquals("http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/",
+				properties.url());
+	}
 
-    @ParameterizedTest
-    @CsvSource({
-        "http://localhost:8983, http://localhost:8983/solr",
-        "http://localhost:8983/, http://localhost:8983/solr",
-        "http://localhost:8983/solr, http://localhost:8983/solr",
-        "http://localhost:8983/solr/, http://localhost:8983/solr",
-        "http://localhost:8983/custom/solr/, http://localhost:8983/custom/solr"
-    })
-    void testUrlNormalization(String inputUrl, String expectedUrl) {
-        // Create a test properties object
-        SolrConfigurationProperties testProperties = new SolrConfigurationProperties(inputUrl);
+	@ParameterizedTest
+	@CsvSource({"http://localhost:8983, http://localhost:8983/solr",
+			"http://localhost:8983/, http://localhost:8983/solr",
+			"http://localhost:8983/solr, http://localhost:8983/solr",
+			"http://localhost:8983/solr/, http://localhost:8983/solr",
+			"http://localhost:8983/custom/solr/, http://localhost:8983/custom/solr"})
+	void testUrlNormalization(String inputUrl, String expectedUrl) {
+		// Create a test properties object
+		SolrConfigurationProperties testProperties = new SolrConfigurationProperties(inputUrl);
 
-        // Create SolrConfig instance
-        SolrConfig solrConfig = new SolrConfig();
+		// Create SolrConfig instance
+		SolrConfig solrConfig = new SolrConfig();
 
-        // Test URL normalization
-        SolrClient client = solrConfig.solrClient(testProperties);
-        assertNotNull(client);
+		// Test URL normalization
+		SolrClient client = solrConfig.solrClient(testProperties);
+		assertNotNull(client);
 
-        var httpClient = assertInstanceOf(Http2SolrClient.class, client);
-        assertEquals(expectedUrl, httpClient.getBaseURL());
+		var httpClient = assertInstanceOf(Http2SolrClient.class, client);
+		assertEquals(expectedUrl, httpClient.getBaseURL());
 
-        // Clean up
-        try {
-            client.close();
-        } catch (Exception e) {
-            // Ignore close errors in test
-        }
-    }
+		// Clean up
+		try {
+			client.close();
+		} catch (Exception e) {
+			// Ignore close errors in test
+		}
+	}
 
-    @Test
-    void testUrlWithoutTrailingSlash() {
-        // Test URL without trailing slash branch
-        SolrConfigurationProperties testProperties =
-                new SolrConfigurationProperties("http://localhost:8983");
-        SolrConfig solrConfig = new SolrConfig();
+	@Test
+	void testUrlWithoutTrailingSlash() {
+		// Test URL without trailing slash branch
+		SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983");
+		SolrConfig solrConfig = new SolrConfig();
 
-        SolrClient client = solrConfig.solrClient(testProperties);
-        Http2SolrClient httpClient = (Http2SolrClient) client;
+		SolrClient client = solrConfig.solrClient(testProperties);
+		Http2SolrClient httpClient = (Http2SolrClient) client;
 
-        // Should add trailing slash and solr path
-        assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
+		// Should add trailing slash and solr path
+		assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
 
-        try {
-            client.close();
-        } catch (Exception e) {
-            // Ignore close errors in test
-        }
-    }
+		try {
+			client.close();
+		} catch (Exception e) {
+			// Ignore close errors in test
+		}
+	}
 
-    @Test
-    void testUrlWithTrailingSlashButNoSolrPath() {
-        // Test URL with trailing slash but no solr path branch
-        SolrConfigurationProperties testProperties =
-                new SolrConfigurationProperties("http://localhost:8983/");
-        SolrConfig solrConfig = new SolrConfig();
+	@Test
+	void testUrlWithTrailingSlashButNoSolrPath() {
+		// Test URL with trailing slash but no solr path branch
+		SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983/");
+		SolrConfig solrConfig = new SolrConfig();
 
-        SolrClient client = solrConfig.solrClient(testProperties);
-        Http2SolrClient httpClient = (Http2SolrClient) client;
+		SolrClient client = solrConfig.solrClient(testProperties);
+		Http2SolrClient httpClient = (Http2SolrClient) client;
 
-        // Should add solr path to existing trailing slash
-        assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
+		// Should add solr path to existing trailing slash
+		assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
 
-        try {
-            client.close();
-        } catch (Exception e) {
-            // Ignore close errors in test
-        }
-    }
+		try {
+			client.close();
+		} catch (Exception e) {
+			// Ignore close errors in test
+		}
+	}
 
-    @Test
-    void testUrlWithSolrPathButNoTrailingSlash() {
-        // Test URL with solr path but no trailing slash
-        SolrConfigurationProperties testProperties =
-                new SolrConfigurationProperties("http://localhost:8983/solr");
-        SolrConfig solrConfig = new SolrConfig();
+	@Test
+	void testUrlWithSolrPathButNoTrailingSlash() {
+		// Test URL with solr path but no trailing slash
+		SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983/solr");
+		SolrConfig solrConfig = new SolrConfig();
 
-        SolrClient client = solrConfig.solrClient(testProperties);
-        Http2SolrClient httpClient = (Http2SolrClient) client;
+		SolrClient client = solrConfig.solrClient(testProperties);
+		Http2SolrClient httpClient = (Http2SolrClient) client;
 
-        // Should add trailing slash
-        assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
+		// Should add trailing slash
+		assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
 
-        try {
-            client.close();
-        } catch (Exception e) {
-            // Ignore close errors in test
-        }
-    }
+		try {
+			client.close();
+		} catch (Exception e) {
+			// Ignore close errors in test
+		}
+	}
 
-    @Test
-    void testUrlAlreadyProperlyFormatted() {
-        // Test URL that's already properly formatted
-        SolrConfigurationProperties testProperties =
-                new SolrConfigurationProperties("http://localhost:8983/solr/");
-        SolrConfig solrConfig = new SolrConfig();
+	@Test
+	void testUrlAlreadyProperlyFormatted() {
+		// Test URL that's already properly formatted
+		SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983/solr/");
+		SolrConfig solrConfig = new SolrConfig();
 
-        SolrClient client = solrConfig.solrClient(testProperties);
-        Http2SolrClient httpClient = (Http2SolrClient) client;
+		SolrClient client = solrConfig.solrClient(testProperties);
+		Http2SolrClient httpClient = (Http2SolrClient) client;
 
-        // Should remain unchanged
-        assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
+		// Should remain unchanged
+		assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
 
-        try {
-            client.close();
-        } catch (Exception e) {
-            // Ignore close errors in test
-        }
-    }
+		try {
+			client.close();
+		} catch (Exception e) {
+			// Ignore close errors in test
+		}
+	}
 }

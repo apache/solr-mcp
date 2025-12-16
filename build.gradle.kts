@@ -152,7 +152,10 @@ tasks.build {
 spotless {
     java {
         target("src/**/*.java")
-        googleJavaFormat().aosp().reflowLongStrings()
+        // Use Eclipse JDT formatter to avoid google-java-format's incompatibility
+        // with cutting-edge JDKs (e.g., 25) which can trigger NoSuchMethodError
+        // against internal javac classes.
+        eclipse()
         removeUnusedImports()
         trimTrailingWhitespace()
         endWithNewline()
