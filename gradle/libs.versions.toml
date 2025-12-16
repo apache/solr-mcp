@@ -10,6 +10,7 @@ spotless = "7.0.2"
 spring-ai = "2.0.0-M1"
 solr = "9.9.0"
 commons-csv = "1.10.0"
+mcp-server-security = "0.0.4"
 
 # Error Prone and analysis tools
 errorprone-core = "2.38.0"
@@ -23,6 +24,8 @@ awaitility = "4.2.2"
 # Spring
 spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security" }
+spring-boot-starter-oauth2-resource-server = { module = "org.springframework.boot:spring-boot-starter-oauth2-resource-server" }
 spring-boot-docker-compose = { module = "org.springframework.boot:spring-boot-docker-compose" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
 spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
@@ -31,6 +34,9 @@ spring-ai-starter-mcp-server-webmvc = { module = "org.springframework.ai:spring-
 spring-ai-starter-mcp-client = { module = "org.springframework.ai:spring-ai-starter-mcp-client" }
 spring-ai-spring-boot-docker-compose = { module = "org.springframework.ai:spring-ai-spring-boot-docker-compose" }
 spring-ai-spring-boot-testcontainers = { module = "org.springframework.ai:spring-ai-spring-boot-testcontainers" }
+
+# MCP Security
+mcp-server-security = { module = "org.springaicommunity:mcp-server-security", version.ref = "mcp-server-security" }
 
 # Solr
 solr-solrj = { module = "org.apache.solr:solr-solrj", version.ref = "solr" }

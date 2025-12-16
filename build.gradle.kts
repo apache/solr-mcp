@@ -59,6 +59,11 @@ dependencies {
     }
     implementation(libs.commons.csv)
 
+    // Security
+    implementation(libs.mcp.server.security)
+    implementation(libs.spring.boot.starter.security)
+    implementation(libs.spring.boot.starter.oauth2.resource.server)
+
     // Error Prone and NullAway for null safety analysis
     errorprone(libs.errorprone.core)
     errorprone(libs.nullaway)

@@ -35,3 +35,8 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Security - Auth tokens and environment files ###
+.env
+.auth-token
+*.token
