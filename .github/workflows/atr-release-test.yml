@@ -237,7 +237,7 @@ jobs:
                     ssh-port: 2222
 
             -   name: Upload artifacts for review
-                uses: actions/upload-artifact@v3
+                uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # 6.0.0
                 with:
                     name: test-release-artifacts-${{ inputs.release_version }}-${{ inputs.release_candidate }}
                     path: build/distributions/
