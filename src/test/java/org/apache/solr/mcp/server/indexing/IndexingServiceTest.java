@@ -47,9 +47,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.testcontainers.containers.SolrContainer;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
+@Testcontainers(disabledWithoutDocker = true)
 class IndexingServiceTest {
 
 	private static boolean initialized = false;

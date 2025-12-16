@@ -77,7 +77,7 @@ import org.testcontainers.utility.DockerImageName;
  * designed to run separately from regular unit tests using the
  * {@code dockerIntegrationTest} Gradle task.
  */
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @Tag("docker-integration")
 class DockerImageStdioIntegrationTest {
 
