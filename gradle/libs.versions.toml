@@ -10,6 +10,7 @@ spotless = "7.0.2"
 spring-ai = "2.0.0-M1"
 solr = "9.9.0"
 commons-csv = "1.10.0"
+jspecify = "1.0.0"
 mcp-server-security = "0.0.4"
 
 # Error Prone and analysis tools
