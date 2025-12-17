@@ -229,13 +229,14 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
      * <li><strong>String</strong>: All other values → Java String
      * </ul>
      *
-     * @param value the JsonNode value to convert
-     * @return the converted Java object with appropriate type
-     * @see JsonNode
-     */
-    private Object convertJsonValue(JsonNode value) {
-        if (value.isBoolean())
-            return value.asBoolean();
+     * @param value
+     *            the JsonNode value to convert
+	 * @return the converted Java object with appropriate type
+	 * @see JsonNode
+	 */
+	private Object convertJsonValue(JsonNode value) {
+		if (value.isBoolean())
+			return value.asBoolean();
 		if (value.isLong())
 			return value.asLong();
 		if (value.isDouble())
