@@ -29,10 +29,13 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Utility class for processing JSON documents and converting them to SolrInputDocument objects.
+ * Utility class for processing JSON documents and converting them to
+ * SolrInputDocument objects.
  *
- * <p>This class handles the conversion of JSON documents into Solr-compatible format using a
- * schema-less approach where Solr automatically detects field types.
+ * <p>
+ * This class handles the conversion of JSON documents into Solr-compatible
+ * format using a schema-less approach where Solr automatically detects field
+ * types.
  */
 @Component
 public class JsonDocumentCreator implements SolrDocumentCreator {
@@ -42,36 +45,48 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
     /**
      * Creates a list of schema-less SolrInputDocument objects from a JSON string.
      *
-     * <p>This method implements a flexible document conversion strategy that allows Solr to
-     * automatically detect field types without requiring predefined schema configuration. It
-     * processes complex JSON structures by flattening nested objects and handling arrays
-     * appropriately for Solr's multi-valued field support.
+     * <p>
+     * This method implements a flexible document conversion strategy that allows
+     * Solr to automatically detect field types without requiring predefined schema
+     * configuration. It processes complex JSON structures by flattening nested
+     * objects and handling arrays appropriately for Solr's multi-valued field
+     * support.
      *
-     * <p><strong>Schema-less Benefits:</strong>
-     *
-     * <ul>
-     *   <li><strong>Flexibility</strong>: No need to predefine field types in schema
-     *   <li><strong>Rapid Prototyping</strong>: Quick iteration on document structures
-     *   <li><strong>Type Detection</strong>: Solr automatically infers optimal field types
-     *   <li><strong>Dynamic Fields</strong>: Support for varying document structures
-     * </ul>
-     *
-     * <p><strong>JSON Processing Rules:</strong>
+     * <p>
+     * <strong>Schema-less Benefits:</strong>
      *
      * <ul>
-     *   <li><strong>Nested Objects</strong>: Flattened using underscore notation (e.g., "user.name"
-     *       → "user_name")
-     *   <li><strong>Arrays</strong>: Non-object arrays converted to multi-valued fields
-     *   <li><strong>Null Values</strong>: Ignored and not indexed
-     *   <li><strong>Object Arrays</strong>: Skipped to avoid complex nested structures
+     * <li><strong>Flexibility</strong>: No need to predefine field types in schema
+     * <li><strong>Rapid Prototyping</strong>: Quick iteration on document
+     * structures
+     * <li><strong>Type Detection</strong>: Solr automatically infers optimal field
+     * types
+     * <li><strong>Dynamic Fields</strong>: Support for varying document structures
      * </ul>
      *
-     * <p><strong>Field Name Sanitization:</strong>
+     * <p>
+     * <strong>JSON Processing Rules:</strong>
      *
-     * <p>Field names are automatically sanitized to ensure Solr compatibility by removing special
-     * characters and converting to lowercase with underscore separators.
+     * <ul>
+     * <li><strong>Nested Objects</strong>: Flattened using underscore notation
+     * (e.g., "user.name" → "user_name")
+     * <li><strong>Arrays</strong>: Non-object arrays converted to multi-valued
+     * fields
+     * <li><strong>Null Values</strong>: Ignored and not indexed
+     * <li><strong>Object Arrays</strong>: Skipped to avoid complex nested
+     * structures
+     * </ul>
      *
-     * <p><strong>Example Transformations:</strong>
+     * <p>
+     * <strong>Field Name Sanitization:</strong>
+     *
+     * <p>
+     * Field names are automatically sanitized to ensure Solr compatibility by
+     * removing special characters and converting to lowercase with underscore
+     * separators.
+     *
+     * <p>
+     * <strong>Example Transformations:</strong>
      *
      * <pre>{@code
      * Input:  {"user":{"name":"John","age":30},"tags":["tech","java"]}
@@ -80,8 +95,8 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
      *
      * @param json JSON string containing document data (must be an array)
      * @return list of SolrInputDocument objects ready for indexing
-     * @throws DocumentProcessingException if JSON parsing fails, input validation fails, or the
-     *     structure is invalid
+     * @throws DocumentProcessingException if JSON parsing fails, input validation fails, or the structure
+     *                                     is invalid
      * @see SolrInputDocument
      * @see #addAllFieldsFlat(SolrInputDocument, JsonNode, String)
      * @see FieldNameSanitizer#sanitizeFieldName(String)
@@ -115,44 +130,49 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
     }
 
     /**
-     * Recursively flattens JSON nodes and adds them as fields to a SolrInputDocument.
+     * Recursively flattens JSON nodes and adds them as fields to a
+     * SolrInputDocument.
      *
-     * <p>This method implements the core logic for converting nested JSON structures into flat
-     * field names that Solr can efficiently index and search. It handles various JSON node types
-     * appropriately while maintaining data integrity.
+     * <p>
+     * This method implements the core logic for converting nested JSON structures
+     * into flat field names that Solr can efficiently index and search. It handles
+     * various JSON node types appropriately while maintaining data integrity.
      *
-     * <p><strong>Processing Logic:</strong>
+     * <p>
+     * <strong>Processing Logic:</strong>
      *
      * <ul>
-     *   <li><strong>Null Values</strong>: Skipped to avoid indexing empty fields
-     *   <li><strong>Arrays</strong>: Non-object items converted to multi-valued fields
-     *   <li><strong>Objects</strong>: Recursively flattened with prefix concatenation
-     *   <li><strong>Primitives</strong>: Directly added with appropriate type conversion
+     * <li><strong>Null Values</strong>: Skipped to avoid indexing empty fields
+     * <li><strong>Arrays</strong>: Non-object items converted to multi-valued
+     * fields
+     * <li><strong>Objects</strong>: Recursively flattened with prefix concatenation
+     * <li><strong>Primitives</strong>: Directly added with appropriate type
+     * conversion
      * </ul>
      *
-     * @param doc the SolrInputDocument to add fields to
-     * @param node the JSON node to process
+     * @param doc    the SolrInputDocument to add fields to
+     * @param node   the JSON node to process
      * @param prefix current field name prefix for nested object flattening
      * @see #convertJsonValue(JsonNode)
      * @see FieldNameSanitizer#sanitizeFieldName(String)
      */
     private void addAllFieldsFlat(SolrInputDocument doc, JsonNode node, String prefix) {
         Set<Map.Entry<String, JsonNode>> fields = node.properties();
-        fields.forEach(
-                field ->
-                        processFieldValue(
-                                doc,
-                                field.getValue(),
-                                FieldNameSanitizer.sanitizeFieldName(prefix + field.getKey())));
+        fields.forEach(field -> processFieldValue(doc, field.getValue(),
+                FieldNameSanitizer.sanitizeFieldName(prefix + field.getKey())));
     }
 
     /**
-     * Processes the provided field value and adds it to the given SolrInputDocument. Handles cases
-     * where the field value is an array, object, or a simple value.
+     * Processes the provided field value and adds it to the given
+     * SolrInputDocument. Handles cases where the field value is an array, object,
+     * or a simple value.
      *
-     * @param doc the SolrInputDocument to which the field value will be added
-     * @param value the JsonNode representing the field value to be processed
-     * @param fieldName the name of the field to be added to the SolrInputDocument
+     * @param doc
+     *            the SolrInputDocument to which the field value will be added
+     * @param value
+     *            the JsonNode representing the field value to be processed
+     * @param fieldName
+     *            the name of the field to be added to the SolrInputDocument
      */
     private void processFieldValue(SolrInputDocument doc, JsonNode value, String fieldName) {
         if (value.isNull()) {
@@ -169,13 +189,13 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
     }
 
     /**
-     * Processes a JSON array field and adds its non-object elements to the specified field in the
-     * given SolrInputDocument.
+     * Processes a JSON array field and adds its non-object elements to the
+     * specified field in the given SolrInputDocument.
      *
-     * @param doc the SolrInputDocument to which the processed field will be added
+     * @param doc        the SolrInputDocument to which the processed field will be added
      * @param arrayValue the JSON array node to process
-     * @param fieldName the name of the field in the SolrInputDocument to which the array values
-     *     will be added
+     * @param fieldName  the name of the field in the SolrInputDocument to which the array
+     *                   values will be added
      */
     private void processArrayField(SolrInputDocument doc, JsonNode arrayValue, String fieldName) {
         List<Object> values = new ArrayList<>();
@@ -190,20 +210,23 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
     }
 
     /**
-     * Converts a JsonNode value to the appropriate Java object type for Solr indexing.
+     * Converts a JsonNode value to the appropriate Java object type for Solr
+     * indexing.
      *
-     * <p>This method provides type-aware conversion of JSON values to their corresponding Java
-     * types, ensuring that Solr receives properly typed data for optimal field type detection and
-     * indexing performance.
+     * <p>
+     * This method provides type-aware conversion of JSON values to their
+     * corresponding Java types, ensuring that Solr receives properly typed data for
+     * optimal field type detection and indexing performance.
      *
-     * <p><strong>Supported Type Conversions:</strong>
+     * <p>
+     * <strong>Supported Type Conversions:</strong>
      *
      * <ul>
-     *   <li><strong>Boolean</strong>: JSON boolean → Java Boolean
-     *   <li><strong>Integer</strong>: JSON number (int range) → Java Integer
-     *   <li><strong>Long</strong>: JSON number (long range) → Java Long
-     *   <li><strong>Double</strong>: JSON number (decimal) → Java Double
-     *   <li><strong>String</strong>: All other values → Java String
+     * <li><strong>Boolean</strong>: JSON boolean → Java Boolean
+     * <li><strong>Integer</strong>: JSON number (int range) → Java Integer
+     * <li><strong>Long</strong>: JSON number (long range) → Java Long
+     * <li><strong>Double</strong>: JSON number (decimal) → Java Double
+     * <li><strong>String</strong>: All other values → Java String
      * </ul>
      *
      * @param value the JsonNode value to convert
@@ -211,10 +234,14 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
      * @see JsonNode
      */
     private Object convertJsonValue(JsonNode value) {
-        if (value.isBoolean()) return value.asBoolean();
-        if (value.isLong()) return value.asLong();
-        if (value.isDouble()) return value.asDouble();
-        if (value.isInt()) return value.asInt();
-        return value.asString();
-    }
+        if (value.isBoolean())
+            return value.asBoolean();
+		if (value.isLong())
+			return value.asLong();
+		if (value.isDouble())
+			return value.asDouble();
+		if (value.isInt())
+			return value.asInt();
+		return value.asString();
+	}
 }
