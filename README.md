@@ -235,6 +235,23 @@ For complete setup instructions, see [docs/AUTH0_SETUP.md](docs/AUTH0_SETUP.md)
 | `checkHealth` | Check the health status of a collection |
 | `getSchema` | Retrieve schema information for a collection |
 
+## Available MCP Resources
+
+MCP Resources provide a way to expose data that can be read by MCP clients. The Solr MCP Server provides the following resources:
+
+| Resource URI | Description |
+|--------------|-------------|
+| `solr://collections` | List of all Solr collections available in the cluster |
+| `solr://{collection}/schema` | Schema definition for a specific collection (supports autocompletion) |
+
+### Resource Autocompletion
+
+The `solr://{collection}/schema` resource supports autocompletion for the `{collection}` parameter. MCP clients can use the completion API to get a list of available collection names.
+
+![MCP Inspector Resources](images/mcp-inspector-list-resources.png)
+
+![MCP Inspector Resource Completion](images/mcp-inspector-resource-completion.png)
+
 ## Screenshots
 
 - Claude Desktop (STDIO):

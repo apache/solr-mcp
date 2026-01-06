@@ -17,7 +17,9 @@
 package org.apache.solr.mcp.server.metadata;
 
 import static org.apache.solr.mcp.server.metadata.CollectionUtils.*;
+import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -36,6 +38,8 @@ import org.apache.solr.common.params.CoreAdminParams;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
+import org.springaicommunity.mcp.annotation.McpComplete;
+import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Service;
@@ -242,6 +246,9 @@ public class CollectionService {
 	/** SolrJ client for communicating with Solr server */
 	private final SolrClient solrClient;
 
+	/** Jackson ObjectMapper for JSON serialization in MCP Resource responses */
+	private final ObjectMapper objectMapper;
+
 	/**
 	 * Constructs a new CollectionService with the required dependencies.
 	 *
@@ -251,11 +258,44 @@ public class CollectionService {
 	 *
 	 * @param solrClient
 	 *            the SolrJ client instance for communicating with Solr
+	 * @param objectMapper
+	 *            the Jackson ObjectMapper for JSON serialization
 	 * @see SolrClient
 	 * @see SolrConfigurationProperties
 	 */
-	public CollectionService(SolrClient solrClient) {
+	public CollectionService(SolrClient solrClient, ObjectMapper objectMapper) {
 		this.solrClient = solrClient;
+		this.objectMapper = objectMapper;
+	}
+
+	/**
+	 * MCP Resource endpoint that returns a list of all available Solr collections.
+	 *
+	 * <p>
+	 * This resource provides a simple way for MCP clients to discover what
+	 * collections are available in the Solr cluster. The returned JSON contains an
+	 * array of collection names.
+	 *
+	 * @return JSON string containing the list of collections
+	 */
+	@McpResource(uri = "solr://collections", name = "solr-collections", description = "List of all Solr collections available in the cluster", mimeType = "application/json")
+	public String getCollectionsResource() {
+		return toJson(objectMapper, listCollections());
+	}
+
+	/**
+	 * MCP Completion endpoint for collection name autocompletion.
+	 *
+	 * <p>
+	 * Provides autocompletion support for the collection parameter in the schema
+	 * resource URI template. Returns all available collection names that MCP
+	 * clients can use to complete the {collection} placeholder.
+	 *
+	 * @return list of available collection names for autocompletion
+	 */
+	@McpComplete(uri = "solr://{collection}/schema")
+	public List<String> completeCollectionForSchema() {
+		return listCollections();
 	}
 
 	/**
