@@ -9,6 +9,7 @@ This guide explains when and how to use each GitHub Actions workflow in the proj
 | [build-and-publish.yml](#build-and-publishyml) | Development CI/CD     | Automatic (push/PR)  | ✅ Active   | Daily development      |
 | [release-publish.yml](#release-publishyml)     | Official ASF releases | Manual (after vote)  | ✅ Active   | Production releases    |
 | [nightly-build.yml](#nightly-buildyml)         | Nightly builds        | Scheduled (2 AM UTC) | ✅ Active   | Latest unstable builds |
+| [release-please.yml](#release-pleaseyml)       | Automated releases    | Automatic (push)     | ✅ Active   | Changelog & releases   |
 | [atr-release-test.yml](#atr-release-testyml)   | ATR testing           | Manual (safe mode)   | ✅ Ready    | Testing ATR workflow   |
 | [atr-release.yml](#atr-releaseyml)             | ATR production        | Manual (blocked)     | ⚠️ Blocked | Future ATR releases    |
 
@@ -324,6 +325,95 @@ docker pull apache/solr-mcp-nightly:nightly-20250112-a1b2c3d
 
 ---
 
+### release-please.yml
+
+**Purpose**: Automate releases, changelog generation, and version bumping using Google's release-please
+
+#### When to Use
+
+- ✅ Automatically runs on every push to main
+- ✅ Creates Release PRs with changelog updates
+- ✅ Automatically bumps versions based on commits
+- ✅ Creates GitHub Releases when Release PR is merged
+
+#### When NOT to Use
+
+- ❌ If not using conventional commit messages
+- ❌ For ASF official releases (use `release-publish.yml` after vote)
+
+#### Triggers
+
+```yaml
+on:
+  push:
+    branches:
+      - main  # Runs on every push to main
+```
+
+#### What It Does
+
+1. **Analyzes** commits since the last release
+2. **Determines** version bump based on commit types:
+   - `fix:` → patch (1.0.0 → 1.0.1)
+   - `feat:` → minor (1.0.0 → 1.1.0)
+   - `feat!:` or `BREAKING CHANGE` → major (1.0.0 → 2.0.0)
+3. **Creates/updates** a Release PR with:
+   - Updated CHANGELOG.md
+   - Version bump
+   - Release notes preview
+4. **Creates GitHub Release** when Release PR is merged
+
+#### How It Works
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 1. Push commits to main                                         │
+│    feat: add new search filter                                  │
+│    fix: handle null values                                      │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 2. Release-please creates/updates PR                            │
+│    Title: "chore(main): release 1.1.0"                          │
+│    Contains: CHANGELOG.md updates, version bump                 │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 3. Review and merge Release PR when ready                       │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 4. GitHub Release created automatically                         │
+│    - Tag: v1.1.0                                                │
+│    - Release notes from CHANGELOG.md                            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Example Workflow
+
+```bash
+# 1. Merge PRs with conventional commits
+git commit -m "feat: add fuzzy search support"
+git commit -m "fix: handle empty query strings"
+git push origin main
+
+# 2. Release-please automatically creates PR:
+#    "chore(main): release 1.2.0"
+
+# 3. Review the PR, check CHANGELOG.md
+
+# 4. Merge the PR → GitHub Release is created
+```
+
+#### Example Use Cases
+
+- Automating changelog generation on every merge
+- Consistent version bumping based on commit types
+- Creating GitHub Releases with proper release notes
+- Reducing manual release overhead
+
+---
+
 ### atr-release-test.yml
 
 **Purpose**: Test Apache Trusted Releases (ATR) workflow safely
@@ -493,16 +583,18 @@ gh workflow run atr-release.yml \
 
 ## Workflow Comparison Matrix
 
-| Feature              | build-and-publish | release-publish | nightly-build      | atr-release-test | atr-release |
-|----------------------|-------------------|-----------------|--------------------|------------------|-------------|
-| **Status**           | ✅ Active          | ✅ Active        | ✅ Active           | ✅ Ready          | ⚠️ Blocked  |
-| **Trigger**          | Automatic         | Manual          | Scheduled          | Manual           | Manual      |
-| **Docker Namespace** | Personal/GHCR     | `apache/*`      | `apache/*-nightly` | Test             | `apache/*`  |
-| **MCP Registry**     | ❌ No              | ✅ Yes           | ❌ No               | ❌ No             | ✅ Yes       |
-| **ASF Vote**         | ❌ Not required    | ✅ Required      | ❌ Not required     | ❌ Not required   | ✅ Required  |
-| **Signing**          | ❌ No              | ⚠️ Manual       | ❌ No               | ⚠️ Simulated     | ✅ Automated |
-| **Production Ready** | ❌ No              | ✅ Yes           | ❌ No               | ❌ No             | ⚠️ Future   |
-| **Can Test Now**     | ✅ Yes             | ✅ Yes           | ✅ Yes              | ✅ Yes            | ❌ No        |
+| Feature              | build-and-publish | release-publish | nightly-build      | release-please | atr-release-test | atr-release |
+|----------------------|-------------------|-----------------|--------------------|----------------|------------------|-------------|
+| **Status**           | ✅ Active          | ✅ Active        | ✅ Active           | ✅ Active       | ✅ Ready          | ⚠️ Blocked  |
+| **Trigger**          | Automatic         | Manual          | Scheduled          | Automatic      | Manual           | Manual      |
+| **Docker Namespace** | Personal/GHCR     | `apache/*`      | `apache/*-nightly` | N/A            | Test             | `apache/*`  |
+| **MCP Registry**     | ❌ No              | ✅ Yes           | ❌ No               | ❌ No           | ❌ No             | ✅ Yes       |
+| **ASF Vote**         | ❌ Not required    | ✅ Required      | ❌ Not required     | ❌ Not required | ❌ Not required   | ✅ Required  |
+| **Signing**          | ❌ No              | ⚠️ Manual       | ❌ No               | ❌ No           | ⚠️ Simulated     | ✅ Automated |
+| **Production Ready** | ❌ No              | ✅ Yes           | ❌ No               | ✅ Yes          | ❌ No             | ⚠️ Future   |
+| **Version Bump**     | ❌ No              | ❌ No            | ❌ No               | ✅ Automatic    | ❌ No             | ❌ No        |
+| **GitHub Release**   | ❌ No              | ✅ Yes           | ✅ Pre-release      | ✅ Automatic    | ❌ No             | ✅ Yes       |
+| **Can Test Now**     | ✅ Yes             | ✅ Yes           | ✅ Yes              | ✅ Yes        | ✅ Yes            | ❌ No        |
 
 ---
 

@@ -1,0 +1,123 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║                         RELEASE PLEASE WORKFLOW                            ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# PURPOSE:
+# --------
+# Automates releases using Google's release-please tool. This workflow:
+# - Generates and maintains CHANGELOG.md from conventional commits
+# - Automatically bumps versions based on commit types
+# - Creates Release PRs that can be reviewed before releasing
+# - Creates GitHub Releases when the Release PR is merged
+#
+# HOW IT WORKS:
+# -------------
+# 1. On every push to main, release-please analyzes new commits
+# 2. If there are releasable changes, it creates/updates a "Release PR"
+# 3. The Release PR contains:
+#    - Updated CHANGELOG.md with all changes since last release
+#    - Version bump in tracked files (if configured)
+#    - Release notes preview
+# 4. When the Release PR is merged:
+#    - A GitHub Release is created with the changelog
+#    - A git tag is created (e.g., v1.0.0)
+#
+# VERSION BUMPING:
+# ----------------
+# Based on Conventional Commits (https://www.conventionalcommits.org/):
+# - fix: → patch version bump (1.0.0 → 1.0.1)
+# - feat: → minor version bump (1.0.0 → 1.1.0)
+# - feat!: or BREAKING CHANGE → major version bump (1.0.0 → 2.0.0)
+#
+# COMMIT TYPES INCLUDED IN CHANGELOG:
+# -----------------------------------
+# - feat: New features
+# - fix: Bug fixes
+# - perf: Performance improvements
+# - revert: Reverted changes
+# - docs: Documentation (optional, configurable)
+# - chore, style, refactor, test, build, ci: Excluded by default
+#
+# WHEN IT TRIGGERS:
+# -----------------
+# - Automatically on every push to main branch
+# - Creates/updates Release PR with pending changes
+# - No manual trigger needed
+#
+# REQUIREMENTS:
+# -------------
+# - Conventional commit messages (feat:, fix:, etc.)
+# - GITHUB_TOKEN with contents:write and pull-requests:write
+#
+# EXAMPLE WORKFLOW:
+# -----------------
+# 1. Merge PRs with conventional commits to main
+#    - "feat: add new search filter"
+#    - "fix: handle null values in indexing"
+#
+# 2. Release-please automatically creates/updates PR titled:
+#    "chore(main): release 1.1.0"
+#
+# 3. Review the Release PR (check CHANGELOG.md looks correct)
+#
+# 4. Merge the Release PR when ready to release
+#    - GitHub Release is created automatically
+#    - Tag v1.1.0 is created
+#
+# RELATED DOCUMENTATION:
+# ----------------------
+# - release-please: https://github.com/googleapis/release-please
+# - Conventional Commits: https://www.conventionalcommits.org/
+# - dev-docs/WORKFLOWS.md: Documentation for all workflows
+
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      # ┌───────────────────────────────────────────────────────────────────────┐
+      # │ Release Please Action                                                 │
+      # │                                                                        │
+      # │ This action handles everything automatically:                         │
+      # │ 1. Analyzes commits since last release                                │
+      # │ 2. Determines version bump (major/minor/patch)                        │
+      # │ 3. Generates CHANGELOG.md entries                                     │
+      # │ 4. Creates/updates Release PR                                         │
+      # │ 5. Creates GitHub Release when PR is merged                           │
+      # │                                                                        │
+      # │ release-type: simple                                                  │
+      # │   - Works with any project type                                       │
+      # │   - Manages CHANGELOG.md and version tracking                         │
+      # │   - Does not modify build files (use 'java' for pom.xml updates)     │
+      # └───────────────────────────────────────────────────────────────────────┘
+      - uses: googleapis/release-please-action@v4
+        with:
+          # Release type determines how versions are tracked
+          # 'simple' works for any project and manages CHANGELOG.md
+          # Other options: java, node, python, etc. (update build files)
+          release-type: simple
