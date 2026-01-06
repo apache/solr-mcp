@@ -16,14 +16,7 @@
  */
 package org.apache.solr.mcp.server.metadata;
 
-import static org.apache.solr.mcp.server.metadata.CollectionUtils.*;
-import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrRequest;
@@ -33,7 +26,11 @@ import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.request.CoreAdminRequest;
 import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.LukeRequest;
-import org.apache.solr.client.solrj.response.*;
+import org.apache.solr.client.solrj.response.CollectionAdminResponse;
+import org.apache.solr.client.solrj.response.CoreAdminResponse;
+import org.apache.solr.client.solrj.response.LukeResponse;
+import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.params.CoreAdminParams;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
@@ -43,6 +40,16 @@ import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+import static org.apache.solr.mcp.server.metadata.CollectionUtils.getFloat;
+import static org.apache.solr.mcp.server.metadata.CollectionUtils.getInteger;
+import static org.apache.solr.mcp.server.metadata.CollectionUtils.getLong;
+import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
 /**
  * Spring Service providing comprehensive Solr collection management and
@@ -246,7 +253,6 @@ public class CollectionService {
 	/** SolrJ client for communicating with Solr server */
 	private final SolrClient solrClient;
 
-	/** Jackson ObjectMapper for JSON serialization in MCP Resource responses */
 	private final ObjectMapper objectMapper;
 
 	/**
