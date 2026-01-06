@@ -38,8 +38,8 @@ import java.util.Date;
  *   <li>ISO 8601 timestamp formatting for consistent date serialization
  * </ul>
  *
- * @version 0.0.1
- * @since 0.0.1
+ * @version 1.0.0
+ * @since 1.0.0
  */
 
 /**

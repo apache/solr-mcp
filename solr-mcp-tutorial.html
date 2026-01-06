@@ -318,7 +318,7 @@
   "mcpServers": {
     "solr-mcp": {
       "command": "java",
-      "args": ["-jar", "/absolute/path/to/solr-mcp-0.0.1-SNAPSHOT.jar"],
+      "args": ["-jar", "/absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar"],
       "env": {
         "SOLR_URL": "http://localhost:8983/solr/"
       }
@@ -352,7 +352,7 @@
   "mcpServers": {
     "solr-mcp": {
       "command": "java",
-      "args": ["-jar", "/absolute/path/to/solr-mcp-0.0.1-SNAPSHOT.jar"],
+      "args": ["-jar", "/absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar"],
       "env": {
         "SOLR_URL": "http://localhost:8983/solr/"
       }
@@ -399,7 +399,7 @@
 docker run -i --rm ghcr.io/apache/solr-mcp:latest
 
 # Or using JAR
-java -jar build/libs/solr-mcp-0.0.1-SNAPSHOT.jar
+java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
 
 # In another terminal, connect with MCP Inspector
 npx @modelcontextprotocol/inspector</code></pre>
@@ -424,7 +424,7 @@ npx @modelcontextprotocol/inspector</code></pre>
   ghcr.io/apache/solr-mcp:latest</code></pre>
 
 <p><strong>Using JAR:</strong></p>
-<pre><code>PROFILES=http java -jar build/libs/solr-mcp-0.0.1-SNAPSHOT.jar</code></pre>
+<pre><code>PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre>
 
 <h4>Client Configuration for HTTP Mode</h4>
 
@@ -810,7 +810,7 @@ cd solr-mcp
 
 <hr>
 
-<p><em>This guide was created for Solr MCP Server version 0.0.1-SNAPSHOT. Last updated: November 2025.</em></p>
+<p><em>This guide was created for Solr MCP Server version 1.0.0-SNAPSHOT. Last updated: November 2025.</em></p>
 
 <p><strong>License:</strong> Apache License 2.0</p>
 </body>

@@ -6,12 +6,12 @@
     "url": "https://github.com/apache/solr-mcp",
     "source": "github"
   },
-  "version": "0.0.1",
+  "version": "1.0.0",
   "packages": [
     {
       "registryType": "docker",
       "identifier": "ghcr.io/apache/solr-mcp-server",
-      "version": "0.0.1-SNAPSHOT",
+      "version": "1.0.0-SNAPSHOT",
       "transport": {
         "type": "stdio"
       },
@@ -28,7 +28,7 @@
     {
       "registryType": "docker",
       "identifier": "ghcr.io/apache/solr-mcp-server",
-      "version": "0.0.1-SNAPSHOT",
+      "version": "1.0.0-SNAPSHOT",
       "transport": {
         "type": "streamable-http",
         "url": "http://localhost:8080/mcp"

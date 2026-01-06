@@ -98,8 +98,8 @@ import org.xml.sax.SAXException;
  * int successful = indexingService.indexDocuments("my_collection", docs);
  * }</pre>
  *
- * @version 0.0.1
- * @since 0.0.1
+ * @version 1.0.0
+ * @since 1.0.0
  * @see SolrInputDocument
  * @see SolrClient
  * @see org.springframework.ai.tool.annotation.Tool
