@@ -1,0 +1,166 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# ============================================================================
+# AUTOMATED RELEASE WORKFLOW
+# ============================================================================
+#
+# PURPOSE:
+# --------
+# Automatically creates releases when PRs are merged to main.
+# Uses git-semver-plugin to calculate versions from conventional commits.
+#
+# HOW IT WORKS:
+# -------------
+# 1. Triggered when a PR is merged to main
+# 2. Calculates next version from conventional commits (feat:, fix:, etc.)
+# 3. Generates CHANGELOG.md from commit messages
+# 4. Creates release commit and version tag (e.g., v1.0.0)
+# 5. Pushes tag to trigger release-publish.yml
+#
+# VERSION BUMPING (Conventional Commits):
+# ---------------------------------------
+# - fix: -> patch bump (1.0.0 -> 1.0.1)
+# - feat: -> minor bump (1.0.0 -> 1.1.0)
+# - feat!: or BREAKING CHANGE -> major bump (1.0.0 -> 2.0.0)
+#
+# RELATED WORKFLOWS:
+# ------------------
+# - build-and-publish.yml: Builds SNAPSHOT on PRs
+# - release-publish.yml: Publishes Docker images on tag push
+
+name: Auto Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+env:
+  JAVA_VERSION: '25'
+  JAVA_DISTRIBUTION: 'temurin'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    # Only run if this is a merge commit (not direct push)
+    # This prevents releases on direct commits to main
+    if: github.event.head_commit.message != '' && !startsWith(github.event.head_commit.message, 'chore(release):')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history needed for version calculation
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Calculate version
+        id: version
+        run: |
+          VERSION=$(./gradlew printVersion --quiet)
+          echo "current=$VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $VERSION"
+
+      - name: Check if release needed
+        id: check
+        run: |
+          # Check if current version is a SNAPSHOT (needs release)
+          VERSION="${{ steps.version.outputs.current }}"
+          if [[ "$VERSION" == *"-SNAPSHOT"* ]]; then
+            echo "needs_release=true" >> $GITHUB_OUTPUT
+            # Extract the release version (remove -SNAPSHOT suffix)
+            RELEASE_VERSION=$(echo "$VERSION" | sed 's/-SNAPSHOT.*//')
+            echo "release_version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
+            echo "Will release version: $RELEASE_VERSION"
+          else
+            echo "needs_release=false" >> $GITHUB_OUTPUT
+            echo "Already at release version, skipping"
+          fi
+
+      - name: Generate changelog
+        if: steps.check.outputs.needs_release == 'true'
+        run: |
+          ./gradlew printChangeLog --quiet > CHANGELOG_NEW.md
+          if [ -f CHANGELOG.md ]; then
+            # Prepend new changelog to existing
+            cat CHANGELOG_NEW.md CHANGELOG.md > CHANGELOG_COMBINED.md
+            mv CHANGELOG_COMBINED.md CHANGELOG.md
+          else
+            mv CHANGELOG_NEW.md CHANGELOG.md
+          fi
+          rm -f CHANGELOG_NEW.md
+          cat CHANGELOG.md
+
+      - name: Configure git
+        if: steps.check.outputs.needs_release == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create release
+        if: steps.check.outputs.needs_release == 'true'
+        run: |
+          # Add changelog changes
+          git add CHANGELOG.md
+
+          # Create release using git-semver-plugin
+          # This creates the release commit and tag
+          ./gradlew releaseVersion --no-commit
+
+          # Commit changelog with release
+          git commit -m "chore(release): release version ${{ steps.check.outputs.release_version }}"
+
+          # Create the tag
+          git tag "v${{ steps.check.outputs.release_version }}"
+
+      - name: Push release
+        if: steps.check.outputs.needs_release == 'true'
+        run: |
+          git push origin main
+          git push origin "v${{ steps.check.outputs.release_version }}"
+
+      - name: Create GitHub Release
+        if: steps.check.outputs.needs_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ steps.check.outputs.release_version }}"
+          name: "Release ${{ steps.check.outputs.release_version }}"
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: false
+
+      - name: Summary
+        if: steps.check.outputs.needs_release == 'true'
+        run: |
+          echo "### Release Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.check.outputs.release_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** v${{ steps.check.outputs.release_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The release-publish workflow will now publish Docker images." >> $GITHUB_STEP_SUMMARY

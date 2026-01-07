@@ -7,10 +7,51 @@ This guide explains when and how to use each GitHub Actions workflow in the proj
 | Workflow                                       | Purpose               | Trigger              | Status     | Use For                |
 |------------------------------------------------|-----------------------|----------------------|------------|------------------------|
 | [build-and-publish.yml](#build-and-publishyml) | Development CI/CD     | Automatic (push/PR)  | ✅ Active   | Daily development      |
+| [auto-release.yml](#auto-releaseyml)           | Automated releases    | Automatic (merge)    | ✅ Active   | Version tagging        |
 | [release-publish.yml](#release-publishyml)     | Official ASF releases | Manual (after vote)  | ✅ Active   | Production releases    |
 | [nightly-build.yml](#nightly-buildyml)         | Nightly builds        | Scheduled (2 AM UTC) | ✅ Active   | Latest unstable builds |
 | [atr-release-test.yml](#atr-release-testyml)   | ATR testing           | Manual (safe mode)   | ✅ Ready    | Testing ATR workflow   |
 | [atr-release.yml](#atr-releaseyml)             | ATR production        | Manual (blocked)     | ⚠️ Blocked | Future ATR releases    |
+
+## Semantic Versioning
+
+This project uses the [git-semver-plugin](https://github.com/jmongard/Git.SemVersioning.Gradle) for automatic version management based on [Conventional Commits](https://www.conventionalcommits.org/).
+
+### How Versioning Works
+
+```
+git tag v1.0.0
+    │
+    ├── fix: handle null values      → patch bump (1.0.1)
+    ├── feat: add new search filter  → minor bump (1.1.0)
+    └── feat!: breaking API change   → major bump (2.0.0)
+
+Current version: 1.1.0-SNAPSHOT (calculated from commits)
+```
+
+### Version Commands
+
+```bash
+# Check current calculated version
+./gradlew printVersion
+
+# View changelog from commits
+./gradlew printChangeLog
+
+# Create a release (tag + commit)
+./gradlew releaseVersion
+```
+
+### Commit Message Format
+
+Use conventional commit prefixes to control version bumps:
+
+| Prefix | Version Bump | Example |
+|--------|--------------|---------|
+| `fix:` | Patch (0.0.X) | `fix: handle null pointer in search` |
+| `feat:` | Minor (0.X.0) | `feat: add faceted search support` |
+| `feat!:` or `BREAKING CHANGE:` | Major (X.0.0) | `feat!: redesign query API` |
+| `docs:`, `chore:`, `test:`, `ci:` | No bump | `docs: update README` |
 
 ## Decision Tree: Which Workflow Should I Use?
 
@@ -19,37 +60,38 @@ This guide explains when and how to use each GitHub Actions workflow in the proj
 │ START: What do you need to do?                              │
 └────────────────────┬────────────────────────────────────────┘
                      │
-    ┌────────────────┼────────────────┐
-    │                │                │
-    ▼                ▼                ▼
-┌─────────┐    ┌──────────┐    ┌──────────┐
-│ Develop │    │ Release  │    │   Test   │
-│  Code   │    │ Official │    │    ATR   │
-└────┬────┘    └─────┬────┘    └─────┬────┘
-     │               │               │
-     │               │               │
-     ▼               ▼               ▼
-┌─────────────┐ ┌───────────┐ ┌──────────┐
-│build-and-   │ │ release-  │ │atr-      │
-│publish.yml  │ │ publish   │ │release-  │
-│             │ │   .yml    │ │test.yml  │
-│✅ Automatic │ │           │ │          │
-│   on push   │ │✅ Manual  │ │✅ Manual │
-│             │ │after vote │ │safe mode │
-└─────────────┘ └─────┬─────┘ └──────────┘
-                      │
-                      │ After ATR
-                      │ onboarding?
+    ┌────────────────┼────────────────┬───────────────┐
+    │                │                │               │
+    ▼                ▼                ▼               ▼
+┌─────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│ Develop │    │ Release  │    │ Official │    │   Test   │
+│  Code   │    │ Version  │    │ ASF Rel  │    │    ATR   │
+└────┬────┘    └─────┬────┘    └─────┬────┘    └─────┬────┘
+     │               │               │               │
+     ▼               ▼               ▼               ▼
+┌─────────────┐ ┌───────────┐ ┌───────────┐ ┌──────────┐
+│build-and-   │ │auto-      │ │ release-  │ │atr-      │
+│publish.yml  │ │release    │ │ publish   │ │release-  │
+│             │ │  .yml     │ │   .yml    │ │test.yml  │
+│✅ Automatic │ │           │ │           │ │          │
+│   on PR     │ │✅ Auto on │ │✅ Manual  │ │✅ Manual │
+│             │ │merge main │ │after vote │ │safe mode │
+└─────────────┘ └─────┬─────┘ └───────────┘ └──────────┘
                       │
                       ▼
-                ┌──────────┐
-                │atr-      │
-                │release   │
-                │  .yml    │
-                │          │
-                │⚠️ Future │
-                │  (blocked)│
-                └──────────┘
+              ┌───────────────┐
+              │ Creates tag   │
+              │ v1.0.0        │
+              │ + CHANGELOG   │
+              └───────┬───────┘
+                      │
+                      ▼
+              ┌───────────────┐
+              │build-and-     │
+              │publish.yml    │
+              │(triggered by  │
+              │ v* tag)       │
+              └───────────────┘
 ```
 
 ---
@@ -128,6 +170,112 @@ gh workflow run build-and-publish.yml
 - Merging a PR with new features
 - Testing changes in a development environment
 - Creating preview builds for testing
+
+---
+
+### auto-release.yml
+
+**Purpose**: Automated version tagging and changelog generation on merge to main
+
+#### When to Use
+
+- ✅ Automatic on every merge to `main`
+- ✅ Creates version tags based on conventional commits
+- ✅ Generates and updates CHANGELOG.md
+- ✅ Triggers Docker image publishing via build-and-publish.yml
+
+#### When NOT to Use
+
+- ❌ This is fully automatic - no manual intervention needed
+- ❌ For official ASF releases (use `release-publish.yml` after vote)
+
+#### Triggers
+
+```yaml
+on:
+  push:
+    branches:
+      - main
+```
+
+#### What It Does
+
+1. **Calculates version** from git tags and conventional commits
+2. **Generates changelog** from commit messages
+3. **Creates release commit** with updated CHANGELOG.md
+4. **Creates version tag** (e.g., `v1.0.0`)
+5. **Pushes tag** which triggers `build-and-publish.yml`
+6. **Creates GitHub Release** with changelog
+
+#### Version Calculation
+
+The [git-semver-plugin](https://github.com/jmongard/Git.SemVersioning.Gradle) analyzes commits since the last tag:
+
+```
+v1.0.0 (last tag)
+   │
+   ├── fix: bug fix           → 1.0.1
+   ├── feat: new feature      → 1.1.0
+   └── feat!: breaking change → 2.0.0
+```
+
+#### How It Works
+
+```
+PR Merged to main
+       │
+       ▼
+┌──────────────────────┐
+│ 1. Calculate version │  ./gradlew printVersion
+│    (from commits)    │  → 1.1.0-SNAPSHOT
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│ 2. Generate changelog│  ./gradlew printChangeLog
+│    (from commits)    │
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│ 3. Create release    │  git tag v1.1.0
+│    commit + tag      │  git push --tags
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│ 4. GitHub Release    │  Created automatically
+│    with changelog    │
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│ build-and-publish    │  Triggered by v* tag
+│ publishes Docker     │
+└──────────────────────┘
+```
+
+#### Example Commit Messages
+
+```bash
+# These trigger version bumps:
+git commit -m "feat: add new search filter"      # Minor bump
+git commit -m "fix: handle null pointer"         # Patch bump
+git commit -m "feat!: redesign API"              # Major bump
+
+# These don't trigger version bumps:
+git commit -m "docs: update README"
+git commit -m "chore: update dependencies"
+git commit -m "test: add unit tests"
+```
+
+#### Skipping Releases
+
+Release commits are automatically skipped to prevent infinite loops:
+
+```yaml
+if: "!startsWith(github.event.head_commit.message, 'chore(release):')"
+```
 
 ---
 
@@ -493,16 +641,18 @@ gh workflow run atr-release.yml \
 
 ## Workflow Comparison Matrix
 
-| Feature              | build-and-publish | release-publish | nightly-build      | atr-release-test | atr-release |
-|----------------------|-------------------|-----------------|--------------------|------------------|-------------|
-| **Status**           | ✅ Active          | ✅ Active        | ✅ Active           | ✅ Ready          | ⚠️ Blocked  |
-| **Trigger**          | Automatic         | Manual          | Scheduled          | Manual           | Manual      |
-| **Docker Namespace** | Personal/GHCR     | `apache/*`      | `apache/*-nightly` | Test             | `apache/*`  |
-| **MCP Registry**     | ❌ No              | ✅ Yes           | ❌ No               | ❌ No             | ✅ Yes       |
-| **ASF Vote**         | ❌ Not required    | ✅ Required      | ❌ Not required     | ❌ Not required   | ✅ Required  |
-| **Signing**          | ❌ No              | ⚠️ Manual       | ❌ No               | ⚠️ Simulated     | ✅ Automated |
-| **Production Ready** | ❌ No              | ✅ Yes           | ❌ No               | ❌ No             | ⚠️ Future   |
-| **Can Test Now**     | ✅ Yes             | ✅ Yes           | ✅ Yes              | ✅ Yes            | ❌ No        |
+| Feature              | build-and-publish | auto-release    | release-publish | nightly-build      | atr-release-test | atr-release |
+|----------------------|-------------------|-----------------|-----------------|--------------------| -----------------|-------------|
+| **Status**           | ✅ Active          | ✅ Active        | ✅ Active        | ✅ Active           | ✅ Ready          | ⚠️ Blocked  |
+| **Trigger**          | Automatic         | Auto (merge)    | Manual          | Scheduled          | Manual           | Manual      |
+| **Creates Tags**     | ❌ No              | ✅ Yes           | ❌ No            | ❌ No               | ❌ No             | ❌ No        |
+| **Changelog**        | ❌ No              | ✅ Yes           | ❌ No            | ❌ No               | ❌ No             | ❌ No        |
+| **Docker Namespace** | Personal/GHCR     | N/A             | `apache/*`      | `apache/*-nightly` | Test             | `apache/*`  |
+| **MCP Registry**     | ❌ No              | ❌ No            | ✅ Yes           | ❌ No               | ❌ No             | ✅ Yes       |
+| **ASF Vote**         | ❌ Not required    | ❌ Not required  | ✅ Required      | ❌ Not required     | ❌ Not required   | ✅ Required  |
+| **Signing**          | ❌ No              | ❌ No            | ⚠️ Manual       | ❌ No               | ⚠️ Simulated     | ✅ Automated |
+| **Production Ready** | ❌ No              | ✅ Yes           | ✅ Yes           | ❌ No               | ❌ No             | ⚠️ Future   |
+| **Can Test Now**     | ✅ Yes             | ✅ Yes           | ✅ Yes           | ✅ Yes              | ✅ Yes            | ❌ No        |
 
 ---
 
@@ -510,15 +660,41 @@ gh workflow run atr-release.yml \
 
 ### Scenario 1: I merged a PR and want to test the changes
 
-**Use**: `build-and-publish.yml` (automatic)
+**Use**: `build-and-publish.yml` + `auto-release.yml` (both automatic)
 
 ```bash
-# Workflow runs automatically on merge to main
-# Find your images at:
-# - ghcr.io/apache/solr-mcp:1.0.0-SNAPSHOT-a1b2c3d
+# 1. Merge your PR with conventional commit messages
+git merge feature-branch  # e.g., "feat: add new search filter"
+git push origin main
+
+# 2. auto-release.yml automatically:
+#    - Calculates version (e.g., 1.1.0)
+#    - Generates CHANGELOG.md
+#    - Creates tag v1.1.0
+#    - Creates GitHub Release
+
+# 3. build-and-publish.yml automatically:
+#    - Builds Docker image
+#    - Publishes to ghcr.io/apache/solr-mcp:1.1.0
 ```
 
-### Scenario 2: I want to create an official release
+### Scenario 2: I want to create a version release
+
+**Use**: Automatic via `auto-release.yml`
+
+```bash
+# Just merge PRs with conventional commits - releases happen automatically!
+
+# Example commits that trigger releases:
+git commit -m "feat: add faceted search"    # → Minor version bump
+git commit -m "fix: handle null pointer"    # → Patch version bump
+git commit -m "feat!: new query API"        # → Major version bump
+
+# Check what version will be released:
+./gradlew printVersion
+```
+
+### Scenario 3: I want to create an official ASF release
 
 **Use**: `release-publish.yml` (manual after vote)
 
@@ -535,7 +711,7 @@ gh workflow run release-publish.yml \
   -f release_candidate=rc1
 ```
 
-### Scenario 3: I want to test the latest unreleased code
+### Scenario 4: I want to test the latest unreleased code
 
 **Use**: `nightly-build.yml` (automatic daily)
 
@@ -544,7 +720,7 @@ gh workflow run release-publish.yml \
 docker pull apache/solr-mcp-nightly:latest-nightly
 ```
 
-### Scenario 4: I want to prepare for ATR
+### Scenario 5: I want to prepare for ATR
 
 **Use**: `atr-release-test.yml` (manual testing)
 
@@ -554,7 +730,7 @@ gh workflow run atr-release-test.yml \
   -f dry_run=true  # Safe mode - no uploads
 ```
 
-### Scenario 5: I'm ready to use ATR for releases
+### Scenario 6: I'm ready to use ATR for releases
 
 **Use**: `atr-release.yml` (blocked - see prerequisites)
 
@@ -636,6 +812,11 @@ gh secret set ASF_USERNAME --body "your-asf-id"
 ## Quick Command Reference
 
 ```bash
+# Semantic versioning commands (git-semver-plugin)
+./gradlew printVersion        # Show current calculated version
+./gradlew printChangeLog      # Show changelog from commits
+./gradlew releaseVersion      # Create release commit + tag
+
 # Trigger workflows manually
 gh workflow run build-and-publish.yml
 gh workflow run release-publish.yml -f release_version=1.0.0 -f release_candidate=rc1
@@ -664,5 +845,5 @@ git push origin :refs/tags/v1.0.0-rc1  # Delete remote
 
 ---
 
-**Last Updated**: 2025-01-12
+**Last Updated**: 2026-01-06
 **Workflows Version**: Compatible with all workflows as of this date
