@@ -27,6 +27,7 @@ plugins {
     alias(libs.plugins.spotless)
     alias(libs.plugins.jib)
     alias(libs.plugins.graalvm.native)
+    alias(libs.plugins.git.semver)
 }
 
 // GraalVM Native Image (Opt-In)
@@ -54,7 +55,20 @@ val nativeImageBuildArgs =
     )
 
 group = "org.apache.solr"
-version = "1.0.0-SNAPSHOT"
+// Version is automatically derived from git tags and conventional commits
+// Run ./gradlew printVersion to see the current version
+// Run ./gradlew releaseVersion to create a release tag
+
+semver {
+    // Use "SNAPSHOT" suffix for non-release builds
+    defaultPreRelease = "SNAPSHOT"
+    // Tag format: v1.0.0
+    releaseTagNameFormat = "v%s"
+    // Release commit message format
+    releaseCommitTextFormat = "chore(release): release version %s"
+}
+
+version = semver.version
 
 java {
     toolchain {
