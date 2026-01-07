@@ -14,34 +14,37 @@
 # limitations under the License.
 
 # ============================================================================
-# AUTOMATED RELEASE WORKFLOW
+# SNAPSHOT BUILD & CHANGELOG ACCUMULATION
 # ============================================================================
 #
 # PURPOSE:
 # --------
-# Automatically creates releases when PRs are merged to main.
-# Uses git-semver-plugin to calculate versions from conventional commits.
+# Builds SNAPSHOT artifacts and accumulates changelog entries when PRs are
+# merged to main. Does NOT create version tags - use cut-release.yml for that.
 #
 # HOW IT WORKS:
 # -------------
 # 1. Triggered when a PR is merged to main
-# 2. Calculates next version from conventional commits (feat:, fix:, etc.)
-# 3. Generates CHANGELOG.md from commit messages
-# 4. Creates release commit and version tag (e.g., v1.0.0)
-# 5. Pushes tag to trigger release-publish.yml
+# 2. Builds SNAPSHOT artifacts (version calculated from git-semver-plugin)
+# 3. Updates CHANGELOG.md with new commits under "Unreleased" section
+# 4. Commits changelog updates back to main
 #
-# VERSION BUMPING (Conventional Commits):
-# ---------------------------------------
-# - fix: -> patch bump (1.0.0 -> 1.0.1)
-# - feat: -> minor bump (1.0.0 -> 1.1.0)
-# - feat!: or BREAKING CHANGE -> major bump (1.0.0 -> 2.0.0)
+# VERSIONING:
+# -----------
+# Uses git-semver-plugin to calculate version from conventional commits:
+# - fix: → patch bump
+# - feat: → minor bump
+# - feat!: or BREAKING CHANGE → major bump
+#
+# Version remains X.Y.Z-SNAPSHOT until cut-release.yml is triggered.
 #
 # RELATED WORKFLOWS:
 # ------------------
-# - build-and-publish.yml: Builds SNAPSHOT on PRs
-# - release-publish.yml: Publishes Docker images on tag push
+# - build-and-publish.yml: Builds and publishes Docker images
+# - cut-release.yml: Creates version tags and releases (manual)
+# - release-publish.yml: Official ASF releases (manual, after vote)
 
-name: Auto Release
+name: Snapshot Build
 
 on:
   push:
@@ -56,18 +59,17 @@ env:
   JAVA_DISTRIBUTION: 'temurin'
 
 jobs:
-  release:
-    name: Create Release
+  snapshot:
+    name: Build Snapshot & Update Changelog
     runs-on: ubuntu-latest
-    # Only run if this is a merge commit (not direct push)
-    # This prevents releases on direct commits to main
-    if: github.event.head_commit.message != '' && !startsWith(github.event.head_commit.message, 'chore(release):')
+    # Skip if this is a release commit or changelog update
+    if: "!startsWith(github.event.head_commit.message, 'chore(release):') && !startsWith(github.event.head_commit.message, 'chore(changelog):')"
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history needed for version calculation
+          fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up JDK ${{ env.JAVA_VERSION }}
@@ -84,83 +86,99 @@ jobs:
         id: version
         run: |
           VERSION=$(./gradlew printVersion --quiet)
-          echo "current=$VERSION" >> $GITHUB_OUTPUT
-          echo "Current version: $VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Current SNAPSHOT version: $VERSION"
 
-      - name: Check if release needed
-        id: check
-        run: |
-          # Check if current version is a SNAPSHOT (needs release)
-          VERSION="${{ steps.version.outputs.current }}"
-          if [[ "$VERSION" == *"-SNAPSHOT"* ]]; then
-            echo "needs_release=true" >> $GITHUB_OUTPUT
-            # Extract the release version (remove -SNAPSHOT suffix)
-            RELEASE_VERSION=$(echo "$VERSION" | sed 's/-SNAPSHOT.*//')
-            echo "release_version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
-            echo "Will release version: $RELEASE_VERSION"
-          else
-            echo "needs_release=false" >> $GITHUB_OUTPUT
-            echo "Already at release version, skipping"
-          fi
+      - name: Build SNAPSHOT
+        run: ./gradlew build
 
-      - name: Generate changelog
-        if: steps.check.outputs.needs_release == 'true'
+      - name: Generate changelog entries
+        id: changelog
         run: |
-          ./gradlew printChangeLog --quiet > CHANGELOG_NEW.md
+          # Get changelog from git-semver-plugin
+          CHANGELOG_CONTENT=$(./gradlew printChangeLog --quiet)
+
+          # Create or update CHANGELOG.md with Unreleased section
           if [ -f CHANGELOG.md ]; then
-            # Prepend new changelog to existing
-            cat CHANGELOG_NEW.md CHANGELOG.md > CHANGELOG_COMBINED.md
-            mv CHANGELOG_COMBINED.md CHANGELOG.md
-          else
-            mv CHANGELOG_NEW.md CHANGELOG.md
-          fi
-          rm -f CHANGELOG_NEW.md
-          cat CHANGELOG.md
+            # Check if Unreleased section exists
+            if grep -q "## \[Unreleased\]" CHANGELOG.md; then
+              # Replace existing Unreleased section
+              # Create temp file with new unreleased content
+              cat > CHANGELOG_NEW.md << 'HEADER'
+          # Changelog
 
-      - name: Configure git
-        if: steps.check.outputs.needs_release == 'true'
+          All notable changes to this project will be documented in this file.
+
+          The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+          and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+          ## [Unreleased]
+
+          HEADER
+              echo "$CHANGELOG_CONTENT" >> CHANGELOG_NEW.md
+              echo "" >> CHANGELOG_NEW.md
+              # Append everything after the old Unreleased section (previous releases)
+              sed -n '/^## \[[0-9]/,$p' CHANGELOG.md >> CHANGELOG_NEW.md 2>/dev/null || true
+              mv CHANGELOG_NEW.md CHANGELOG.md
+            else
+              # No Unreleased section, add it at the top
+              cat > CHANGELOG_NEW.md << 'HEADER'
+          # Changelog
+
+          All notable changes to this project will be documented in this file.
+
+          The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+          and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+          ## [Unreleased]
+
+          HEADER
+              echo "$CHANGELOG_CONTENT" >> CHANGELOG_NEW.md
+              echo "" >> CHANGELOG_NEW.md
+              # Append existing content (skip any header)
+              tail -n +2 CHANGELOG.md >> CHANGELOG_NEW.md 2>/dev/null || true
+              mv CHANGELOG_NEW.md CHANGELOG.md
+            fi
+          else
+            # Create new CHANGELOG.md
+            cat > CHANGELOG.md << 'HEADER'
+          # Changelog
+
+          All notable changes to this project will be documented in this file.
+
+          The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+          and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+          ## [Unreleased]
+
+          HEADER
+            echo "$CHANGELOG_CONTENT" >> CHANGELOG.md
+          fi
+
+      - name: Check for changelog changes
+        id: changes
+        run: |
+          if git diff --quiet CHANGELOG.md 2>/dev/null; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit changelog updates
+        if: steps.changes.outputs.changed == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Create release
-        if: steps.check.outputs.needs_release == 'true'
-        run: |
-          # Add changelog changes
           git add CHANGELOG.md
-
-          # Create release using git-semver-plugin
-          # This creates the release commit and tag
-          ./gradlew releaseVersion --no-commit
-
-          # Commit changelog with release
-          git commit -m "chore(release): release version ${{ steps.check.outputs.release_version }}"
-
-          # Create the tag
-          git tag "v${{ steps.check.outputs.release_version }}"
-
-      - name: Push release
-        if: steps.check.outputs.needs_release == 'true'
-        run: |
+          git commit -m "chore(changelog): update unreleased changes"
           git push origin main
-          git push origin "v${{ steps.check.outputs.release_version }}"
-
-      - name: Create GitHub Release
-        if: steps.check.outputs.needs_release == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: "v${{ steps.check.outputs.release_version }}"
-          name: "Release ${{ steps.check.outputs.release_version }}"
-          body_path: CHANGELOG.md
-          draft: false
-          prerelease: false
 
       - name: Summary
-        if: steps.check.outputs.needs_release == 'true'
         run: |
-          echo "### Release Created" >> $GITHUB_STEP_SUMMARY
+          echo "### Snapshot Build Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** ${{ steps.check.outputs.release_version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Tag:** v${{ steps.check.outputs.release_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "The release-publish workflow will now publish Docker images." >> $GITHUB_STEP_SUMMARY
+          echo "**Changelog:** Updated with latest commits" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "To create a release, run the **Cut Release** workflow." >> $GITHUB_STEP_SUMMARY
