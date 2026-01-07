@@ -23,6 +23,7 @@ jib = "3.5.3"
 spotless = "7.0.2"
 graalvm-native = "0.10.6"
 cyclonedx-plugin = "2.4.1"
+git-semver = "0.18.0"
 
 # Main dependencies
 spring-ai = "1.1.7"
@@ -130,3 +131,4 @@ jib = { id = "com.google.cloud.tools.jib", version.ref = "jib" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 graalvm-native = { id = "org.graalvm.buildtools.native", version.ref = "graalvm-native" }
 cyclonedx = { id = "org.cyclonedx.bom", version.ref = "cyclonedx-plugin" }
+git-semver = { id = "com.github.jmongard.git-semver-plugin", version.ref = "git-semver" }
