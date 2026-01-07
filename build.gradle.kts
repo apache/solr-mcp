@@ -30,16 +30,36 @@ plugins {
 }
 
 group = "org.apache.solr"
-// Version is automatically derived from git tags and conventional commits
-// Run ./gradlew printVersion to see the current version
-// Run ./gradlew releaseVersion to create a release tag
 
+// ============================================================================
+// Semantic Versioning Configuration (git-semver-plugin)
+// ============================================================================
+//
+// Version is automatically derived from git tags and conventional commits.
+// The plugin analyzes commits since the last tag to determine the next version:
+//   - fix: commits → patch bump (1.0.0 → 1.0.1)
+//   - feat: commits → minor bump (1.0.0 → 1.1.0)
+//   - feat!: or BREAKING CHANGE → major bump (1.0.0 → 2.0.0)
+//
+// Commands:
+//   ./gradlew printVersion    - Show current calculated version
+//   ./gradlew printChangeLog  - Show changelog from commits
+//
+// Initial Version Setup:
+// ----------------------
+// To start at version 1.0.0, create a baseline tag:
+//   git tag v0.0.0 -m "Initial version baseline"
+//   git push origin v0.0.0
+//
+// Then any feat: commit will bump to 0.1.0, or use the cut-release workflow
+// with version_override to set 1.0.0 explicitly for the first release.
+//
 semver {
-    // Use "SNAPSHOT" suffix for non-release builds
+    // Use "SNAPSHOT" suffix for development builds
     defaultPreRelease = "SNAPSHOT"
     // Tag format: v1.0.0
     releaseTagNameFormat = "v%s"
-    // Release commit message format
+    // Release commit message format (used by cut-release workflow)
     releaseCommitTextFormat = "chore(release): release version %s"
 }
 
