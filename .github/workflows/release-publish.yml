@@ -376,8 +376,8 @@ jobs:
                 VERSION="${{ steps.mcp_version.outputs.version }}"
                 # Update the top-level server version (e.g., 1.2.3)
                 jq --arg v "$VERSION" '.version = $v' server.json > server.json.tmp
-                # Update package version (uses -SNAPSHOT suffix for image/JAR alignment if applicable)
-                jq --arg v "$VERSION-SNAPSHOT" '.packages[0].version = $v' server.json.tmp > server.json
+                # Update package version to match GA release (no -SNAPSHOT suffix)
+                jq --arg v "$VERSION" '.packages[0].version = $v' server.json.tmp > server.json
                 rm server.json.tmp
                 # Show the final server.json for auditing
                 cat server.json
