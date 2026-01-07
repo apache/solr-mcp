@@ -106,8 +106,8 @@ Use conventional commit prefixes to control version bumps:
 │      │                                                               │
 │      ▼                                                               │
 │  ┌──────────────────────┐                                           │
-│  │ build-and-publish    │  Builds SNAPSHOT, runs tests              │
-│  │ (PR validation)      │  Publishes to personal/GHCR               │
+│  │ build-and-publish    │  Builds project, runs tests               │
+│  │ (PR validation)      │  Uploads JAR artifacts (NO Docker images) │
 │  └──────────────────────┘                                           │
 │                                                                      │
 │  PR Merged to main                                                   │
@@ -197,9 +197,20 @@ on:
 
 #### What It Does
 
+**On Pull Requests** (build + test only, NO publishing):
 1. **Builds** the project with Gradle
 2. **Runs tests** and generates coverage reports
-3. **Publishes Docker images** to:
+3. **Uploads artifacts** to GitHub Actions (downloadable):
+   - JAR files (`solr-mcp-*.jar`)
+   - Test results
+   - Coverage reports
+4. ❌ **NO Docker images** are published for PRs
+
+**On Push to Main / Tags** (full CI/CD):
+1. **Builds** the project with Gradle
+2. **Runs tests** and generates coverage reports
+3. **Uploads artifacts** (same as PRs)
+4. **Publishes Docker images** to:
     - GitHub Container Registry: `ghcr.io/OWNER/solr-mcp:VERSION-SHA`
     - Docker Hub: `DOCKERHUB_USERNAME/solr-mcp:VERSION-SHA` (if secrets configured)
 
