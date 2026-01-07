@@ -5,6 +5,7 @@ spring-dependency-management = "1.1.7"
 errorprone-plugin = "4.2.0"
 jib = "3.4.5"
 spotless = "7.0.2"
+git-semver = "0.18.0"
 
 # Main dependencies
 spring-ai = "1.1.2"
@@ -93,3 +94,4 @@ spring-dependency-management = { id = "io.spring.dependency-management", version
 errorprone = { id = "net.ltgt.errorprone", version.ref = "errorprone-plugin" }
 jib = { id = "com.google.cloud.tools.jib", version.ref = "jib" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+git-semver = { id = "com.github.jmongard.git-semver-plugin", version.ref = "git-semver" }
