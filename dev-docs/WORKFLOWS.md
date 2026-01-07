@@ -105,8 +105,8 @@ Use conventional commit prefixes to control version bumps:
 │      │                                                               │
 │      ▼                                                               │
 │  ┌──────────────────────┐                                           │
-│  │ build-and-publish    │  Builds SNAPSHOT, runs tests              │
-│  │ (PR validation)      │  Publishes to personal/GHCR               │
+│  │ build-and-publish    │  Builds project, runs tests               │
+│  │ (PR validation)      │  Uploads JAR artifacts (NO Docker images) │
 │  └──────────────────────┘                                           │
 │                                                                      │
 │  PR Merged to main                                                   │
@@ -137,7 +137,7 @@ Use conventional commit prefixes to control version bumps:
 │             ▼                                                        │
 │  ┌──────────────────────┐                                           │
 │  │ build-and-publish    │  Triggered by v* tag                      │
-│  │ (tag trigger)        │  Publishes Docker 1.1.0 to personal/GHCR  │
+│  │ (tag trigger)        │  Builds + tests, uploads JAR artifacts    │
 │  └──────────────────────┘                                           │
 │                                                                      │
 ├─────────────────────────────────────────────────────────────────────┤
@@ -199,24 +199,26 @@ covered by `ci.yml`.
 
 #### What It Does
 
+**On Pull Requests** (build + test only, NO publishing):
 1. **Builds** the project with Gradle
 2. **Runs tests** and generates coverage reports
-3. **Publishes Docker images** to:
-    - GitHub Container Registry: `ghcr.io/OWNER/solr-mcp:VERSION-SHA`
-    - Docker Hub: `DOCKERHUB_USERNAME/solr-mcp:VERSION-SHA` (if secrets configured)
+3. **Uploads artifacts** to GitHub Actions (downloadable):
+   - JAR files (`solr-mcp-*.jar`)
+   - Test results
+   - Coverage reports
+4. ❌ **NO Docker images** are published for PRs
 
-#### Image Tagging Strategy
-
-- **Main branch**: `VERSION-SNAPSHOT-SHA` + `latest`
-    - Example: `1.0.0-SNAPSHOT-a1b2c3d`, `latest`
-- **Tags** (discouraged): `VERSION` + `latest`
-    - Example: `1.0.0`, `latest`
+**On Push to Main / Tags** (same behavior):
+1. **Builds** the project with Gradle
+2. **Runs tests** and generates coverage reports
+3. **Uploads artifacts** (same as PRs)
+4. **Runs** the Solr-version compatibility matrix
+5. ❌ **NO Docker images** are published — image publishing was removed from
+   this workflow; official images are published by `release-publish.yml`
 
 #### Required Secrets
 
-- `DOCKERHUB_USERNAME` (optional) - Your Docker Hub username
-- `DOCKERHUB_TOKEN` (optional) - Docker Hub access token
-- `GITHUB_TOKEN` (automatic) - For GHCR publishing
+- `GITHUB_TOKEN` (automatic) - For checkout and artifact upload
 
 #### How to Use
 
@@ -323,7 +325,7 @@ if: "!startsWith(github.event.head_commit.message, 'chore(release):') &&
 
 - ✅ When you're ready to create a new development release
 - ✅ After accumulating meaningful changes in main
-- ✅ When you want to publish versioned Docker images
+- ✅ When you want a tagged, changelog-backed development release
 
 #### When NOT to Use
 
@@ -346,7 +348,7 @@ on:
 2. **Finalizes changelog** - moves "Unreleased" to new version section
 3. **Creates version tag** (e.g., `v1.0.0`)
 4. **Creates GitHub Release** with changelog
-5. **Triggers build-and-publish.yml** to publish Docker images
+5. **Triggers build-and-publish.yml** (build + test on the new tag)
 
 #### How It Works
 
@@ -374,7 +376,7 @@ Manual Trigger: "Cut Release"
            ▼
 ┌──────────────────────┐
 │ build-and-publish    │  Triggered by v* tag
-│ publishes Docker     │  → ghcr.io/*/solr-mcp:1.1.0
+│ builds + tests JAR   │  → JAR uploaded as artifact
 └──────────────────────┘
 ```
 
@@ -737,7 +739,7 @@ gh workflow run cut-release.yml -f version_override=1.0.0
 #    - Creates tag v1.0.0
 #    - Finalizes CHANGELOG.md
 #    - Creates GitHub Release
-#    - Triggers Docker publish to personal/GHCR
+#    - Triggers build-and-publish.yml (build + test, JAR artifact)
 ```
 
 ### Scenario 3: I want to create an official ASF release
