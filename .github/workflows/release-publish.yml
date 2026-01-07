@@ -125,13 +125,6 @@ on:
         type: boolean
         default: false
 
-# Global environment settings used across jobs
-# - JAVA_VERSION: version of JDK used to build the project
-# - JAVA_DISTRIBUTION: OpenJDK distribution to install via actions/setup-java
-env:
-  JAVA_VERSION: '25'
-  JAVA_DISTRIBUTION: 'temurin'
-
 jobs:
   validate-release:
     name: Validate Release Prerequisites
@@ -187,15 +180,10 @@ jobs:
         with:
           ref: "v${{ inputs.release_version }}-${{ inputs.release_candidate }}"
 
-      - name: Set up JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: ${{ env.JAVA_DISTRIBUTION }}
-          cache: 'gradle'
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+      # Set up Java environment using centralized configuration
+      # See .github/actions/setup-java/action.yml to update Java version
+      - name: Set up Java
+        uses: ./.github/actions/setup-java
 
       - name: Update version in build.gradle.kts
         run: |

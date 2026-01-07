@@ -109,13 +109,6 @@ on:
             - main            # Build + test validation for incoming changes
     workflow_dispatch:        # Manual runs for maintainers
 
-# Global environment used by all jobs in this workflow
-# - JAVA_VERSION: JDK version to install for Gradle builds
-# - JAVA_DISTRIBUTION: Vendor/distribution of the JDK (Temurin is Eclipse Adoptium)
-env:
-    JAVA_VERSION: '25'
-    JAVA_DISTRIBUTION: 'temurin'
-
 jobs:
     # ============================================================================
     # Job 1: Build JAR
@@ -138,20 +131,10 @@ jobs:
             -   name: Checkout code
                 uses: actions/checkout@v4
 
-            # Set up Java Development Kit
-            # Uses Temurin (Eclipse Adoptium) distribution of OpenJDK 25
-            # Gradle cache is enabled to speed up subsequent builds
-            -   name: Set up JDK ${{ env.JAVA_VERSION }}
-                uses: actions/setup-java@v4
-                with:
-                    java-version: ${{ env.JAVA_VERSION }}
-                    distribution: ${{ env.JAVA_DISTRIBUTION }}
-                    cache: 'gradle'
-
-            # Make the Gradle wrapper executable
-            # Required on Unix-based systems (Linux, macOS)
-            -   name: Grant execute permission for gradlew
-                run: chmod +x gradlew
+            # Set up Java environment using centralized configuration
+            # See .github/actions/setup-java/action.yml to update Java version
+            -   name: Set up Java
+                uses: ./.github/actions/setup-java
 
             # Build the project with Gradle
             # This runs: compilation, tests, spotless formatting, error-prone checks,
@@ -228,18 +211,10 @@ jobs:
             -   name: Checkout code
                 uses: actions/checkout@v4
 
-            # Set up Java for running Jib
-            # Jib doesn't require Docker but needs Java to run
-            -   name: Set up JDK ${{ env.JAVA_VERSION }}
-                uses: actions/setup-java@v4
-                with:
-                    java-version: ${{ env.JAVA_VERSION }}
-                    distribution: ${{ env.JAVA_DISTRIBUTION }}
-                    cache: 'gradle'
-
-            # Make Gradle wrapper executable
-            -   name: Grant execute permission for gradlew
-                run: chmod +x gradlew
+            # Set up Java environment using centralized configuration
+            # See .github/actions/setup-java/action.yml to update Java version
+            -   name: Set up Java
+                uses: ./.github/actions/setup-java
 
             # Extract version and determine image tags
             # Outputs:
