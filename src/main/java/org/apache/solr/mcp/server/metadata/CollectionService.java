@@ -125,8 +125,8 @@ import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
  * SolrHealthStatus health = collectionService.checkHealth("my_collection");
  * }</pre>
  *
- * @version 0.0.1
- * @since 0.0.1
+ * @version 1.0.0
+ * @since 1.0.0
  * @see SolrMetrics
  * @see SolrHealthStatus
  * @see org.apache.solr.client.solrj.SolrClient

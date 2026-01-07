@@ -94,7 +94,7 @@ on:
 #### Image Tagging Strategy
 
 - **Main branch**: `VERSION-SNAPSHOT-SHA` + `latest`
-    - Example: `0.0.1-SNAPSHOT-a1b2c3d`, `latest`
+    - Example: `1.0.0-SNAPSHOT-a1b2c3d`, `latest`
 - **Tags** (discouraged): `VERSION` + `latest`
     - Example: `1.0.0`, `latest`
 
@@ -515,7 +515,7 @@ gh workflow run atr-release.yml \
 ```bash
 # Workflow runs automatically on merge to main
 # Find your images at:
-# - ghcr.io/apache/solr-mcp:0.0.1-SNAPSHOT-a1b2c3d
+# - ghcr.io/apache/solr-mcp:1.0.0-SNAPSHOT-a1b2c3d
 ```
 
 ### Scenario 2: I want to create an official release

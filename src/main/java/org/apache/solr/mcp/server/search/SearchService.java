@@ -93,8 +93,8 @@ import org.springframework.util.StringUtils;
  * results, metadata, and facet information in a format optimized for JSON
  * serialization and consumption by AI clients.
  *
- * @version 0.0.1
- * @since 0.0.1
+ * @version 1.0.0
+ * @since 1.0.0
  * @see SearchResponse
  * @see SolrClient
  * @see McpTool

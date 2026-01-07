@@ -114,8 +114,8 @@ import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
  * });
  * }</pre>
  *
- * @version 0.0.1
- * @since 0.0.1
+ * @version 1.0.0
+ * @since 1.0.0
  * @see SchemaRepresentation
  * @see org.apache.solr.client.solrj.request.schema.SchemaRequest
  * @see org.springframework.ai.tool.annotation.Tool

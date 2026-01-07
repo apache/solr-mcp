@@ -30,7 +30,7 @@ A Spring AI Model Context Protocol (MCP) server that provides tools for interact
         - JAR:
           ```bash
           ./gradlew build
-          java -jar build/libs/solr-mcp-0.0.1-SNAPSHOT.jar
+          java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
           ```
         - Docker:
           ```bash
@@ -43,7 +43,7 @@ A Spring AI Model Context Protocol (MCP) server that provides tools for interact
           ```
         - JAR:
           ```bash
-          PROFILES=http java -jar build/libs/solr-mcp-0.0.1-SNAPSHOT.jar
+          PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
           ```
         - Docker:
           ```bash
@@ -82,7 +82,7 @@ Using JAR:
             "command": "java",
             "args": [
                 "-jar",
-                "/absolute/path/to/solr-mcp-0.0.1-SNAPSHOT.jar"
+                "/absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar"
             ],
             "env": {
                 "SOLR_URL": "http://localhost:8983/solr/"
@@ -126,7 +126,7 @@ Using JAR:
             "command": "java",
             "args": [
                 "-jar",
-                "/absolute/path/to/solr-mcp-0.0.1-SNAPSHOT.jar"
+                "/absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar"
             ],
             "env": {
                 "PROFILES": "http",
@@ -151,7 +151,7 @@ PROFILES=http ./gradlew bootRun
 Running locally (JAR):
 
 ```bash
-PROFILES=http java -jar build/libs/solr-mcp-0.0.1-SNAPSHOT.jar
+PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
 ```
 
 Running via Docker:

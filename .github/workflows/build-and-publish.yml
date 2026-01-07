@@ -82,7 +82,7 @@
 #
 # Image Tagging Strategy:
 # ----------------------
-# - Main branch: VERSION-SHORT_SHA (e.g., 0.0.1-SNAPSHOT-a1b2c3d) + latest
+# - Main branch: VERSION-SHORT_SHA (e.g., 1.0.0-SNAPSHOT-a1b2c3d) + latest
 # - Version tags: VERSION (e.g., 1.0.0) + latest
 #
 # Required Secrets (for Docker Hub):

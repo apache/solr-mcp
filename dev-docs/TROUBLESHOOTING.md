@@ -37,7 +37,7 @@ Common issues and solutions when working with the Solr MCP Server.
    ```bash
    docker run -i --rm \
      --add-host=host.docker.internal:host-gateway \
-     solr-mcp:0.0.1-SNAPSHOT
+     solr-mcp:1.0.0-SNAPSHOT
    ```
 
 ### Collection not found
@@ -143,7 +143,7 @@ Jib automatically builds for the local platform or the first specified platform.
      "mcpServers": {
        "solr-search-mcp": {
          "command": "java",
-         "args": ["-jar", "/absolute/path/to/solr-mcp-0.0.1-SNAPSHOT.jar"]
+         "args": ["-jar", "/absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar"]
        }
      }
    }
@@ -167,7 +167,7 @@ Jib automatically builds for the local platform or the first specified platform.
 1. **Test server manually**
    ```bash
    # STDIO mode - should start without errors
-   java -jar build/libs/solr-mcp-0.0.1-SNAPSHOT.jar
+   java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
 
    # HTTP mode
    curl http://localhost:8080/actuator/health
@@ -330,12 +330,12 @@ rm -rf .gradle
 1. **Increase JVM heap**
    ```bash
    export JAVA_OPTS="-Xmx2g -Xms512m"
-   java $JAVA_OPTS -jar build/libs/solr-mcp-0.0.1-SNAPSHOT.jar
+   java $JAVA_OPTS -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
    ```
 
 2. **Docker container limits**
    ```bash
-   docker run -m 2g --rm solr-mcp:0.0.1-SNAPSHOT
+   docker run -m 2g --rm solr-mcp:1.0.0-SNAPSHOT
    ```
 
 3. **Check for memory leaks**
@@ -379,7 +379,7 @@ rm -rf .gradle
 lsof -ti:8080 | xargs kill -9
 
 # Or change port
-java -Dserver.port=8081 -jar build/libs/solr-mcp-0.0.1-SNAPSHOT.jar
+java -Dserver.port=8081 -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
 ```
 
 ## Getting Help

@@ -58,8 +58,8 @@ import org.apache.solr.common.util.NamedList;
  * All methods in this utility class are stateless and thread-safe, making them
  * suitable for use in concurrent environments and Spring service beans.
  *
- * @version 0.0.1
- * @since 0.0.1
+ * @version 1.0.0
+ * @since 1.0.0
  * @see org.apache.solr.common.util.NamedList
  * @see CollectionService
  */
