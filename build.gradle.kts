@@ -128,6 +128,18 @@ dependencyManagement {
     }
 }
 
+// Force opentelemetry-proto to a version compiled with protobuf 3.x
+// This resolves NoSuchMethodError with protobuf 4.x
+// See: https://github.com/micrometer-metrics/micrometer/issues/5658
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "io.opentelemetry.proto" && requested.name == "opentelemetry-proto") {
+            useVersion("1.3.2-alpha")
+            because("Version 1.8.0-alpha has protobuf 4.x incompatibility causing NoSuchMethodError")
+        }
+    }
+}
+
 // Configures Spring Boot plugin to generate build metadata at build time
 // This creates META-INF/build-info.properties containing:
 //   - build.artifact: The artifact name (e.g., "solr-mcp")
