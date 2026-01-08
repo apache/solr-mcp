@@ -92,7 +92,10 @@ repositories {
 
 dependencies {
 
-    developmentOnly(libs.bundles.spring.boot.dev)
+    developmentOnly(libs.spring.boot.docker.compose)
+    developmentOnly(libs.spring.ai.spring.boot.docker.compose) {
+        exclude(group = "org.springframework.boot", module = "spring-boot-starter-mongodb")
+    }
 
     implementation(libs.spring.boot.starter.webmvc)
     implementation(libs.spring.boot.starter.actuator)
