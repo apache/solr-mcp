@@ -278,7 +278,7 @@ The `solr://{collection}/schema` resource supports autocompletion for the `{coll
 ## Documentation
 
 - [Auth0 Setup (OAuth2 configuration)](docs/AUTH0_SETUP.md)
-- [Observability Guide (metrics, traces, logs)](Observability.md)
+- [Observability Guide (metrics, traces, logs)](dev-docs/Observability.md)
 
 ## Contributing
 
