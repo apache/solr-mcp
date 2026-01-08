@@ -12,6 +12,9 @@ solr = "9.9.0"
 commons-csv = "1.10.0"
 mcp-server-security = "0.0.6"
 
+# OpenTelemetry
+opentelemetry-logback-appender = "2.21.0-alpha"
+
 # Error Prone and analysis tools
 errorprone-core = "2.38.0"
 nullaway = "0.12.7"
@@ -43,6 +46,10 @@ solr-solrj = { module = "org.apache.solr:solr-solrj", version.ref = "solr" }
 
 # Apache Commons
 commons-csv = { module = "org.apache.commons:commons-csv", version.ref = "commons-csv" }
+
+# OpenTelemetry (HTTP mode only)
+spring-boot-starter-opentelemetry = { module = "org.springframework.boot:spring-boot-starter-opentelemetry" }
+opentelemetry-logback-appender = { module = "io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0", version.ref = "opentelemetry-logback-appender" }
 
 # Error Prone
 errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorprone-core" }
