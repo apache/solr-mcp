@@ -22,7 +22,7 @@
     <!-- Console appender - used by all profiles -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+            <pattern>${CONSOLE_LOG_PATTERN:-%d{yyyy-MM-dd HH:mm:ss.SSS} %5p --- [%15.15t] %-40.40logger{39} : %m%n}</pattern>
             <charset>UTF-8</charset>
         </encoder>
     </appender>
@@ -50,13 +50,12 @@
     </springProfile>
 
     <!--
-        STDIO mode (default) - Minimal console logging, no OTEL appender
-        STDIO mode must minimize stdout pollution as it uses stdin/stdout
+        STDIO mode (default) - No console logging
+        STDIO mode must have NO stdout output as it uses stdin/stdout
         for MCP protocol communication. Default profile is stdio.
     -->
-    <springProfile name="!http">
-        <root level="ERROR">
-            <appender-ref ref="CONSOLE"/>
-        </root>
+    <springProfile name="stdio">
+        <root level="OFF"/>
     </springProfile>
+
 </configuration>

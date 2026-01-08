@@ -114,6 +114,9 @@ dependencies {
     implementation(libs.spring.boot.starter.opentelemetry)
     implementation(libs.opentelemetry.logback.appender)
 
+    // AspectJ (required for @Observed annotation support in Spring Boot 4)
+    implementation(libs.spring.boot.starter.aspectj)
+
     // Error Prone and NullAway for null safety analysis
     errorprone(libs.errorprone.core)
     errorprone(libs.nullaway)
