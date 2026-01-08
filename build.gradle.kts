@@ -107,6 +107,10 @@ dependencies {
     implementation(libs.spring.boot.starter.security)
     implementation(libs.spring.boot.starter.oauth2.resource.server)
 
+    // OpenTelemetry (HTTP mode only - for metrics, tracing, and log export)
+    implementation(libs.spring.boot.starter.opentelemetry)
+    implementation(libs.opentelemetry.logback.appender)
+
     // Error Prone and NullAway for null safety analysis
     errorprone(libs.errorprone.core)
     errorprone(libs.nullaway)
