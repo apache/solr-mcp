@@ -58,10 +58,6 @@ services:
       - "4317:4317"   # OTLP gRPC receiver
       - "4318:4318"   # OTLP HTTP receiver
     networks: [ search ]
-    labels:
-      # Disable Spring Boot Docker Compose auto-configuration for this service
-      # We configure OTLP endpoints manually in application-http.properties
-      org.springframework.boot.ignore: "true"
     environment:
       # Disable authentication for local development
       GF_AUTH_ANONYMOUS_ENABLED: "true"

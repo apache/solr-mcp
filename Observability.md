@@ -140,14 +140,33 @@ jvm_threads_live_threads{application="solr-mcp-server"}
 
 ## Configuration
 
-### Environment Variables
+### Auto-Configuration (Recommended for Local Development)
+
+When using Docker Compose, Spring Boot automatically detects the `grafana/otel-lgtm` container and configures OTLP endpoints. No manual configuration needed:
+
+```bash
+docker compose up -d lgtm
+PROFILES=http ./gradlew bootRun
+```
+
+### Environment Variables (Production)
+
+For production deployments without Docker Compose, set these environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OTEL_SAMPLING_PROBABILITY` | `1.0` | Trace sampling rate (0.0-1.0) |
-| `OTEL_METRICS_URL` | `http://localhost:4318/v1/metrics` | OTLP metrics endpoint |
-| `OTEL_TRACES_URL` | `http://localhost:4318/v1/traces` | OTLP traces endpoint |
-| `OTEL_LOGS_URL` | `http://localhost:4318/v1/logs` | OTLP logs endpoint |
+| `OTEL_METRICS_URL` | (auto-configured) | OTLP metrics endpoint |
+| `OTEL_TRACES_URL` | (auto-configured) | OTLP traces endpoint |
+| `OTEL_LOGS_URL` | (auto-configured) | OTLP logs endpoint |
+
+Example production configuration:
+```bash
+export OTEL_SAMPLING_PROBABILITY=0.1
+export OTEL_METRICS_URL=https://otel-collector.prod.example.com/v1/metrics
+export OTEL_TRACES_URL=https://otel-collector.prod.example.com/v1/traces
+export OTEL_LOGS_URL=https://otel-collector.prod.example.com/v1/logs
+```
 
 ### Sampling Configuration
 
