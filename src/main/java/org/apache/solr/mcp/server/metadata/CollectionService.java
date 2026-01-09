@@ -17,6 +17,7 @@
 package org.apache.solr.mcp.server.metadata;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.observation.annotation.Observed;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrRequest;
@@ -132,6 +133,7 @@ import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
  * @see org.apache.solr.client.solrj.SolrClient
  */
 @Service
+@Observed
 public class CollectionService {
 
 	// ========================================

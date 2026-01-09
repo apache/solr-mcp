@@ -103,6 +103,11 @@ dependencies {
     // JSpecify for nullability annotations
     implementation(libs.jspecify)
 
+    implementation(platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.11.0"))
+    implementation("io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter")
+
+    implementation("io.micrometer:micrometer-registry-prometheus")
+
     // Security
     implementation(libs.mcp.server.security)
     implementation(libs.spring.boot.starter.security)
