@@ -1,16 +1,16 @@
 [versions]
 # Build plugins
-spring-boot = "4.0.0"
+spring-boot = "4.0.2"
 spring-dependency-management = "1.1.7"
 errorprone-plugin = "4.2.0"
 jib = "3.4.5"
 spotless = "7.0.2"
 
 # Main dependencies
-spring-ai = "2.0.0-M1"
+spring-ai = "2.0.0-M2"
 solr = "9.9.0"
 commons-csv = "1.10.0"
-mcp-server-security = "0.0.4"
+mcp-server-security = "0.0.6"
 
 # Error Prone and analysis tools
 errorprone-core = "2.38.0"
