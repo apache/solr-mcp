@@ -19,6 +19,7 @@ import net.ltgt.gradle.errorprone.errorprone
 
 plugins {
     java
+    `maven-publish`
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
     jacoco
@@ -33,6 +34,48 @@ version = "1.0.0-SNAPSHOT"
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)
+    }
+    withSourcesJar()
+    withJavadocJar()
+}
+
+// Maven Publishing Configuration
+// ==============================
+// This configuration enables publishing the project artifacts to Maven repositories.
+// The publishing block defines what artifacts are published and where they go.
+//
+// Artifacts Published:
+// -------------------
+// - Main JAR: The compiled application JAR
+// - Sources JAR: Source code for IDE navigation and debugging
+// - Javadoc JAR: Generated API documentation
+//
+// Publishing to Maven Local:
+// -------------------------
+// To install artifacts to your local Maven repository (~/.m2/repository):
+//   ./gradlew publishToMavenLocal
+//
+// This is useful for:
+// - Testing the library locally before publishing to a remote repository
+// - Sharing artifacts between local projects during development
+// - Verifying the published POM and artifact structure
+//
+// After publishing, artifacts will be available at:
+//   ~/.m2/repository/org/apache/solr/solr-mcp/{version}/
+//
+// The publication includes:
+// - solr-mcp-{version}.jar (main artifact)
+// - solr-mcp-{version}-sources.jar (source code)
+// - solr-mcp-{version}-javadoc.jar (API documentation)
+// - solr-mcp-{version}.pom (Maven POM with dependencies)
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            // Include the main JAR and all artifacts from the java component
+            // This automatically includes sources and javadoc JARs when
+            // withSourcesJar() and withJavadocJar() are configured above
+            from(components["java"])
+        }
     }
 }
 

@@ -16,12 +16,7 @@
  */
 package org.apache.solr.mcp.server.metadata;
 
-import static org.apache.solr.mcp.server.metadata.CollectionUtils.*;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrRequest;
@@ -31,14 +26,30 @@ import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.request.CoreAdminRequest;
 import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.LukeRequest;
-import org.apache.solr.client.solrj.response.*;
+import org.apache.solr.client.solrj.response.CollectionAdminResponse;
+import org.apache.solr.client.solrj.response.CoreAdminResponse;
+import org.apache.solr.client.solrj.response.LukeResponse;
+import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.params.CoreAdminParams;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
+import org.springaicommunity.mcp.annotation.McpComplete;
+import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+import static org.apache.solr.mcp.server.metadata.CollectionUtils.getFloat;
+import static org.apache.solr.mcp.server.metadata.CollectionUtils.getInteger;
+import static org.apache.solr.mcp.server.metadata.CollectionUtils.getLong;
+import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
 /**
  * Spring Service providing comprehensive Solr collection management and
@@ -242,6 +253,8 @@ public class CollectionService {
 	/** SolrJ client for communicating with Solr server */
 	private final SolrClient solrClient;
 
+	private final ObjectMapper objectMapper;
+
 	/**
 	 * Constructs a new CollectionService with the required dependencies.
 	 *
@@ -251,11 +264,44 @@ public class CollectionService {
 	 *
 	 * @param solrClient
 	 *            the SolrJ client instance for communicating with Solr
+	 * @param objectMapper
+	 *            the Jackson ObjectMapper for JSON serialization
 	 * @see SolrClient
 	 * @see SolrConfigurationProperties
 	 */
-	public CollectionService(SolrClient solrClient) {
+	public CollectionService(SolrClient solrClient, ObjectMapper objectMapper) {
 		this.solrClient = solrClient;
+		this.objectMapper = objectMapper;
+	}
+
+	/**
+	 * MCP Resource endpoint that returns a list of all available Solr collections.
+	 *
+	 * <p>
+	 * This resource provides a simple way for MCP clients to discover what
+	 * collections are available in the Solr cluster. The returned JSON contains an
+	 * array of collection names.
+	 *
+	 * @return JSON string containing the list of collections
+	 */
+	@McpResource(uri = "solr://collections", name = "solr-collections", description = "List of all Solr collections available in the cluster", mimeType = "application/json")
+	public String getCollectionsResource() {
+		return toJson(objectMapper, listCollections());
+	}
+
+	/**
+	 * MCP Completion endpoint for collection name autocompletion.
+	 *
+	 * <p>
+	 * Provides autocompletion support for the collection parameter in the schema
+	 * resource URI template. Returns all available collection names that MCP
+	 * clients can use to complete the {collection} placeholder.
+	 *
+	 * @return list of available collection names for autocompletion
+	 */
+	@McpComplete(uri = "solr://{collection}/schema")
+	public List<String> completeCollectionForSchema() {
+		return listCollections();
 	}
 
 	/**

@@ -21,6 +21,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
@@ -61,9 +62,11 @@ class CollectionServiceTest {
 
 	private CollectionService collectionService;
 
+	private final ObjectMapper objectMapper = new ObjectMapper();
+
 	@BeforeEach
 	void setUp() {
-		collectionService = new CollectionService(solrClient);
+		collectionService = new CollectionService(solrClient, objectMapper);
 	}
 
 	// Constructor tests
@@ -76,7 +79,7 @@ class CollectionServiceTest {
 	void listCollections_WithCloudSolrClient_ShouldReturnCollections() throws Exception {
 		// Given - This test verifies the service can be constructed with
 		// CloudSolrClient
-		CollectionService cloudService = new CollectionService(cloudSolrClient);
+		CollectionService cloudService = new CollectionService(cloudSolrClient, objectMapper);
 
 		// Note: This test cannot fully exercise listCollections() because it requires
 		// mocking static methods in CollectionAdminRequest which requires PowerMock or
@@ -702,7 +705,7 @@ class CollectionServiceTest {
 
 		when(cloudClient.request(any(), any())).thenReturn(response);
 
-		CollectionService service = new CollectionService(cloudClient);
+		CollectionService service = new CollectionService(cloudClient, objectMapper);
 		List<String> result = service.listCollections();
 
 		assertNotNull(result);
@@ -720,7 +723,7 @@ class CollectionServiceTest {
 
 		when(cloudClient.request(any(), any())).thenReturn(response);
 
-		CollectionService service = new CollectionService(cloudClient);
+		CollectionService service = new CollectionService(cloudClient, objectMapper);
 		List<String> result = service.listCollections();
 
 		assertNotNull(result);
@@ -732,7 +735,7 @@ class CollectionServiceTest {
 		CloudSolrClient cloudClient = mock(CloudSolrClient.class);
 		when(cloudClient.request(any(), any())).thenThrow(new SolrServerException("Connection error"));
 
-		CollectionService service = new CollectionService(cloudClient);
+		CollectionService service = new CollectionService(cloudClient, objectMapper);
 		List<String> result = service.listCollections();
 
 		assertNotNull(result);
@@ -755,7 +758,7 @@ class CollectionServiceTest {
 		// Mock the solrClient request to return the response
 		when(solrClient.request(any(), any())).thenReturn(response);
 
-		CollectionService service = new CollectionService(solrClient);
+		CollectionService service = new CollectionService(solrClient, objectMapper);
 		List<String> result = service.listCollections();
 
 		assertNotNull(result);
@@ -768,7 +771,7 @@ class CollectionServiceTest {
 	void listCollections_NonCloudClient_Error() throws Exception {
 		when(solrClient.request(any(), any())).thenThrow(new IOException("IO error"));
 
-		CollectionService service = new CollectionService(solrClient);
+		CollectionService service = new CollectionService(solrClient, objectMapper);
 		List<String> result = service.listCollections();
 
 		assertNotNull(result);

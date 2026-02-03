@@ -16,11 +16,15 @@
  */
 package org.apache.solr.mcp.server.metadata;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
+import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springframework.stereotype.Service;
+
+import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
 /**
  * Spring Service providing schema introspection and management capabilities for
@@ -122,8 +126,10 @@ public class SchemaService {
 	/** SolrJ client for communicating with Solr server */
 	private final SolrClient solrClient;
 
+	private final ObjectMapper objectMapper;
+
 	/**
-	 * Constructs a new SchemaService with the required SolrClient dependency.
+	 * Constructs a new SchemaService with the required dependencies.
 	 *
 	 * <p>
 	 * This constructor is automatically called by Spring's dependency injection
@@ -132,10 +138,36 @@ public class SchemaService {
 	 *
 	 * @param solrClient
 	 *            the SolrJ client instance for communicating with Solr
+	 * @param objectMapper
+	 *            the Jackson ObjectMapper for JSON serialization
 	 * @see SolrClient
 	 */
-	public SchemaService(SolrClient solrClient) {
+	public SchemaService(SolrClient solrClient, ObjectMapper objectMapper) {
 		this.solrClient = solrClient;
+		this.objectMapper = objectMapper;
+	}
+
+	/**
+	 * MCP Resource endpoint that returns the schema for a specified Solr
+	 * collection.
+	 *
+	 * <p>
+	 * This resource uses a URI template with {collection} placeholder that can be
+	 * completed using the {@code @McpComplete} endpoint in CollectionService. The
+	 * returned JSON contains the complete schema definition including fields, field
+	 * types, dynamic fields, and copy fields.
+	 *
+	 * @param collection
+	 *            the name of the collection to retrieve schema for
+	 * @return JSON string containing the schema representation
+	 */
+	@McpResource(uri = "solr://{collection}/schema", name = "solr-collection-schema", description = "Schema definition for a Solr collection including fields, field types, and copy fields", mimeType = "application/json")
+	public String getSchemaResource(String collection) {
+		try {
+			return toJson(objectMapper, getSchema(collection));
+		} catch (Exception e) {
+			return "{\"error\": \"" + e.getMessage() + "\"}";
+		}
 	}
 
 	/**

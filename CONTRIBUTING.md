@@ -38,6 +38,26 @@ To keep this document concise, please see the Development Guide for all testing 
 - Docker image tests: dev-docs/DEVELOPMENT.md#docker-integration-tests
 - Coverage reports: dev-docs/DEVELOPMENT.md#testing
 
+## Publishing to Maven Local
+
+To install the project artifacts to your local Maven repository for testing or local development:
+
+```bash
+./gradlew publishToMavenLocal
+```
+
+This publishes the following artifacts to `~/.m2/repository/org/apache/solr/solr-mcp/{version}/`:
+
+- `solr-mcp-{version}.jar` - Main application JAR
+- `solr-mcp-{version}-sources.jar` - Source code for IDE navigation
+- `solr-mcp-{version}-javadoc.jar` - API documentation
+- `solr-mcp-{version}.pom` - Maven POM with dependencies
+
+This is useful when:
+- Testing the library locally before publishing to a remote repository
+- Sharing artifacts between local projects during development
+- Verifying the published POM and artifact structure
+
 ## Submitting Changes
 
 ### Pull Request Process
