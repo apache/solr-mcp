@@ -16,7 +16,16 @@
  */
 package org.apache.solr.mcp.server.metadata;
 
+import static org.apache.solr.mcp.server.metadata.CollectionUtils.getFloat;
+import static org.apache.solr.mcp.server.metadata.CollectionUtils.getInteger;
+import static org.apache.solr.mcp.server.metadata.CollectionUtils.getLong;
+import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrRequest;
@@ -40,16 +49,6 @@ import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Service;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-
-import static org.apache.solr.mcp.server.metadata.CollectionUtils.getFloat;
-import static org.apache.solr.mcp.server.metadata.CollectionUtils.getInteger;
-import static org.apache.solr.mcp.server.metadata.CollectionUtils.getLong;
-import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
 /**
  * Spring Service providing comprehensive Solr collection management and
