@@ -97,8 +97,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * <li>Monitor application logs for connection and performance issues
  * </ul>
  *
- * @version 0.0.1
- * @since 0.0.1
+ * @version 1.0.0
+ * @since 1.0.0
  * @see SearchService
  * @see IndexingService
  * @see CollectionService

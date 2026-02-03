@@ -219,7 +219,7 @@ If ARM64 builds fail:
 
 ## Versioning Strategy
 
-- **Main branch**: `VERSION-SNAPSHOT-SHA` (e.g., `0.0.1-SNAPSHOT-a1b2c3d`)
+- **Main branch**: `VERSION-SNAPSHOT-SHA` (e.g., `1.0.0-SNAPSHOT-a1b2c3d`)
 - **Nightly**: `nightly-YYYYMMDD-SHA` (e.g., `nightly-20240115-a1b2c3d`)
 - **Release**: Semantic versioning `MAJOR.MINOR.PATCH` (e.g., `1.0.0`)
 

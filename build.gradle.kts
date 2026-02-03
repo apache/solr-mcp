@@ -29,7 +29,7 @@ plugins {
 }
 
 group = "org.apache.solr"
-version = "0.0.2-SNAPSHOT"
+version = "1.0.0-SNAPSHOT"
 
 java {
     toolchain {
@@ -129,7 +129,7 @@ dependencyManagement {
 //   - build.artifact: The artifact name (e.g., "solr-mcp")
 //   - build.group: The group ID (e.g., "org.apache.solr")
 //   - build.name: The project name
-//   - build.version: The version (e.g., "0.0.1-SNAPSHOT")
+//   - build.version: The version (e.g., "1.0.0-SNAPSHOT")
 //   - build.time: The timestamp when the build was executed
 //
 // When it executes:
@@ -307,15 +307,15 @@ tasks.register<Test>("dockerIntegrationTest") {
 // ----------------
 // 1. Build to Docker daemon (requires Docker installed):
 //    ./gradlew jibDockerBuild
-//    Creates image: solr-mcp:0.0.1-SNAPSHOT
+//    Creates image: solr-mcp:1.0.0-SNAPSHOT
 //
 // 2. Push to Docker Hub (requires authentication):
 //    docker login
-//    ./gradlew jib -Djib.to.image=dockerhub-username/solr-mcp:0.0.1-SNAPSHOT
+//    ./gradlew jib -Djib.to.image=dockerhub-username/solr-mcp:1.0.0-SNAPSHOT
 //
 // 3. Push to GitHub Container Registry (requires authentication):
 //    echo $GITHUB_TOKEN | docker login ghcr.io -u GITHUB_USERNAME --password-stdin
-//    ./gradlew jib -Djib.to.image=ghcr.io/github-username/solr-mcp:0.0.1-SNAPSHOT
+//    ./gradlew jib -Djib.to.image=ghcr.io/github-username/solr-mcp:1.0.0-SNAPSHOT
 //
 // Authentication:
 // ---------------
@@ -353,7 +353,7 @@ tasks.register<Test>("dockerIntegrationTest") {
 // - SOLR_URL=http://host.docker.internal:8983/solr/ (default Solr connection)
 //
 // These can be overridden at runtime:
-//   docker run -e SOLR_URL=http://custom-solr:8983/solr/ solr-mcp:0.0.1-SNAPSHOT
+//   docker run -e SOLR_URL=http://custom-solr:8983/solr/ solr-mcp:1.0.0-SNAPSHOT
 jib {
     // Configure Docker client executable path
     // This ensures Jib can find Docker even if it's not in Gradle's PATH
