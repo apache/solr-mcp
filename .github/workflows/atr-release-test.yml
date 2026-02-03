@@ -95,8 +95,6 @@ permissions:
     packages: write   # May be needed for publishing artifacts
 
 env:
-    JAVA_VERSION: '25'
-    JAVA_DISTRIBUTION: 'temurin'
     ATR_PROJECT_NAME: 'solr-mcp'  # Project identifier in ATR platform
 
 jobs:
@@ -128,15 +126,10 @@ jobs:
                       echo "Test tag already exists: ${TEST_TAG}"
                     fi
 
-            -   name: Set up JDK ${{ env.JAVA_VERSION }}
-                uses: actions/setup-java@v4
-                with:
-                    java-version: ${{ env.JAVA_VERSION }}
-                    distribution: ${{ env.JAVA_DISTRIBUTION }}
-                    cache: 'gradle'
-
-            -   name: Grant execute permission for gradlew
-                run: chmod +x gradlew
+            # Set up Java environment using centralized configuration
+            # See .github/actions/setup-java/action.yml to update Java version
+            -   name: Set up Java
+                uses: ./.github/actions/setup-java
 
             -   name: Build project
                 run: |
