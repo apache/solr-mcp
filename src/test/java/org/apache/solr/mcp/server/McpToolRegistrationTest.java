@@ -49,7 +49,7 @@ class McpToolRegistrationTest {
 
 		// Verify the annotation properties
 		McpTool toolAnnotation = searchMethod.getAnnotation(McpTool.class);
-		assertEquals("Search", toolAnnotation.name(), "McpTool name should be 'Search'");
+		assertEquals("search", toolAnnotation.name(), "McpTool name should be 'search' (kebab-case)");
 		assertNotNull(toolAnnotation.description(), "McpTool description should not be null");
 		assertFalse(toolAnnotation.description().isBlank(), "McpTool description should not be blank");
 	}

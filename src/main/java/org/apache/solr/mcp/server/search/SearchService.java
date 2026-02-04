@@ -215,7 +215,7 @@ public class SearchService {
 	 *             If there's an I/O error
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "Search", description = """
+	@McpTool(name = "search", description = """
 			Search specified Solr collection with query, optional filters, facets, sorting, and pagination.
 			Note that solr has dynamic fields where name of field in schema may end with suffixes
 			_s: Represents a string field, used for exact string matching.
