@@ -18,7 +18,6 @@ package org.apache.solr.mcp.server.metadata;
 
 import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.observation.annotation.Observed;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
@@ -26,6 +25,7 @@ import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
 import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Spring Service providing schema introspection and management capabilities for
