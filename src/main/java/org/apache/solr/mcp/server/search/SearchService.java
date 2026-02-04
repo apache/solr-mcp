@@ -16,11 +16,7 @@
  */
 package org.apache.solr.mcp.server.search;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import io.micrometer.observation.annotation.Observed;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -35,6 +31,12 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Spring Service providing comprehensive search capabilities for Apache Solr
@@ -100,6 +102,7 @@ import org.springframework.util.StringUtils;
  * @see McpTool
  */
 @Service
+@Observed
 public class SearchService {
 
 	public static final String SORT_ITEM = "item";
