@@ -158,8 +158,9 @@ public class SampleClient {
 			assertEquals(8, toolsList.tools().size(), "Expected 8 tools to be available");
 
 			// Define expected tools based on the log output
-			Set<String> expectedToolNames = Set.of("index_json_documents", "index_csv_documents", "getCollectionStats",
-					"Search", "listCollections", "checkHealth", "index_xml_documents", "getSchema");
+			Set<String> expectedToolNames = Set.of("index-json-documents", "index-csv-documents",
+					"get-collection-stats", "search", "list-collections", "check-health", "index-xml-documents",
+					"get-schema");
 
 			// Validate each expected tool is present
 			List<String> actualToolNames = toolsList.tools().stream().map(Tool::name).toList();
@@ -179,23 +180,23 @@ public class SampleClient {
 
 				// Validate specific tools based on expected behavior
 				switch (tool.name()) {
-					case "index_json_documents" :
+					case "index-json-documents" :
 						assertTrue(tool.description().toLowerCase().contains("json"),
 								"JSON indexing tool should mention JSON in" + " description");
 						break;
-					case "index_csv_documents" :
+					case "index-csv-documents" :
 						assertTrue(tool.description().toLowerCase().contains("csv"),
 								"CSV indexing tool should mention CSV in" + " description");
 						break;
-					case "Search" :
+					case "search" : // single word, no hyphen needed
 						assertTrue(tool.description().toLowerCase().contains("search"),
 								"Search tool should mention search in description");
 						break;
-					case "listCollections" :
+					case "list-collections" :
 						assertTrue(tool.description().toLowerCase().contains("collection"),
 								"List collections tool should mention collections" + " in description");
 						break;
-					case "checkHealth" :
+					case "check-health" :
 						assertTrue(tool.description().toLowerCase().contains("health"),
 								"Health check tool should mention health in" + " description");
 						break;

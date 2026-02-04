@@ -342,7 +342,7 @@ public class CollectionService {
 	 * @see CollectionAdminRequest.List
 	 * @see CoreAdminRequest
 	 */
-	@McpTool(description = "List solr collections")
+	@McpTool(name = "list-collections", description = "List solr collections")
 	public List<String> listCollections() {
 		try {
 			if (solrClient instanceof CloudSolrClient) {
@@ -431,7 +431,7 @@ public class CollectionService {
 	 * @see LukeRequest
 	 * @see #extractCollectionName(String)
 	 */
-	@McpTool(description = "Get stats/metrics on a Solr collection")
+	@McpTool(name = "get-collection-stats", description = "Get stats/metrics on a Solr collection")
 	public SolrMetrics getCollectionStats(
 			@McpToolParam(description = "Solr collection to get stats/metrics for") String collection)
 			throws SolrServerException, IOException {
@@ -1022,7 +1022,7 @@ public class CollectionService {
 	 * @see SolrHealthStatus
 	 * @see SolrPingResponse
 	 */
-	@McpTool(description = "Check health of a Solr collection")
+	@McpTool(name = "check-health", description = "Check health of a Solr collection")
 	public SolrHealthStatus checkHealth(@McpToolParam(description = "Solr collection") String collection) {
 		try {
 			// Ping Solr

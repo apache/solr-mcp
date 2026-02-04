@@ -249,7 +249,7 @@ public class SchemaService {
 	 * @see SchemaRequest
 	 * @see org.apache.solr.client.solrj.response.schema.SchemaResponse
 	 */
-	@McpTool(description = "Get schema for a Solr collection")
+	@McpTool(name = "get-schema", description = "Get schema for a Solr collection")
 	public SchemaRepresentation getSchema(String collection) throws Exception {
 		SchemaRequest schemaRequest = new SchemaRequest();
 		return schemaRequest.process(solrClient, collection).getSchemaRepresentation();
