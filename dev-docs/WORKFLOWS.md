@@ -7,10 +7,52 @@ This guide explains when and how to use each GitHub Actions workflow in the proj
 | Workflow                                       | Purpose               | Trigger              | Status     | Use For                |
 |------------------------------------------------|-----------------------|----------------------|------------|------------------------|
 | [build-and-publish.yml](#build-and-publishyml) | Development CI/CD     | Automatic (push/PR)  | ✅ Active   | Daily development      |
+| [auto-release.yml](#auto-releaseyml)           | Snapshot builds       | Automatic (merge)    | ✅ Active   | Changelog accumulation |
+| [cut-release.yml](#cut-releaseyml)             | Cut new release       | Manual               | ✅ Active   | Version tagging        |
 | [release-publish.yml](#release-publishyml)     | Official ASF releases | Manual (after vote)  | ✅ Active   | Production releases    |
 | [nightly-build.yml](#nightly-buildyml)         | Nightly builds        | Scheduled (2 AM UTC) | ✅ Active   | Latest unstable builds |
 | [atr-release-test.yml](#atr-release-testyml)   | ATR testing           | Manual (safe mode)   | ✅ Ready    | Testing ATR workflow   |
 | [atr-release.yml](#atr-releaseyml)             | ATR production        | Manual (blocked)     | ⚠️ Blocked | Future ATR releases    |
+
+## Semantic Versioning
+
+This project uses the [git-semver-plugin](https://github.com/jmongard/Git.SemVersioning.Gradle) for automatic version management based on [Conventional Commits](https://www.conventionalcommits.org/).
+
+### How Versioning Works
+
+```
+git tag v1.0.0
+    │
+    ├── fix: handle null values      → patch bump (1.0.1)
+    ├── feat: add new search filter  → minor bump (1.1.0)
+    └── feat!: breaking API change   → major bump (2.0.0)
+
+Current version: 1.1.0-SNAPSHOT (calculated from commits)
+```
+
+### Version Commands
+
+```bash
+# Check current calculated version
+./gradlew printVersion
+
+# View changelog from commits
+./gradlew printChangeLog
+
+# Create a release (tag + commit)
+./gradlew releaseVersion
+```
+
+### Commit Message Format
+
+Use conventional commit prefixes to control version bumps:
+
+| Prefix | Version Bump | Example |
+|--------|--------------|---------|
+| `fix:` | Patch (0.0.X) | `fix: handle null pointer in search` |
+| `feat:` | Minor (0.X.0) | `feat: add faceted search support` |
+| `feat!:` or `BREAKING CHANGE:` | Major (X.0.0) | `feat!: redesign query API` |
+| `docs:`, `chore:`, `test:`, `ci:` | No bump | `docs: update README` |
 
 ## Decision Tree: Which Workflow Should I Use?
 
@@ -19,37 +61,107 @@ This guide explains when and how to use each GitHub Actions workflow in the proj
 │ START: What do you need to do?                              │
 └────────────────────┬────────────────────────────────────────┘
                      │
-    ┌────────────────┼────────────────┐
-    │                │                │
-    ▼                ▼                ▼
-┌─────────┐    ┌──────────┐    ┌──────────┐
-│ Develop │    │ Release  │    │   Test   │
-│  Code   │    │ Official │    │    ATR   │
-└────┬────┘    └─────┬────┘    └─────┬────┘
-     │               │               │
-     │               │               │
-     ▼               ▼               ▼
-┌─────────────┐ ┌───────────┐ ┌──────────┐
-│build-and-   │ │ release-  │ │atr-      │
-│publish.yml  │ │ publish   │ │release-  │
-│             │ │   .yml    │ │test.yml  │
-│✅ Automatic │ │           │ │          │
-│   on push   │ │✅ Manual  │ │✅ Manual │
-│             │ │after vote │ │safe mode │
-└─────────────┘ └─────┬─────┘ └──────────┘
-                      │
-                      │ After ATR
-                      │ onboarding?
+    ┌────────────────┼────────────────┬───────────────┐
+    │                │                │               │
+    ▼                ▼                ▼               ▼
+┌─────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│ Develop │    │ Cut a    │    │ Official │    │   Test   │
+│  Code   │    │ Release  │    │ ASF Rel  │    │    ATR   │
+└────┬────┘    └─────┬────┘    └─────┬────┘    └─────┬────┘
+     │               │               │               │
+     ▼               ▼               ▼               ▼
+┌─────────────┐ ┌───────────┐ ┌───────────┐ ┌──────────┐
+│build-and-   │ │cut-       │ │ release-  │ │atr-      │
+│publish.yml  │ │release    │ │ publish   │ │release-  │
+│+ auto-      │ │  .yml     │ │   .yml    │ │test.yml  │
+│release.yml  │ │           │ │           │ │          │
+│✅ Automatic │ │✅ Manual  │ │✅ Manual  │ │✅ Manual │
+│   on merge  │ │  trigger  │ │after vote │ │safe mode │
+└─────────────┘ └─────┬─────┘ └───────────┘ └──────────┘
                       │
                       ▼
-                ┌──────────┐
-                │atr-      │
-                │release   │
-                │  .yml    │
-                │          │
-                │⚠️ Future │
-                │  (blocked)│
-                └──────────┘
+              ┌───────────────┐
+              │ Creates tag   │
+              │ v1.0.0        │
+              │ + CHANGELOG   │
+              └───────┬───────┘
+                      │
+                      ▼
+              ┌───────────────┐
+              │build-and-     │
+              │publish.yml    │
+              │(triggered by  │
+              │ v* tag)       │
+              └───────────────┘
+```
+
+## Complete Release Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        DEVELOPMENT CYCLE                             │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  PR Created                                                          │
+│      │                                                               │
+│      ▼                                                               │
+│  ┌──────────────────────┐                                           │
+│  │ build-and-publish    │  Builds project, runs tests               │
+│  │ (PR validation)      │  Uploads JAR artifacts (NO Docker images) │
+│  └──────────────────────┘                                           │
+│                                                                      │
+│  PR Merged to main                                                   │
+│      │                                                               │
+│      ▼                                                               │
+│  ┌──────────────────────┐                                           │
+│  │ auto-release.yml     │  Builds SNAPSHOT                          │
+│  │ (Snapshot Build)     │  Updates CHANGELOG.md (Unreleased)        │
+│  │                      │  NO tag created                           │
+│  └──────────────────────┘                                           │
+│                                                                      │
+│  ... more PRs merged, changelog accumulates ...                      │
+│                                                                      │
+├─────────────────────────────────────────────────────────────────────┤
+│                     DEVELOPMENT RELEASE                              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Manual: "Cut Release" triggered                                     │
+│      │                                                               │
+│      ▼                                                               │
+│  ┌──────────────────────┐                                           │
+│  │ cut-release.yml      │  Calculates version (e.g., 1.1.0)         │
+│  │                      │  Moves Unreleased → [1.1.0] in CHANGELOG  │
+│  │                      │  Creates tag v1.1.0                       │
+│  │                      │  Creates GitHub Release                   │
+│  └──────────┬───────────┘                                           │
+│             │                                                        │
+│             ▼                                                        │
+│  ┌──────────────────────┐                                           │
+│  │ build-and-publish    │  Triggered by v* tag                      │
+│  │ (tag trigger)        │  Publishes Docker 1.1.0 to personal/GHCR  │
+│  └──────────────────────┘                                           │
+│                                                                      │
+├─────────────────────────────────────────────────────────────────────┤
+│                    OFFICIAL ASF RELEASE                              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Manual: Create RC tag                                               │
+│      │   git tag v1.1.0-rc1                                         │
+│      │                                                               │
+│      ▼                                                               │
+│  ┌──────────────────────┐                                           │
+│  │ 72-hour ASF Vote     │  Email to dev@solr.apache.org             │
+│  │ (3+ PMC +1 votes)    │  Wait for vote to pass                    │
+│  └──────────┬───────────┘                                           │
+│             │                                                        │
+│             ▼                                                        │
+│  ┌──────────────────────┐                                           │
+│  │ release-publish.yml  │  Manual trigger after vote                │
+│  │ (Official Release)   │  Publishes to apache/solr-mcp             │
+│  │                      │  Publishes to MCP Registry                │
+│  └──────────────────────┘                                           │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -85,9 +197,20 @@ on:
 
 #### What It Does
 
+**On Pull Requests** (build + test only, NO publishing):
 1. **Builds** the project with Gradle
 2. **Runs tests** and generates coverage reports
-3. **Publishes Docker images** to:
+3. **Uploads artifacts** to GitHub Actions (downloadable):
+   - JAR files (`solr-mcp-*.jar`)
+   - Test results
+   - Coverage reports
+4. ❌ **NO Docker images** are published for PRs
+
+**On Push to Main / Tags** (full CI/CD):
+1. **Builds** the project with Gradle
+2. **Runs tests** and generates coverage reports
+3. **Uploads artifacts** (same as PRs)
+4. **Publishes Docker images** to:
     - GitHub Container Registry: `ghcr.io/OWNER/solr-mcp:VERSION-SHA`
     - Docker Hub: `DOCKERHUB_USERNAME/solr-mcp:VERSION-SHA` (if secrets configured)
 
@@ -128,6 +251,167 @@ gh workflow run build-and-publish.yml
 - Merging a PR with new features
 - Testing changes in a development environment
 - Creating preview builds for testing
+
+---
+
+### auto-release.yml
+
+**Purpose**: Build SNAPSHOT artifacts and accumulate changelog entries on merge to main
+
+#### When to Use
+
+- ✅ Automatic on every merge to `main`
+- ✅ Builds and validates SNAPSHOT artifacts
+- ✅ Accumulates changelog entries under "Unreleased" section
+- ✅ Does NOT create version tags (use `cut-release.yml` for that)
+
+#### When NOT to Use
+
+- ❌ This is fully automatic - no manual intervention needed
+- ❌ For creating releases (use `cut-release.yml`)
+- ❌ For official ASF releases (use `release-publish.yml` after vote)
+
+#### Triggers
+
+```yaml
+on:
+  push:
+    branches:
+      - main
+```
+
+#### What It Does
+
+1. **Builds SNAPSHOT** artifacts with calculated version
+2. **Updates CHANGELOG.md** with new commits under "Unreleased" section
+3. **Commits changelog** updates back to main
+4. **Does NOT create tags** - changes accumulate until `cut-release.yml` is triggered
+
+#### How It Works
+
+```
+PR Merged to main
+       │
+       ▼
+┌──────────────────────┐
+│ 1. Build SNAPSHOT    │  ./gradlew build
+│    (validates code)  │  Version: 1.1.0-SNAPSHOT
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│ 2. Update changelog  │  Adds commits to "Unreleased"
+│    (accumulate)      │  section in CHANGELOG.md
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│ 3. Commit changelog  │  "chore(changelog): update
+│    (if changed)      │   unreleased changes"
+└──────────────────────┘
+
+No tag created - use cut-release.yml when ready to release
+```
+
+#### Skipping Changelog Updates
+
+Changelog and release commits are automatically skipped to prevent infinite loops:
+
+```yaml
+if: "!startsWith(github.event.head_commit.message, 'chore(release):') &&
+    !startsWith(github.event.head_commit.message, 'chore(changelog):')"
+```
+
+---
+
+### cut-release.yml
+
+**Purpose**: Manually create a new version release with tag and finalized changelog
+
+#### When to Use
+
+- ✅ When you're ready to create a new development release
+- ✅ After accumulating meaningful changes in main
+- ✅ When you want to publish versioned Docker images
+
+#### When NOT to Use
+
+- ❌ For official ASF releases (use `release-publish.yml` after vote)
+- ❌ For every merge (changes should accumulate first)
+
+#### Triggers
+
+```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      version_override:  # Optional: override calculated version
+      dry_run:           # Optional: preview without creating release
+```
+
+#### What It Does
+
+1. **Calculates version** from conventional commits since last tag
+2. **Finalizes changelog** - moves "Unreleased" to new version section
+3. **Creates version tag** (e.g., `v1.0.0`)
+4. **Creates GitHub Release** with changelog
+5. **Triggers build-and-publish.yml** to publish Docker images
+
+#### How It Works
+
+```
+Manual Trigger: "Cut Release"
+       │
+       ▼
+┌──────────────────────┐
+│ 1. Calculate version │  feat: → minor bump
+│    (from commits)    │  fix: → patch bump
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│ 2. Finalize changelog│  [Unreleased] → [1.1.0] - 2024-01-15
+│                      │
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│ 3. Create tag        │  git tag v1.1.0
+│    + GitHub Release  │  git push --tags
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│ build-and-publish    │  Triggered by v* tag
+│ publishes Docker     │  → ghcr.io/*/solr-mcp:1.1.0
+└──────────────────────┘
+```
+
+#### How to Use
+
+**Via GitHub UI:**
+1. Go to Actions → Cut Release → Run workflow
+2. Optionally override version or enable dry run
+3. Click "Run workflow"
+
+**Via CLI:**
+```bash
+# Auto-calculate version from commits
+gh workflow run cut-release.yml
+
+# Override version
+gh workflow run cut-release.yml -f version_override=1.0.0
+
+# Dry run (preview only)
+gh workflow run cut-release.yml -f dry_run=true
+```
+
+#### Version Override
+
+Use `version_override` for special cases:
+- First release: `version_override=1.0.0`
+- Forcing a major bump: `version_override=2.0.0`
+- Specific version needed: `version_override=1.2.3`
 
 ---
 
@@ -493,16 +777,17 @@ gh workflow run atr-release.yml \
 
 ## Workflow Comparison Matrix
 
-| Feature              | build-and-publish | release-publish | nightly-build      | atr-release-test | atr-release |
-|----------------------|-------------------|-----------------|--------------------|------------------|-------------|
-| **Status**           | ✅ Active          | ✅ Active        | ✅ Active           | ✅ Ready          | ⚠️ Blocked  |
-| **Trigger**          | Automatic         | Manual          | Scheduled          | Manual           | Manual      |
-| **Docker Namespace** | Personal/GHCR     | `apache/*`      | `apache/*-nightly` | Test             | `apache/*`  |
-| **MCP Registry**     | ❌ No              | ✅ Yes           | ❌ No               | ❌ No             | ✅ Yes       |
-| **ASF Vote**         | ❌ Not required    | ✅ Required      | ❌ Not required     | ❌ Not required   | ✅ Required  |
-| **Signing**          | ❌ No              | ⚠️ Manual       | ❌ No               | ⚠️ Simulated     | ✅ Automated |
-| **Production Ready** | ❌ No              | ✅ Yes           | ❌ No               | ❌ No             | ⚠️ Future   |
-| **Can Test Now**     | ✅ Yes             | ✅ Yes           | ✅ Yes              | ✅ Yes            | ❌ No        |
+| Feature              | build-and-publish | auto-release    | cut-release     | release-publish | nightly-build      | atr-release |
+|----------------------|-------------------|-----------------|-----------------|-----------------|--------------------| ------------|
+| **Status**           | ✅ Active          | ✅ Active        | ✅ Active        | ✅ Active        | ✅ Active           | ⚠️ Blocked  |
+| **Trigger**          | Automatic         | Auto (merge)    | Manual          | Manual          | Scheduled          | Manual      |
+| **Creates Tags**     | ❌ No              | ❌ No            | ✅ Yes           | ❌ No            | ❌ No               | ❌ No        |
+| **Changelog**        | ❌ No              | ✅ Accumulates   | ✅ Finalizes     | ❌ No            | ❌ No               | ❌ No        |
+| **Docker Namespace** | Personal/GHCR     | N/A             | Personal/GHCR   | `apache/*`      | `apache/*-nightly` | `apache/*`  |
+| **MCP Registry**     | ❌ No              | ❌ No            | ❌ No            | ✅ Yes           | ❌ No               | ✅ Yes       |
+| **ASF Vote**         | ❌ Not required    | ❌ Not required  | ❌ Not required  | ✅ Required      | ❌ Not required     | ✅ Required  |
+| **Signing**          | ❌ No              | ❌ No            | ❌ No            | ⚠️ Manual       | ❌ No               | ✅ Automated |
+| **Official Release** | ❌ No              | ❌ No            | ❌ No            | ✅ Yes           | ❌ No               | ✅ Yes       |
 
 ---
 
@@ -510,15 +795,46 @@ gh workflow run atr-release.yml \
 
 ### Scenario 1: I merged a PR and want to test the changes
 
-**Use**: `build-and-publish.yml` (automatic)
+**Use**: `build-and-publish.yml` + `auto-release.yml` (both automatic)
 
 ```bash
-# Workflow runs automatically on merge to main
-# Find your images at:
-# - ghcr.io/apache/solr-mcp:1.0.0-SNAPSHOT-a1b2c3d
+# 1. Merge your PR with conventional commit messages
+git merge feature-branch  # e.g., "feat: add new search filter"
+git push origin main
+
+# 2. auto-release.yml automatically:
+#    - Builds SNAPSHOT artifacts
+#    - Updates CHANGELOG.md (Unreleased section)
+#    - NO tag created yet
+
+# 3. build-and-publish.yml automatically:
+#    - Builds Docker image with SNAPSHOT version
+#    - Publishes to ghcr.io/*/solr-mcp:X.Y.Z-SNAPSHOT-SHA
 ```
 
-### Scenario 2: I want to create an official release
+### Scenario 2: I want to create a version release
+
+**Use**: `cut-release.yml` (manual trigger)
+
+```bash
+# 1. Ensure changes have accumulated in main
+./gradlew printVersion     # Check calculated version
+./gradlew printChangeLog   # Preview changelog
+
+# 2. Trigger the Cut Release workflow
+gh workflow run cut-release.yml
+
+# Or with version override for first release:
+gh workflow run cut-release.yml -f version_override=1.0.0
+
+# 3. Workflow automatically:
+#    - Creates tag v1.0.0
+#    - Finalizes CHANGELOG.md
+#    - Creates GitHub Release
+#    - Triggers Docker publish to personal/GHCR
+```
+
+### Scenario 3: I want to create an official ASF release
 
 **Use**: `release-publish.yml` (manual after vote)
 
@@ -535,7 +851,7 @@ gh workflow run release-publish.yml \
   -f release_candidate=rc1
 ```
 
-### Scenario 3: I want to test the latest unreleased code
+### Scenario 4: I want to test the latest unreleased code
 
 **Use**: `nightly-build.yml` (automatic daily)
 
@@ -544,7 +860,7 @@ gh workflow run release-publish.yml \
 docker pull apache/solr-mcp-nightly:latest-nightly
 ```
 
-### Scenario 4: I want to prepare for ATR
+### Scenario 5: I want to prepare for ATR
 
 **Use**: `atr-release-test.yml` (manual testing)
 
@@ -554,7 +870,7 @@ gh workflow run atr-release-test.yml \
   -f dry_run=true  # Safe mode - no uploads
 ```
 
-### Scenario 5: I'm ready to use ATR for releases
+### Scenario 6: I'm ready to use ATR for releases
 
 **Use**: `atr-release.yml` (blocked - see prerequisites)
 
@@ -636,7 +952,14 @@ gh secret set ASF_USERNAME --body "your-asf-id"
 ## Quick Command Reference
 
 ```bash
+# Semantic versioning commands (git-semver-plugin)
+./gradlew printVersion        # Show current calculated version
+./gradlew printChangeLog      # Show changelog from commits
+
 # Trigger workflows manually
+gh workflow run cut-release.yml                              # Cut a new release
+gh workflow run cut-release.yml -f version_override=1.0.0    # First release
+gh workflow run cut-release.yml -f dry_run=true              # Preview only
 gh workflow run build-and-publish.yml
 gh workflow run release-publish.yml -f release_version=1.0.0 -f release_candidate=rc1
 gh workflow run nightly-build.yml
@@ -664,5 +987,5 @@ git push origin :refs/tags/v1.0.0-rc1  # Delete remote
 
 ---
 
-**Last Updated**: 2025-01-12
+**Last Updated**: 2026-01-06
 **Workflows Version**: Compatible with all workflows as of this date
