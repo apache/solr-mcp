@@ -12,6 +12,7 @@ A Spring AI Model Context Protocol (MCP) server that provides tools for interact
 - 🔧 Inspect schema
 - 🔌 Transports: STDIO (Claude Desktop) and HTTP (MCP Inspector)
 - 🔐 OAuth2 security with Auth0 (HTTP mode only)
+- 📈 OpenTelemetry observability: metrics, traces, logs (HTTP mode only)
 - 🐳 Docker images built with Jib
 
 ## Get started (users)
@@ -277,6 +278,7 @@ The `solr://{collection}/schema` resource supports autocompletion for the `{coll
 ## Documentation
 
 - [Auth0 Setup (OAuth2 configuration)](docs/AUTH0_SETUP.md)
+- [Observability Guide (metrics, traces, logs)](dev-docs/Observability.md)
 
 ## Contributing
 

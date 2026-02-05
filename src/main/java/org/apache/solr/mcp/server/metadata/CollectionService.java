@@ -21,7 +21,7 @@ import static org.apache.solr.mcp.server.metadata.CollectionUtils.getInteger;
 import static org.apache.solr.mcp.server.metadata.CollectionUtils.getLong;
 import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -49,6 +49,7 @@ import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Spring Service providing comprehensive Solr collection management and
@@ -131,6 +132,7 @@ import org.springframework.stereotype.Service;
  * @see org.apache.solr.client.solrj.SolrClient
  */
 @Service
+@Observed
 public class CollectionService {
 
 	// ========================================
