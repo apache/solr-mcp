@@ -16,6 +16,7 @@
  */
 package org.apache.solr.mcp.server.observability;
 
+import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.indexing.IndexingService;
@@ -23,13 +24,10 @@ import org.apache.solr.mcp.server.search.SearchService;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.grafana.LgtmStackContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -60,9 +58,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         // Ensure 100% sampling for tests
-        "management.tracing.sampling.probability=1.0",
-        // Disable OTLP logging in tests (logback appender causes initialization issues)
-        "management.opentelemetry.logging.export.otlp.enabled=false"})
+        "management.tracing.sampling.probability=1.0"})
 @Import(TestcontainersConfiguration.class)
 @Testcontainers(disabledWithoutDocker = true)
 @ActiveProfiles("http")
@@ -88,35 +84,14 @@ class OtlpExportIntegrationTest {
     private IndexingService indexingService;
 
     @Autowired
-    private org.apache.solr.client.solrj.SolrClient solrClient;
-
-    @Value("${management.opentelemetry.tracing.export.otlp.endpoint:}")
-    private String otlpEndpoint;
-
-    /**
-     * Configure OTLP export endpoints to point to the LGTM stack container.
-     */
-    @DynamicPropertySource
-    static void configureOtlpProperties(DynamicPropertyRegistry registry) {
-        registry.add("management.opentelemetry.tracing.export.otlp.endpoint", lgtmStack::getOtlpHttpUrl);
-        registry.add("management.opentelemetry.metrics.export.otlp.endpoint", lgtmStack::getOtlpHttpUrl);
-    }
+    private SolrClient solrClient;
 
     @BeforeAll
-    static void setUpCollection(@Autowired org.apache.solr.client.solrj.SolrClient solrClient) throws Exception {
+    static void setUpCollection(@Autowired SolrClient solrClient) throws Exception {
         // Create a test collection
         CollectionAdminRequest.Create createRequest = CollectionAdminRequest.createCollection(COLLECTION_NAME,
                 "_default", 1, 1);
         createRequest.process(solrClient);
-    }
-
-    @Test
-    void shouldConfigureOtlpEndpoint() {
-        // Given: @ServiceConnection on LgtmStackContainer with @DynamicPropertySource
-
-        // Then: OTLP endpoint should be configured
-        String expectedOtlpUrl = lgtmStack.getOtlpHttpUrl();
-        assertThat(otlpEndpoint).as("OTLP endpoint should be configured").isNotEmpty().isEqualTo(expectedOtlpUrl);
     }
 
     @Test

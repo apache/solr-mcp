@@ -98,6 +98,7 @@ dependencies {
     }
 
     implementation(libs.spring.boot.starter.webmvc)
+    implementation(libs.spring.boot.starter.json)
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.ai.starter.mcp.server.webmvc)
     implementation(libs.solr.solrj) {
@@ -113,6 +114,8 @@ dependencies {
     // OpenTelemetry (HTTP mode only - for metrics, tracing, and log export)
     implementation(libs.spring.boot.starter.opentelemetry)
     implementation(libs.opentelemetry.logback.appender)
+    implementation("io.micrometer:micrometer-tracing-bridge-otel")
+    runtimeOnly(libs.micrometer.registry.otlp)
 
     // AspectJ (required for @Observed annotation support in Spring Boot 4)
     implementation(libs.spring.boot.starter.aspectj)

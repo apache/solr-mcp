@@ -59,12 +59,9 @@ import static org.awaitility.Awaitility.await;
 @SpringBootTest(properties = {
         // Enable HTTP mode for observability
         "spring.profiles.active=http",
-        // Disable OTLP logging in tests (logback appender causes issues in test
-        // context)
-        "management.opentelemetry.logging.export.otlp.enabled=false",
         // Ensure 100% sampling for tests
         "management.tracing.sampling.probability=1.0"})
-@Import({TestcontainersConfiguration.class, InMemoryTracingTestConfiguration.class, ObservationTestConfiguration.class})
+@Import({TestcontainersConfiguration.class, InMemoryTracingTestConfiguration.class})
 @Testcontainers(disabledWithoutDocker = true)
 @ActiveProfiles("http")
 class DistributedTracingTest {

@@ -21,16 +21,19 @@ nullaway = "0.12.7"
 
 # Test dependencies
 testcontainers = "2.0.2"
-awaitility = "4.2.2"
 
 [libraries]
 # Spring
 spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }
+spring-boot-starter-json = { module = "org.springframework.boot:spring-boot-starter-json" }
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
 spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security" }
 spring-boot-starter-oauth2-resource-server = { module = "org.springframework.boot:spring-boot-starter-oauth2-resource-server" }
 spring-boot-docker-compose = { module = "org.springframework.boot:spring-boot-docker-compose" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+spring-boot-starter-actuator-test = { module = "org.springframework.boot:spring-boot-starter-actuator-test" }
+spring-boot-starter-opentelemetry-test = { module = "org.springframework.boot:spring-boot-starter-opentelemetry-test" }
+spring-boot-starter-webmvc-test = { module = "org.springframework.boot:spring-boot-starter-webmvc-test" }
 spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
 # Spring AI
 spring-ai-starter-mcp-server-webmvc = { module = "org.springframework.ai:spring-ai-starter-mcp-server-webmvc" }
@@ -50,6 +53,7 @@ commons-csv = { module = "org.apache.commons:commons-csv", version.ref = "common
 # OpenTelemetry (HTTP mode only)
 spring-boot-starter-opentelemetry = { module = "org.springframework.boot:spring-boot-starter-opentelemetry" }
 opentelemetry-logback-appender = { module = "io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0", version.ref = "opentelemetry-logback-appender" }
+micrometer-registry-otlp = { module = "io.micrometer:micrometer-registry-otlp" }
 
 # AspectJ (required for @Observed annotation support)
 spring-boot-starter-aspectj = { module = "org.springframework.boot:spring-boot-starter-aspectj" }
@@ -61,8 +65,10 @@ nullaway = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }
 # Test dependencies
 testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter", version.ref = "testcontainers" }
 testcontainers-solr = { module = "org.testcontainers:testcontainers-solr", version.ref = "testcontainers" }
+testcontainers-grafana = { module = "org.testcontainers:testcontainers-grafana", version.ref = "testcontainers" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
-awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }
+awaitility = { module = "org.awaitility:awaitility" }
+opentelemetry-sdk-testing = { module = "io.opentelemetry:opentelemetry-sdk-testing" }
 
 [bundles]
 spring-ai-mcp = [
@@ -77,12 +83,17 @@ spring-boot-dev = [
 
 test = [
     "spring-boot-starter-test",
+    "spring-boot-starter-actuator-test",
+    "spring-boot-starter-opentelemetry-test",
+    "spring-boot-starter-webmvc-test",
     "spring-boot-testcontainers",
     "spring-ai-spring-boot-testcontainers",
     "testcontainers-junit-jupiter",
     "testcontainers-solr",
+    "testcontainers-grafana",
     "spring-ai-starter-mcp-client",
-    "awaitility"
+    "awaitility",
+    "opentelemetry-sdk-testing"
 ]
 
 errorprone = [
