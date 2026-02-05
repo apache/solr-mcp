@@ -16,22 +16,23 @@
  */
 package org.apache.solr.mcp.server.observability;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.client.RestClient;
 import org.testcontainers.grafana.LgtmStackContainer;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
 /**
  * Helper class to query LGTM stack backends (Tempo, Prometheus, Loki).
  *
  * <p>
- * Provides convenient methods for verifying traces and metrics in integration
- * tests.
+ * Provides convenient methods for verifying traces, metrics, and logs in
+ * integration tests using Spring's {@link RestClient}.
  *
  * <p>
  * Example usage:
@@ -44,20 +45,25 @@ import java.util.Optional;
  *
  * // Query metrics
  * Optional&lt;JsonNode&gt; metrics = lgtm.queryPrometheus("http_server_requests_seconds_count");
+ *
+ * // Query logs
+ * Optional&lt;JsonNode&gt; logs = lgtm.queryLoki("{service_name=\"my-service\"}", 10);
  * </pre>
  */
 public class LgtmAssertions {
+
+    private static final Logger log = LoggerFactory.getLogger(LgtmAssertions.class);
 
     private final LgtmStackContainer lgtm;
 
     private final ObjectMapper objectMapper;
 
-    private final HttpClient httpClient;
+    private final RestClient restClient;
 
     public LgtmAssertions(LgtmStackContainer lgtm, ObjectMapper objectMapper) {
         this.lgtm = lgtm;
         this.objectMapper = objectMapper;
-        this.httpClient = HttpClient.newHttpClient();
+        this.restClient = RestClient.create();
     }
 
     public String getTempoUrl() {
@@ -84,15 +90,14 @@ public class LgtmAssertions {
      */
     public Optional<JsonNode> getTraceById(String traceId) {
         try {
-            URI uri = URI.create(getTempoUrl() + "/api/traces/" + traceId);
-            HttpRequest request = HttpRequest.newBuilder().uri(uri).GET().build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            String url = getTempoUrl() + "/api/traces/" + traceId;
+            String response = restClient.get().uri(url).retrieve().body(String.class);
 
-            if (response.statusCode() == 200 && response.body() != null) {
-                return Optional.of(objectMapper.readTree(response.body()));
+            if (response != null) {
+                return Optional.of(objectMapper.readTree(response));
             }
         } catch (Exception e) {
-            // Trace not found yet
+            log.debug("Trace not found: {}", traceId);
         }
         return Optional.empty();
     }
@@ -106,20 +111,15 @@ public class LgtmAssertions {
      */
     public Optional<JsonNode> searchTraces(String traceQlQuery, int limit) {
         try {
-            // URL-encode the query parameter to handle special characters like {}
-            String encodedQuery = java.net.URLEncoder.encode(traceQlQuery, java.nio.charset.StandardCharsets.UTF_8);
+            String encodedQuery = URLEncoder.encode(traceQlQuery, StandardCharsets.UTF_8);
             String url = getTempoUrl() + "/api/search?q=" + encodedQuery + "&limit=" + limit;
-            URI uri = URI.create(url);
+            String response = restClient.get().uri(url).retrieve().body(String.class);
 
-			HttpRequest request = HttpRequest.newBuilder().uri(uri).GET().build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-            if (response.statusCode() == 200 && response.body() != null) {
-                return Optional.of(objectMapper.readTree(response.body()));
+            if (response != null) {
+                return Optional.of(objectMapper.readTree(response));
             }
         } catch (Exception e) {
-            System.err.println("Error searching traces: " + e.getMessage());
-            e.printStackTrace();
+            log.warn("Error searching traces: {}", e.getMessage());
         }
         return Optional.empty();
     }
@@ -127,27 +127,24 @@ public class LgtmAssertions {
     /**
      * Query Prometheus metrics using PromQL.
      *
-     * @param promQlQuery
-     *            the PromQL query string
+     * @param promQlQuery the PromQL query string
      * @return Optional containing the query result data if successful
      */
     public Optional<JsonNode> queryPrometheus(String promQlQuery) {
         try {
-            String encodedQuery = java.net.URLEncoder.encode(promQlQuery, java.nio.charset.StandardCharsets.UTF_8);
+            String encodedQuery = URLEncoder.encode(promQlQuery, StandardCharsets.UTF_8);
             String url = getPrometheusUrl() + "/api/v1/query?query=" + encodedQuery;
-            URI uri = URI.create(url);
+            String response = restClient.get().uri(url).retrieve().body(String.class);
 
-            HttpRequest request = HttpRequest.newBuilder().uri(uri).GET().build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-            if (response.statusCode() == 200 && response.body() != null) {
-                JsonNode result = objectMapper.readTree(response.body());
-                if ("success".equals(result.get("status").textValue())) {
+            if (response != null) {
+                JsonNode result = objectMapper.readTree(response);
+                JsonNode status = result.get("status");
+                if (status != null && "success".equals(status.asText())) {
                     return Optional.of(result.get("data"));
                 }
             }
         } catch (Exception e) {
-            System.err.println("Error querying Prometheus: " + e.getMessage());
+            log.warn("Error querying Prometheus: {}", e.getMessage());
         }
         return Optional.empty();
     }
@@ -161,23 +158,38 @@ public class LgtmAssertions {
      */
     public Optional<JsonNode> queryLoki(String logQlQuery, int limit) {
         try {
-            String encodedQuery = java.net.URLEncoder.encode(logQlQuery, java.nio.charset.StandardCharsets.UTF_8);
-            String url = getLokiUrl() + "/loki/api/v1/query_range?query=" + encodedQuery + "&limit=" + limit;
-            URI uri = URI.create(url);
+            String encodedQuery = URLEncoder.encode(logQlQuery, StandardCharsets.UTF_8);
+            // Use instant query (simpler than query_range which requires time bounds)
+            String url = getLokiUrl() + "/loki/api/v1/query?query=" + encodedQuery + "&limit=" + limit;
+            String response = restClient.get().uri(url).retrieve().body(String.class);
 
-            HttpRequest request = HttpRequest.newBuilder().uri(uri).GET().build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-            if (response.statusCode() == 200 && response.body() != null) {
-                JsonNode result = objectMapper.readTree(response.body());
-                if ("success".equals(result.get("status").textValue())) {
+            if (response != null) {
+                JsonNode result = objectMapper.readTree(response);
+                JsonNode status = result.get("status");
+                if (status != null && "success".equals(status.asText())) {
                     return Optional.of(result.get("data"));
                 }
             }
         } catch (Exception e) {
-            System.err.println("Error querying Loki: " + e.getMessage());
+            log.warn("Error querying Loki: {}", e.getMessage());
         }
         return Optional.empty();
+    }
+
+    /**
+     * Check if Loki API is accessible and responding.
+     *
+     * @return true if Loki is ready
+     */
+    public boolean isLokiReady() {
+        try {
+            String url = getLokiUrl() + "/ready";
+            String response = restClient.get().uri(url).retrieve().body(String.class);
+            return response != null && response.contains("ready");
+        } catch (Exception e) {
+            log.debug("Loki not ready: {}", e.getMessage());
+            return false;
+        }
     }
 
     /**
@@ -187,7 +199,6 @@ public class LgtmAssertions {
      * @return true if metrics exist for the service
      */
     public boolean hasMetricsForService(String serviceName) {
-        // Query for any metric with the service name label
         Optional<JsonNode> result = queryPrometheus("{service_name=\"" + serviceName + "\"}");
         if (result.isPresent()) {
             JsonNode data = result.get();
@@ -204,7 +215,6 @@ public class LgtmAssertions {
      * @return true if logs exist for the service
      */
     public boolean hasLogsForService(String serviceName) {
-        // Query for any logs with the service name label
         Optional<JsonNode> result = queryLoki("{service_name=\"" + serviceName + "\"}", 1);
         if (result.isPresent()) {
             JsonNode data = result.get();
