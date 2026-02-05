@@ -40,3 +40,6 @@ out/
 .env
 .auth-token
 *.token
+
+### Git worktrees ###
+.worktrees/
