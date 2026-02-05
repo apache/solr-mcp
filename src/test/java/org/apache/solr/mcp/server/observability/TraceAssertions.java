@@ -59,13 +59,17 @@ public class TraceAssertions {
                 .anyMatch(span -> span.getName().contains(spanName));
     }
 
-    /**
-     * Assert that a span with the given name has a specific attribute value.
+	/**
+	 * Assert that a span with the given name has a specific attribute value.
      *
-     * @param spans         the list of captured spans
-     * @param spanName      the span name to search for
-     * @param attributeKey  the attribute key
-     * @param expectedValue the expected attribute value
+     * @param spans
+     *            the list of captured spans
+     * @param spanName
+     *            the span name to search for
+     * @param attributeKey
+     *            the attribute key
+     * @param expectedValue
+     *            the expected attribute value
      */
     public static void assertSpanHasAttribute(List<SpanData> spans, String spanName, String attributeKey,
                                               String expectedValue) {
@@ -77,8 +81,10 @@ public class TraceAssertions {
     /**
      * Assert that the total number of spans matches the expected count.
      *
-     * @param spans         the list of captured spans
-     * @param expectedCount the expected number of spans
+     * @param spans
+     *            the list of captured spans
+     * @param expectedCount
+     *            the expected number of spans
      */
     public static void assertSpanCount(List<SpanData> spans, int expectedCount) {
         assertThat(spans).as("Expected exactly %d spans", expectedCount).hasSize(expectedCount);
@@ -87,9 +93,12 @@ public class TraceAssertions {
     /**
      * Assert that a span with the given name has the specified span kind.
      *
-     * @param spans        the list of captured spans
-     * @param spanName     the span name to search for
-     * @param expectedKind the expected span kind
+     * @param spans
+     *            the list of captured spans
+     * @param spanName
+     *            the span name to search for
+     * @param expectedKind
+     *            the expected span kind
      */
     public static void assertSpanKind(List<SpanData> spans, String spanName, SpanKind expectedKind) {
         assertThat(spans).as("Expected span '%s' to have kind %s", spanName, expectedKind)
@@ -99,9 +108,12 @@ public class TraceAssertions {
     /**
      * Assert that a span exists matching the given predicate.
      *
-     * @param spans       the list of captured spans
-     * @param description description of what is being tested
-     * @param predicate   the condition to match
+     * @param spans
+     *            the list of captured spans
+     * @param description
+     *            description of what is being tested
+     * @param predicate
+     *            the condition to match
      */
     public static void assertSpanMatches(List<SpanData> spans, String description, Predicate<SpanData> predicate) {
         assertThat(spans).as(description).anyMatch(predicate);
@@ -110,7 +122,8 @@ public class TraceAssertions {
     /**
      * Assert that at least one span has a parent (i.e., is part of a trace).
      *
-     * @param spans the list of captured spans
+     * @param spans
+     *            the list of captured spans
      */
     public static void assertSpansHaveParentChild(List<SpanData> spans) {
         long spansWithParent = spans.stream()
@@ -123,7 +136,8 @@ public class TraceAssertions {
     /**
      * Assert that all spans have valid timestamps (end time > start time).
      *
-     * @param spans the list of captured spans
+     * @param spans
+     *            the list of captured spans
      */
     public static void assertValidTimestamps(List<SpanData> spans) {
         assertThat(spans).as("All spans should have valid timestamps (end > start)").allMatch(span -> {
@@ -136,7 +150,8 @@ public class TraceAssertions {
     /**
      * Assert that all spans include a service name in their resource attributes.
      *
-     * @param spans the list of captured spans
+     * @param spans
+     *            the list of captured spans
      */
     public static void assertServiceNamePresent(List<SpanData> spans) {
         assertThat(spans).as("All spans should have a service name").allMatch(span -> {
@@ -149,8 +164,10 @@ public class TraceAssertions {
     /**
      * Find the first span matching the given name.
      *
-     * @param spans    the list of captured spans
-     * @param spanName the span name to search for
+     * @param spans
+     *            the list of captured spans
+     * @param spanName
+     *            the span name to search for
      * @return the first matching span, or null if not found
      */
     public static SpanData findSpan(List<SpanData> spans, String spanName) {
@@ -160,8 +177,10 @@ public class TraceAssertions {
     /**
      * Get all spans with the given name.
      *
-     * @param spans    the list of captured spans
-     * @param spanName the span name to search for
+     * @param spans
+     *            the list of captured spans
+     * @param spanName
+     *            the span name to search for
      * @return list of matching spans
      */
     public static List<SpanData> findSpans(List<SpanData> spans, String spanName) {

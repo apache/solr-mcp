@@ -72,6 +72,10 @@ public class LgtmAssertions {
         return lgtm.getGrafanaHttpUrl();
     }
 
+    public String getLokiUrl() {
+        return lgtm.getLokiUrl();
+    }
+
     /**
      * Fetch a trace by ID from Tempo.
      *
@@ -107,7 +111,7 @@ public class LgtmAssertions {
             String url = getTempoUrl() + "/api/search?q=" + encodedQuery + "&limit=" + limit;
             URI uri = URI.create(url);
 
-            HttpRequest request = HttpRequest.newBuilder().uri(uri).GET().build();
+			HttpRequest request = HttpRequest.newBuilder().uri(uri).GET().build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() == 200 && response.body() != null) {
@@ -123,12 +127,14 @@ public class LgtmAssertions {
     /**
      * Query Prometheus metrics using PromQL.
      *
-     * @param promQlQuery the PromQL query string
+     * @param promQlQuery
+     *            the PromQL query string
      * @return Optional containing the query result data if successful
      */
     public Optional<JsonNode> queryPrometheus(String promQlQuery) {
         try {
-            String url = getPrometheusUrl() + "/api/v1/query?query=" + promQlQuery;
+            String encodedQuery = java.net.URLEncoder.encode(promQlQuery, java.nio.charset.StandardCharsets.UTF_8);
+            String url = getPrometheusUrl() + "/api/v1/query?query=" + encodedQuery;
             URI uri = URI.create(url);
 
             HttpRequest request = HttpRequest.newBuilder().uri(uri).GET().build();
@@ -136,14 +142,76 @@ public class LgtmAssertions {
 
             if (response.statusCode() == 200 && response.body() != null) {
                 JsonNode result = objectMapper.readTree(response.body());
-                if ("success".equals(result.get("status").asText())) {
+                if ("success".equals(result.get("status").textValue())) {
                     return Optional.of(result.get("data"));
                 }
             }
         } catch (Exception e) {
-            // Query failed
+            System.err.println("Error querying Prometheus: " + e.getMessage());
         }
         return Optional.empty();
+    }
+
+    /**
+     * Query Loki logs using LogQL.
+     *
+     * @param logQlQuery the LogQL query string
+     * @param limit      maximum number of log entries to return
+     * @return Optional containing the query result data if successful
+     */
+    public Optional<JsonNode> queryLoki(String logQlQuery, int limit) {
+        try {
+            String encodedQuery = java.net.URLEncoder.encode(logQlQuery, java.nio.charset.StandardCharsets.UTF_8);
+            String url = getLokiUrl() + "/loki/api/v1/query_range?query=" + encodedQuery + "&limit=" + limit;
+            URI uri = URI.create(url);
+
+            HttpRequest request = HttpRequest.newBuilder().uri(uri).GET().build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200 && response.body() != null) {
+                JsonNode result = objectMapper.readTree(response.body());
+                if ("success".equals(result.get("status").textValue())) {
+                    return Optional.of(result.get("data"));
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error querying Loki: " + e.getMessage());
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Check if Prometheus has any metrics from the service.
+     *
+     * @param serviceName the service name to check for
+     * @return true if metrics exist for the service
+     */
+    public boolean hasMetricsForService(String serviceName) {
+        // Query for any metric with the service name label
+        Optional<JsonNode> result = queryPrometheus("{service_name=\"" + serviceName + "\"}");
+        if (result.isPresent()) {
+            JsonNode data = result.get();
+            JsonNode resultArray = data.get("result");
+            return resultArray != null && !resultArray.isEmpty();
+        }
+        return false;
+    }
+
+    /**
+     * Check if Loki has any logs from the service.
+     *
+     * @param serviceName the service name to check for
+     * @return true if logs exist for the service
+     */
+    public boolean hasLogsForService(String serviceName) {
+        // Query for any logs with the service name label
+        Optional<JsonNode> result = queryLoki("{service_name=\"" + serviceName + "\"}", 1);
+        if (result.isPresent()) {
+            JsonNode data = result.get();
+            JsonNode resultArray = data.get("result");
+            return resultArray != null && !resultArray.isEmpty();
+        }
+        return false;
     }
 
 }
