@@ -180,7 +180,18 @@ public class CollectionUtils {
 	 */
 	public static Float getFloat(NamedList<Object> stats, String key) {
 		Object value = stats.get(key);
-		return value != null ? ((Number) value).floatValue() : 0.0f;
+		if (value == null)
+			return 0.0f;
+
+		if (value instanceof Number number) {
+			return number.floatValue();
+		}
+
+		try {
+			return Float.parseFloat(value.toString());
+		} catch (NumberFormatException e) {
+			return 0.0f;
+		}
 	}
 
 	/**

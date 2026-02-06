@@ -21,12 +21,14 @@ import static org.apache.solr.mcp.server.metadata.CollectionUtils.getInteger;
 import static org.apache.solr.mcp.server.metadata.CollectionUtils.getLong;
 import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import org.apache.solr.client.solrj.SolrClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -49,6 +51,7 @@ import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Spring Service providing comprehensive Solr collection management and
@@ -131,7 +134,10 @@ import org.springframework.stereotype.Service;
  * @see org.apache.solr.client.solrj.SolrClient
  */
 @Service
+@Observed
 public class CollectionService {
+
+	private static final Logger log = LoggerFactory.getLogger(CollectionService.class);
 
 	// ========================================
 	// Constants for API Parameters and Paths
@@ -367,6 +373,7 @@ public class CollectionService {
 				return cores;
 			}
 		} catch (SolrServerException | IOException e) {
+			log.warn("Failed to list collections from Solr", e);
 			return new ArrayList<>();
 		}
 	}
@@ -610,7 +617,8 @@ public class CollectionService {
 
 			return stats;
 		} catch (SolrServerException | IOException e) {
-			return null; // Return null instead of empty object
+			log.warn("Failed to retrieve cache metrics for collection: {}", collection, e);
+			return null;
 		}
 	}
 
@@ -782,7 +790,8 @@ public class CollectionService {
 
 			return stats;
 		} catch (SolrServerException | IOException e) {
-			return null; // Return null instead of empty object
+			log.warn("Failed to retrieve handler metrics for collection: {}", collection, e);
+			return null;
 		}
 	}
 
@@ -968,7 +977,8 @@ public class CollectionService {
 			boolean shardMatch = collections.stream().anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
 
 			return shardMatch;
-		} catch (Exception e) {
+		} catch (RuntimeException e) {
+			log.warn("Failed to validate collection existence: {}", collection, e);
 			return false;
 		}
 	}
