@@ -202,6 +202,34 @@ tasks.jacocoTestReport {
     )
 }
 
+tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.jacocoTestReport)
+    violationRules {
+        rule {
+            limit {
+                minimum = "0.50".toBigDecimal()
+            }
+        }
+    }
+    // Use same class directory exclusions as the report
+    classDirectories.setFrom(
+        files(
+            classDirectories.files.map {
+                fileTree(it) {
+                    exclude(
+                        "**/DockerImageStdioIntegrationTest*.class",
+                        "**/DockerImageHttpIntegrationTest*.class",
+                    )
+                }
+            },
+        ),
+    )
+}
+
+tasks.check {
+    dependsOn(tasks.jacocoTestCoverageVerification)
+}
+
 tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
         disableAllChecks.set(true) // Other error prone checks are disabled
