@@ -16,6 +16,7 @@
  */
 package org.apache.solr.mcp.server.search;
 
+import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -100,6 +101,7 @@ import org.springframework.util.StringUtils;
  * @see McpTool
  */
 @Service
+@Observed
 public class SearchService {
 
 	public static final String SORT_ITEM = "item";

@@ -35,6 +35,34 @@ services:
     environment:
       ZOO_4LW_COMMANDS_WHITELIST: "mntr,conf,ruok"
 
+  # =============================================================================
+  # OpenTelemetry LGTM Stack (HTTP mode only)
+  # =============================================================================
+  # Provides a complete observability stack for local development:
+  # - Grafana: Visualization dashboards (http://localhost:3000)
+  # - Loki: Log aggregation
+  # - Tempo: Distributed tracing
+  # - Mimir: Metrics storage (Prometheus-compatible)
+  # - OpenTelemetry Collector: Receives OTLP data on ports 4317 (gRPC) and 4318 (HTTP)
+  #
+  # Usage:
+  #   docker compose up -d lgtm   # Start only the observability stack
+  #   docker compose up -d        # Start everything including Solr
+  #
+  # Access Grafana at http://localhost:3000 (no authentication required)
+  # Pre-configured datasources for Loki, Tempo, and Mimir are available.
+  lgtm:
+    image: grafana/otel-lgtm:latest
+    ports:
+      - "3000:3000"   # Grafana UI
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+    networks: [ search ]
+    environment:
+      # Disable authentication for local development
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+
 volumes:
   data:
 
