@@ -94,6 +94,9 @@ public final class FieldNameSanitizer {
 	 *      Field Guide</a>
 	 */
 	public static String sanitizeFieldName(String fieldName) {
+		if (fieldName == null || fieldName.isEmpty()) {
+			return "field";
+		}
 
 		// Convert to lowercase and replace invalid characters with underscores
 		String sanitized = INVALID_CHARACTERS_PATTERN.matcher(fieldName.toLowerCase()).replaceAll("_");

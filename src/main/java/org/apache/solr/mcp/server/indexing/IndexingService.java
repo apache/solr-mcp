@@ -19,6 +19,8 @@ package org.apache.solr.mcp.server.indexing;
 import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -108,6 +110,8 @@ import org.xml.sax.SAXException;
 @Service
 @Observed
 public class IndexingService {
+
+	private static final Logger log = LoggerFactory.getLogger(IndexingService.class);
 
 	private static final int DEFAULT_BATCH_SIZE = 1000;
 
@@ -435,15 +439,14 @@ public class IndexingService {
 				solrClient.add(collection, batch);
 				successCount += batch.size();
 			} catch (SolrServerException | IOException | RuntimeException e) {
-				// Try indexing documents individually to identify problematic ones
+				log.warn("Batch indexing failed for collection '{}', retrying individually", collection, e);
 				for (SolrInputDocument doc : batch) {
 					try {
 						solrClient.add(collection, doc);
 						successCount++;
 					} catch (SolrServerException | IOException | RuntimeException docError) {
-						// Document failed to index - this is expected behavior for problematic
-						// documents
-						// We continue processing the rest of the batch
+						log.debug("Failed to index document in collection '{}': {}",
+								collection, docError.getMessage());
 					}
 				}
 			}
