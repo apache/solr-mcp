@@ -115,13 +115,15 @@ class DockerImageStdioIntegrationTest {
 			.withStartupTimeout(Duration.ofSeconds(60));
 
 	@BeforeAll
-	static void setup() throws InterruptedException {
+	static void setup() {
 		log.info("Solr container started. Internal URL: http://solr:8983/solr/");
 		log.info("MCP Server container starting. Waiting for initialization...");
 
-		// Give the MCP server a few seconds to initialize
+		// Wait for the MCP server container to be running and stable
 		// In STDIO mode, the app runs but doesn't produce logs we can monitor
-		Thread.sleep(5000);
+		await().atMost(30, TimeUnit.SECONDS).pollInterval(1, TimeUnit.SECONDS)
+				.untilAsserted(() -> assertTrue(mcpServerContainer.isRunning(),
+						"MCP server container should be running"));
 
 		log.info("Initialization wait complete. Beginning tests.");
 	}
