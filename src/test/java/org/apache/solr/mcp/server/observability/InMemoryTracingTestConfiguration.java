@@ -14,20 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.solr.mcp.server.observability;
 
-rootProject.name = "solr-mcp"
+import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 
-pluginManagement {
-    repositories {
-        gradlePluginPortal()
-        mavenCentral()
-        maven { url = uri("https://repo.spring.io/milestone") }
+/**
+ * Minimal test configuration that provides InMemorySpanExporter bean.
+ * <p>
+ * Spring Boot's opentelemetry-test starter requires this to be explicitly
+ * configured.
+ */
+@TestConfiguration
+public class InMemoryTracingTestConfiguration {
+
+    @Bean
+    public InMemorySpanExporter inMemorySpanExporter() {
+        return InMemorySpanExporter.create();
     }
-}
 
-dependencyResolutionManagement {
-    repositories {
-        mavenCentral()
-        maven { url = uri("https://repo.spring.io/milestone") }
-    }
 }

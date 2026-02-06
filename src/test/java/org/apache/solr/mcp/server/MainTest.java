@@ -22,7 +22,6 @@ import org.apache.solr.mcp.server.metadata.SchemaService;
 import org.apache.solr.mcp.server.search.SearchService;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
@@ -32,7 +31,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  * dependencies.
  */
 @SpringBootTest
-@ActiveProfiles("test")
 class MainTest {
 
 	@MockitoBean
