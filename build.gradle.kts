@@ -429,6 +429,9 @@ jib {
     }
 
     container {
+        // Run as non-root user for security
+        user = "1000"
+
         // Container environment variables
         // These are baked into the image but can be overridden at runtime
         environment =
