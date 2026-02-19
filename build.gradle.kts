@@ -175,6 +175,8 @@ tasks.withType<Test> {
             excludeTags("docker-integration")
         }
     }
+    // Forward solr.test.image system property to test JVMs for Solr version compatibility testing
+    systemProperty("solr.test.image", System.getProperty("solr.test.image", "solr:9.9-slim"))
     if (name != "dockerIntegrationTest") {
         finalizedBy(tasks.jacocoTestReport)
     }
