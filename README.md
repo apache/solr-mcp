@@ -179,6 +179,87 @@ Then add to your `claude_desktop_config.json`:
 
 More configuration options: docs/DEPLOYMENT.md#docker-images-with-jib
 
+### Claude Code
+
+Add Solr MCP to [Claude Code](https://docs.anthropic.com/en/docs/claude-code) using the CLI or by adding a `.mcp.json` file to your project root.
+
+**STDIO mode (default)**
+
+Using Docker (CLI):
+```bash
+claude mcp add --transport stdio solr-mcp -- docker run -i --rm ghcr.io/apache/solr-mcp:latest
+```
+
+Using JAR (CLI):
+```bash
+claude mcp add --transport stdio --env SOLR_URL=http://localhost:8983/solr/ solr-mcp -- java -jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar
+```
+
+Or add to your project's `.mcp.json`:
+
+Using Docker:
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "type": "stdio",
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "ghcr.io/apache/solr-mcp:latest"],
+      "env": {
+        "SOLR_URL": "http://localhost:8983/solr/"
+      }
+    }
+  }
+}
+```
+
+Using JAR:
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "type": "stdio",
+      "command": "java",
+      "args": ["-jar", "/absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar"],
+      "env": {
+        "SOLR_URL": "http://localhost:8983/solr/"
+      }
+    }
+  }
+}
+```
+
+**HTTP mode**
+
+Start the server first (pick one):
+```bash
+# Gradle
+PROFILES=http ./gradlew bootRun
+
+# JAR
+PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
+
+# Docker
+docker run -p 8080:8080 --rm -e PROFILES=http ghcr.io/apache/solr-mcp:latest
+```
+
+Then add to Claude Code:
+```bash
+claude mcp add --transport http solr-mcp http://localhost:8080/mcp
+```
+
+Or add to `.mcp.json`:
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "type": "http",
+      "url": "http://localhost:8080/mcp"
+    }
+  }
+}
+```
+
 ## Security (OAuth2)
 
 The Solr MCP server supports OAuth2 authentication when running in HTTP mode, providing secure access control for your
