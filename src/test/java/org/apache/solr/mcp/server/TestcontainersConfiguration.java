@@ -27,11 +27,9 @@ public class TestcontainersConfiguration {
 
 	private static final int SOLR_PORT = 8983;
 
-	static final String DEFAULT_SOLR_IMAGE = "solr:9.9-slim";
-
 	@Bean
 	SolrContainer solr() {
-		String solrImage = System.getProperty("solr.test.image", DEFAULT_SOLR_IMAGE);
+		String solrImage = System.getProperty("solr.test.image");
 		return new SolrContainer(DockerImageName.parse(solrImage));
 	}
 

@@ -95,7 +95,7 @@ class DockerImageHttpIntegrationTest {
 
 	// Docker image name and tag from build-info.properties
 	private static final String DOCKER_IMAGE = BuildInfoReader.getDockerImageName();
-	private static final String SOLR_IMAGE = System.getProperty("solr.test.image", "solr:9.9-slim");
+	private static final String SOLR_IMAGE = System.getProperty("solr.test.image");
 	private static final int HTTP_PORT = 8080;
 
 	// Network for container communication
