@@ -191,7 +191,7 @@ claude mcp add --transport stdio solr-mcp -- docker run -i --rm ghcr.io/apache/s
 
 Using JAR (CLI):
 ```bash
-claude mcp add --transport stdio --env SOLR_URL=http://localhost:8983/solr/ solr-mcp -- java -jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar
+claude mcp add --transport stdio -e SOLR_URL=http://localhost:8983/solr/ solr-mcp -- java -jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar
 ```
 
 Or add to your project's `.mcp.json`:
