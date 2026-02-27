@@ -86,6 +86,8 @@ public class VectorStoreFactory {
 
 The factory takes `Optional<EmbeddingModel>` — when no embedding model is configured, it throws `EmbeddingNotConfiguredException` on `forCollection()` calls.
 
+**Caching:** Uses an unbounded `ConcurrentHashMap<String, VectorStore>` keyed by collection name. Since `SolrVectorStore` is bound to a single collection at construction time, the factory caches instances so repeated searches against the same collection reuse the same `VectorStore`. `computeIfAbsent` guarantees atomic, thread-safe creation. This is sufficient when the number of collections is reasonably bounded; for deployments with 100+ collections, consider replacing with a size-bounded cache (e.g., Caffeine).
+
 ### Supporting Utilities
 
 **`VectorFormatUtils`** — Formats `float[]` and `List<Float>` to Solr KNN query string format (`[0.1, 0.2, 0.3]`).
