@@ -186,8 +186,9 @@ public class SolrConfig {
 			}
 		}
 
-		// Use with explicit base URL
+		// Use with explicit base URL; JSON wire format replaces the JavaBin default
 		return new Http2SolrClient.Builder(url).withConnectionTimeout(CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-				.withIdleTimeout(SOCKET_TIMEOUT_MS, TimeUnit.MILLISECONDS).build();
+				.withIdleTimeout(SOCKET_TIMEOUT_MS, TimeUnit.MILLISECONDS).withResponseParser(new JsonResponseParser())
+				.build();
 	}
 }
