@@ -12,7 +12,6 @@ A Spring AI Model Context Protocol (MCP) server that provides tools for interact
 - 🔧 Inspect schema
 - 🔌 Transports: STDIO (Claude Desktop) and HTTP (MCP Inspector)
 - 🔐 OAuth2 security with Auth0 (HTTP mode only)
-- 📈 OpenTelemetry observability: metrics, traces, logs (HTTP mode only)
 - 🐳 Docker images built with Jib
 
 ## Get started (users)
@@ -192,7 +191,7 @@ claude mcp add --transport stdio solr-mcp -- docker run -i --rm ghcr.io/apache/s
 
 Using JAR (CLI):
 ```bash
-claude mcp add --transport stdio --env SOLR_URL=http://localhost:8983/solr/ solr-mcp -- java -jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar
+claude mcp add --transport stdio -e SOLR_URL=http://localhost:8983/solr/ solr-mcp -- java -jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar
 ```
 
 Or add to your project's `.mcp.json`:
@@ -359,7 +358,6 @@ The `solr://{collection}/schema` resource supports autocompletion for the `{coll
 ## Documentation
 
 - [Auth0 Setup (OAuth2 configuration)](docs/AUTH0_SETUP.md)
-- [Observability Guide (metrics, traces, logs)](dev-docs/Observability.md)
 
 ## Contributing
 
