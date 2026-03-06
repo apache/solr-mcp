@@ -40,7 +40,7 @@ class HttpSecurityConfiguration {
 	private String issuerUrl;
 
 	@Bean
-	@ConditionalOnProperty(name = "spring.security.enabled", havingValue = "true", matchIfMissing = true)
+	@ConditionalOnProperty(name = "http.security.enabled", havingValue = "true", matchIfMissing = true)
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 		return http
 				// ⬇️ Open every request on the server
@@ -61,7 +61,7 @@ class HttpSecurityConfiguration {
 	}
 
 	@Bean
-	@ConditionalOnProperty(name = "spring.security.enabled", havingValue = "false")
+	@ConditionalOnProperty(name = "http.security.enabled", havingValue = "false")
 	SecurityFilterChain unsecured(HttpSecurity http) throws Exception {
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
 				// MCP inspector
