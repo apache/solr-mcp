@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.solr.mcp.server.config;
+package org.apache.solr.mcp.server.security;
 
 import java.util.List;
 import org.springaicommunity.mcp.security.server.config.McpServerOAuth2Configurer;
@@ -34,7 +34,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Profile("http")
 @Configuration
 @EnableWebSecurity
-class McpServerConfiguration {
+class HttpSecurityConfiguration {
 
 	@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri:}")
 	private String issuerUrl;
