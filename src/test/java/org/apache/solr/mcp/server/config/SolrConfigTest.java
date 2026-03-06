@@ -81,7 +81,7 @@ class SolrConfigTest {
 		SolrConfig solrConfig = new SolrConfig();
 
 		// Test URL normalization
-		SolrClient client = solrConfig.solrClient(testProperties);
+		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser());
 		assertNotNull(client);
 
 		var httpClient = assertInstanceOf(Http2SolrClient.class, client);
@@ -101,7 +101,7 @@ class SolrConfigTest {
 		SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983");
 		SolrConfig solrConfig = new SolrConfig();
 
-		SolrClient client = solrConfig.solrClient(testProperties);
+		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser());
 		Http2SolrClient httpClient = (Http2SolrClient) client;
 
 		// Should add trailing slash and solr path
@@ -120,7 +120,7 @@ class SolrConfigTest {
 		SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983/");
 		SolrConfig solrConfig = new SolrConfig();
 
-		SolrClient client = solrConfig.solrClient(testProperties);
+		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser());
 		Http2SolrClient httpClient = (Http2SolrClient) client;
 
 		// Should add solr path to existing trailing slash
@@ -139,7 +139,7 @@ class SolrConfigTest {
 		SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983/solr");
 		SolrConfig solrConfig = new SolrConfig();
 
-		SolrClient client = solrConfig.solrClient(testProperties);
+		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser());
 		Http2SolrClient httpClient = (Http2SolrClient) client;
 
 		// Should add trailing slash
@@ -158,7 +158,7 @@ class SolrConfigTest {
 		SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983/solr/");
 		SolrConfig solrConfig = new SolrConfig();
 
-		SolrClient client = solrConfig.solrClient(testProperties);
+		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser());
 		Http2SolrClient httpClient = (Http2SolrClient) client;
 
 		// Should remain unchanged
