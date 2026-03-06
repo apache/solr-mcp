@@ -16,8 +16,8 @@
  */
 package org.apache.solr.mcp.server;
 
+import org.apache.solr.mcp.server.collection.CollectionService;
 import org.apache.solr.mcp.server.indexing.IndexingService;
-import org.apache.solr.mcp.server.metadata.CollectionService;
 import org.apache.solr.mcp.server.metadata.SchemaService;
 import org.apache.solr.mcp.server.search.SearchService;
 import org.springframework.boot.SpringApplication;
@@ -107,44 +107,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  */
 @SpringBootApplication
 public class Main {
-
-	/**
-	 * Main application entry point that starts the Spring Boot application.
-	 *
-	 * <p>
-	 * This method initializes the Spring application context, configures all
-	 * service beans, establishes Solr connectivity, and begins listening for MCP
-	 * client connections via standard input/output.
-	 *
-	 * <p>
-	 * <strong>Startup Process:</strong>
-	 *
-	 * <ol>
-	 * <li>Initialize Spring Boot application context
-	 * <li>Load configuration properties from various sources
-	 * <li>Create and configure SolrClient bean
-	 * <li>Initialize all service beans with dependency injection
-	 * <li>Register MCP tools from service methods
-	 * <li>Start MCP server listening on stdio
-	 * </ol>
-	 *
-	 * <p>
-	 * <strong>Error Handling:</strong>
-	 *
-	 * <p>
-	 * Startup failures typically indicate configuration issues such as:
-	 *
-	 * <ul>
-	 * <li>Missing or invalid Solr URL configuration
-	 * <li>Network connectivity issues to Solr server
-	 * <li>Missing required dependencies or classpath issues
-	 * </ul>
-	 *
-	 * @param args
-	 *            command-line arguments passed to the application
-	 * @see SpringApplication#run(Class, String...)
-	 */
-	public static void main(String[] args) {
+	static void main(String[] args) {
 		SpringApplication.run(Main.class, args);
 	}
 }
