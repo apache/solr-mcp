@@ -1096,6 +1096,10 @@ public class CollectionService {
 			@McpToolParam(description = "Replication factor (SolrCloud only). Defaults to 1.", required = false) Integer replicationFactor)
 			throws SolrServerException, IOException {
 
+		if (name == null || name.isBlank()) {
+			throw new IllegalArgumentException(BLANK_COLLECTION_NAME_ERROR);
+		}
+
 		String effectiveConfigSet = configSet != null ? configSet : DEFAULT_CONFIGSET;
 		int effectiveShards = numShards != null ? numShards : DEFAULT_NUM_SHARDS;
 		int effectiveRf = replicationFactor != null ? replicationFactor : DEFAULT_REPLICATION_FACTOR;
