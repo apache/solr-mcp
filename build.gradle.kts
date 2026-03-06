@@ -96,9 +96,7 @@ dependencies {
     implementation(libs.spring.boot.starter.web)
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.ai.starter.mcp.server.webmvc)
-    implementation(libs.solr.solrj) {
-        exclude(group = "org.apache.httpcomponents")
-    }
+    implementation(libs.solr.solrj)
     implementation(libs.commons.csv)
     // JSpecify for nullability annotations
     implementation(libs.jspecify)
@@ -119,8 +117,6 @@ dependencies {
 dependencyManagement {
     imports {
         mavenBom("org.springframework.ai:spring-ai-bom:${libs.versions.spring.ai.get()}")
-        // Align Jetty family to 10.x compatible with SolrJ 9.x
-        mavenBom("org.eclipse.jetty:jetty-bom:${libs.versions.jetty.get()}")
     }
 }
 

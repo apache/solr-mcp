@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.impl.Http2SolrClient;
+import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -46,7 +46,7 @@ class SolrConfigUrlNormalizationTest {
 		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(objectMapper));
 		assertNotNull(client);
 
-		var httpClient = assertInstanceOf(Http2SolrClient.class, client);
+		var httpClient = assertInstanceOf(HttpJdkSolrClient.class, client);
 		assertEquals(expectedUrl, httpClient.getBaseURL());
 
 		try {
@@ -62,7 +62,7 @@ class SolrConfigUrlNormalizationTest {
 		SolrConfig solrConfig = new SolrConfig();
 
 		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(objectMapper));
-		Http2SolrClient httpClient = (Http2SolrClient) client;
+		HttpJdkSolrClient httpClient = (HttpJdkSolrClient) client;
 
 		assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
 
@@ -79,7 +79,7 @@ class SolrConfigUrlNormalizationTest {
 		SolrConfig solrConfig = new SolrConfig();
 
 		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(objectMapper));
-		Http2SolrClient httpClient = (Http2SolrClient) client;
+		HttpJdkSolrClient httpClient = (HttpJdkSolrClient) client;
 
 		assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
 
@@ -96,7 +96,7 @@ class SolrConfigUrlNormalizationTest {
 		SolrConfig solrConfig = new SolrConfig();
 
 		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(objectMapper));
-		Http2SolrClient httpClient = (Http2SolrClient) client;
+		HttpJdkSolrClient httpClient = (HttpJdkSolrClient) client;
 
 		assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
 
@@ -113,7 +113,7 @@ class SolrConfigUrlNormalizationTest {
 		SolrConfig solrConfig = new SolrConfig();
 
 		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(objectMapper));
-		Http2SolrClient httpClient = (Http2SolrClient) client;
+		HttpJdkSolrClient httpClient = (HttpJdkSolrClient) client;
 
 		assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
 
