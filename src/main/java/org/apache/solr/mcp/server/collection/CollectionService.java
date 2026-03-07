@@ -48,6 +48,7 @@ import org.springaicommunity.mcp.annotation.McpComplete;
 import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 /**
@@ -1087,6 +1088,7 @@ public class CollectionService {
 	 * @throws IOException
 	 *             if there are I/O errors during communication
 	 */
+	@PreAuthorize("isAuthenticated()")
 	@McpTool(name = "create-collection", description = "Create a new Solr collection. "
 			+ "configSet defaults to _default, numShards and replicationFactor default to 1.")
 	public CollectionCreationResult createCollection(
