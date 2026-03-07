@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Comprehensive test suite for the SchemaService class. Tests schema retrieval
@@ -45,7 +45,7 @@ class SchemaServiceTest {
 	private SolrClient solrClient;
 
 	@Mock
-	private JsonMapper objectMapper;
+	private ObjectMapper objectMapper;
 
 	@Mock
 	private SchemaResponse schemaResponse;
