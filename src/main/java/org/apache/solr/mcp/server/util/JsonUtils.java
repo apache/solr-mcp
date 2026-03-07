@@ -17,7 +17,7 @@
 package org.apache.solr.mcp.server.util;
 
 import tools.jackson.core.JacksonException;
-import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Utility class for JSON serialization operations.
@@ -42,15 +42,15 @@ public final class JsonUtils {
 	 * Used by MCP Resource methods that need to return serialized JSON responses.
 	 * On serialization failure, returns an error JSON object.
 	 *
-	 * @param objectMapper
-	 *            the Jackson ObjectMapper for serialization
+	 * @param jsonMapper
+	 *            the Jackson JsonMapper for serialization
 	 * @param obj
 	 *            the object to serialize
 	 * @return JSON string representation, or error JSON on failure
 	 */
-	public static String toJson(ObjectMapper objectMapper, Object obj) {
+	public static String toJson(JsonMapper jsonMapper, Object obj) {
 		try {
-			return objectMapper.writeValueAsString(obj);
+			return jsonMapper.writeValueAsString(obj);
 		} catch (JacksonException e) {
 			return "{\"error\": \"Failed to serialize response\"}";
 		}
