@@ -29,6 +29,7 @@ import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
+import org.springframework.http.MediaType;
 
 /**
  * SolrJ {@link ResponseParser} that requests JSON wire format ({@code wt=json})
@@ -67,7 +68,11 @@ import org.apache.solr.common.util.SimpleOrderedMap;
  */
 class JsonResponseParser extends ResponseParser {
 
-	private static final ObjectMapper MAPPER = new ObjectMapper();
+	private final ObjectMapper mapper;
+
+	JsonResponseParser(ObjectMapper mapper) {
+		this.mapper = mapper;
+	}
 
 	@Override
 	public String getWriterType() {
@@ -76,13 +81,13 @@ class JsonResponseParser extends ResponseParser {
 
 	@Override
 	public String getContentType() {
-		return "application/json; charset=UTF-8";
+		return MediaType.APPLICATION_JSON_VALUE;
 	}
 
 	@Override
 	public NamedList<Object> processResponse(InputStream body, String encoding) {
 		try {
-			return toNamedList(MAPPER.readTree(body));
+			return toNamedList(mapper.readTree(body));
 		} catch (IOException e) {
 			throw new SolrException(SolrException.ErrorCode.SERVER_ERROR, "Failed to parse Solr JSON response", e);
 		}
@@ -91,7 +96,7 @@ class JsonResponseParser extends ResponseParser {
 	@Override
 	public NamedList<Object> processResponse(Reader reader) {
 		try {
-			return toNamedList(MAPPER.readTree(reader));
+			return toNamedList(mapper.readTree(reader));
 		} catch (IOException e) {
 			throw new SolrException(SolrException.ErrorCode.SERVER_ERROR, "Failed to parse Solr JSON response", e);
 		}

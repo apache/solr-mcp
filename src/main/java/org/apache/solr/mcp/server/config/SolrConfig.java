@@ -16,6 +16,7 @@
  */
 package org.apache.solr.mcp.server.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.Http2SolrClient;
@@ -168,8 +169,8 @@ public class SolrConfig {
 	 * @see SolrConfigurationProperties#url()
 	 */
 	@Bean
-	JsonResponseParser jsonResponseParser() {
-		return new JsonResponseParser();
+	JsonResponseParser jsonResponseParser(ObjectMapper objectMapper) {
+		return new JsonResponseParser(objectMapper);
 	}
 
 	@Bean

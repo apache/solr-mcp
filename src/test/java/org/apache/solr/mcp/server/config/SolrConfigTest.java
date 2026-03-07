@@ -18,6 +18,7 @@ package org.apache.solr.mcp.server.config;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.Http2SolrClient;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
@@ -81,7 +82,7 @@ class SolrConfigTest {
 		SolrConfig solrConfig = new SolrConfig();
 
 		// Test URL normalization
-		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser());
+		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(new ObjectMapper()));
 		assertNotNull(client);
 
 		var httpClient = assertInstanceOf(Http2SolrClient.class, client);
@@ -101,7 +102,7 @@ class SolrConfigTest {
 		SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983");
 		SolrConfig solrConfig = new SolrConfig();
 
-		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser());
+		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(new ObjectMapper()));
 		Http2SolrClient httpClient = (Http2SolrClient) client;
 
 		// Should add trailing slash and solr path
@@ -120,7 +121,7 @@ class SolrConfigTest {
 		SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983/");
 		SolrConfig solrConfig = new SolrConfig();
 
-		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser());
+		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(new ObjectMapper()));
 		Http2SolrClient httpClient = (Http2SolrClient) client;
 
 		// Should add solr path to existing trailing slash
@@ -139,7 +140,7 @@ class SolrConfigTest {
 		SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983/solr");
 		SolrConfig solrConfig = new SolrConfig();
 
-		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser());
+		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(new ObjectMapper()));
 		Http2SolrClient httpClient = (Http2SolrClient) client;
 
 		// Should add trailing slash
@@ -158,7 +159,7 @@ class SolrConfigTest {
 		SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983/solr/");
 		SolrConfig solrConfig = new SolrConfig();
 
-		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser());
+		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(new ObjectMapper()));
 		Http2SolrClient httpClient = (Http2SolrClient) client;
 
 		// Should remain unchanged
