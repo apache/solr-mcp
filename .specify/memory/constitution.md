@@ -1,7 +1,7 @@
 <!--
   SYNC IMPACT REPORT
   ==================
-  Version change: N/A (blank template) → 1.0.0 (initial ratification)
+  Version change: N/A (blank template) → 1.0.0 (initial ratification on sb4 branch)
 
   Added principles (all new):
     - I. MCP Protocol Integrity
@@ -11,11 +11,12 @@
     - V. Simplicity and YAGNI
 
   Added sections:
-    - Technology Stack
+    - Technology Stack (sb4: Spring Boot 4.0.2, Spring AI 2.0.0-M2, SolrJ 10.0.0,
+      Testcontainers 2.0.2, OpenTelemetry observability, Error Prone + NullAway)
     - Development Workflow
 
   Templates reviewed:
-    - .specify/templates/plan-template.md  ✅ Constitution Check section updated
+    - .specify/templates/plan-template.md  ✅ Constitution Check section present
     - .specify/templates/spec-template.md  ✅ No changes required
     - .specify/templates/tasks-template.md ✅ No changes required
     - .specify/templates/agent-file-template.md ✅ No changes required
@@ -121,14 +122,16 @@ increases review burden, slows adoption, and masks protocol bugs.
 ## Technology Stack
 
 - **Runtime**: Java 25+ (version centralized in `build.gradle.kts`)
-- **Framework**: Spring Boot 3.5.8, Spring AI 1.1.2
+- **Framework**: Spring Boot 4.0.2, Spring AI 2.0.0-M2
 - **Build**: Gradle (Kotlin DSL) with `gradle/libs.versions.toml` version catalog
 - **Containerization**: Jib (NOT Spring Boot Buildpacks — Buildpacks write to stdout,
   breaking STDIO transport)
-- **Testing**: JUnit 5, Testcontainers, Mockito, JaCoCo
+- **Testing**: JUnit 5, Testcontainers 2.0.2, Mockito, JaCoCo
+- **Observability**: Spring Boot OpenTelemetry starter, Micrometer OTLP registry,
+  OpenTelemetry Logback appender
 - **Formatting**: Spotless (MUST run `./gradlew spotlessApply` before every commit)
-- **Solr client**: SolrJ (version tracked in `libs.versions.toml`; upgrade when Solr 10.x
-  SolrJ is published to Maven Central)
+- **Static analysis**: Error Prone with NullAway
+- **Solr client**: SolrJ 10.0.0
 
 Technology stack changes MUST be proposed as a constitution amendment (MINOR or MAJOR
 version bump depending on scope).
