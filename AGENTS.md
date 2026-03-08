@@ -89,14 +89,12 @@ The Solr Docker image used in tests is configurable via the `solr.test.image` sy
 
 ### Solr 10 Compatibility
 
-Solr 10.0.0 is fully supported with the JSON wire format. The `/admin/mbeans` endpoint was
-removed in Solr 10; `getCacheMetrics()` and `getHandlerMetrics()` now catch `RuntimeException`
-(which covers `RemoteSolrException`) so they degrade gracefully and return `null`. Tests that
-check `cacheStats` and `handlerStats` already handle `null` values.
+Solr 10.0.0 is fully supported. Cache and handler metrics use the `/admin/metrics` API
+(available since Solr 7.1+), which works on both Solr 9 and 10. The deprecated `/admin/mbeans`
+endpoint is no longer used.
 
 Remaining known differences from Solr 9:
-- **`/admin/mbeans` removed:** Cache and handler stats from `getCollectionStats()` will always be `null` on Solr 10. A future migration to `/admin/metrics` will restore these metrics.
-- **Metrics migration:** Dropwizard metrics replaced by OpenTelemetry. Metric names switch to snake_case in Solr 10.
+- **Metrics format:** Solr 10 uses OpenTelemetry instead of Dropwizard. Metric names switch to snake_case in Solr 10.
 - **SolrJ base URL:** Already uses root URLs — **no change needed**.
 - **SolrJ 10.x dependency:** Not yet on Maven Central (as of 2026-03-06); tests use SolrJ 9.x against a Solr 10 server. Update `solr-solrj` and Jetty BOM when 10.x is released.
 
