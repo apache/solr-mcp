@@ -109,11 +109,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *
  * @param url
  *            the base URL of the Apache Solr server (required, non-null)
- * @version 1.0.0
  * @see SolrConfig
  * @see org.springframework.boot.context.properties.ConfigurationProperties
  * @see org.springframework.boot.context.properties.EnableConfigurationProperties
- * @since 1.0.0
  */
 @ConfigurationProperties(prefix = "solr")
 public record SolrConfigurationProperties(String url) {

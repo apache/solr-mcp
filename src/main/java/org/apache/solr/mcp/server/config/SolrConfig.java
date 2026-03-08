@@ -92,11 +92,9 @@ import org.springframework.context.annotation.Configuration;
  * (unchanged)
  * </ul>
  *
- * @version 1.0.0
  * @see SolrConfigurationProperties
  * @see HttpJdkSolrClient
  * @see org.springframework.boot.context.properties.EnableConfigurationProperties
- * @since 1.0.0
  */
 @Configuration
 @EnableConfigurationProperties(SolrConfigurationProperties.class)
