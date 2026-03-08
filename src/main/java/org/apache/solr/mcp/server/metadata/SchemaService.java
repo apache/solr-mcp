@@ -114,8 +114,6 @@ import org.springframework.stereotype.Service;
  * });
  * }</pre>
  *
- * @version 1.0.0
- * @since 1.0.0
  * @see SchemaRepresentation
  * @see org.apache.solr.client.solrj.request.schema.SchemaRequest
  * @see org.springframework.ai.tool.annotation.Tool
