@@ -609,7 +609,9 @@ public class CollectionService {
 			}
 
 			return stats;
-		} catch (SolrServerException | IOException e) {
+		} catch (SolrServerException | IOException | RuntimeException e) {
+			// RuntimeException covers SolrException subclasses (e.g. RemoteSolrException)
+			// thrown when the /admin/mbeans endpoint is unavailable (removed in Solr 10).
 			return null; // Return null instead of empty object
 		}
 	}
@@ -781,7 +783,9 @@ public class CollectionService {
 			}
 
 			return stats;
-		} catch (SolrServerException | IOException e) {
+		} catch (SolrServerException | IOException | RuntimeException e) {
+			// RuntimeException covers SolrException subclasses (e.g. RemoteSolrException)
+			// thrown when the /admin/mbeans endpoint is unavailable (removed in Solr 10).
 			return null; // Return null instead of empty object
 		}
 	}
