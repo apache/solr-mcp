@@ -25,7 +25,9 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -744,15 +746,13 @@ class CollectionServiceTest {
 
 	@Test
 	void listCollections_NonCloudClient_Success() throws Exception {
-		// Create a NamedList to represent the core status response
+		// Create a NamedList to represent the core status response.
+		// The "status" value must be a Map so SolrJ 10 can use Jackson convertValue
+		// to produce Map<String, SingleCoreData>.
 		NamedList<Object> response = new NamedList<>();
-		NamedList<Object> status = new NamedList<>();
-
-		NamedList<Object> core1Status = new NamedList<>();
-		NamedList<Object> core2Status = new NamedList<>();
-
-		status.add("core1", core1Status);
-		status.add("core2", core2Status);
+		Map<String, Object> status = new HashMap<>();
+		status.put("core1", new HashMap<>());
+		status.put("core2", new HashMap<>());
 		response.add("status", status);
 
 		// Mock the solrClient request to return the response

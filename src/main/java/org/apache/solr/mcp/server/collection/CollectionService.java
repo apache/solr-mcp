@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.CloudSolrClient;
@@ -35,6 +34,7 @@ import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.request.CoreAdminRequest;
 import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.LukeRequest;
+import org.apache.solr.client.solrj.request.SolrQuery;
 import org.apache.solr.client.solrj.response.CollectionAdminResponse;
 import org.apache.solr.client.solrj.response.CoreAdminResponse;
 import org.apache.solr.client.solrj.response.LukeResponse;
@@ -374,12 +374,7 @@ public class CollectionService {
 				coreAdminRequest.setAction(CoreAdminParams.CoreAdminAction.STATUS);
 				CoreAdminResponse coreResponse = coreAdminRequest.process(solrClient);
 
-				List<String> cores = new ArrayList<>();
-				NamedList<NamedList<Object>> coreStatus = coreResponse.getCoreStatus();
-				for (int i = 0; i < coreStatus.size(); i++) {
-					cores.add(coreStatus.getName(i));
-				}
-				return cores;
+				return new ArrayList<>(coreResponse.getCoreStatus().keySet());
 			}
 		} catch (SolrServerException | IOException e) {
 			return new ArrayList<>();
@@ -625,6 +620,8 @@ public class CollectionService {
 
 			return stats;
 		} catch (SolrServerException | IOException | RuntimeException e) {
+			// RuntimeException covers SolrException subclasses (e.g. RemoteSolrException)
+			// thrown when the /admin/mbeans endpoint is unavailable (removed in Solr 10).
 			return null; // Return null instead of empty object
 		}
 	}
@@ -797,6 +794,8 @@ public class CollectionService {
 
 			return stats;
 		} catch (SolrServerException | IOException | RuntimeException e) {
+			// RuntimeException covers SolrException subclasses (e.g. RemoteSolrException)
+			// thrown when the /admin/mbeans endpoint is unavailable (removed in Solr 10).
 			return null; // Return null instead of empty object
 		}
 	}

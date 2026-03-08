@@ -101,9 +101,7 @@ dependencies {
     implementation(libs.spring.boot.starter.json)
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.ai.starter.mcp.server.webmvc)
-    implementation(libs.solr.solrj) {
-        exclude(group = "org.apache.httpcomponents")
-    }
+    implementation(libs.solr.solrj)
     implementation(libs.commons.csv)
 
     // Security
