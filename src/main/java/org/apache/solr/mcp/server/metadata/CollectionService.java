@@ -368,7 +368,7 @@ public class CollectionService {
 				}
 				return cores;
 			}
-		} catch (SolrServerException | IOException e) {
+		} catch (SolrServerException | IOException _) {
 			return new ArrayList<>();
 		}
 	}
@@ -611,7 +611,7 @@ public class CollectionService {
 			}
 
 			return stats;
-		} catch (SolrServerException | IOException e) {
+		} catch (SolrServerException | IOException _) {
 			return null; // Return null instead of empty object
 		}
 	}
@@ -783,7 +783,7 @@ public class CollectionService {
 			}
 
 			return stats;
-		} catch (SolrServerException | IOException e) {
+		} catch (SolrServerException | IOException _) {
 			return null; // Return null instead of empty object
 		}
 	}
@@ -967,10 +967,8 @@ public class CollectionService {
 			// Check if any of the returned collections start with the collection name (for
 			// shard
 			// names)
-			boolean shardMatch = collections.stream().anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
-
-			return shardMatch;
-		} catch (Exception e) {
+			return collections.stream().anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
+		} catch (Exception _) {
 			return false;
 		}
 	}

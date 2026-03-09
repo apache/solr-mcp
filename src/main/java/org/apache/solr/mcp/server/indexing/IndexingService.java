@@ -440,7 +440,7 @@ public class IndexingService {
 					try {
 						solrClient.add(collection, doc);
 						successCount++;
-					} catch (SolrServerException | IOException | RuntimeException docError) {
+					} catch (SolrServerException | IOException | RuntimeException _) {
 						// Document failed to index - this is expected behavior for problematic
 						// documents
 						// We continue processing the rest of the batch

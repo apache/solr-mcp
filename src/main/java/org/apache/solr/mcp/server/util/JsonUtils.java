@@ -51,7 +51,7 @@ public final class JsonUtils {
 	public static String toJson(ObjectMapper objectMapper, Object obj) {
 		try {
 			return objectMapper.writeValueAsString(obj);
-		} catch (JacksonException e) {
+		} catch (JacksonException _) {
 			return "{\"error\": \"Failed to serialize response\"}";
 		}
 	}
