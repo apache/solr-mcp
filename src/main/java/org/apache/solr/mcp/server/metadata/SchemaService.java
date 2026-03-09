@@ -19,6 +19,7 @@ package org.apache.solr.mcp.server.metadata;
 import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.observation.annotation.Observed;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
@@ -121,6 +122,7 @@ import org.springframework.stereotype.Service;
  * @see org.springframework.ai.tool.annotation.Tool
  */
 @Service
+@Observed
 public class SchemaService {
 
 	/** SolrJ client for communicating with Solr server */
