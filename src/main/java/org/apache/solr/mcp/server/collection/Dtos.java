@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.solr.mcp.server.metadata;
+package org.apache.solr.mcp.server.collection;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -474,4 +474,28 @@ record SolrHealthStatus(
 
 		/** Additional status information or state description */
 		String status) {
+}
+
+/**
+ * Result of a collection creation operation.
+ *
+ * <p>
+ * Returned by the {@code create-collection} MCP tool to communicate the outcome
+ * of a collection creation request. On success, {@code success} is {@code true}
+ * and {@code createdAt} records when the operation completed.
+ */
+@JsonIgnoreProperties(ignoreUnknown = true)
+@JsonInclude(JsonInclude.Include.NON_NULL)
+record CollectionCreationResult(
+		/** Name of the collection that was created */
+		String name,
+
+		/** Whether the collection was successfully created */
+		boolean success,
+
+		/** Optional message describing the outcome */
+		String message,
+
+		/** Timestamp when the collection was created, formatted as ISO 8601 */
+		@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") Date createdAt) {
 }
