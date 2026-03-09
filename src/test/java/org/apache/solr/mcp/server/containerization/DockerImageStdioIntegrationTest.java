@@ -121,9 +121,8 @@ class DockerImageStdioIntegrationTest {
 
 		// Wait for the MCP server container to be running and stable
 		// In STDIO mode, the app runs but doesn't produce logs we can monitor
-		await().atMost(30, TimeUnit.SECONDS).pollInterval(1, TimeUnit.SECONDS)
-				.untilAsserted(() -> assertTrue(mcpServerContainer.isRunning(),
-						"MCP server container should be running"));
+		await().atMost(30, TimeUnit.SECONDS).pollInterval(1, TimeUnit.SECONDS).untilAsserted(
+				() -> assertTrue(mcpServerContainer.isRunning(), "MCP server container should be running"));
 
 		log.info("Initialization wait complete. Beginning tests.");
 	}

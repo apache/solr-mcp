@@ -29,9 +29,9 @@ import org.springframework.context.annotation.Bean;
 @TestConfiguration
 public class InMemoryTracingTestConfiguration {
 
-    @Bean
-    public InMemorySpanExporter inMemorySpanExporter() {
-        return InMemorySpanExporter.create();
-    }
+	@Bean
+	public InMemorySpanExporter inMemorySpanExporter() {
+		return InMemorySpanExporter.create();
+	}
 
 }
