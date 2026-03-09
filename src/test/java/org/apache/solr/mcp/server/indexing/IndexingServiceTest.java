@@ -802,9 +802,8 @@ class UnitTests {
 		when(indexingDocumentCreator.createSchemalessDocumentsFromJson(invalidJson)).thenThrow(
 				new org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException("Invalid JSON"));
 
-		assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class, () -> {
-			indexingService.indexJsonDocuments("test_collection", invalidJson);
-		});
+		assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class,
+				() -> indexingService.indexJsonDocuments("test_collection", invalidJson));
 		verify(solrClient, never()).add(anyString(), any(Collection.class));
 		verify(solrClient, never()).commit(anyString());
 	}
@@ -830,9 +829,8 @@ class UnitTests {
 		when(indexingDocumentCreator.createSchemalessDocumentsFromCsv(invalidCsv)).thenThrow(
 				new org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException("Invalid CSV"));
 
-		assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class, () -> {
-			indexingService.indexCsvDocuments("test_collection", invalidCsv);
-		});
+		assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class,
+				() -> indexingService.indexCsvDocuments("test_collection", invalidCsv));
 		verify(solrClient, never()).add(anyString(), any(Collection.class));
 		verify(solrClient, never()).commit(anyString());
 	}
@@ -858,9 +856,8 @@ class UnitTests {
 		when(indexingDocumentCreator.createSchemalessDocumentsFromXml(xml)).thenThrow(
 				new org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException("Parser error"));
 
-		assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class, () -> {
-			indexingService.indexXmlDocuments("test_collection", xml);
-		});
+		assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class,
+				() -> indexingService.indexXmlDocuments("test_collection", xml));
 		verify(solrClient, never()).add(anyString(), any(Collection.class));
 		verify(solrClient, never()).commit(anyString());
 	}
@@ -872,9 +869,8 @@ class UnitTests {
 				.thenThrow(new org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException(
 						"SAX parsing error"));
 
-		assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class, () -> {
-			indexingService.indexXmlDocuments("test_collection", xml);
-		});
+		assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class,
+				() -> indexingService.indexXmlDocuments("test_collection", xml));
 		verify(solrClient, never()).add(anyString(), any(Collection.class));
 		verify(solrClient, never()).commit(anyString());
 	}
@@ -959,9 +955,7 @@ class UnitTests {
 		when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
 		when(solrClient.commit("test_collection")).thenThrow(new IOException("Commit failed"));
 
-		assertThrows(IOException.class, () -> {
-			indexingService.indexDocuments("test_collection", docs);
-		});
+		assertThrows(IOException.class, () -> indexingService.indexDocuments("test_collection", docs));
 		verify(solrClient).add(eq("test_collection"), any(Collection.class));
 		verify(solrClient).commit("test_collection");
 	}
