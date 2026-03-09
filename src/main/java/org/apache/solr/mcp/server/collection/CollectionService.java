@@ -882,9 +882,7 @@ public class CollectionService {
 			// Check if any of the returned collections start with the collection name (for
 			// shard
 			// names)
-			boolean shardMatch = collections.stream().anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
-
-			return shardMatch;
+			return collections.stream().anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
 		} catch (Exception e) {
 			log.warn("Failed to validate collection '{}': {}", collection, e.getMessage());
 			return false;

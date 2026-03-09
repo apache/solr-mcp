@@ -96,7 +96,7 @@ public class LgtmAssertions {
 			if (response != null) {
 				return Optional.of(objectMapper.readTree(response));
 			}
-		} catch (Exception e) {
+		} catch (Exception _) {
 			log.debug("Trace not found: {}", traceId);
 		}
 		return Optional.empty();
