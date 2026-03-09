@@ -27,8 +27,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import org.apache.solr.client.solrj.SolrClient;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -46,6 +44,8 @@ import org.apache.solr.common.params.CoreAdminParams;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.annotation.McpComplete;
 import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
@@ -974,9 +974,7 @@ public class CollectionService {
 			// Check if any of the returned collections start with the collection name (for
 			// shard
 			// names)
-			boolean shardMatch = collections.stream().anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
-
-			return shardMatch;
+			return collections.stream().anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
 		} catch (RuntimeException e) {
 			log.warn("Failed to validate collection existence: {}", collection, e);
 			return false;

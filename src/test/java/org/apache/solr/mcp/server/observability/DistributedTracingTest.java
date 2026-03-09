@@ -16,9 +16,17 @@
  */
 package org.apache.solr.mcp.server.observability;
 
+import static org.apache.solr.mcp.server.observability.TraceAssertions.assertServiceNamePresent;
+import static org.apache.solr.mcp.server.observability.TraceAssertions.assertSpanExists;
+import static org.apache.solr.mcp.server.observability.TraceAssertions.assertSpanMatches;
+import static org.apache.solr.mcp.server.observability.TraceAssertions.assertValidTimestamps;
+import static org.awaitility.Awaitility.await;
+
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import io.opentelemetry.sdk.trace.data.SpanData;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.search.SearchService;
@@ -30,15 +38,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.junit.jupiter.Testcontainers;
-
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
-import static org.apache.solr.mcp.server.observability.TraceAssertions.assertServiceNamePresent;
-import static org.apache.solr.mcp.server.observability.TraceAssertions.assertSpanExists;
-import static org.apache.solr.mcp.server.observability.TraceAssertions.assertSpanMatches;
-import static org.apache.solr.mcp.server.observability.TraceAssertions.assertValidTimestamps;
-import static org.awaitility.Awaitility.await;
 
 /**
  * Tests for distributed tracing using OpenTelemetry.
@@ -57,155 +56,155 @@ import static org.awaitility.Awaitility.await;
  * infrastructure.
  */
 @SpringBootTest(properties = {
-        // Enable HTTP mode for observability
-        "spring.profiles.active=http",
-        // Ensure 100% sampling for tests
-        "management.tracing.sampling.probability=1.0"})
+		// Enable HTTP mode for observability
+		"spring.profiles.active=http",
+		// Ensure 100% sampling for tests
+		"management.tracing.sampling.probability=1.0"})
 @Import({TestcontainersConfiguration.class, InMemoryTracingTestConfiguration.class})
 @Testcontainers(disabledWithoutDocker = true)
 @ActiveProfiles("http")
 class DistributedTracingTest {
 
-    @Autowired
-    private SearchService searchService;
+	@Autowired
+	private SearchService searchService;
 
-    @Autowired
-    private SolrClient solrClient;
+	@Autowired
+	private SolrClient solrClient;
 
-    @Autowired
-    private InMemorySpanExporter spanExporter;
-    @Autowired
-    private io.micrometer.observation.ObservationRegistry observationRegistry;
+	@Autowired
+	private InMemorySpanExporter spanExporter;
+	@Autowired
+	private io.micrometer.observation.ObservationRegistry observationRegistry;
 
-    @BeforeEach
-    void setUp() {
-        // Clear any existing spans before each test
-        spanExporter.reset();
-    }
+	@BeforeEach
+	void setUp() {
+		// Clear any existing spans before each test
+		spanExporter.reset();
+	}
 
-    @AfterEach
-    void tearDown() {
-        // Clean up after each test
-        spanExporter.reset();
-    }
+	@AfterEach
+	void tearDown() {
+		// Clean up after each test
+		spanExporter.reset();
+	}
 
-    @Test
-    void shouldCreateSpanForSearchServiceMethod() {
-        System.out.println("[DEBUG_LOG] ObservationRegistry: " + observationRegistry);
-        // Given: A Solr collection (assume test collection exists)
-        String collectionName = "test_collection";
+	@Test
+	void shouldCreateSpanForSearchServiceMethod() {
+		System.out.println("[DEBUG_LOG] ObservationRegistry: " + observationRegistry);
+		// Given: A Solr collection (assume test collection exists)
+		String collectionName = "test_collection";
 
-        // When: We execute a search operation
-        try {
-            searchService.search(collectionName, "*:*", null, null, null, null, null);
-        } catch (Exception e) {
-            // Ignore errors - we're testing span creation, not business logic
-        }
+		// When: We execute a search operation
+		try {
+			searchService.search(collectionName, "*:*", null, null, null, null, null);
+		} catch (Exception _) {
+			// Ignore errors - we're testing span creation, not business logic
+		}
 
-        // Then: A span should be created with the correct name
-        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
-            List<SpanData> spans = spanExporter.getFinishedSpanItems();
-            assertSpanExists(spans, "SearchService");
-        });
-    }
+		// Then: A span should be created with the correct name
+		await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
+			List<SpanData> spans = spanExporter.getFinishedSpanItems();
+			assertSpanExists(spans, "SearchService");
+		});
+	}
 
-    @Test
-    void shouldIncludeSpanAttributes() {
-        // Given: A search query
-        String collectionName = "test_collection";
-        String query = "test:query";
+	@Test
+	void shouldIncludeSpanAttributes() {
+		// Given: A search query
+		String collectionName = "test_collection";
+		String query = "test:query";
 
-        // When: We execute a search with parameters
-        try {
-            searchService.search(collectionName, query, null, null, null, 0, 10);
-        } catch (Exception e) {
-            // Ignore errors
-        }
+		// When: We execute a search with parameters
+		try {
+			searchService.search(collectionName, query, null, null, null, 0, 10);
+		} catch (Exception _) {
+			// Ignore errors
+		}
 
-        // Then: Spans should include relevant attributes
-        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
-            List<SpanData> spans = spanExporter.getFinishedSpanItems();
-            assertSpanExists(spans, "SearchService");
-            // Verify @Observed attributes are present
-            assertSpanMatches(spans, "Span should have 'class' attribute", span -> span.getName()
-                    .contains("SearchService")
-                    && span.getAttributes().get(io.opentelemetry.api.common.AttributeKey.stringKey("class")) != null);
-            assertSpanMatches(spans, "Span should have 'method' attribute",
-                    span -> span.getName().contains("SearchService") && "search".equals(
-                            span.getAttributes().get(io.opentelemetry.api.common.AttributeKey.stringKey("method"))));
-        });
-    }
+		// Then: Spans should include relevant attributes
+		await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
+			List<SpanData> spans = spanExporter.getFinishedSpanItems();
+			assertSpanExists(spans, "SearchService");
+			// Verify @Observed attributes are present
+			assertSpanMatches(spans, "Span should have 'class' attribute", span -> span.getName()
+					.contains("SearchService")
+					&& span.getAttributes().get(io.opentelemetry.api.common.AttributeKey.stringKey("class")) != null);
+			assertSpanMatches(spans, "Span should have 'method' attribute",
+					span -> span.getName().contains("SearchService") && "search".equals(
+							span.getAttributes().get(io.opentelemetry.api.common.AttributeKey.stringKey("method"))));
+		});
+	}
 
-    @Test
-    void shouldCreateSpanHierarchy() {
-        // When: We execute a complex operation that triggers multiple spans
-        try {
-            searchService.search("test_collection", "*:*", null, null, null, null, null);
-        } catch (Exception e) {
-            // Ignore errors
-        }
+	@Test
+	void shouldCreateSpanHierarchy() {
+		// When: We execute a complex operation that triggers multiple spans
+		try {
+			searchService.search("test_collection", "*:*", null, null, null, null, null);
+		} catch (Exception _) {
+			// Ignore errors
+		}
 
-        // Then: We should see parent-child relationships in spans
-        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
-            List<SpanData> spans = spanExporter.getFinishedSpanItems();
-            assertSpanExists(spans, "SearchService");
-            // Note: In a simple test, we may not always have parent-child relationships
-            // This test verifies the structure is available, even if parent count is 0
-        });
-    }
+		// Then: We should see parent-child relationships in spans
+		await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
+			List<SpanData> spans = spanExporter.getFinishedSpanItems();
+			assertSpanExists(spans, "SearchService");
+			// Note: In a simple test, we may not always have parent-child relationships
+			// This test verifies the structure is available, even if parent count is 0
+		});
+	}
 
-    @Test
-    void shouldSetCorrectSpanKind() {
-        // When: We execute a service method
-        try {
-            searchService.search("test_collection", "*:*", null, null, null, null, null);
-        } catch (Exception e) {
-            // Ignore errors
-        }
+	@Test
+	void shouldSetCorrectSpanKind() {
+		// When: We execute a service method
+		try {
+			searchService.search("test_collection", "*:*", null, null, null, null, null);
+		} catch (Exception _) {
+			// Ignore errors
+		}
 
-        // Then: Spans should have appropriate span kinds
-        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
-            List<SpanData> spans = spanExporter.getFinishedSpanItems();
-            assertSpanExists(spans, "SearchService");
+		// Then: Spans should have appropriate span kinds
+		await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
+			List<SpanData> spans = spanExporter.getFinishedSpanItems();
+			assertSpanExists(spans, "SearchService");
 
-            // Verify all spans have a kind set
-            assertSpanMatches(spans, "All spans should have a kind", span -> span.getKind() != null);
+			// Verify all spans have a kind set
+			assertSpanMatches(spans, "All spans should have a kind", span -> span.getKind() != null);
 
-            // Most application spans should be INTERNAL or CLIENT
-            assertSpanMatches(spans, "At least one span should be INTERNAL or CLIENT",
-                    span -> span.getKind() == SpanKind.INTERNAL || span.getKind() == SpanKind.CLIENT);
-        });
-    }
+			// Most application spans should be INTERNAL or CLIENT
+			assertSpanMatches(spans, "At least one span should be INTERNAL or CLIENT",
+					span -> span.getKind() == SpanKind.INTERNAL || span.getKind() == SpanKind.CLIENT);
+		});
+	}
 
-    @Test
-    void shouldIncludeServiceNameInResource() {
-        // When: We execute any operation
-        try {
-            searchService.search("test_collection", "*:*", null, null, null, null, null);
-        } catch (Exception e) {
-            // Ignore errors
-        }
+	@Test
+	void shouldIncludeServiceNameInResource() {
+		// When: We execute any operation
+		try {
+			searchService.search("test_collection", "*:*", null, null, null, null, null);
+		} catch (Exception _) {
+			// Ignore errors
+		}
 
-        // Then: Spans should include the service name in resource attributes
-        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
-            List<SpanData> spans = spanExporter.getFinishedSpanItems();
-            assertServiceNamePresent(spans);
-        });
-    }
+		// Then: Spans should include the service name in resource attributes
+		await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
+			List<SpanData> spans = spanExporter.getFinishedSpanItems();
+			assertServiceNamePresent(spans);
+		});
+	}
 
-    @Test
-    void shouldRecordSpanDuration() {
-        // When: We execute an operation
-        try {
-            searchService.search("test_collection", "*:*", null, null, null, null, null);
-        } catch (Exception e) {
-            // Ignore errors
-        }
+	@Test
+	void shouldRecordSpanDuration() {
+		// When: We execute an operation
+		try {
+			searchService.search("test_collection", "*:*", null, null, null, null, null);
+		} catch (Exception _) {
+			// Ignore errors
+		}
 
-        // Then: All spans should have valid durations
-        await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
-            List<SpanData> spans = spanExporter.getFinishedSpanItems();
-            assertValidTimestamps(spans);
-        });
-    }
+		// Then: All spans should have valid durations
+		await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
+			List<SpanData> spans = spanExporter.getFinishedSpanItems();
+			assertValidTimestamps(spans);
+		});
+	}
 }

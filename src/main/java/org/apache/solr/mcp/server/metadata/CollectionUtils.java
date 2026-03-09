@@ -63,7 +63,12 @@ import org.apache.solr.common.util.NamedList;
  * @see org.apache.solr.common.util.NamedList
  * @see CollectionService
  */
-public class CollectionUtils {
+public final class CollectionUtils {
+
+	// Private constructor to prevent instantiation
+	private CollectionUtils() {
+		throw new UnsupportedOperationException("Utility class cannot be instantiated");
+	}
 
 	/**
 	 * Extracts a Long value from a NamedList using the specified key with robust
