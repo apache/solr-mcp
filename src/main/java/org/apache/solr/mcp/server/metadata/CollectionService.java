@@ -361,7 +361,7 @@ public class CollectionService {
 
 				return new ArrayList<>(coreResponse.getCoreStatus().keySet());
 			}
-		} catch (SolrServerException | IOException e) {
+		} catch (SolrServerException | IOException _) {
 			return new ArrayList<>();
 		}
 	}
@@ -604,7 +604,7 @@ public class CollectionService {
 			}
 
 			return stats;
-		} catch (SolrServerException | IOException | RuntimeException e) {
+		} catch (SolrServerException | IOException | RuntimeException _) {
 			// RuntimeException covers SolrException subclasses (e.g. RemoteSolrException)
 			// thrown when the /admin/mbeans endpoint is unavailable (removed in Solr 10).
 			return null; // Return null instead of empty object
@@ -778,7 +778,7 @@ public class CollectionService {
 			}
 
 			return stats;
-		} catch (SolrServerException | IOException | RuntimeException e) {
+		} catch (SolrServerException | IOException | RuntimeException _) {
 			// RuntimeException covers SolrException subclasses (e.g. RemoteSolrException)
 			// thrown when the /admin/mbeans endpoint is unavailable (removed in Solr 10).
 			return null; // Return null instead of empty object
@@ -964,10 +964,8 @@ public class CollectionService {
 			// Check if any of the returned collections start with the collection name (for
 			// shard
 			// names)
-			boolean shardMatch = collections.stream().anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
-
-			return shardMatch;
-		} catch (Exception e) {
+			return collections.stream().anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
+		} catch (Exception _) {
 			return false;
 		}
 	}
