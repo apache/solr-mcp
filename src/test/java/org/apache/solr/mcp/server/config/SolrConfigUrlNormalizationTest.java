@@ -51,7 +51,7 @@ class SolrConfigUrlNormalizationTest {
 
 		try {
 			client.close();
-		} catch (Exception e) {
+		} catch (Exception _) {
 			// Ignore close errors in test
 		}
 	}
@@ -68,7 +68,7 @@ class SolrConfigUrlNormalizationTest {
 
 		try {
 			client.close();
-		} catch (Exception e) {
+		} catch (Exception _) {
 			// Ignore close errors in test
 		}
 	}
@@ -85,7 +85,7 @@ class SolrConfigUrlNormalizationTest {
 
 		try {
 			client.close();
-		} catch (Exception e) {
+		} catch (Exception _) {
 			// Ignore close errors in test
 		}
 	}
@@ -102,7 +102,7 @@ class SolrConfigUrlNormalizationTest {
 
 		try {
 			client.close();
-		} catch (Exception e) {
+		} catch (Exception _) {
 			// Ignore close errors in test
 		}
 	}
@@ -119,7 +119,7 @@ class SolrConfigUrlNormalizationTest {
 
 		try {
 			client.close();
-		} catch (Exception e) {
+		} catch (Exception _) {
 			// Ignore close errors in test
 		}
 	}
