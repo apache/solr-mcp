@@ -35,6 +35,28 @@ services:
     environment:
       ZOO_4LW_COMMANDS_WHITELIST: "mntr,conf,ruok"
 
+    # =============================================================================
+    # LGTM Stack - Grafana observability backend (Loki, Grafana, Tempo, Mimir)
+    # =============================================================================
+    # This all-in-one container provides:
+    # - Loki: Log aggregation (LogQL queries)
+    # - Grafana: Visualization at http://localhost:3000 (no auth required)
+    # - Tempo: Distributed tracing (TraceQL queries)
+    # - Mimir: Prometheus-compatible metrics storage
+    # - OpenTelemetry Collector: Receives OTLP data on ports 4317 (gRPC) and 4318 (HTTP)
+    #
+    # Spring Boot auto-configures OTLP endpoints when this container is running.
+  lgtm:
+      image: grafana/otel-lgtm:latest
+      ports:
+          - "3000:3000"   # Grafana UI
+          - "4317:4317"   # OTLP gRPC receiver
+          - "4318:4318"   # OTLP HTTP receiver
+      networks: [ search ]
+      labels:
+          # Prevent Spring Boot auto-configuration from trying to manage this service
+          org.springframework.boot.ignore: "true"
+
 volumes:
   data:
 
