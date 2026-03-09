@@ -16,6 +16,7 @@
  */
 package org.apache.solr.mcp.server.indexing;
 
+import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.List;
 import javax.xml.parsers.ParserConfigurationException;
@@ -105,6 +106,7 @@ import org.xml.sax.SAXException;
  * @see org.springframework.ai.tool.annotation.Tool
  */
 @Service
+@Observed
 public class IndexingService {
 
 	private static final int DEFAULT_BATCH_SIZE = 1000;
@@ -438,7 +440,7 @@ public class IndexingService {
 					try {
 						solrClient.add(collection, doc);
 						successCount++;
-					} catch (SolrServerException | IOException | RuntimeException docError) {
+					} catch (SolrServerException | IOException | RuntimeException _) {
 						// Document failed to index - this is expected behavior for problematic
 						// documents
 						// We continue processing the rest of the batch
