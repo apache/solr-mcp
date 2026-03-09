@@ -65,6 +65,9 @@ import org.apache.solr.common.util.NamedList;
  */
 public class CollectionUtils {
 
+	private CollectionUtils() {
+	}
+
 	/**
 	 * Extracts a Long value from a NamedList using the specified key with robust
 	 * type conversion.
@@ -122,7 +125,7 @@ public class CollectionUtils {
 
 		try {
 			return Long.parseLong(value.toString());
-		} catch (NumberFormatException e) {
+		} catch (NumberFormatException _) {
 			return null;
 		}
 	}
@@ -258,7 +261,7 @@ public class CollectionUtils {
 
 		try {
 			return Integer.parseInt(value.toString());
-		} catch (NumberFormatException e) {
+		} catch (NumberFormatException _) {
 			return null;
 		}
 	}
