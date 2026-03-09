@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.solr.mcp.server.metadata;
+package org.apache.solr.mcp.server.collection;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -242,5 +242,21 @@ class CollectionServiceIntegrationTest {
 		assertNull(collectionService.extractCollectionName(null), "Null input should return null");
 
 		assertEquals("", collectionService.extractCollectionName(""), "Empty string should return empty string");
+	}
+
+	@Test
+	void createCollection_createsAndListable() throws Exception {
+		String name = "mcp_test_create_" + System.currentTimeMillis();
+
+		CollectionCreationResult result = collectionService.createCollection(name, null, null, null);
+
+		assertTrue(result.success(), "Collection creation should succeed");
+		assertEquals(name, result.name(), "Result should contain the collection name");
+		assertNotNull(result.createdAt(), "Creation timestamp should be set");
+
+		List<String> collections = collectionService.listCollections();
+		boolean collectionExists = collections.contains(name)
+				|| collections.stream().anyMatch(col -> col.startsWith(name + "_shard"));
+		assertTrue(collectionExists, "Newly created collection should appear in list (found: " + collections + ")");
 	}
 }

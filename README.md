@@ -8,6 +8,7 @@ A Spring AI Model Context Protocol (MCP) server that provides tools for interact
 
 - 🔍 Search Solr collections with filtering, faceting, and pagination
 - 📝 Index documents in JSON, CSV, and XML
+- 📁 Create collections with configurable shards, replicas, and configsets
 - 📊 Manage collections and view statistics
 - 🔧 Inspect schema
 - 🔌 Transports: STDIO (Claude Desktop) and HTTP (MCP Inspector)
@@ -307,14 +308,34 @@ For complete setup instructions, see [docs/AUTH0_SETUP.md](docs/AUTH0_SETUP.md)
 
 ## Available MCP tools
 
+### Search
+
 | Tool | Description |
 |------|-------------|
-| `search` | Search Solr collections with advanced query options |
-| `index_documents` | Index documents from JSON, CSV, or XML |
-| `listCollections` | List all available Solr collections |
-| `getCollectionStats` | Get statistics and metrics for a collection |
-| `checkHealth` | Check the health status of a collection |
-| `getSchema` | Retrieve schema information for a collection |
+| `search` | Full-text search with filtering, faceting, sorting, and pagination |
+
+### Indexing
+
+| Tool | Description |
+|------|-------------|
+| `index-json-documents` | Index documents from a JSON string into a Solr collection |
+| `index-csv-documents` | Index documents from a CSV string into a Solr collection |
+| `index-xml-documents` | Index documents from an XML string into a Solr collection |
+
+### Collections
+
+| Tool | Description |
+|------|-------------|
+| `create-collection` | Create a new Solr collection (configSet, numShards, replicationFactor optional — default to `_default`, `1`, `1`) |
+| `list-collections` | List all available Solr collections |
+| `get-collection-stats` | Get statistics and metrics for a collection |
+| `check-health` | Check the health status of a collection |
+
+### Schema
+
+| Tool | Description |
+|------|-------------|
+| `get-schema` | Retrieve schema information for a collection |
 
 ## Available MCP Resources
 
