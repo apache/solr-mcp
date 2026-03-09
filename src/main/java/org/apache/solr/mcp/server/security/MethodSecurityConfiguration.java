@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.solr.mcp.server.config;
+package org.apache.solr.mcp.server.security;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
@@ -23,15 +23,15 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 
 /**
  * Configuration class that enables method-level security only when
- * spring.security.enabled=true (or not set).
+ * http.security.enabled=true (or not set).
  *
  * <p>
  * This allows the application to run without authentication when
- * spring.security.enabled=false, bypassing @PreAuthorize annotations.
+ * http.security.enabled=false, bypassing @PreAuthorize annotations.
  */
 @Profile("http")
 @Configuration
-@ConditionalOnProperty(name = "spring.security.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "http.security.enabled", havingValue = "true", matchIfMissing = true)
 @EnableMethodSecurity
 class MethodSecurityConfiguration {
 }
