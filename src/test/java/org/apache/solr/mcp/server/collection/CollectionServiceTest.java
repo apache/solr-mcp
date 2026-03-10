@@ -69,7 +69,6 @@ class CollectionServiceTest {
 		collectionService = new CollectionService(solrClient, objectMapper);
 	}
 
-	// Constructor tests
 	@Test
 	void constructor_ShouldInitializeWithSolrClient() {
 		assertNotNull(collectionService);
@@ -77,97 +76,50 @@ class CollectionServiceTest {
 
 	@Test
 	void listCollections_WithCloudSolrClient_ShouldReturnCollections() throws Exception {
-		// Given - This test verifies the service can be constructed with
-		// CloudSolrClient
 		CollectionService cloudService = new CollectionService(cloudSolrClient, objectMapper);
-
-		// Note: This test cannot fully exercise listCollections() because it requires
-		// mocking static methods in CollectionAdminRequest which requires PowerMock or
-		// Mockito inline. The actual behavior is tested in integration tests.
-
-		// When/Then - Verify service construction
 		assertNotNull(cloudService, "Should be able to construct service with CloudSolrClient");
 	}
 
 	@Test
 	void listCollections_WhenExceptionOccurs_ShouldReturnEmptyList() throws Exception {
-		// Note: This test cannot fully exercise listCollections() with mock SolrClient
-		// because it requires mocking CoreAdminRequest processing. The actual error
-		// handling behavior is tested in integration tests.
-
-		// Given/When - Using regular SolrClient (non-cloud) which will attempt
-		// CoreAdmin
-		// The mock doesn't have a real CoreAdmin implementation
-
-		// Then - Verify service is constructed
 		assertNotNull(collectionService, "Service should be constructed successfully");
 	}
 
 	// Collection name extraction tests
 	@Test
 	void extractCollectionName_WithShardName_ShouldExtractCollectionName() {
-		// Given
-		String shardName = "films_shard1_replica_n1";
-
-		// When
-		String result = collectionService.extractCollectionName(shardName);
-
-		// Then
-		assertEquals("films", result);
+		assertEquals("films", collectionService.extractCollectionName("films_shard1_replica_n1"));
 	}
 
 	@Test
 	void extractCollectionName_WithMultipleShards_ShouldExtractCorrectly() {
-		// Given & When & Then
 		assertEquals("products", collectionService.extractCollectionName("products_shard2_replica_n3"));
 		assertEquals("users", collectionService.extractCollectionName("users_shard5_replica_n10"));
 	}
 
 	@Test
 	void extractCollectionName_WithSimpleCollectionName_ShouldReturnUnchanged() {
-		// Given
-		String simpleName = "simple_collection";
-
-		// When
-		String result = collectionService.extractCollectionName(simpleName);
-
-		// Then
-		assertEquals("simple_collection", result);
+		assertEquals("simple_collection", collectionService.extractCollectionName("simple_collection"));
 	}
 
 	@Test
 	void extractCollectionName_WithNullInput_ShouldReturnNull() {
-		// When
-		String result = collectionService.extractCollectionName(null);
-
-		// Then
-		assertNull(result);
+		assertNull(collectionService.extractCollectionName(null));
 	}
 
 	@Test
 	void extractCollectionName_WithEmptyString_ShouldReturnEmptyString() {
-		// When
-		String result = collectionService.extractCollectionName("");
-
-		// Then
-		assertEquals("", result);
+		assertEquals("", collectionService.extractCollectionName(""));
 	}
 
 	@Test
 	void extractCollectionName_WithCollectionNameContainingUnderscore_ShouldOnlyExtractBeforeShard() {
-		// Given - collection name itself contains underscore
-		String complexName = "my_complex_collection_shard1_replica_n1";
-
-		// When
-		String result = collectionService.extractCollectionName(complexName);
-
-		// Then
-		assertEquals("my_complex_collection", result);
+		assertEquals("my_complex_collection",
+				collectionService.extractCollectionName("my_complex_collection_shard1_replica_n1"));
 	}
 
 	@Test
 	void extractCollectionName_EdgeCases_ShouldHandleCorrectly() {
-		// Test various edge cases
 		assertEquals("a", collectionService.extractCollectionName("a_shard1"));
 		assertEquals("collection", collectionService.extractCollectionName("collection_shard"));
 		assertEquals("test_name", collectionService.extractCollectionName("test_name"));
@@ -176,32 +128,19 @@ class CollectionServiceTest {
 
 	@Test
 	void extractCollectionName_WithShardInMiddleOfName_ShouldExtractCorrectly() {
-		// Given - "shard" appears in collection name but not as suffix pattern
-		String name = "resharding_tasks";
-
-		// When
-		String result = collectionService.extractCollectionName(name);
-
-		// Then
-		assertEquals("resharding_tasks", result, "Should not extract when '_shard' is not followed by number");
+		assertEquals("resharding_tasks", collectionService.extractCollectionName("resharding_tasks"),
+				"Should not extract when '_shard' is not followed by number");
 	}
 
 	@Test
 	void extractCollectionName_WithMultipleOccurrencesOfShard_ShouldUseFirst() {
-		// Given
-		String name = "data_shard1_shard2_replica_n1";
-
-		// When
-		String result = collectionService.extractCollectionName(name);
-
-		// Then
-		assertEquals("data", result, "Should use first occurrence of '_shard'");
+		assertEquals("data", collectionService.extractCollectionName("data_shard1_shard2_replica_n1"),
+				"Should use first occurrence of '_shard'");
 	}
 
 	// Health check tests
 	@Test
 	void checkHealth_WithHealthyCollection_ShouldReturnHealthyStatus() throws Exception {
-		// Given
 		SolrDocumentList docList = new SolrDocumentList();
 		docList.setNumFound(100);
 
@@ -210,10 +149,8 @@ class CollectionServiceTest {
 		when(solrClient.query(eq("test_collection"), any())).thenReturn(queryResponse);
 		when(queryResponse.getResults()).thenReturn(docList);
 
-		// When
 		SolrHealthStatus result = collectionService.checkHealth("test_collection");
 
-		// Then
 		assertNotNull(result);
 		assertTrue(result.isHealthy());
 		assertNull(result.errorMessage());
@@ -223,13 +160,10 @@ class CollectionServiceTest {
 
 	@Test
 	void checkHealth_WithUnhealthyCollection_ShouldReturnUnhealthyStatus() throws Exception {
-		// Given
 		when(solrClient.ping("unhealthy_collection")).thenThrow(new SolrServerException("Connection failed"));
 
-		// When
 		SolrHealthStatus result = collectionService.checkHealth("unhealthy_collection");
 
-		// Then
 		assertNotNull(result);
 		assertFalse(result.isHealthy());
 		assertNotNull(result.errorMessage());
@@ -240,14 +174,11 @@ class CollectionServiceTest {
 
 	@Test
 	void checkHealth_WhenPingSucceedsButQueryFails_ShouldReturnUnhealthyStatus() throws Exception {
-		// Given
 		when(solrClient.ping("test_collection")).thenReturn(pingResponse);
 		when(solrClient.query(eq("test_collection"), any())).thenThrow(new IOException("Query failed"));
 
-		// When
 		SolrHealthStatus result = collectionService.checkHealth("test_collection");
 
-		// Then
 		assertNotNull(result);
 		assertFalse(result.isHealthy());
 		assertNotNull(result.errorMessage());
@@ -256,7 +187,6 @@ class CollectionServiceTest {
 
 	@Test
 	void checkHealth_WithEmptyCollection_ShouldReturnHealthyWithZeroDocuments() throws Exception {
-		// Given
 		SolrDocumentList emptyDocList = new SolrDocumentList();
 		emptyDocList.setNumFound(0);
 
@@ -265,10 +195,8 @@ class CollectionServiceTest {
 		when(solrClient.query(eq("empty_collection"), any())).thenReturn(queryResponse);
 		when(queryResponse.getResults()).thenReturn(emptyDocList);
 
-		// When
 		SolrHealthStatus result = collectionService.checkHealth("empty_collection");
 
-		// Then
 		assertNotNull(result);
 		assertTrue(result.isHealthy());
 		assertEquals(0L, result.totalDocuments());
@@ -277,19 +205,16 @@ class CollectionServiceTest {
 
 	@Test
 	void checkHealth_WithSlowResponse_ShouldCaptureResponseTime() throws Exception {
-		// Given
 		SolrDocumentList docList = new SolrDocumentList();
 		docList.setNumFound(1000);
 
 		when(solrClient.ping("slow_collection")).thenReturn(pingResponse);
-		when(pingResponse.getElapsedTime()).thenReturn(5000L); // 5 seconds
+		when(pingResponse.getElapsedTime()).thenReturn(5000L);
 		when(solrClient.query(eq("slow_collection"), any())).thenReturn(queryResponse);
 		when(queryResponse.getResults()).thenReturn(docList);
 
-		// When
 		SolrHealthStatus result = collectionService.checkHealth("slow_collection");
 
-		// Then
 		assertNotNull(result);
 		assertTrue(result.isHealthy());
 		assertEquals(5000, result.responseTime());
@@ -310,7 +235,6 @@ class CollectionServiceTest {
 	// Query stats tests
 	@Test
 	void buildQueryStats_WithValidResponse_ShouldExtractStats() {
-		// Given
 		SolrDocumentList docList = new SolrDocumentList();
 		docList.setNumFound(250);
 		docList.setStart(0);
@@ -319,10 +243,8 @@ class CollectionServiceTest {
 		when(queryResponse.getQTime()).thenReturn(25);
 		when(queryResponse.getResults()).thenReturn(docList);
 
-		// When
 		QueryStats result = collectionService.buildQueryStats(queryResponse);
 
-		// Then
 		assertNotNull(result);
 		assertEquals(25, result.queryTime());
 		assertEquals(250, result.totalResults());
@@ -332,7 +254,6 @@ class CollectionServiceTest {
 
 	@Test
 	void buildQueryStats_WithNullMaxScore_ShouldHandleGracefully() {
-		// Given
 		SolrDocumentList docList = new SolrDocumentList();
 		docList.setNumFound(100);
 		docList.setStart(10);
@@ -341,10 +262,8 @@ class CollectionServiceTest {
 		when(queryResponse.getQTime()).thenReturn(15);
 		when(queryResponse.getResults()).thenReturn(docList);
 
-		// When
 		QueryStats result = collectionService.buildQueryStats(queryResponse);
 
-		// Then
 		assertNotNull(result);
 		assertEquals(15, result.queryTime());
 		assertEquals(100, result.totalResults());
@@ -415,13 +334,10 @@ class CollectionServiceTest {
 		assertFalse((boolean) method.invoke(spyService, "any_collection"));
 	}
 
-	// Cache metrics tests
+	// Cache metrics tests using Metrics API format
 	@Test
 	void getCacheMetrics_WithNonExistentCollection_ShouldReturnNull() {
-		// When - Mock will not have collection configured
 		CacheStats result = collectionService.getCacheMetrics("nonexistent");
-
-		// Then
 		assertNull(result);
 	}
 
@@ -430,8 +346,8 @@ class CollectionServiceTest {
 		CollectionService spyService = spy(collectionService);
 		doReturn(Arrays.asList("test_collection")).when(spyService).listCollections();
 
-		NamedList<Object> mbeans = createMockCacheData();
-		when(solrClient.request(any(SolrRequest.class))).thenReturn(mbeans);
+		NamedList<Object> metricsResponse = createMockMetricsCacheData("test_collection");
+		when(solrClient.request(any(SolrRequest.class))).thenReturn(metricsResponse);
 
 		CacheStats result = spyService.getCacheMetrics("test_collection");
 
@@ -446,7 +362,6 @@ class CollectionServiceTest {
 		doReturn(Collections.emptyList()).when(spyService).listCollections();
 
 		CacheStats result = spyService.getCacheMetrics("non_existent");
-
 		assertNull(result);
 	}
 
@@ -458,7 +373,6 @@ class CollectionServiceTest {
 		when(solrClient.request(any(SolrRequest.class))).thenThrow(new SolrServerException("Error"));
 
 		CacheStats result = spyService.getCacheMetrics("test_collection");
-
 		assertNull(result);
 	}
 
@@ -470,21 +384,19 @@ class CollectionServiceTest {
 		when(solrClient.request(any(SolrRequest.class))).thenThrow(new IOException("IO Error"));
 
 		CacheStats result = spyService.getCacheMetrics("test_collection");
-
 		assertNull(result);
 	}
 
 	@Test
-	void getCacheMetrics_EmptyStats() throws Exception {
+	void getCacheMetrics_EmptyMetrics() throws Exception {
 		CollectionService spyService = spy(collectionService);
 		doReturn(Arrays.asList("test_collection")).when(spyService).listCollections();
 
-		NamedList<Object> mbeans = new NamedList<>();
-		mbeans.add("CACHE", new NamedList<>());
-		when(solrClient.request(any(SolrRequest.class))).thenReturn(mbeans);
+		NamedList<Object> metricsResponse = new NamedList<>();
+		metricsResponse.add("metrics", new NamedList<>());
+		when(solrClient.request(any(SolrRequest.class))).thenReturn(metricsResponse);
 
 		CacheStats result = spyService.getCacheMetrics("test_collection");
-
 		assertNull(result);
 	}
 
@@ -493,54 +405,40 @@ class CollectionServiceTest {
 		CollectionService spyService = spy(collectionService);
 		doReturn(Arrays.asList("films_shard1_replica_n1")).when(spyService).listCollections();
 
-		NamedList<Object> mbeans = createMockCacheData();
-		when(solrClient.request(any(SolrRequest.class))).thenReturn(mbeans);
+		NamedList<Object> metricsResponse = createMockMetricsCacheData("films");
+		when(solrClient.request(any(SolrRequest.class))).thenReturn(metricsResponse);
 
 		CacheStats result = spyService.getCacheMetrics("films_shard1_replica_n1");
-
 		assertNotNull(result);
 	}
 
 	@Test
-	void extractCacheStats() throws Exception {
-		NamedList<Object> mbeans = createMockCacheData();
-		Method method = CollectionService.class.getDeclaredMethod("extractCacheStats", NamedList.class);
-		method.setAccessible(true);
+	void getCacheMetrics_AllCacheTypes() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		doReturn(Arrays.asList("test_collection")).when(spyService).listCollections();
 
-		CacheStats result = (CacheStats) method.invoke(collectionService, mbeans);
+		NamedList<Object> metricsResponse = createCompleteMockMetricsCacheData("test_collection");
+		when(solrClient.request(any(SolrRequest.class))).thenReturn(metricsResponse);
 
-		assertNotNull(result.queryResultCache());
-		assertEquals(100L, result.queryResultCache().lookups());
-		assertEquals(80L, result.queryResultCache().hits());
-	}
+		CacheStats result = spyService.getCacheMetrics("test_collection");
 
-	@Test
-	void extractCacheStats_AllCacheTypes() throws Exception {
-		NamedList<Object> mbeans = createCompleteMockCacheData();
-		Method method = CollectionService.class.getDeclaredMethod("extractCacheStats", NamedList.class);
-		method.setAccessible(true);
-
-		CacheStats result = (CacheStats) method.invoke(collectionService, mbeans);
-
+		assertNotNull(result);
 		assertNotNull(result.queryResultCache());
 		assertNotNull(result.documentCache());
 		assertNotNull(result.filterCache());
 	}
 
 	@Test
-	void extractCacheStats_NullCacheCategory() throws Exception {
-		NamedList<Object> mbeans = new NamedList<>();
-		mbeans.add("CACHE", null);
+	void getCacheMetrics_NullMetricsKey() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		doReturn(Arrays.asList("test_collection")).when(spyService).listCollections();
 
-		Method method = CollectionService.class.getDeclaredMethod("extractCacheStats", NamedList.class);
-		method.setAccessible(true);
+		NamedList<Object> metricsResponse = new NamedList<>();
+		metricsResponse.add("metrics", null);
+		when(solrClient.request(any(SolrRequest.class))).thenReturn(metricsResponse);
 
-		CacheStats result = (CacheStats) method.invoke(collectionService, mbeans);
-
-		assertNotNull(result);
-		assertNull(result.queryResultCache());
-		assertNull(result.documentCache());
-		assertNull(result.filterCache());
+		CacheStats result = spyService.getCacheMetrics("test_collection");
+		assertNull(result);
 	}
 
 	@Test
@@ -556,13 +454,10 @@ class CollectionServiceTest {
 		assertFalse((boolean) method.invoke(collectionService, nonEmptyStats));
 	}
 
-	// Handler metrics tests
+	// Handler metrics tests using Metrics API format
 	@Test
 	void getHandlerMetrics_WithNonExistentCollection_ShouldReturnNull() {
-		// When - Mock will not have collection configured
 		HandlerStats result = collectionService.getHandlerMetrics("nonexistent");
-
-		// Then
 		assertNull(result);
 	}
 
@@ -571,13 +466,14 @@ class CollectionServiceTest {
 		CollectionService spyService = spy(collectionService);
 		doReturn(Arrays.asList("test_collection")).when(spyService).listCollections();
 
-		NamedList<Object> mbeans = createMockHandlerData();
-		when(solrClient.request(any(SolrRequest.class))).thenReturn(mbeans);
+		NamedList<Object> metricsResponse = createMockMetricsHandlerData("test_collection");
+		when(solrClient.request(any(SolrRequest.class))).thenReturn(metricsResponse);
 
 		HandlerStats result = spyService.getHandlerMetrics("test_collection");
 
 		assertNotNull(result);
 		assertNotNull(result.selectHandler());
+		assertEquals(500L, result.selectHandler().requests());
 	}
 
 	@Test
@@ -586,7 +482,6 @@ class CollectionServiceTest {
 		doReturn(Collections.emptyList()).when(spyService).listCollections();
 
 		HandlerStats result = spyService.getHandlerMetrics("non_existent");
-
 		assertNull(result);
 	}
 
@@ -598,7 +493,6 @@ class CollectionServiceTest {
 		when(solrClient.request(any(SolrRequest.class))).thenThrow(new SolrServerException("Error"));
 
 		HandlerStats result = spyService.getHandlerMetrics("test_collection");
-
 		assertNull(result);
 	}
 
@@ -610,21 +504,19 @@ class CollectionServiceTest {
 		when(solrClient.request(any(SolrRequest.class))).thenThrow(new IOException("IO Error"));
 
 		HandlerStats result = spyService.getHandlerMetrics("test_collection");
-
 		assertNull(result);
 	}
 
 	@Test
-	void getHandlerMetrics_EmptyStats() throws Exception {
+	void getHandlerMetrics_EmptyMetrics() throws Exception {
 		CollectionService spyService = spy(collectionService);
 		doReturn(Arrays.asList("test_collection")).when(spyService).listCollections();
 
-		NamedList<Object> mbeans = new NamedList<>();
-		mbeans.add("QUERYHANDLER", new NamedList<>());
-		when(solrClient.request(any(SolrRequest.class))).thenReturn(mbeans);
+		NamedList<Object> metricsResponse = new NamedList<>();
+		metricsResponse.add("metrics", new NamedList<>());
+		when(solrClient.request(any(SolrRequest.class))).thenReturn(metricsResponse);
 
 		HandlerStats result = spyService.getHandlerMetrics("test_collection");
-
 		assertNull(result);
 	}
 
@@ -633,34 +525,24 @@ class CollectionServiceTest {
 		CollectionService spyService = spy(collectionService);
 		doReturn(Arrays.asList("films_shard1_replica_n1")).when(spyService).listCollections();
 
-		NamedList<Object> mbeans = createMockHandlerData();
-		when(solrClient.request(any(SolrRequest.class))).thenReturn(mbeans);
+		NamedList<Object> metricsResponse = createMockMetricsHandlerData("films");
+		when(solrClient.request(any(SolrRequest.class))).thenReturn(metricsResponse);
 
 		HandlerStats result = spyService.getHandlerMetrics("films_shard1_replica_n1");
-
 		assertNotNull(result);
 	}
 
 	@Test
-	void extractHandlerStats() throws Exception {
-		NamedList<Object> mbeans = createMockHandlerData();
-		Method method = CollectionService.class.getDeclaredMethod("extractHandlerStats", NamedList.class);
-		method.setAccessible(true);
+	void getHandlerMetrics_BothHandlers() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		doReturn(Arrays.asList("test_collection")).when(spyService).listCollections();
 
-		HandlerStats result = (HandlerStats) method.invoke(collectionService, mbeans);
+		NamedList<Object> metricsResponse = createCompleteMetricsHandlerData("test_collection");
+		when(solrClient.request(any(SolrRequest.class))).thenReturn(metricsResponse);
 
-		assertNotNull(result.selectHandler());
-		assertEquals(500L, result.selectHandler().requests());
-	}
+		HandlerStats result = spyService.getHandlerMetrics("test_collection");
 
-	@Test
-	void extractHandlerStats_BothHandlers() throws Exception {
-		NamedList<Object> mbeans = createCompleteHandlerData();
-		Method method = CollectionService.class.getDeclaredMethod("extractHandlerStats", NamedList.class);
-		method.setAccessible(true);
-
-		HandlerStats result = (HandlerStats) method.invoke(collectionService, mbeans);
-
+		assertNotNull(result);
 		assertNotNull(result.selectHandler());
 		assertNotNull(result.updateHandler());
 		assertEquals(500L, result.selectHandler().requests());
@@ -668,18 +550,16 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void extractHandlerStats_NullHandlerCategory() throws Exception {
-		NamedList<Object> mbeans = new NamedList<>();
-		mbeans.add("QUERYHANDLER", null);
+	void getHandlerMetrics_NullMetricsKey() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		doReturn(Arrays.asList("test_collection")).when(spyService).listCollections();
 
-		Method method = CollectionService.class.getDeclaredMethod("extractHandlerStats", NamedList.class);
-		method.setAccessible(true);
+		NamedList<Object> metricsResponse = new NamedList<>();
+		metricsResponse.add("metrics", null);
+		when(solrClient.request(any(SolrRequest.class))).thenReturn(metricsResponse);
 
-		HandlerStats result = (HandlerStats) method.invoke(collectionService, mbeans);
-
-		assertNotNull(result);
-		assertNull(result.selectHandler());
-		assertNull(result.updateHandler());
+		HandlerStats result = spyService.getHandlerMetrics("test_collection");
+		assertNull(result);
 	}
 
 	@Test
@@ -744,7 +624,6 @@ class CollectionServiceTest {
 
 	@Test
 	void listCollections_NonCloudClient_Success() throws Exception {
-		// Create a NamedList to represent the core status response
 		NamedList<Object> response = new NamedList<>();
 		NamedList<Object> status = new NamedList<>();
 
@@ -755,7 +634,6 @@ class CollectionServiceTest {
 		status.add("core2", core2Status);
 		response.add("status", status);
 
-		// Mock the solrClient request to return the response
 		when(solrClient.request(any(), any())).thenReturn(response);
 
 		CollectionService service = new CollectionService(solrClient, objectMapper);
@@ -778,121 +656,88 @@ class CollectionServiceTest {
 		assertTrue(result.isEmpty());
 	}
 
-	// Helper methods
-	private NamedList<Object> createMockCacheData() {
-		NamedList<Object> mbeans = new NamedList<>();
-		NamedList<Object> cacheCategory = new NamedList<>();
-		NamedList<Object> queryResultCache = new NamedList<>();
-		NamedList<Object> queryStats = new NamedList<>();
+	// Helper methods for Metrics API response format
+	private NamedList<Object> createMockMetricsCacheData(String collection) {
+		NamedList<Object> metricsResponse = new NamedList<>();
+		NamedList<Object> metrics = new NamedList<>();
+		NamedList<Object> coreMetrics = new NamedList<>();
 
-		queryStats.add("lookups", 100L);
-		queryStats.add("hits", 80L);
-		queryStats.add("hitratio", 0.8f);
-		queryStats.add("inserts", 20L);
-		queryStats.add("evictions", 5L);
-		queryStats.add("size", 100L);
-		queryResultCache.add("stats", queryStats);
-		cacheCategory.add("queryResultCache", queryResultCache);
-		mbeans.add("CACHE", cacheCategory);
+		coreMetrics.add("CACHE.searcher.queryResultCache", createCacheInfoNamedList(100L, 80L, 0.8f, 20L, 5L, 100L));
 
-		return mbeans;
+		metrics.add("solr.core." + collection, coreMetrics);
+		metricsResponse.add("metrics", metrics);
+
+		return metricsResponse;
 	}
 
-	private NamedList<Object> createCompleteMockCacheData() {
-		NamedList<Object> mbeans = new NamedList<>();
-		NamedList<Object> cacheCategory = new NamedList<>();
+	private NamedList<Object> createCompleteMockMetricsCacheData(String collection) {
+		NamedList<Object> metricsResponse = new NamedList<>();
+		NamedList<Object> metrics = new NamedList<>();
+		NamedList<Object> coreMetrics = new NamedList<>();
 
-		// Query Result Cache
-		NamedList<Object> queryResultCache = new NamedList<>();
-		NamedList<Object> queryStats = new NamedList<>();
-		queryStats.add("lookups", 100L);
-		queryStats.add("hits", 80L);
-		queryStats.add("hitratio", 0.8f);
-		queryStats.add("inserts", 20L);
-		queryStats.add("evictions", 5L);
-		queryStats.add("size", 100L);
-		queryResultCache.add("stats", queryStats);
+		coreMetrics.add("CACHE.searcher.queryResultCache", createCacheInfoNamedList(100L, 80L, 0.8f, 20L, 5L, 100L));
+		coreMetrics.add("CACHE.searcher.documentCache", createCacheInfoNamedList(200L, 150L, 0.75f, 50L, 10L, 180L));
+		coreMetrics.add("CACHE.searcher.filterCache", createCacheInfoNamedList(150L, 120L, 0.8f, 30L, 8L, 140L));
 
-		// Document Cache
-		NamedList<Object> documentCache = new NamedList<>();
-		NamedList<Object> docStats = new NamedList<>();
-		docStats.add("lookups", 200L);
-		docStats.add("hits", 150L);
-		docStats.add("hitratio", 0.75f);
-		docStats.add("inserts", 50L);
-		docStats.add("evictions", 10L);
-		docStats.add("size", 180L);
-		documentCache.add("stats", docStats);
+		metrics.add("solr.core." + collection, coreMetrics);
+		metricsResponse.add("metrics", metrics);
 
-		// Filter Cache
-		NamedList<Object> filterCache = new NamedList<>();
-		NamedList<Object> filterStats = new NamedList<>();
-		filterStats.add("lookups", 150L);
-		filterStats.add("hits", 120L);
-		filterStats.add("hitratio", 0.8f);
-		filterStats.add("inserts", 30L);
-		filterStats.add("evictions", 8L);
-		filterStats.add("size", 140L);
-		filterCache.add("stats", filterStats);
-
-		cacheCategory.add("queryResultCache", queryResultCache);
-		cacheCategory.add("documentCache", documentCache);
-		cacheCategory.add("filterCache", filterCache);
-		mbeans.add("CACHE", cacheCategory);
-
-		return mbeans;
+		return metricsResponse;
 	}
 
-	private NamedList<Object> createMockHandlerData() {
-		NamedList<Object> mbeans = new NamedList<>();
-		NamedList<Object> queryHandlerCategory = new NamedList<>();
-		NamedList<Object> selectHandler = new NamedList<>();
-		NamedList<Object> selectStats = new NamedList<>();
-
-		selectStats.add("requests", 500L);
-		selectStats.add("errors", 5L);
-		selectStats.add("timeouts", 2L);
-		selectStats.add("totalTime", 10000L);
-		selectStats.add("avgTimePerRequest", 20.0f);
-		selectStats.add("avgRequestsPerSecond", 25.0f);
-		selectHandler.add("stats", selectStats);
-		queryHandlerCategory.add("/select", selectHandler);
-		mbeans.add("QUERYHANDLER", queryHandlerCategory);
-
-		return mbeans;
+	private NamedList<Object> createCacheInfoNamedList(Long lookups, Long hits, Float hitratio, Long inserts,
+			Long evictions, Long size) {
+		NamedList<Object> cache = new NamedList<>();
+		cache.add("lookups", lookups);
+		cache.add("hits", hits);
+		cache.add("hitratio", hitratio);
+		cache.add("inserts", inserts);
+		cache.add("evictions", evictions);
+		cache.add("size", size);
+		return cache;
 	}
 
-	private NamedList<Object> createCompleteHandlerData() {
-		NamedList<Object> mbeans = new NamedList<>();
-		NamedList<Object> queryHandlerCategory = new NamedList<>();
+	private NamedList<Object> createMockMetricsHandlerData(String collection) {
+		NamedList<Object> metricsResponse = new NamedList<>();
+		NamedList<Object> metrics = new NamedList<>();
+		NamedList<Object> coreMetrics = new NamedList<>();
 
-		// Select Handler
-		NamedList<Object> selectHandler = new NamedList<>();
-		NamedList<Object> selectStats = new NamedList<>();
-		selectStats.add("requests", 500L);
-		selectStats.add("errors", 5L);
-		selectStats.add("timeouts", 2L);
-		selectStats.add("totalTime", 10000L);
-		selectStats.add("avgTimePerRequest", 20.0f);
-		selectStats.add("avgRequestsPerSecond", 25.0f);
-		selectHandler.add("stats", selectStats);
+		coreMetrics.add("QUERY./select.requests", 500L);
+		coreMetrics.add("QUERY./select.errors", 5L);
+		coreMetrics.add("QUERY./select.timeouts", 2L);
+		coreMetrics.add("QUERY./select.totalTime", 10000L);
+		coreMetrics.add("QUERY./select.avgTimePerRequest", 20.0f);
+		coreMetrics.add("QUERY./select.avgRequestsPerSecond", 25.0f);
 
-		// Update Handler
-		NamedList<Object> updateHandler = new NamedList<>();
-		NamedList<Object> updateStats = new NamedList<>();
-		updateStats.add("requests", 250L);
-		updateStats.add("errors", 2L);
-		updateStats.add("timeouts", 1L);
-		updateStats.add("totalTime", 5000L);
-		updateStats.add("avgTimePerRequest", 20.0f);
-		updateStats.add("avgRequestsPerSecond", 50.0f);
-		updateHandler.add("stats", updateStats);
+		metrics.add("solr.core." + collection, coreMetrics);
+		metricsResponse.add("metrics", metrics);
 
-		queryHandlerCategory.add("/select", selectHandler);
-		queryHandlerCategory.add("/update", updateHandler);
-		mbeans.add("QUERYHANDLER", queryHandlerCategory);
+		return metricsResponse;
+	}
 
-		return mbeans;
+	private NamedList<Object> createCompleteMetricsHandlerData(String collection) {
+		NamedList<Object> metricsResponse = new NamedList<>();
+		NamedList<Object> metrics = new NamedList<>();
+		NamedList<Object> coreMetrics = new NamedList<>();
+
+		coreMetrics.add("QUERY./select.requests", 500L);
+		coreMetrics.add("QUERY./select.errors", 5L);
+		coreMetrics.add("QUERY./select.timeouts", 2L);
+		coreMetrics.add("QUERY./select.totalTime", 10000L);
+		coreMetrics.add("QUERY./select.avgTimePerRequest", 20.0f);
+		coreMetrics.add("QUERY./select.avgRequestsPerSecond", 25.0f);
+
+		coreMetrics.add("UPDATE./update.requests", 250L);
+		coreMetrics.add("UPDATE./update.errors", 2L);
+		coreMetrics.add("UPDATE./update.timeouts", 1L);
+		coreMetrics.add("UPDATE./update.totalTime", 5000L);
+		coreMetrics.add("UPDATE./update.avgTimePerRequest", 20.0f);
+		coreMetrics.add("UPDATE./update.avgRequestsPerSecond", 50.0f);
+
+		metrics.add("solr.core." + collection, coreMetrics);
+		metricsResponse.add("metrics", metrics);
+
+		return metricsResponse;
 	}
 
 	// createCollection tests
