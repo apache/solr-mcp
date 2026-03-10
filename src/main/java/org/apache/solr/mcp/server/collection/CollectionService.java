@@ -625,7 +625,9 @@ public class CollectionService {
 			}
 
 			return stats;
-		} catch (SolrServerException | IOException _) {
+		} catch (SolrServerException | IOException | RuntimeException e) {
+			// RuntimeException covers SolrException subclasses (e.g. RemoteSolrException)
+			// thrown when the /admin/mbeans endpoint is unavailable (removed in Solr 10).
 			return null; // Return null instead of empty object
 		}
 	}
@@ -797,7 +799,9 @@ public class CollectionService {
 			}
 
 			return stats;
-		} catch (SolrServerException | IOException _) {
+		} catch (SolrServerException | IOException | RuntimeException e) {
+			// RuntimeException covers SolrException subclasses (e.g. RemoteSolrException)
+			// thrown when the /admin/mbeans endpoint is unavailable (removed in Solr 10).
 			return null; // Return null instead of empty object
 		}
 	}
@@ -983,7 +987,7 @@ public class CollectionService {
 			// shard
 			// names)
 			return collections.stream().anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
-		} catch (Exception _) {
+		} catch (Exception e) {
 			return false;
 		}
 	}
