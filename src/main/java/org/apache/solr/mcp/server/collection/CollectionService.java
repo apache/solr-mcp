@@ -22,6 +22,7 @@ import static org.apache.solr.mcp.server.collection.CollectionUtils.getLong;
 import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -66,8 +67,8 @@ import org.springframework.stereotype.Service;
  * <strong>Core Capabilities:</strong>
  *
  * <ul>
- * <li><strong>Collection Discovery</strong>: Lists available collections/cores
- * with automatic SolrCloud vs standalone detection
+ * <li><strong>Collection Discovery</strong>: Lists available collections with
+ * automatic SolrCloud vs standalone detection
  * <li><strong>Performance Monitoring</strong>: Comprehensive metrics collection
  * including index, query, cache, and handler statistics
  * <li><strong>Health Monitoring</strong>: Real-time health checks with
@@ -132,6 +133,7 @@ import org.springframework.stereotype.Service;
  * @see org.apache.solr.client.solrj.SolrClient
  */
 @Service
+@Observed
 public class CollectionService {
 
 	// ========================================
@@ -317,7 +319,7 @@ public class CollectionService {
 	}
 
 	/**
-	 * Lists all available Solr collections or cores in the cluster.
+	 * Lists all available Solr collections in the cluster.
 	 *
 	 * <p>
 	 * This method automatically detects the Solr deployment type and uses the
@@ -326,7 +328,8 @@ public class CollectionService {
 	 * <ul>
 	 * <li><strong>SolrCloud</strong>: Uses Collections API to list distributed
 	 * collections
-	 * <li><strong>Standalone</strong>: Uses Core Admin API to list individual cores
+	 * <li><strong>Standalone</strong>: Uses Core Admin API to list individual
+	 * collections
 	 * </ul>
 	 *
 	 * <p>
@@ -350,8 +353,8 @@ public class CollectionService {
 	 * natural language requests like "list all collections" or "show me available
 	 * databases".
 	 *
-	 * @return a list of collection/core names, or an empty list if unable to
-	 *         retrieve them
+	 * @return a list of collection names, or an empty list if unable to retrieve
+	 *         them
 	 * @see CollectionAdminRequest.List
 	 * @see CoreAdminRequest
 	 */
@@ -379,7 +382,7 @@ public class CollectionService {
 				}
 				return cores;
 			}
-		} catch (SolrServerException | IOException e) {
+		} catch (SolrServerException | IOException _) {
 			return new ArrayList<>();
 		}
 	}
@@ -954,7 +957,8 @@ public class CollectionService {
 	 *
 	 * <p>
 	 * This dual approach ensures compatibility with both standalone Solr (which
-	 * returns core names directly) and SolrCloud (which may return shard names).
+	 * returns collection names directly) and SolrCloud (which may return shard
+	 * names).
 	 *
 	 * <p>
 	 * <strong>Error Handling:</strong>

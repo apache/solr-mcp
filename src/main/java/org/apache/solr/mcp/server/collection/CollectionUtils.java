@@ -66,7 +66,10 @@ import org.apache.solr.common.util.NamedList;
 public class CollectionUtils {
 
 	private CollectionUtils() {
+<<<<<<< HEAD
 		// Utility class — prevent instantiation
+=======
+>>>>>>> upstream/main
 	}
 
 	/**
@@ -126,7 +129,7 @@ public class CollectionUtils {
 
 		try {
 			return Long.parseLong(value.toString());
-		} catch (NumberFormatException e) {
+		} catch (NumberFormatException _) {
 			return null;
 		}
 	}
@@ -262,7 +265,7 @@ public class CollectionUtils {
 
 		try {
 			return Integer.parseInt(value.toString());
-		} catch (NumberFormatException e) {
+		} catch (NumberFormatException _) {
 			return null;
 		}
 	}
