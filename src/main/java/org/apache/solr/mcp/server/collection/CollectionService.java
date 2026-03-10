@@ -14,14 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.solr.mcp.server.metadata;
+package org.apache.solr.mcp.server.collection;
 
-import static org.apache.solr.mcp.server.metadata.CollectionUtils.getFloat;
-import static org.apache.solr.mcp.server.metadata.CollectionUtils.getInteger;
-import static org.apache.solr.mcp.server.metadata.CollectionUtils.getLong;
+import static org.apache.solr.mcp.server.collection.CollectionUtils.getFloat;
+import static org.apache.solr.mcp.server.collection.CollectionUtils.getInteger;
+import static org.apache.solr.mcp.server.collection.CollectionUtils.getLong;
 import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -51,6 +52,7 @@ import org.springaicommunity.mcp.annotation.McpComplete;
 import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 /**
@@ -68,8 +70,8 @@ import org.springframework.stereotype.Service;
  * <strong>Core Capabilities:</strong>
  *
  * <ul>
- * <li><strong>Collection Discovery</strong>: Lists available collections/cores
- * with automatic SolrCloud vs standalone detection
+ * <li><strong>Collection Discovery</strong>: Lists available collections with
+ * automatic SolrCloud vs standalone detection
  * <li><strong>Performance Monitoring</strong>: Comprehensive metrics collection
  * including index, query, cache, and handler statistics
  * <li><strong>Health Monitoring</strong>: Real-time health checks with
@@ -131,6 +133,7 @@ import org.springframework.stereotype.Service;
  * @see org.apache.solr.client.solrj.SolrClient
  */
 @Service
+@Observed
 public class CollectionService {
 
 	private static final Logger log = LoggerFactory.getLogger(CollectionService.class);
@@ -241,6 +244,18 @@ public class CollectionService {
 	/** Error message prefix for collection not found exceptions */
 	private static final String COLLECTION_NOT_FOUND_ERROR = "Collection not found: ";
 
+	/** Default configset name used when none is specified */
+	private static final String DEFAULT_CONFIGSET = "_default";
+
+	/** Default number of shards for new collections */
+	private static final int DEFAULT_NUM_SHARDS = 1;
+
+	/** Default replication factor for new collections */
+	private static final int DEFAULT_REPLICATION_FACTOR = 1;
+
+	/** Error message for blank collection name validation */
+	private static final String BLANK_COLLECTION_NAME_ERROR = "Collection name must not be blank";
+
 	/** SolrJ client for communicating with Solr server */
 	private final SolrClient solrClient;
 
@@ -296,7 +311,7 @@ public class CollectionService {
 	}
 
 	/**
-	 * Lists all available Solr collections or cores in the cluster.
+	 * Lists all available Solr collections in the cluster.
 	 *
 	 * <p>
 	 * This method automatically detects the Solr deployment type and uses the
@@ -305,7 +320,8 @@ public class CollectionService {
 	 * <ul>
 	 * <li><strong>SolrCloud</strong>: Uses Collections API to list distributed
 	 * collections
-	 * <li><strong>Standalone</strong>: Uses Core Admin API to list individual cores
+	 * <li><strong>Standalone</strong>: Uses Core Admin API to list individual
+	 * collections
 	 * </ul>
 	 *
 	 * <p>
@@ -321,8 +337,16 @@ public class CollectionService {
 	 * list is returned rather than throwing an exception, allowing the application
 	 * to continue functioning with degraded capabilities.
 	 *
-	 * @return a list of collection/core names, or an empty list if unable to
-	 *         retrieve them
+	 * <p>
+	 * <strong>MCP Tool Usage:</strong>
+	 *
+	 * <p>
+	 * This method is exposed as an MCP tool and can be invoked by AI clients with
+	 * natural language requests like "list all collections" or "show me available
+	 * databases".
+	 *
+	 * @return a list of collection names, or an empty list if unable to retrieve
+	 *         them
 	 * @see CollectionAdminRequest.List
 	 * @see CoreAdminRequest
 	 */
@@ -828,6 +852,18 @@ public class CollectionService {
 	 * "collection{@value #SHARD_SUFFIX}" pattern
 	 * </ol>
 	 *
+	 * <p>
+	 * This dual approach ensures compatibility with both standalone Solr (which
+	 * returns collection names directly) and SolrCloud (which may return shard
+	 * names).
+	 *
+	 * <p>
+	 * <strong>Error Handling:</strong>
+	 *
+	 * <p>
+	 * Returns {@code false} if validation fails due to communication errors,
+	 * allowing calling methods to handle missing collections appropriately.
+	 *
 	 * @param collection
 	 *            the collection name to validate
 	 * @return true if the collection exists (either exact or shard match), false
@@ -843,6 +879,8 @@ public class CollectionService {
 				return true;
 			}
 
+			// Check if any of the returned collections start with the collection name (for
+			// shard names)
 			return collections.stream().anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
 		} catch (Exception e) {
 			log.warn("Failed to validate collection '{}': {}", collection, e.getMessage());
@@ -894,5 +932,61 @@ public class CollectionService {
 			log.warn("Health check failed for collection '{}': {}", collection, e.getMessage());
 			return new SolrHealthStatus(false, e.getMessage(), null, null, new Date(), null, null, null);
 		}
+	}
+
+	/**
+	 * Creates a new Solr collection (SolrCloud) or core (standalone Solr).
+	 *
+	 * <p>
+	 * Automatically detects the deployment type and uses the appropriate API:
+	 *
+	 * <p>
+	 * Uses the Collections API, which works with any SolrClient pointing to a
+	 * SolrCloud deployment.
+	 *
+	 * <p>
+	 * Optional parameters default to sensible values when not provided by the MCP
+	 * client: configSet defaults to {@value #DEFAULT_CONFIGSET}, numShards and
+	 * replicationFactor both default to 1.
+	 *
+	 * @param name
+	 *            the name of the collection to create (must not be blank)
+	 * @param configSet
+	 *            the configset name (optional, defaults to
+	 *            {@value #DEFAULT_CONFIGSET})
+	 * @param numShards
+	 *            number of shards (optional, defaults to 1)
+	 * @param replicationFactor
+	 *            replication factor (optional, defaults to 1)
+	 * @return result describing the outcome of the creation operation
+	 * @throws IllegalArgumentException
+	 *             if the collection name is blank
+	 * @throws SolrServerException
+	 *             if Solr returns an error
+	 * @throws IOException
+	 *             if there are I/O errors during communication
+	 */
+	@PreAuthorize("isAuthenticated()")
+	@McpTool(name = "create-collection", description = "Create a new Solr collection. "
+			+ "configSet defaults to _default, numShards and replicationFactor default to 1.")
+	public CollectionCreationResult createCollection(
+			@McpToolParam(description = "Name of the collection to create") String name,
+			@McpToolParam(description = "Configset name. Defaults to _default.", required = false) String configSet,
+			@McpToolParam(description = "Number of shards (SolrCloud only). Defaults to 1.", required = false) Integer numShards,
+			@McpToolParam(description = "Replication factor (SolrCloud only). Defaults to 1.", required = false) Integer replicationFactor)
+			throws SolrServerException, IOException {
+
+		if (name == null || name.isBlank()) {
+			throw new IllegalArgumentException(BLANK_COLLECTION_NAME_ERROR);
+		}
+
+		String effectiveConfigSet = configSet != null ? configSet : DEFAULT_CONFIGSET;
+		int effectiveShards = numShards != null ? numShards : DEFAULT_NUM_SHARDS;
+		int effectiveRf = replicationFactor != null ? replicationFactor : DEFAULT_REPLICATION_FACTOR;
+
+		CollectionAdminRequest.createCollection(name, effectiveConfigSet, effectiveShards, effectiveRf)
+				.process(solrClient);
+
+		return new CollectionCreationResult(name, true, "Collection created successfully", new Date());
 	}
 }
