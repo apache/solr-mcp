@@ -16,12 +16,13 @@
  */
 package org.apache.solr.mcp.server.config;
 
-import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.impl.Http2SolrClient;
+import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * Spring Configuration class for Apache Solr client setup and connection
@@ -93,101 +94,102 @@ import org.springframework.context.annotation.Configuration;
  * </ul>
  *
  * @version 1.0.0
- * @since 1.0.0
  * @see SolrConfigurationProperties
- * @see Http2SolrClient
+ * @see HttpJdkSolrClient
  * @see org.springframework.boot.context.properties.EnableConfigurationProperties
+ * @since 1.0.0
  */
 @Configuration
 @EnableConfigurationProperties(SolrConfigurationProperties.class)
 public class SolrConfig {
 
-	private static final int CONNECTION_TIMEOUT_MS = 10000;
-	private static final int SOCKET_TIMEOUT_MS = 60000;
-	private static final String SOLR_PATH = "solr/";
+    private static final int CONNECTION_TIMEOUT_MS = 10000;
+    private static final int SOCKET_TIMEOUT_MS = 60000;
+    private static final String SOLR_PATH = "solr/";
 
-	/**
-	 * Creates and configures a SolrClient bean for Apache Solr communication.
-	 *
-	 * <p>
-	 * This method serves as the primary factory for creating SolrJ client instances
-	 * that are used throughout the application for all Solr operations. It performs
-	 * automatic URL normalization and applies production-ready timeout
-	 * configurations.
-	 *
-	 * <p>
-	 * <strong>URL Normalization Process:</strong>
-	 *
-	 * <ol>
-	 * <li><strong>Trailing Slash</strong>: Ensures URL ends with "/"
-	 * <li><strong>Solr Path</strong>: Appends "/solr/" if not already present
-	 * <li><strong>Validation</strong>: Checks for proper Solr endpoint format
-	 * </ol>
-	 *
-	 * <p>
-	 * <strong>Connection Configuration:</strong>
-	 *
-	 * <ul>
-	 * <li><strong>Connection Timeout</strong>: 10,000ms - Time to establish initial
-	 * connection
-	 * <li><strong>Socket Timeout</strong>: 60,000ms - Time to wait for
-	 * data/response
-	 * </ul>
-	 *
-	 * <p>
-	 * <strong>Client Type:</strong>
-	 *
-	 * <p>
-	 * Creates an {@code HttpSolrClient} configured for standard HTTP-based
-	 * communication with Solr servers. This client type is suitable for both
-	 * standalone Solr instances and SolrCloud deployments when used with load
-	 * balancers.
-	 *
-	 * <p>
-	 * <strong>Error Handling:</strong>
-	 *
-	 * <p>
-	 * URL normalization is defensive and handles various input formats gracefully.
-	 * Invalid URLs or connection failures will be caught during application startup
-	 * or first usage, providing clear error messages for troubleshooting.
-	 *
-	 * <p>
-	 * <strong>Production Considerations:</strong>
-	 *
-	 * <ul>
-	 * <li>Timeout values are optimized for production workloads
-	 * <li>Connection pooling is handled by the HttpSolrClient internally
-	 * <li>Client is thread-safe and suitable for concurrent operations
-	 * </ul>
-	 *
-	 * @param properties
-	 *            the injected Solr configuration properties containing connection
-	 *            URL
-	 * @return configured SolrClient instance ready for use in application services
-	 * @see Http2SolrClient.Builder
-	 * @see SolrConfigurationProperties#url()
-	 */
-	@Bean
-	SolrClient solrClient(SolrConfigurationProperties properties) {
-		String url = properties.url();
+    /**
+     * Creates and configures a SolrClient bean for Apache Solr communication.
+     *
+     * <p>
+     * This method serves as the primary factory for creating SolrJ client instances
+     * that are used throughout the application for all Solr operations. It performs
+     * automatic URL normalization and applies production-ready timeout
+     * configurations.
+     *
+     * <p>
+     * <strong>URL Normalization Process:</strong>
+     *
+     * <ol>
+     * <li><strong>Trailing Slash</strong>: Ensures URL ends with "/"
+     * <li><strong>Solr Path</strong>: Appends "/solr/" if not already present
+     * <li><strong>Validation</strong>: Checks for proper Solr endpoint format
+     * </ol>
+     *
+     * <p>
+     * <strong>Connection Configuration:</strong>
+     *
+     * <ul>
+     * <li><strong>Connection Timeout</strong>: 10,000ms - Time to establish initial
+     * connection
+     * <li><strong>Socket Timeout</strong>: 60,000ms - Time to wait for
+     * data/response
+     * </ul>
+     *
+     * <p>
+     * <strong>Client Type:</strong>
+     *
+     * <p>
+     * Creates an {@code HttpJdkSolrClient} configured for standard HTTP-based
+     * communication with Solr servers using the JDK's built-in HTTP client. This
+     * avoids Jetty version conflicts between SolrJ and Spring Boot. This client
+     * type is suitable for both standalone Solr instances and SolrCloud deployments
+     * when used with load balancers.
+     *
+     * <p>
+     * <strong>Error Handling:</strong>
+     *
+     * <p>
+     * URL normalization is defensive and handles various input formats gracefully.
+     * Invalid URLs or connection failures will be caught during application startup
+     * or first usage, providing clear error messages for troubleshooting.
+     *
+     * <p>
+     * <strong>Production Considerations:</strong>
+     *
+     * <ul>
+     * <li>Timeout values are optimized for production workloads
+     * <li>Connection pooling is handled by the HttpJdkSolrClient internally
+     * <li>Client is thread-safe and suitable for concurrent operations
+     * </ul>
+     *
+     * @param properties the injected Solr configuration properties containing connection
+     *                   URL
+     * @return configured SolrClient instance ready for use in application services
+     * @see HttpJdkSolrClient.Builder
+     * @see SolrConfigurationProperties#url()
+     */
+    @Bean
+    SolrClient solrClient(SolrConfigurationProperties properties) {
+        String url = properties.url();
 
-		// Ensure URL is properly formatted for Solr
-		// The URL should end with /solr/ for proper path construction
-		if (!url.endsWith("/")) {
-			url = url + "/";
-		}
+        // Ensure URL is properly formatted for Solr
+        // The URL should end with /solr/ for proper path construction
+        if (!url.endsWith("/")) {
+            url = url + "/";
+        }
 
-		// If URL doesn't contain /solr/ path, add it
-		if (!url.endsWith("/" + SOLR_PATH) && !url.contains("/" + SOLR_PATH)) {
-			if (url.endsWith("/")) {
-				url = url + SOLR_PATH;
-			} else {
-				url = url + "/" + SOLR_PATH;
-			}
-		}
+        // If URL doesn't contain /solr/ path, add it
+        if (!url.endsWith("/" + SOLR_PATH) && !url.contains("/" + SOLR_PATH)) {
+            if (url.endsWith("/")) {
+                url = url + SOLR_PATH;
+            } else {
+                url = url + "/" + SOLR_PATH;
+            }
+        }
 
-		// Use with explicit base URL
-		return new Http2SolrClient.Builder(url).withConnectionTimeout(CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-				.withIdleTimeout(SOCKET_TIMEOUT_MS, TimeUnit.MILLISECONDS).build();
-	}
+        // Use HttpJdkSolrClient which uses the JDK's built-in HTTP client
+        // This avoids Jetty version conflicts between SolrJ and Spring Boot
+        return new HttpJdkSolrClient.Builder(url).withConnectionTimeout(CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .withIdleTimeout(SOCKET_TIMEOUT_MS, TimeUnit.MILLISECONDS).build();
+    }
 }

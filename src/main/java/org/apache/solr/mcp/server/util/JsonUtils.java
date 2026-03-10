@@ -16,8 +16,8 @@
  */
 package org.apache.solr.mcp.server.util;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Utility class for JSON serialization operations.
@@ -51,7 +51,7 @@ public final class JsonUtils {
 	public static String toJson(ObjectMapper objectMapper, Object obj) {
 		try {
 			return objectMapper.writeValueAsString(obj);
-		} catch (JsonProcessingException e) {
+		} catch (JacksonException e) {
 			return "{\"error\": \"Failed to serialize response\"}";
 		}
 	}
