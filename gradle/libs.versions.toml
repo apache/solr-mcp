@@ -73,9 +73,6 @@ testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-jun
 testcontainers-solr = { module = "org.testcontainers:testcontainers-solr", version.ref = "testcontainers" }
 testcontainers-grafana = { module = "org.testcontainers:testcontainers-grafana", version.ref = "testcontainers" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
-awaitility = { module = "org.awaitility:awaitility" }
-opentelemetry-sdk-testing = { module = "io.opentelemetry:opentelemetry-sdk-testing" }
-junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }
 opentelemetry-sdk-testing = { module = "io.opentelemetry:opentelemetry-sdk-testing" }
 micrometer-tracing-test = { module = "io.micrometer:micrometer-tracing-test" }
@@ -107,7 +104,6 @@ test = [
     "testcontainers-grafana",
     "spring-ai-starter-mcp-client",
     "awaitility",
-    "opentelemetry-sdk-testing"
     "opentelemetry-sdk-testing",
     "micrometer-tracing-test",
     "jetty-client",
