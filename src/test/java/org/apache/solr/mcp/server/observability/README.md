@@ -17,7 +17,6 @@ We use a **three-tier testing strategy** to verify that distributed tracing work
 **Purpose**: Fast unit tests using in-memory span exporter
 
 **What it tests**:
-
 - Spans are created for `@Observed` methods
 - Span attributes are correctly populated
 - Span hierarchy (parent-child relationships) is correct
@@ -26,13 +25,11 @@ We use a **three-tier testing strategy** to verify that distributed tracing work
 - Span durations are valid
 
 **How it works**:
-
 - Uses `InMemorySpanExporter` to capture spans without external infrastructure
 - Uses Awaitility for asynchronous span collection
 - Runs fast (seconds) - suitable for CI/CD pipelines
 
 **Run with**:
-
 ```bash
 ./gradlew test --tests DistributedTracingTest
 ```
@@ -42,7 +39,6 @@ We use a **three-tier testing strategy** to verify that distributed tracing work
 **Purpose**: End-to-end integration test with real OTLP collector
 
 **What it tests**:
-
 - Traces are successfully exported to OTLP collector
 - Traces appear in Tempo (distributed tracing backend)
 - Service name and tags are correctly included
@@ -50,20 +46,17 @@ We use a **three-tier testing strategy** to verify that distributed tracing work
 - Network communication is successful
 
 **How it works**:
-
 - Starts Grafana LGTM stack in Testcontainers (includes OTLP collector + Tempo)
 - Configures app to export to the test container
 - Executes operations that create spans
 - Queries Tempo API to verify traces were received
 
 **Run with**:
-
 ```bash
 ./gradlew test --tests OtlpExportIntegrationTest
 ```
 
 **Note**: This test is slower (30+ seconds) due to:
-
 - Container startup time
 - Tempo ingestion delay
 - Network I/O
@@ -71,16 +64,12 @@ We use a **three-tier testing strategy** to verify that distributed tracing work
 ### 3. Helper Classes
 
 #### `ObservabilityTestConfiguration.java`
-
 Test configuration that provides:
-
 - `InMemorySpanExporter` bean for capturing spans
 - `SdkTracerProvider` configured to use in-memory exporter
 
 #### `LgtmAssertions.java`
-
 Helper for querying LGTM stack (Tempo, Prometheus, Loki):
-
 ```java
 LgtmAssertions lgtm = new LgtmAssertions(lgtmContainer, objectMapper);
 
@@ -95,27 +84,19 @@ Optional<JsonNode> metrics = lgtm.queryPrometheus("http_server_requests_seconds_
 ```
 
 #### `TraceAssertions.java`
-
 Fluent assertion utilities for trace verification:
-
 ```java
 // Assert span exists
 TraceAssertions.assertSpanExists(spans, "SearchService.search");
 
 // Assert span has attribute
-TraceAssertions.
-
-assertSpanHasAttribute(spans, "SearchService","collection","test");
+TraceAssertions.assertSpanHasAttribute(spans, "SearchService", "collection", "test");
 
 // Assert span count
-TraceAssertions.
-
-assertSpanCount(spans, 3);
+TraceAssertions.assertSpanCount(spans, 3);
 
 // Assert span kind
-TraceAssertions.
-
-assertSpanKind(spans, "SearchService",SpanKind.INTERNAL);
+TraceAssertions.assertSpanKind(spans, "SearchService", SpanKind.INTERNAL);
 
 // Find specific span
 SpanData span = TraceAssertions.findSpan(spans, "SearchService");
@@ -146,15 +127,15 @@ For local development, you can verify tracing works by:
    ```
 
 3. **Execute some operations** (via MCP client or HTTP API):
-    - Index documents
-    - Search collections
-    - List collections
+   - Index documents
+   - Search collections
+   - List collections
 
 4. **Open Grafana**: http://localhost:3000
-    - Navigate to "Explore"
-    - Select "Tempo" datasource
-    - Search for service name: `solr-mcp-server`
-    - View traces, spans, and distributed call graphs
+   - Navigate to "Explore"
+   - Select "Tempo" datasource
+   - Search for service name: `solr-mcp-server`
+   - View traces, spans, and distributed call graphs
 
 ## What Gets Traced?
 
@@ -168,7 +149,6 @@ All service methods annotated with `@Observed` automatically create spans:
 - **SchemaService.getSchema()** - Schema retrieval
 
 Spring Boot also automatically instruments:
-
 - HTTP requests (incoming and outgoing)
 - JDBC database queries
 - RestClient/RestTemplate calls
@@ -179,15 +159,13 @@ Spring Boot also automatically instruments:
 ### In CI Pipelines
 
 The **unit tests** (`DistributedTracingTest`) are fast and suitable for CI:
-
 ```yaml
 # GitHub Actions example
--   name: Run observability tests
-    run: ./gradlew test --tests "DistributedTracingTest"
+- name: Run observability tests
+  run: ./gradlew test --tests "DistributedTracingTest"
 ```
 
 The **integration tests** (`OtlpExportIntegrationTest`) can be run:
-
 - On merge to main (comprehensive validation)
 - Nightly builds
 - Pre-release verification
@@ -205,7 +183,6 @@ The **integration tests** (`OtlpExportIntegrationTest`) can be run:
 **Problem**: `InMemorySpanExporter` returns empty list
 
 **Solutions**:
-
 1. Verify `@Observed` annotation is present on method
 2. Ensure `management.observations.annotations.enabled=true`
 3. Check that AspectJ is configured (`spring-boot-starter-aspectj` dependency)
@@ -216,7 +193,6 @@ The **integration tests** (`OtlpExportIntegrationTest`) can be run:
 **Problem**: `OtlpExportIntegrationTest` times out waiting for traces
 
 **Solutions**:
-
 1. Increase timeout: `await().atMost(60, TimeUnit.SECONDS)`
 2. Check LGTM container is running: `docker ps | grep lgtm`
 3. Verify OTLP endpoint configuration in test properties
@@ -227,12 +203,11 @@ The **integration tests** (`OtlpExportIntegrationTest`) can be run:
 **Problem**: Grafana/Tempo shows no traces
 
 **Solutions**:
-
 1. Verify LGTM stack is running: `docker compose ps`
 2. Check OTLP endpoint: `http://localhost:4318/v1/traces`
 3. Verify application properties:
-    - `spring.opentelemetry.tracing.export.otlp.endpoint` is set
-    - `management.tracing.sampling.probability=1.0` (100% sampling)
+   - `spring.opentelemetry.tracing.export.otlp.endpoint` is set
+   - `management.tracing.sampling.probability=1.0` (100% sampling)
 4. Check application logs for OTLP export errors
 5. Verify Grafana datasource: Grafana → Connections → Data Sources → Tempo
 
@@ -249,7 +224,6 @@ The **integration tests** (`OtlpExportIntegrationTest`) can be run:
 ### Example Test Pattern
 
 ```java
-
 @Test
 void shouldCreateSpanForMyOperation() throws Exception {
     // Given: Initial state
@@ -260,12 +234,12 @@ void shouldCreateSpanForMyOperation() throws Exception {
 
     // Then: Verify span was created
     await()
-            .atMost(5, TimeUnit.SECONDS)
-            .untilAsserted(() -> {
-                List<SpanData> spans = spanExporter.getFinishedSpanItems();
-                TraceAssertions.assertSpanExists(spans, "MyService.doSomething");
-                TraceAssertions.assertSpanHasAttribute(spans, "MyService", "operation", "doSomething");
-            });
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(() -> {
+            List<SpanData> spans = spanExporter.getFinishedSpanItems();
+            TraceAssertions.assertSpanExists(spans, "MyService.doSomething");
+            TraceAssertions.assertSpanHasAttribute(spans, "MyService", "operation", "doSomething");
+        });
 }
 ```
 

@@ -21,12 +21,15 @@ nullaway = "0.12.7"
 
 # Test dependencies
 testcontainers = "2.0.2"
+awaitility = "4.2.2"
+opentelemetry-instrumentation-bom = "2.11.0"
 
 [libraries]
 # Spring
 spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }
 spring-boot-starter-json = { module = "org.springframework.boot:spring-boot-starter-json" }
 spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+spring-boot-starter-aop = { module = "org.springframework.boot:spring-boot-starter-aop" }
 spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security" }
 spring-boot-starter-oauth2-resource-server = { module = "org.springframework.boot:spring-boot-starter-oauth2-resource-server" }
 spring-boot-docker-compose = { module = "org.springframework.boot:spring-boot-docker-compose" }
@@ -62,6 +65,9 @@ spring-boot-starter-aspectj = { module = "org.springframework.boot:spring-boot-s
 errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorprone-core" }
 nullaway = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }
 
+# Micrometer Tracing
+micrometer-tracing-bridge-otel = { module = "io.micrometer:micrometer-tracing-bridge-otel" }
+
 # Test dependencies
 testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter", version.ref = "testcontainers" }
 testcontainers-solr = { module = "org.testcontainers:testcontainers-solr", version.ref = "testcontainers" }
@@ -69,6 +75,14 @@ testcontainers-grafana = { module = "org.testcontainers:testcontainers-grafana",
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 awaitility = { module = "org.awaitility:awaitility" }
 opentelemetry-sdk-testing = { module = "io.opentelemetry:opentelemetry-sdk-testing" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }
+opentelemetry-sdk-testing = { module = "io.opentelemetry:opentelemetry-sdk-testing" }
+micrometer-tracing-test = { module = "io.micrometer:micrometer-tracing-test" }
+jetty-client = { module = "org.eclipse.jetty:jetty-client" }
+jetty-http = { module = "org.eclipse.jetty:jetty-http" }
+jetty-io = { module = "org.eclipse.jetty:jetty-io" }
+jetty-util = { module = "org.eclipse.jetty:jetty-util" }
 
 [bundles]
 spring-ai-mcp = [
@@ -94,6 +108,12 @@ test = [
     "spring-ai-starter-mcp-client",
     "awaitility",
     "opentelemetry-sdk-testing"
+    "opentelemetry-sdk-testing",
+    "micrometer-tracing-test",
+    "jetty-client",
+    "jetty-http",
+    "jetty-io",
+    "jetty-util"
 ]
 
 errorprone = [
