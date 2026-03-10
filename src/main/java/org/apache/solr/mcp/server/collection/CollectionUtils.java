@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.solr.mcp.server.metadata;
+package org.apache.solr.mcp.server.collection;
 
 import org.apache.solr.common.util.NamedList;
 
@@ -64,6 +64,9 @@ import org.apache.solr.common.util.NamedList;
  * @see CollectionService
  */
 public class CollectionUtils {
+
+	private CollectionUtils() {
+	}
 
 	/**
 	 * Extracts a Long value from a NamedList using the specified key with robust
@@ -122,7 +125,7 @@ public class CollectionUtils {
 
 		try {
 			return Long.parseLong(value.toString());
-		} catch (NumberFormatException e) {
+		} catch (NumberFormatException _) {
 			return null;
 		}
 	}
@@ -258,7 +261,7 @@ public class CollectionUtils {
 
 		try {
 			return Integer.parseInt(value.toString());
-		} catch (NumberFormatException e) {
+		} catch (NumberFormatException _) {
 			return null;
 		}
 	}

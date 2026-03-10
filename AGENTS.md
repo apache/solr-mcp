@@ -73,6 +73,27 @@ Spring Boot Buildpacks output logs to stdout, breaking MCP's STDIO protocol. Jib
 - **Integration tests** (`*IntegrationTest.java`, `*DirectTest.java`): Real Solr via Testcontainers
 - **Docker tests** (`containerization/`): Tagged `@Tag("docker-integration")`, run separately
 
+### Solr Version Compatibility Testing
+
+The Solr Docker image used in tests is configurable via the `solr.test.image` system property (default: `solr:9.9-slim`):
+
+```bash
+./gradlew test -Dsolr.test.image=solr:8.11-slim    # Solr 8.11
+./gradlew test -Dsolr.test.image=solr:9.4-slim     # Solr 9.4
+./gradlew test -Dsolr.test.image=solr:9.9-slim     # Solr 9.9 (default)
+```
+
+**Tested compatible versions:** 8.11, 9.4, 9.9
+
+### Solr 10 Compatibility Notes
+
+Solr 10 introduces breaking changes that will require updates to this project:
+
+- **MBeans removal:** `SolrInfoMBeanHandler` is removed. `CollectionService.getCollectionStats()` uses `/admin/mbeans` for cache and handler metrics — this will need to migrate to the `/admin/metrics` endpoint or OpenTelemetry.
+- **Metrics migration:** Dropwizard metrics replaced by OpenTelemetry. All metric names switch to snake_case. JMX, Prometheus exporter, SLF4J, and Graphite reporters are removed.
+- **SolrJ base URL:** SolrClient now only accepts root URLs (e.g., `http://host:8983/solr`). This project already uses root URLs with per-request collection names, so **no change needed** here.
+- **SolrJ dependency:** Upgrade `solr-solrj` from 9.x to 10.x in `gradle/libs.versions.toml`. The Jetty BOM alignment (`jetty = "10.0.22"`) will also need updating since Solr 10 uses Jetty 12.x.
+
 ## Key Configuration
 
 Environment variables:
