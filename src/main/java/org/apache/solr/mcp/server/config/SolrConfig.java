@@ -137,10 +137,10 @@ public class SolrConfig {
 	 *
 	 * <p>
 	 * Creates an {@code HttpJdkSolrClient} configured for standard HTTP-based
-	 * communication with Solr servers using the JDK's built-in HTTP client. This
-	 * avoids Jetty version conflicts between SolrJ and Spring Boot. This client
-	 * type is suitable for both standalone Solr instances and SolrCloud deployments
-	 * when used with load balancers.
+	 * communication with SolrCloud servers using the JDK's built-in HTTP client.
+	 * This avoids Jetty version conflicts between SolrJ and Spring Boot. This
+	 * client type is suitable for SolrCloud deployments when used with load
+	 * balancers.
 	 *
 	 * <p>
 	 * <strong>Error Handling:</strong>
