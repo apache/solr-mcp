@@ -16,6 +16,8 @@
  */
 package org.apache.solr.mcp.server.observability;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
@@ -23,8 +25,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.client.RestClient;
 import org.testcontainers.grafana.LgtmStackContainer;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
 
 /**
  * Helper class to query LGTM stack backends (Tempo, Prometheus, Loki).
@@ -96,7 +96,7 @@ public class LgtmAssertions {
 			if (response != null) {
 				return Optional.of(objectMapper.readTree(response));
 			}
-		} catch (Exception e) {
+		} catch (Exception _) {
 			log.debug("Trace not found: {}", traceId);
 		}
 		return Optional.empty();

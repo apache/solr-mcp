@@ -100,11 +100,18 @@ dependencies {
     implementation(libs.spring.boot.starter.webmvc)
     implementation(libs.spring.boot.starter.json)
     implementation(libs.spring.boot.starter.actuator)
+    implementation(libs.spring.boot.starter.aop)
     implementation(libs.spring.ai.starter.mcp.server.webmvc)
     implementation(libs.solr.solrj) {
         exclude(group = "org.apache.httpcomponents")
     }
     implementation(libs.commons.csv)
+
+    implementation(platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.11.0"))
+    implementation("io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter")
+    implementation(libs.micrometer.tracing.bridge.otel)
+
+    implementation("io.micrometer:micrometer-registry-prometheus")
 
     // Security
     implementation(libs.mcp.server.security)
@@ -175,6 +182,8 @@ tasks.withType<Test> {
             excludeTags("docker-integration")
         }
     }
+    // Forward solr.test.image system property to test JVMs for Solr version compatibility testing
+    systemProperty("solr.test.image", System.getProperty("solr.test.image", "solr:9.9-slim"))
     if (name != "dockerIntegrationTest") {
         finalizedBy(tasks.jacocoTestReport)
     }

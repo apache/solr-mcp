@@ -43,10 +43,6 @@ import java.util.function.Predicate;
  */
 public class TraceAssertions {
 
-	private TraceAssertions() {
-		// Utility class
-	}
-
 	/**
 	 * Assert that at least one span with the given name exists.
 	 *
@@ -186,6 +182,10 @@ public class TraceAssertions {
 	 */
 	public static List<SpanData> findSpans(List<SpanData> spans, String spanName) {
 		return spans.stream().filter(span -> span.getName().contains(spanName)).toList();
+	}
+
+	private TraceAssertions() {
+		// Utility class
 	}
 
 }
