@@ -8,7 +8,7 @@ spotless = "7.0.2"
 
 # Main dependencies
 spring-ai = "1.1.2"
-solr = "9.9.0"
+solr = "10.0.0"
 commons-csv = "1.10.0"
 jspecify = "1.0.0"
 mcp-server-security = "0.0.4"
@@ -17,8 +17,6 @@ mcp-server-security = "0.0.4"
 errorprone-core = "2.38.0"
 nullaway = "0.12.7"
 
-# Jetty BOM version
-jetty = "10.0.22"
 
 # Test dependencies
 testcontainers = "1.21.3"
