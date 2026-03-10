@@ -17,6 +17,8 @@
 package org.apache.solr.mcp.server.config;
 
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.security.server.config.McpServerOAuth2Configurer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -36,12 +38,21 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableWebSecurity
 class McpServerConfiguration {
 
+	private static final Logger log = LoggerFactory.getLogger(McpServerConfiguration.class);
+
 	@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri:}")
 	private String issuerUrl;
+
+	@Value("${cors.allowed-origin-patterns:http://localhost:*,http://127.0.0.1:*}")
+	private String allowedOriginPatterns;
 
 	@Bean
 	@ConditionalOnProperty(name = "spring.security.enabled", havingValue = "true", matchIfMissing = true)
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+		if (issuerUrl == null || issuerUrl.isBlank()) {
+			log.warn("OAuth2 issuer URI is not configured. "
+					+ "Set spring.security.oauth2.resourceserver.jwt.issuer-uri to enable JWT validation.");
+		}
 		return http
 				// ⬇️ Open every request on the server
 				.authorizeHttpRequests(auth -> {
@@ -51,10 +62,8 @@ class McpServerConfiguration {
 					auth.anyRequest().authenticated();
 				})
 				// Configure OAuth2 on the MCP server
-				.with(McpServerOAuth2Configurer.mcpServerOAuth2(), (mcpAuthorization) -> {
-					// REQUIRED: the issuerURI
-					mcpAuthorization.authorizationServer(issuerUrl);
-				})
+				.with(McpServerOAuth2Configurer.mcpServerOAuth2(),
+						mcpAuthorization -> mcpAuthorization.authorizationServer(issuerUrl))
 				// MCP inspector
 				.cors(cors -> cors.configurationSource(corsConfigurationSource())).csrf(CsrfConfigurer::disable)
 				.build();
@@ -71,9 +80,9 @@ class McpServerConfiguration {
 
 	public CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration configuration = new CorsConfiguration();
-		configuration.setAllowedOriginPatterns(List.of("*"));
-		configuration.setAllowedMethods(List.of("*"));
-		configuration.setAllowedHeaders(List.of("*"));
+		configuration.setAllowedOriginPatterns(List.of(allowedOriginPatterns.split(",")));
+		configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+		configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
 		configuration.setAllowCredentials(true);
 
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

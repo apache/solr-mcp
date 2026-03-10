@@ -107,13 +107,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * validation and normalization occurs in the {@link SolrConfig} class during
  * SolrClient bean creation.
  *
- * @param url
- *            the base URL of the Apache Solr server (required, non-null)
+ * @param url the base URL of the Apache Solr server (required, non-null)
  * @version 1.0.0
- * @since 1.0.0
  * @see SolrConfig
  * @see org.springframework.boot.context.properties.ConfigurationProperties
  * @see org.springframework.boot.context.properties.EnableConfigurationProperties
+ * @since 1.0.0
  */
 @ConfigurationProperties(prefix = "solr")
 public record SolrConfigurationProperties(String url) {
