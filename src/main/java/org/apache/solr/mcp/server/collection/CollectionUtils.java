@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.solr.mcp.server.metadata;
+package org.apache.solr.mcp.server.collection;
 
 import org.apache.solr.common.util.NamedList;
 
@@ -68,6 +68,9 @@ public final class CollectionUtils {
 	// Private constructor to prevent instantiation
 	private CollectionUtils() {
 		throw new UnsupportedOperationException("Utility class cannot be instantiated");
+	}
+
+	private CollectionUtils() {
 	}
 
 	/**
@@ -127,7 +130,7 @@ public final class CollectionUtils {
 
 		try {
 			return Long.parseLong(value.toString());
-		} catch (NumberFormatException e) {
+		} catch (NumberFormatException _) {
 			return null;
 		}
 	}
@@ -274,7 +277,7 @@ public final class CollectionUtils {
 
 		try {
 			return Integer.parseInt(value.toString());
-		} catch (NumberFormatException e) {
+		} catch (NumberFormatException _) {
 			return null;
 		}
 	}
