@@ -434,7 +434,7 @@ public class IndexingService {
 			try {
 				solrClient.add(collection, batch);
 				successCount += batch.size();
-			} catch (SolrServerException | IOException | RuntimeException e) {
+			} catch (SolrServerException | IOException | RuntimeException _) {
 				// Try indexing documents individually to identify problematic ones
 				for (SolrInputDocument doc : batch) {
 					try {
