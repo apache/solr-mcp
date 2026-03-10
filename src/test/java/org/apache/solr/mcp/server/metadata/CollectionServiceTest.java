@@ -30,7 +30,6 @@ import java.util.List;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
-import org.apache.solr.client.solrj.impl.CloudSolrClient;
 import org.apache.solr.client.solrj.response.LukeResponse;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
@@ -47,9 +46,6 @@ class CollectionServiceTest {
 
 	@Mock
 	private SolrClient solrClient;
-
-	@Mock
-	private CloudSolrClient cloudSolrClient;
 
 	@Mock
 	private QueryResponse queryResponse;
@@ -76,31 +72,16 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void listCollections_WithCloudSolrClient_ShouldReturnCollections() throws Exception {
-		// Given - This test verifies the service can be constructed with
-		// CloudSolrClient
-		CollectionService cloudService = new CollectionService(cloudSolrClient, objectMapper);
-
-		// Note: This test cannot fully exercise listCollections() because it requires
-		// mocking static methods in CollectionAdminRequest which requires PowerMock or
-		// Mockito inline. The actual behavior is tested in integration tests.
-
-		// When/Then - Verify service construction
-		assertNotNull(cloudService, "Should be able to construct service with CloudSolrClient");
-	}
-
-	@Test
 	void listCollections_WhenExceptionOccurs_ShouldReturnEmptyList() throws Exception {
-		// Note: This test cannot fully exercise listCollections() with mock SolrClient
-		// because it requires mocking CoreAdminRequest processing. The actual error
-		// handling behavior is tested in integration tests.
+		// Given - mock throws exception
+		when(solrClient.request(any(), any())).thenThrow(new SolrServerException("Connection error"));
 
-		// Given/When - Using regular SolrClient (non-cloud) which will attempt
-		// CoreAdmin
-		// The mock doesn't have a real CoreAdmin implementation
+		// When
+		List<String> result = collectionService.listCollections();
 
-		// Then - Verify service is constructed
-		assertNotNull(collectionService, "Service should be constructed successfully");
+		// Then
+		assertNotNull(result);
+		assertTrue(result.isEmpty());
 	}
 
 	// Collection name extraction tests
@@ -697,16 +678,13 @@ class CollectionServiceTest {
 
 	// List collections tests
 	@Test
-	void listCollections_CloudClient_Success() throws Exception {
-		CloudSolrClient cloudClient = mock(CloudSolrClient.class);
-
+	void listCollections_Success() throws Exception {
 		NamedList<Object> response = new NamedList<>();
 		response.add("collections", Arrays.asList("collection1", "collection2"));
 
-		when(cloudClient.request(any(), any())).thenReturn(response);
+		when(solrClient.request(any(), any())).thenReturn(response);
 
-		CollectionService service = new CollectionService(cloudClient, objectMapper);
-		List<String> result = service.listCollections();
+		List<String> result = collectionService.listCollections();
 
 		assertNotNull(result);
 		assertEquals(2, result.size());
@@ -715,64 +693,33 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void listCollections_CloudClient_NullCollections() throws Exception {
-		CloudSolrClient cloudClient = mock(CloudSolrClient.class);
-
+	void listCollections_NullCollections() throws Exception {
 		NamedList<Object> response = new NamedList<>();
 		response.add("collections", null);
 
-		when(cloudClient.request(any(), any())).thenReturn(response);
-
-		CollectionService service = new CollectionService(cloudClient, objectMapper);
-		List<String> result = service.listCollections();
-
-		assertNotNull(result);
-		assertTrue(result.isEmpty());
-	}
-
-	@Test
-	void listCollections_CloudClient_Error() throws Exception {
-		CloudSolrClient cloudClient = mock(CloudSolrClient.class);
-		when(cloudClient.request(any(), any())).thenThrow(new SolrServerException("Connection error"));
-
-		CollectionService service = new CollectionService(cloudClient, objectMapper);
-		List<String> result = service.listCollections();
-
-		assertNotNull(result);
-		assertTrue(result.isEmpty());
-	}
-
-	@Test
-	void listCollections_NonCloudClient_Success() throws Exception {
-		// Create a NamedList to represent the core status response
-		NamedList<Object> response = new NamedList<>();
-		NamedList<Object> status = new NamedList<>();
-
-		NamedList<Object> core1Status = new NamedList<>();
-		NamedList<Object> core2Status = new NamedList<>();
-
-		status.add("core1", core1Status);
-		status.add("core2", core2Status);
-		response.add("status", status);
-
-		// Mock the solrClient request to return the response
 		when(solrClient.request(any(), any())).thenReturn(response);
 
-		CollectionService service = new CollectionService(solrClient, objectMapper);
-		List<String> result = service.listCollections();
+		List<String> result = collectionService.listCollections();
 
 		assertNotNull(result);
-		assertEquals(2, result.size());
-		assertTrue(result.contains("core1"));
-		assertTrue(result.contains("core2"));
+		assertTrue(result.isEmpty());
 	}
 
 	@Test
-	void listCollections_NonCloudClient_Error() throws Exception {
+	void listCollections_Error() throws Exception {
+		when(solrClient.request(any(), any())).thenThrow(new SolrServerException("Connection error"));
+
+		List<String> result = collectionService.listCollections();
+
+		assertNotNull(result);
+		assertTrue(result.isEmpty());
+	}
+
+	@Test
+	void listCollections_IOError() throws Exception {
 		when(solrClient.request(any(), any())).thenThrow(new IOException("IO error"));
 
-		CollectionService service = new CollectionService(solrClient, objectMapper);
-		List<String> result = service.listCollections();
+		List<String> result = collectionService.listCollections();
 
 		assertNotNull(result);
 		assertTrue(result.isEmpty());
