@@ -65,8 +65,11 @@ java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
 #### HTTP Mode
 
 ```bash
-./gradlew bootRun --args='--spring.profiles.active=http'
+PROFILES=http ./gradlew bootRun
 ```
+
+Spring Boot Docker Compose will automatically start the services declared in `compose.yaml`
+(Solr, ZooKeeper, and optionally LGTM for observability) before the application starts.
 
 The server will start on http://localhost:8080
 
@@ -131,7 +134,7 @@ The [MCP Inspector](https://github.com/modelcontextprotocol/inspector) provides 
 
 ```bash
 # Start the server in HTTP mode
-./gradlew bootRun --args='--spring.profiles.active=http'
+PROFILES=http ./gradlew bootRun
 
 # In another terminal, start MCP Inspector
 npx @modelcontextprotocol/inspector
