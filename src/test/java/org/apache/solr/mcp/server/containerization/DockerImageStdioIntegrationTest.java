@@ -85,7 +85,7 @@ class DockerImageStdioIntegrationTest {
 
 	// Docker image name and tag from build-info.properties
 	private static final String DOCKER_IMAGE = BuildInfoReader.getDockerImageName();
-	private static final String SOLR_IMAGE = "solr:9.9-slim";
+	private static final String SOLR_IMAGE = System.getProperty("solr.test.image");
 
 	// Network for container communication
 	private static final Network network = Network.newNetwork();
