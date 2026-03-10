@@ -85,25 +85,22 @@ class SchemaServiceIntegrationTest {
 	@Test
 	void testGetSchema_InvalidCollection() {
 		// When/Then
-		assertThrows(Exception.class, () -> {
-			schemaService.getSchema("non_existent_collection_12345");
-		}, "Getting schema for non-existent collection should throw exception");
+		assertThrows(Exception.class, () -> schemaService.getSchema("non_existent_collection_12345"),
+				"Getting schema for non-existent collection should throw exception");
 	}
 
 	@Test
 	void testGetSchema_NullCollection() {
 		// When/Then
-		assertThrows(Exception.class, () -> {
-			schemaService.getSchema(null);
-		}, "Getting schema with null collection should throw exception");
+		assertThrows(Exception.class, () -> schemaService.getSchema(null),
+				"Getting schema with null collection should throw exception");
 	}
 
 	@Test
 	void testGetSchema_EmptyCollection() {
 		// When/Then
-		assertThrows(Exception.class, () -> {
-			schemaService.getSchema("");
-		}, "Getting schema with empty collection should throw exception");
+		assertThrows(Exception.class, () -> schemaService.getSchema(""),
+				"Getting schema with empty collection should throw exception");
 	}
 
 	@Test
