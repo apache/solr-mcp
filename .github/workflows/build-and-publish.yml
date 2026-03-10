@@ -127,9 +127,12 @@ jobs:
         runs-on: ubuntu-latest
 
         steps:
-            # Checkout the repository code
+            # Checkout the repository code with full history
+            # Full history is required for git-semver-plugin to calculate version
             -   name: Checkout code
                 uses: actions/checkout@v4
+                with:
+                    fetch-depth: 0
 
             # Set up Java environment using centralized configuration
             # See .github/actions/setup-java/action.yml to update Java version
@@ -207,9 +210,12 @@ jobs:
             packages: write
 
         steps:
-            # Checkout the repository code
+            # Checkout the repository code with full history
+            # Full history is required for git-semver-plugin to calculate version
             -   name: Checkout code
                 uses: actions/checkout@v4
+                with:
+                    fetch-depth: 0
 
             # Set up Java environment using centralized configuration
             # See .github/actions/setup-java/action.yml to update Java version
@@ -218,14 +224,14 @@ jobs:
 
             # Extract version and determine image tags
             # Outputs:
-            # - version: Project version from build.gradle.kts
+            # - version: Project version from git-semver-plugin
             # - tags: Comma-separated list of Docker tags to apply
             # - is_release: Whether this is a release build (from version tag)
             -   name: Extract metadata
                 id: meta
                 run: |
-                    # Get version from build.gradle.kts
-                    VERSION=$(grep '^version = ' build.gradle.kts | sed 's/version = "\(.*\)"/\1/')
+                    # Get version from git-semver-plugin (derived from git tags + commits)
+                    VERSION=$(./gradlew printVersion --quiet)
                     echo "version=$VERSION" >> $GITHUB_OUTPUT
 
                     # Determine image tags based on trigger type
@@ -235,7 +241,7 @@ jobs:
                       echo "tags=$TAG_VERSION,latest" >> $GITHUB_OUTPUT
                       echo "is_release=true" >> $GITHUB_OUTPUT
                     else
-                      # For main branch, append short commit SHA for traceability
+                      # For main branch, use SNAPSHOT version with short commit SHA
                       SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
                       echo "tags=$VERSION-$SHORT_SHA,latest" >> $GITHUB_OUTPUT
                       echo "is_release=false" >> $GITHUB_OUTPUT

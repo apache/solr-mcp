@@ -1,0 +1,232 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# ============================================================================
+# CUT RELEASE WORKFLOW
+# ============================================================================
+#
+# PURPOSE:
+# --------
+# Manually triggered workflow to create a new version release.
+# Calculates version from conventional commits, creates tag, and publishes.
+#
+# WHEN TO USE:
+# ------------
+# - When you're ready to create a new development release
+# - After accumulating meaningful changes in main
+# - This is for development releases, NOT official ASF releases
+#
+# WHAT IT DOES:
+# -------------
+# 1. Calculates version from conventional commits since last tag
+# 2. Moves "Unreleased" changelog entries to new version section
+# 3. Creates version tag (e.g., v1.0.0)
+# 4. Creates GitHub Release with changelog
+# 5. Triggers build-and-publish.yml to publish Docker images
+#
+# FOR OFFICIAL ASF RELEASES:
+# --------------------------
+# Use release-publish.yml instead, which requires:
+# - RC tag (v1.0.0-rc1)
+# - 72-hour ASF vote
+# - Publishes to apache/solr-mcp namespace
+#
+# RELATED WORKFLOWS:
+# ------------------
+# - auto-release.yml: Accumulates changelog on merge (no tags)
+# - build-and-publish.yml: Publishes Docker images on tag
+# - release-publish.yml: Official ASF releases (after vote)
+
+name: Cut Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_override:
+        description: 'Override calculated version (leave empty to auto-calculate)'
+        required: false
+        type: string
+      dry_run:
+        description: 'Dry run (no tag/release created)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+env:
+  JAVA_VERSION: '25'
+  JAVA_DISTRIBUTION: 'temurin'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Calculate version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version_override }}" ]; then
+            VERSION="${{ inputs.version_override }}"
+            echo "Using override version: $VERSION"
+          else
+            # Get version from git-semver-plugin and remove SNAPSHOT suffix
+            SNAPSHOT_VERSION=$(./gradlew printVersion --quiet)
+            VERSION=$(echo "$SNAPSHOT_VERSION" | sed 's/-SNAPSHOT.*//')
+            echo "Calculated version: $VERSION (from $SNAPSHOT_VERSION)"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if tag already exists
+        id: check_tag
+        run: |
+          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "::error::Tag v${{ steps.version.outputs.version }} already exists!"
+            exit 1
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate release changelog
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          DATE=$(date +%Y-%m-%d)
+
+          # Get changelog content from git-semver-plugin
+          CHANGELOG_CONTENT=$(./gradlew printChangeLog --quiet)
+
+          # Save for GitHub Release body
+          echo "$CHANGELOG_CONTENT" > RELEASE_NOTES.md
+
+          # Update CHANGELOG.md - move Unreleased to new version
+          if [ -f CHANGELOG.md ]; then
+            cat > CHANGELOG_NEW.md << HEADER
+          # Changelog
+
+          All notable changes to this project will be documented in this file.
+
+          The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+          and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+          ## [Unreleased]
+
+          ## [$VERSION] - $DATE
+
+          HEADER
+            echo "$CHANGELOG_CONTENT" >> CHANGELOG_NEW.md
+            echo "" >> CHANGELOG_NEW.md
+            # Append previous releases (everything after old Unreleased section)
+            sed -n '/^## \[[0-9]/,$p' CHANGELOG.md >> CHANGELOG_NEW.md 2>/dev/null || true
+            mv CHANGELOG_NEW.md CHANGELOG.md
+          else
+            cat > CHANGELOG.md << HEADER
+          # Changelog
+
+          All notable changes to this project will be documented in this file.
+
+          The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+          and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+          ## [Unreleased]
+
+          ## [$VERSION] - $DATE
+
+          HEADER
+            echo "$CHANGELOG_CONTENT" >> CHANGELOG.md
+          fi
+
+      - name: Show dry run results
+        if: inputs.dry_run
+        run: |
+          echo "### Dry Run Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** v${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Changelog:**" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat RELEASE_NOTES.md >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**CHANGELOG.md preview:**" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          head -50 CHANGELOG.md >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Configure git
+        if: "!inputs.dry_run"
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit changelog and create tag
+        if: "!inputs.dry_run"
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # Commit changelog update
+          git add CHANGELOG.md
+          git commit -m "chore(release): release version $VERSION"
+
+          # Create annotated tag
+          git tag -a "v$VERSION" -m "Release version $VERSION"
+
+      - name: Push changes and tag
+        if: "!inputs.dry_run"
+        run: |
+          git push origin main
+          git push origin "v${{ steps.version.outputs.version }}"
+
+      - name: Create GitHub Release
+        if: "!inputs.dry_run"
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ steps.version.outputs.version }}"
+          name: "Release ${{ steps.version.outputs.version }}"
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+
+      - name: Summary
+        if: "!inputs.dry_run"
+        run: |
+          echo "### Release Created Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** v${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Docker images will be published automatically by build-and-publish.yml" >> $GITHUB_STEP_SUMMARY
+          echo "- For official ASF release, create RC tag and run release-publish.yml after vote" >> $GITHUB_STEP_SUMMARY
