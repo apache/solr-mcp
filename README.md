@@ -8,6 +8,7 @@ A Spring AI Model Context Protocol (MCP) server that provides tools for interact
 
 - 🔍 Search Solr collections with filtering, faceting, and pagination
 - 📝 Index documents in JSON, CSV, and XML
+- 📁 Create collections with configurable shards, replicas, and configsets
 - 📊 Manage collections and view statistics
 - 🔧 Inspect schema
 - 🔌 Transports: STDIO (Claude Desktop) and HTTP (MCP Inspector)
@@ -30,7 +31,7 @@ A Spring AI Model Context Protocol (MCP) server that provides tools for interact
         - JAR:
           ```bash
           ./gradlew build
-          java -jar build/libs/solr-mcp-0.0.1-SNAPSHOT.jar
+          java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
           ```
         - Docker:
           ```bash
@@ -43,7 +44,7 @@ A Spring AI Model Context Protocol (MCP) server that provides tools for interact
           ```
         - JAR:
           ```bash
-          PROFILES=http java -jar build/libs/solr-mcp-0.0.1-SNAPSHOT.jar
+          PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
           ```
         - Docker:
           ```bash
@@ -82,7 +83,7 @@ Using JAR:
             "command": "java",
             "args": [
                 "-jar",
-                "/absolute/path/to/solr-mcp-0.0.1-SNAPSHOT.jar"
+                "/absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar"
             ],
             "env": {
                 "SOLR_URL": "http://localhost:8983/solr/"
@@ -126,7 +127,7 @@ Using JAR:
             "command": "java",
             "args": [
                 "-jar",
-                "/absolute/path/to/solr-mcp-0.0.1-SNAPSHOT.jar"
+                "/absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar"
             ],
             "env": {
                 "PROFILES": "http",
@@ -151,7 +152,7 @@ PROFILES=http ./gradlew bootRun
 Running locally (JAR):
 
 ```bash
-PROFILES=http java -jar build/libs/solr-mcp-0.0.1-SNAPSHOT.jar
+PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
 ```
 
 Running via Docker:
@@ -177,6 +178,87 @@ Then add to your `claude_desktop_config.json`:
 ```
 
 More configuration options: docs/DEPLOYMENT.md#docker-images-with-jib
+
+### Claude Code
+
+Add Solr MCP to [Claude Code](https://docs.anthropic.com/en/docs/claude-code) using the CLI or by adding a `.mcp.json` file to your project root.
+
+**STDIO mode (default)**
+
+Using Docker (CLI):
+```bash
+claude mcp add --transport stdio solr-mcp -- docker run -i --rm ghcr.io/apache/solr-mcp:latest
+```
+
+Using JAR (CLI):
+```bash
+claude mcp add --transport stdio -e SOLR_URL=http://localhost:8983/solr/ solr-mcp -- java -jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar
+```
+
+Or add to your project's `.mcp.json`:
+
+Using Docker:
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "type": "stdio",
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "ghcr.io/apache/solr-mcp:latest"],
+      "env": {
+        "SOLR_URL": "http://localhost:8983/solr/"
+      }
+    }
+  }
+}
+```
+
+Using JAR:
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "type": "stdio",
+      "command": "java",
+      "args": ["-jar", "/absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar"],
+      "env": {
+        "SOLR_URL": "http://localhost:8983/solr/"
+      }
+    }
+  }
+}
+```
+
+**HTTP mode**
+
+Start the server first (pick one):
+```bash
+# Gradle
+PROFILES=http ./gradlew bootRun
+
+# JAR
+PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
+
+# Docker
+docker run -p 8080:8080 --rm -e PROFILES=http ghcr.io/apache/solr-mcp:latest
+```
+
+Then add to Claude Code:
+```bash
+claude mcp add --transport http solr-mcp http://localhost:8080/mcp
+```
+
+Or add to `.mcp.json`:
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "type": "http",
+      "url": "http://localhost:8080/mcp"
+    }
+  }
+}
+```
 
 ## Security (OAuth2)
 
@@ -226,14 +308,51 @@ For complete setup instructions, see [docs/AUTH0_SETUP.md](docs/AUTH0_SETUP.md)
 
 ## Available MCP tools
 
+### Search
+
 | Tool | Description |
 |------|-------------|
-| `search` | Search Solr collections with advanced query options |
-| `index_documents` | Index documents from JSON, CSV, or XML |
-| `listCollections` | List all available Solr collections |
-| `getCollectionStats` | Get statistics and metrics for a collection |
-| `checkHealth` | Check the health status of a collection |
-| `getSchema` | Retrieve schema information for a collection |
+| `search` | Full-text search with filtering, faceting, sorting, and pagination |
+
+### Indexing
+
+| Tool | Description |
+|------|-------------|
+| `index-json-documents` | Index documents from a JSON string into a Solr collection |
+| `index-csv-documents` | Index documents from a CSV string into a Solr collection |
+| `index-xml-documents` | Index documents from an XML string into a Solr collection |
+
+### Collections
+
+| Tool | Description |
+|------|-------------|
+| `create-collection` | Create a new Solr collection (configSet, numShards, replicationFactor optional — default to `_default`, `1`, `1`) |
+| `list-collections` | List all available Solr collections |
+| `get-collection-stats` | Get statistics and metrics for a collection |
+| `check-health` | Check the health status of a collection |
+
+### Schema
+
+| Tool | Description |
+|------|-------------|
+| `get-schema` | Retrieve schema information for a collection |
+
+## Available MCP Resources
+
+MCP Resources provide a way to expose data that can be read by MCP clients. The Solr MCP Server provides the following resources:
+
+| Resource URI | Description |
+|--------------|-------------|
+| `solr://collections` | List of all Solr collections available in the cluster |
+| `solr://{collection}/schema` | Schema definition for a specific collection (supports autocompletion) |
+
+### Resource Autocompletion
+
+The `solr://{collection}/schema` resource supports autocompletion for the `{collection}` parameter. MCP clients can use the completion API to get a list of available collection names.
+
+![MCP Inspector Resources](images/mcp-inspector-list-resources.png)
+
+![MCP Inspector Resource Completion](images/mcp-inspector-resource-completion.png)
 
 ## Screenshots
 

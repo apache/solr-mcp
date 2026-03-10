@@ -21,6 +21,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -44,6 +45,9 @@ class SchemaServiceTest {
 	private SolrClient solrClient;
 
 	@Mock
+	private ObjectMapper objectMapper;
+
+	@Mock
 	private SchemaResponse schemaResponse;
 
 	@Mock
@@ -53,13 +57,13 @@ class SchemaServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		schemaService = new SchemaService(solrClient);
+		schemaService = new SchemaService(solrClient, objectMapper);
 	}
 
 	@Test
 	void testSchemaService_InstantiatesCorrectly() {
 		// Given/When
-		SchemaService service = new SchemaService(solrClient);
+		SchemaService service = new SchemaService(solrClient, objectMapper);
 
 		// Then
 		assertNotNull(service, "SchemaService should be instantiated correctly");
@@ -132,7 +136,7 @@ class SchemaServiceTest {
 	@Test
 	void testConstructor() {
 		// Test that constructor properly initializes the service
-		SchemaService service = new SchemaService(solrClient);
+		SchemaService service = new SchemaService(solrClient, objectMapper);
 		assertNotNull(service);
 	}
 
@@ -140,7 +144,7 @@ class SchemaServiceTest {
 	void testConstructor_WithNullClient() {
 		// Test constructor with null client
 		assertDoesNotThrow(() -> {
-			new SchemaService(null);
+			new SchemaService(null, objectMapper);
 		});
 	}
 }

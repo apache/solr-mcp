@@ -16,6 +16,7 @@
  */
 package org.apache.solr.mcp.server.search;
 
+import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -93,13 +94,14 @@ import org.springframework.util.StringUtils;
  * results, metadata, and facet information in a format optimized for JSON
  * serialization and consumption by AI clients.
  *
- * @version 0.0.1
- * @since 0.0.1
+ * @version 1.0.0
+ * @since 1.0.0
  * @see SearchResponse
  * @see SolrClient
  * @see McpTool
  */
 @Service
+@Observed
 public class SearchService {
 
 	public static final String SORT_ITEM = "item";
@@ -215,7 +217,7 @@ public class SearchService {
 	 *             If there's an I/O error
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "Search", description = """
+	@McpTool(name = "search", description = """
 			Search specified Solr collection with query, optional filters, facets, sorting, and pagination.
 			Note that solr has dynamic fields where name of field in schema may end with suffixes
 			_s: Represents a string field, used for exact string matching.

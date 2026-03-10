@@ -92,8 +92,8 @@ import org.springframework.context.annotation.Configuration;
  * (unchanged)
  * </ul>
  *
- * @version 0.0.1
- * @since 0.0.1
+ * @version 1.0.0
+ * @since 1.0.0
  * @see SolrConfigurationProperties
  * @see Http2SolrClient
  * @see org.springframework.boot.context.properties.EnableConfigurationProperties

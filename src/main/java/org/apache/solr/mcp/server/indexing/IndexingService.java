@@ -16,6 +16,7 @@
  */
 package org.apache.solr.mcp.server.indexing;
 
+import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.List;
 import javax.xml.parsers.ParserConfigurationException;
@@ -98,13 +99,14 @@ import org.xml.sax.SAXException;
  * int successful = indexingService.indexDocuments("my_collection", docs);
  * }</pre>
  *
- * @version 0.0.1
- * @since 0.0.1
+ * @version 1.0.0
+ * @since 1.0.0
  * @see SolrInputDocument
  * @see SolrClient
  * @see org.springframework.ai.tool.annotation.Tool
  */
 @Service
+@Observed
 public class IndexingService {
 
 	private static final int DEFAULT_BATCH_SIZE = 1000;
@@ -192,7 +194,7 @@ public class IndexingService {
 	 * @see #indexDocuments(String, List)
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "index_json_documents", description = "Index documents from json String into Solr collection")
+	@McpTool(name = "index-json-documents", description = "Index documents from json String into Solr collection")
 	public void indexJsonDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "JSON string containing documents to index") String json)
 			throws IOException, SolrServerException {
@@ -258,7 +260,7 @@ public class IndexingService {
 	 * @see #indexDocuments(String, List)
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "index_csv_documents", description = "Index documents from CSV string into Solr collection")
+	@McpTool(name = "index-csv-documents", description = "Index documents from CSV string into Solr collection")
 	public void indexCsvDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "CSV string containing documents to index") String csv)
 			throws IOException, SolrServerException {
@@ -348,7 +350,7 @@ public class IndexingService {
 	 * @see #indexDocuments(String, List)
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "index_xml_documents", description = "Index documents from XML string into Solr collection")
+	@McpTool(name = "index-xml-documents", description = "Index documents from XML string into Solr collection")
 	public void indexXmlDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "XML string containing documents to index") String xml)
 			throws ParserConfigurationException, SAXException, IOException, SolrServerException {
@@ -438,7 +440,7 @@ public class IndexingService {
 					try {
 						solrClient.add(collection, doc);
 						successCount++;
-					} catch (SolrServerException | IOException | RuntimeException docError) {
+					} catch (SolrServerException | IOException | RuntimeException _) {
 						// Document failed to index - this is expected behavior for problematic
 						// documents
 						// We continue processing the rest of the batch

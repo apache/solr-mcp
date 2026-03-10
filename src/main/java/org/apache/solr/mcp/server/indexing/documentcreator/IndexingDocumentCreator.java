@@ -48,10 +48,10 @@ import org.springframework.stereotype.Service;
  * Solr compatibility
  * </ul>
  *
- * @version 0.0.1
+ * @version 1.0.0
  * @see SolrInputDocument
  * @see IndexingService
- * @since 0.0.1
+ * @since 1.0.0
  */
 @Service
 public class IndexingDocumentCreator {

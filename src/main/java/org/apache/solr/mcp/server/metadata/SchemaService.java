@@ -16,9 +16,14 @@
  */
 package org.apache.solr.mcp.server.metadata;
 
+import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.observation.annotation.Observed;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
+import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springframework.stereotype.Service;
 
@@ -110,20 +115,23 @@ import org.springframework.stereotype.Service;
  * });
  * }</pre>
  *
- * @version 0.0.1
- * @since 0.0.1
+ * @version 1.0.0
+ * @since 1.0.0
  * @see SchemaRepresentation
  * @see org.apache.solr.client.solrj.request.schema.SchemaRequest
  * @see org.springframework.ai.tool.annotation.Tool
  */
 @Service
+@Observed
 public class SchemaService {
 
 	/** SolrJ client for communicating with Solr server */
 	private final SolrClient solrClient;
 
+	private final ObjectMapper objectMapper;
+
 	/**
-	 * Constructs a new SchemaService with the required SolrClient dependency.
+	 * Constructs a new SchemaService with the required dependencies.
 	 *
 	 * <p>
 	 * This constructor is automatically called by Spring's dependency injection
@@ -132,10 +140,36 @@ public class SchemaService {
 	 *
 	 * @param solrClient
 	 *            the SolrJ client instance for communicating with Solr
+	 * @param objectMapper
+	 *            the Jackson ObjectMapper for JSON serialization
 	 * @see SolrClient
 	 */
-	public SchemaService(SolrClient solrClient) {
+	public SchemaService(SolrClient solrClient, ObjectMapper objectMapper) {
 		this.solrClient = solrClient;
+		this.objectMapper = objectMapper;
+	}
+
+	/**
+	 * MCP Resource endpoint that returns the schema for a specified Solr
+	 * collection.
+	 *
+	 * <p>
+	 * This resource uses a URI template with {collection} placeholder that can be
+	 * completed using the {@code @McpComplete} endpoint in CollectionService. The
+	 * returned JSON contains the complete schema definition including fields, field
+	 * types, dynamic fields, and copy fields.
+	 *
+	 * @param collection
+	 *            the name of the collection to retrieve schema for
+	 * @return JSON string containing the schema representation
+	 */
+	@McpResource(uri = "solr://{collection}/schema", name = "solr-collection-schema", description = "Schema definition for a Solr collection including fields, field types, and copy fields", mimeType = "application/json")
+	public String getSchemaResource(String collection) {
+		try {
+			return toJson(objectMapper, getSchema(collection));
+		} catch (Exception e) {
+			return "{\"error\": \"" + e.getMessage() + "\"}";
+		}
 	}
 
 	/**
@@ -217,7 +251,7 @@ public class SchemaService {
 	 * @see SchemaRequest
 	 * @see org.apache.solr.client.solrj.response.schema.SchemaResponse
 	 */
-	@McpTool(description = "Get schema for a Solr collection")
+	@McpTool(name = "get-schema", description = "Get schema for a Solr collection")
 	public SchemaRepresentation getSchema(String collection) throws Exception {
 		SchemaRequest schemaRequest = new SchemaRequest();
 		return schemaRequest.process(solrClient, collection).getSchemaRepresentation();

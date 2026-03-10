@@ -14,7 +14,7 @@ Build directly to your local Docker daemon (requires Docker installed):
 ./gradlew jibDockerBuild
 ```
 
-This creates: `solr-mcp:0.0.1-SNAPSHOT`
+This creates: `solr-mcp:1.0.0-SNAPSHOT`
 
 Verify:
 ```bash
@@ -30,7 +30,7 @@ Authenticate and push (no local Docker daemon required):
 docker login
 
 # Build and push
-./gradlew jib -Djib.to.image=YOUR_DOCKERHUB_USERNAME/solr-mcp:0.0.1-SNAPSHOT
+./gradlew jib -Djib.to.image=YOUR_DOCKERHUB_USERNAME/solr-mcp:1.0.0-SNAPSHOT
 ```
 
 ### Push to GitHub Container Registry
@@ -46,7 +46,7 @@ export GITHUB_TOKEN=YOUR_GITHUB_TOKEN
 echo $GITHUB_TOKEN | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
 
 # Build and push
-./gradlew jib -Djib.to.image=ghcr.io/YOUR_GITHUB_USERNAME/solr-mcp:0.0.1-SNAPSHOT
+./gradlew jib -Djib.to.image=ghcr.io/YOUR_GITHUB_USERNAME/solr-mcp:1.0.0-SNAPSHOT
 ```
 
 ### Multi-Platform Support
@@ -62,14 +62,14 @@ Jib automatically selects the appropriate platform or builds the first specified
 ### STDIO Mode (Default)
 
 ```bash
-docker run -i --rm solr-mcp:0.0.1-SNAPSHOT
+docker run -i --rm solr-mcp:1.0.0-SNAPSHOT
 ```
 
 With custom Solr URL:
 ```bash
 docker run -i --rm \
   -e SOLR_URL=http://your-solr-host:8983/solr/ \
-  solr-mcp:0.0.1-SNAPSHOT
+  solr-mcp:1.0.0-SNAPSHOT
 ```
 
 ### HTTP Mode
@@ -78,7 +78,7 @@ docker run -i --rm \
 docker run -p 8080:8080 --rm \
   -e PROFILES=http \
   -e SOLR_URL=http://your-solr-host:8983/solr/ \
-  solr-mcp:0.0.1-SNAPSHOT
+  solr-mcp:1.0.0-SNAPSHOT
 ```
 
 ### Linux Host Networking
@@ -89,7 +89,7 @@ On Linux, to connect to Solr on the host machine:
 docker run -i --rm \
   --add-host=host.docker.internal:host-gateway \
   -e SOLR_URL=http://host.docker.internal:8983/solr/ \
-  solr-mcp:0.0.1-SNAPSHOT
+  solr-mcp:1.0.0-SNAPSHOT
 ```
 
 ## GitHub Actions CI/CD
@@ -107,13 +107,13 @@ To publish images, use Jib from your local machine or set up your own workflow:
 - Docker Hub:
   ```bash
   docker login
-  ./gradlew jib -Djib.to.image=DOCKERHUB_USERNAME/solr-mcp:0.0.1-SNAPSHOT
+  ./gradlew jib -Djib.to.image=DOCKERHUB_USERNAME/solr-mcp:1.0.0-SNAPSHOT
   ```
 - GitHub Container Registry (GHCR):
   ```bash
   export GITHUB_TOKEN=YOUR_GITHUB_TOKEN
   echo $GITHUB_TOKEN | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
-  ./gradlew jib -Djib.to.image=ghcr.io/YOUR_GITHUB_USERNAME/solr-mcp:0.0.1-SNAPSHOT
+  ./gradlew jib -Djib.to.image=ghcr.io/YOUR_GITHUB_USERNAME/solr-mcp:1.0.0-SNAPSHOT
   ```
 
 ### MCP Registry Publishing
@@ -157,12 +157,12 @@ The `server.json` file defines MCP registry metadata:
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
   "name": "io.github.apache/solr-mcp",
   "description": "MCP server for Apache Solr",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "packages": [
     {
       "registryType": "docker",
       "identifier": "ghcr.io/apache/solr-mcp",
-      "version": "0.0.1-SNAPSHOT",
+      "version": "1.0.0-SNAPSHOT",
       "transport": {
         "type": "stdio"
       }

@@ -91,13 +91,6 @@ on:
         type: boolean
         default: false
 
-# Environment variables used by steps below
-# - JAVA_VERSION: selects the JDK version used to build and run Gradle
-# - JAVA_DISTRIBUTION: selects the vendor (Temurin = Eclipse Adoptium)
-env:
-  JAVA_VERSION: '25'
-  JAVA_DISTRIBUTION: 'temurin'
-
 jobs:
   nightly-build:
     name: Nightly Build and Publish
@@ -114,15 +107,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: ${{ env.JAVA_DISTRIBUTION }}
-          cache: 'gradle'
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+      # Set up Java environment using centralized configuration
+      # See .github/actions/setup-java/action.yml to update Java version
+      - name: Set up Java
+        uses: ./.github/actions/setup-java
 
       - name: Generate nightly version
         id: version

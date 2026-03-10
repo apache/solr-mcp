@@ -19,6 +19,7 @@ import net.ltgt.gradle.errorprone.errorprone
 
 plugins {
     java
+    `maven-publish`
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
     jacoco
@@ -28,11 +29,53 @@ plugins {
 }
 
 group = "org.apache.solr"
-version = "0.0.2-SNAPSHOT"
+version = "1.0.0-SNAPSHOT"
 
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)
+    }
+    withSourcesJar()
+    withJavadocJar()
+}
+
+// Maven Publishing Configuration
+// ==============================
+// This configuration enables publishing the project artifacts to Maven repositories.
+// The publishing block defines what artifacts are published and where they go.
+//
+// Artifacts Published:
+// -------------------
+// - Main JAR: The compiled application JAR
+// - Sources JAR: Source code for IDE navigation and debugging
+// - Javadoc JAR: Generated API documentation
+//
+// Publishing to Maven Local:
+// -------------------------
+// To install artifacts to your local Maven repository (~/.m2/repository):
+//   ./gradlew publishToMavenLocal
+//
+// This is useful for:
+// - Testing the library locally before publishing to a remote repository
+// - Sharing artifacts between local projects during development
+// - Verifying the published POM and artifact structure
+//
+// After publishing, artifacts will be available at:
+//   ~/.m2/repository/org/apache/solr/solr-mcp/{version}/
+//
+// The publication includes:
+// - solr-mcp-{version}.jar (main artifact)
+// - solr-mcp-{version}-sources.jar (source code)
+// - solr-mcp-{version}-javadoc.jar (API documentation)
+// - solr-mcp-{version}.pom (Maven POM with dependencies)
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            // Include the main JAR and all artifacts from the java component
+            // This automatically includes sources and javadoc JARs when
+            // withSourcesJar() and withJavadocJar() are configured above
+            from(components["java"])
+        }
     }
 }
 
@@ -52,6 +95,7 @@ dependencies {
 
     implementation(libs.spring.boot.starter.web)
     implementation(libs.spring.boot.starter.actuator)
+    implementation(libs.spring.boot.starter.aop)
     implementation(libs.spring.ai.starter.mcp.server.webmvc)
     implementation(libs.solr.solrj) {
         exclude(group = "org.apache.httpcomponents")
@@ -59,6 +103,12 @@ dependencies {
     implementation(libs.commons.csv)
     // JSpecify for nullability annotations
     implementation(libs.jspecify)
+
+    implementation(platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.11.0"))
+    implementation("io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter")
+    implementation(libs.micrometer.tracing.bridge.otel)
+
+    implementation("io.micrometer:micrometer-registry-prometheus")
 
     // Security
     implementation(libs.mcp.server.security)
@@ -86,7 +136,7 @@ dependencyManagement {
 //   - build.artifact: The artifact name (e.g., "solr-mcp")
 //   - build.group: The group ID (e.g., "org.apache.solr")
 //   - build.name: The project name
-//   - build.version: The version (e.g., "0.0.1-SNAPSHOT")
+//   - build.version: The version (e.g., "1.0.0-SNAPSHOT")
 //   - build.time: The timestamp when the build was executed
 //
 // When it executes:
@@ -110,6 +160,8 @@ tasks.withType<Test> {
             excludeTags("docker-integration")
         }
     }
+    // Forward solr.test.image system property to test JVMs for Solr version compatibility testing
+    systemProperty("solr.test.image", System.getProperty("solr.test.image", "solr:9.9-slim"))
     if (name != "dockerIntegrationTest") {
         finalizedBy(tasks.jacocoTestReport)
     }
@@ -264,15 +316,15 @@ tasks.register<Test>("dockerIntegrationTest") {
 // ----------------
 // 1. Build to Docker daemon (requires Docker installed):
 //    ./gradlew jibDockerBuild
-//    Creates image: solr-mcp:0.0.1-SNAPSHOT
+//    Creates image: solr-mcp:1.0.0-SNAPSHOT
 //
 // 2. Push to Docker Hub (requires authentication):
 //    docker login
-//    ./gradlew jib -Djib.to.image=dockerhub-username/solr-mcp:0.0.1-SNAPSHOT
+//    ./gradlew jib -Djib.to.image=dockerhub-username/solr-mcp:1.0.0-SNAPSHOT
 //
 // 3. Push to GitHub Container Registry (requires authentication):
 //    echo $GITHUB_TOKEN | docker login ghcr.io -u GITHUB_USERNAME --password-stdin
-//    ./gradlew jib -Djib.to.image=ghcr.io/github-username/solr-mcp:0.0.1-SNAPSHOT
+//    ./gradlew jib -Djib.to.image=ghcr.io/github-username/solr-mcp:1.0.0-SNAPSHOT
 //
 // Authentication:
 // ---------------
@@ -310,7 +362,7 @@ tasks.register<Test>("dockerIntegrationTest") {
 // - SOLR_URL=http://host.docker.internal:8983/solr/ (default Solr connection)
 //
 // These can be overridden at runtime:
-//   docker run -e SOLR_URL=http://custom-solr:8983/solr/ solr-mcp:0.0.1-SNAPSHOT
+//   docker run -e SOLR_URL=http://custom-solr:8983/solr/ solr-mcp:1.0.0-SNAPSHOT
 jib {
     // Configure Docker client executable path
     // This ensures Jib can find Docker even if it's not in Gradle's PATH

@@ -14,10 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.solr.mcp.server.metadata;
+package org.apache.solr.mcp.server.collection;
 
-import static org.apache.solr.mcp.server.metadata.CollectionUtils.*;
+import static org.apache.solr.mcp.server.collection.CollectionUtils.getFloat;
+import static org.apache.solr.mcp.server.collection.CollectionUtils.getInteger;
+import static org.apache.solr.mcp.server.collection.CollectionUtils.getLong;
+import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -31,13 +36,20 @@ import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.request.CoreAdminRequest;
 import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.LukeRequest;
-import org.apache.solr.client.solrj.response.*;
+import org.apache.solr.client.solrj.response.CollectionAdminResponse;
+import org.apache.solr.client.solrj.response.CoreAdminResponse;
+import org.apache.solr.client.solrj.response.LukeResponse;
+import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.params.CoreAdminParams;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
+import org.springaicommunity.mcp.annotation.McpComplete;
+import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 /**
@@ -55,8 +67,8 @@ import org.springframework.stereotype.Service;
  * <strong>Core Capabilities:</strong>
  *
  * <ul>
- * <li><strong>Collection Discovery</strong>: Lists available collections/cores
- * with automatic SolrCloud vs standalone detection
+ * <li><strong>Collection Discovery</strong>: Lists available collections with
+ * automatic SolrCloud vs standalone detection
  * <li><strong>Performance Monitoring</strong>: Comprehensive metrics collection
  * including index, query, cache, and handler statistics
  * <li><strong>Health Monitoring</strong>: Real-time health checks with
@@ -114,13 +126,14 @@ import org.springframework.stereotype.Service;
  * SolrHealthStatus health = collectionService.checkHealth("my_collection");
  * }</pre>
  *
- * @version 0.0.1
- * @since 0.0.1
+ * @version 1.0.0
+ * @since 1.0.0
  * @see SolrMetrics
  * @see SolrHealthStatus
  * @see org.apache.solr.client.solrj.SolrClient
  */
 @Service
+@Observed
 public class CollectionService {
 
 	// ========================================
@@ -239,8 +252,22 @@ public class CollectionService {
 	/** Error message prefix for collection not found exceptions */
 	private static final String COLLECTION_NOT_FOUND_ERROR = "Collection not found: ";
 
+	/** Default configset name used when none is specified */
+	private static final String DEFAULT_CONFIGSET = "_default";
+
+	/** Default number of shards for new collections */
+	private static final int DEFAULT_NUM_SHARDS = 1;
+
+	/** Default replication factor for new collections */
+	private static final int DEFAULT_REPLICATION_FACTOR = 1;
+
+	/** Error message for blank collection name validation */
+	private static final String BLANK_COLLECTION_NAME_ERROR = "Collection name must not be blank";
+
 	/** SolrJ client for communicating with Solr server */
 	private final SolrClient solrClient;
+
+	private final ObjectMapper objectMapper;
 
 	/**
 	 * Constructs a new CollectionService with the required dependencies.
@@ -251,15 +278,48 @@ public class CollectionService {
 	 *
 	 * @param solrClient
 	 *            the SolrJ client instance for communicating with Solr
+	 * @param objectMapper
+	 *            the Jackson ObjectMapper for JSON serialization
 	 * @see SolrClient
 	 * @see SolrConfigurationProperties
 	 */
-	public CollectionService(SolrClient solrClient) {
+	public CollectionService(SolrClient solrClient, ObjectMapper objectMapper) {
 		this.solrClient = solrClient;
+		this.objectMapper = objectMapper;
 	}
 
 	/**
-	 * Lists all available Solr collections or cores in the cluster.
+	 * MCP Resource endpoint that returns a list of all available Solr collections.
+	 *
+	 * <p>
+	 * This resource provides a simple way for MCP clients to discover what
+	 * collections are available in the Solr cluster. The returned JSON contains an
+	 * array of collection names.
+	 *
+	 * @return JSON string containing the list of collections
+	 */
+	@McpResource(uri = "solr://collections", name = "solr-collections", description = "List of all Solr collections available in the cluster", mimeType = "application/json")
+	public String getCollectionsResource() {
+		return toJson(objectMapper, listCollections());
+	}
+
+	/**
+	 * MCP Completion endpoint for collection name autocompletion.
+	 *
+	 * <p>
+	 * Provides autocompletion support for the collection parameter in the schema
+	 * resource URI template. Returns all available collection names that MCP
+	 * clients can use to complete the {collection} placeholder.
+	 *
+	 * @return list of available collection names for autocompletion
+	 */
+	@McpComplete(uri = "solr://{collection}/schema")
+	public List<String> completeCollectionForSchema() {
+		return listCollections();
+	}
+
+	/**
+	 * Lists all available Solr collections in the cluster.
 	 *
 	 * <p>
 	 * This method automatically detects the Solr deployment type and uses the
@@ -268,7 +328,8 @@ public class CollectionService {
 	 * <ul>
 	 * <li><strong>SolrCloud</strong>: Uses Collections API to list distributed
 	 * collections
-	 * <li><strong>Standalone</strong>: Uses Core Admin API to list individual cores
+	 * <li><strong>Standalone</strong>: Uses Core Admin API to list individual
+	 * collections
 	 * </ul>
 	 *
 	 * <p>
@@ -292,12 +353,12 @@ public class CollectionService {
 	 * natural language requests like "list all collections" or "show me available
 	 * databases".
 	 *
-	 * @return a list of collection/core names, or an empty list if unable to
-	 *         retrieve them
+	 * @return a list of collection names, or an empty list if unable to retrieve
+	 *         them
 	 * @see CollectionAdminRequest.List
 	 * @see CoreAdminRequest
 	 */
-	@McpTool(description = "List solr collections")
+	@McpTool(name = "list-collections", description = "List solr collections")
 	public List<String> listCollections() {
 		try {
 			if (solrClient instanceof CloudSolrClient) {
@@ -321,7 +382,7 @@ public class CollectionService {
 				}
 				return cores;
 			}
-		} catch (SolrServerException | IOException e) {
+		} catch (SolrServerException | IOException _) {
 			return new ArrayList<>();
 		}
 	}
@@ -386,7 +447,7 @@ public class CollectionService {
 	 * @see LukeRequest
 	 * @see #extractCollectionName(String)
 	 */
-	@McpTool(description = "Get stats/metrics on a Solr collection")
+	@McpTool(name = "get-collection-stats", description = "Get stats/metrics on a Solr collection")
 	public SolrMetrics getCollectionStats(
 			@McpToolParam(description = "Solr collection to get stats/metrics for") String collection)
 			throws SolrServerException, IOException {
@@ -564,7 +625,7 @@ public class CollectionService {
 			}
 
 			return stats;
-		} catch (SolrServerException | IOException e) {
+		} catch (SolrServerException | IOException _) {
 			return null; // Return null instead of empty object
 		}
 	}
@@ -736,7 +797,7 @@ public class CollectionService {
 			}
 
 			return stats;
-		} catch (SolrServerException | IOException e) {
+		} catch (SolrServerException | IOException _) {
 			return null; // Return null instead of empty object
 		}
 	}
@@ -892,7 +953,8 @@ public class CollectionService {
 	 *
 	 * <p>
 	 * This dual approach ensures compatibility with both standalone Solr (which
-	 * returns core names directly) and SolrCloud (which may return shard names).
+	 * returns collection names directly) and SolrCloud (which may return shard
+	 * names).
 	 *
 	 * <p>
 	 * <strong>Error Handling:</strong>
@@ -920,10 +982,8 @@ public class CollectionService {
 			// Check if any of the returned collections start with the collection name (for
 			// shard
 			// names)
-			boolean shardMatch = collections.stream().anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
-
-			return shardMatch;
-		} catch (Exception e) {
+			return collections.stream().anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
+		} catch (Exception _) {
 			return false;
 		}
 	}
@@ -977,7 +1037,7 @@ public class CollectionService {
 	 * @see SolrHealthStatus
 	 * @see SolrPingResponse
 	 */
-	@McpTool(description = "Check health of a Solr collection")
+	@McpTool(name = "check-health", description = "Check health of a Solr collection")
 	public SolrHealthStatus checkHealth(@McpToolParam(description = "Solr collection") String collection) {
 		try {
 			// Ping Solr
@@ -992,5 +1052,61 @@ public class CollectionService {
 		} catch (Exception e) {
 			return new SolrHealthStatus(false, e.getMessage(), null, null, new Date(), null, null, null);
 		}
+	}
+
+	/**
+	 * Creates a new Solr collection (SolrCloud) or core (standalone Solr).
+	 *
+	 * <p>
+	 * Automatically detects the deployment type and uses the appropriate API:
+	 *
+	 * <p>
+	 * Uses the Collections API, which works with any SolrClient pointing to a
+	 * SolrCloud deployment.
+	 *
+	 * <p>
+	 * Optional parameters default to sensible values when not provided by the MCP
+	 * client: configSet defaults to {@value #DEFAULT_CONFIGSET}, numShards and
+	 * replicationFactor both default to 1.
+	 *
+	 * @param name
+	 *            the name of the collection to create (must not be blank)
+	 * @param configSet
+	 *            the configset name (optional, defaults to
+	 *            {@value #DEFAULT_CONFIGSET})
+	 * @param numShards
+	 *            number of shards (optional, defaults to 1)
+	 * @param replicationFactor
+	 *            replication factor (optional, defaults to 1)
+	 * @return result describing the outcome of the creation operation
+	 * @throws IllegalArgumentException
+	 *             if the collection name is blank
+	 * @throws SolrServerException
+	 *             if Solr returns an error
+	 * @throws IOException
+	 *             if there are I/O errors during communication
+	 */
+	@PreAuthorize("isAuthenticated()")
+	@McpTool(name = "create-collection", description = "Create a new Solr collection. "
+			+ "configSet defaults to _default, numShards and replicationFactor default to 1.")
+	public CollectionCreationResult createCollection(
+			@McpToolParam(description = "Name of the collection to create") String name,
+			@McpToolParam(description = "Configset name. Defaults to _default.", required = false) String configSet,
+			@McpToolParam(description = "Number of shards (SolrCloud only). Defaults to 1.", required = false) Integer numShards,
+			@McpToolParam(description = "Replication factor (SolrCloud only). Defaults to 1.", required = false) Integer replicationFactor)
+			throws SolrServerException, IOException {
+
+		if (name == null || name.isBlank()) {
+			throw new IllegalArgumentException(BLANK_COLLECTION_NAME_ERROR);
+		}
+
+		String effectiveConfigSet = configSet != null ? configSet : DEFAULT_CONFIGSET;
+		int effectiveShards = numShards != null ? numShards : DEFAULT_NUM_SHARDS;
+		int effectiveRf = replicationFactor != null ? replicationFactor : DEFAULT_REPLICATION_FACTOR;
+
+		CollectionAdminRequest.createCollection(name, effectiveConfigSet, effectiveShards, effectiveRf)
+				.process(solrClient);
+
+		return new CollectionCreationResult(name, true, "Collection created successfully", new Date());
 	}
 }

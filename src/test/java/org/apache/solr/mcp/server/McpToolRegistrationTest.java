@@ -22,8 +22,8 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Arrays;
 import java.util.List;
+import org.apache.solr.mcp.server.collection.CollectionService;
 import org.apache.solr.mcp.server.indexing.IndexingService;
-import org.apache.solr.mcp.server.metadata.CollectionService;
 import org.apache.solr.mcp.server.metadata.SchemaService;
 import org.apache.solr.mcp.server.search.SearchService;
 import org.junit.jupiter.api.Test;
@@ -49,7 +49,7 @@ class McpToolRegistrationTest {
 
 		// Verify the annotation properties
 		McpTool toolAnnotation = searchMethod.getAnnotation(McpTool.class);
-		assertEquals("Search", toolAnnotation.name(), "McpTool name should be 'Search'");
+		assertEquals("search", toolAnnotation.name(), "McpTool name should be 'search' (kebab-case)");
 		assertNotNull(toolAnnotation.description(), "McpTool description should not be null");
 		assertFalse(toolAnnotation.description().isBlank(), "McpTool description should not be blank");
 	}

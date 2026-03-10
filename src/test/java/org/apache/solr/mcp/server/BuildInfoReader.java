@@ -80,7 +80,7 @@ public class BuildInfoReader {
 	/**
 	 * Gets the build version from build-info.properties.
 	 *
-	 * @return the version string (e.g., "0.0.1-SNAPSHOT")
+	 * @return the version string (e.g., "1.0.0-SNAPSHOT")
 	 */
 	public static String getVersion() {
 		return buildInfo.getProperty("build.version");
@@ -89,7 +89,7 @@ public class BuildInfoReader {
 	/**
 	 * Gets the Docker image name in the format "artifact:version".
 	 *
-	 * @return Docker image name (e.g., "solr-mcp:0.0.1-SNAPSHOT")
+	 * @return Docker image name (e.g., "solr-mcp:1.0.0-SNAPSHOT")
 	 */
 	public static String getDockerImageName() {
 		return String.format("%s:%s", getArtifact(), getVersion());
@@ -98,7 +98,7 @@ public class BuildInfoReader {
 	/**
 	 * Gets the JAR file name in the format "artifact-version.jar".
 	 *
-	 * @return JAR file name (e.g., "solr-mcp-0.0.1-SNAPSHOT.jar")
+	 * @return JAR file name (e.g., "solr-mcp-1.0.0-SNAPSHOT.jar")
 	 */
 	public static String getJarFileName() {
 		return String.format("%s-%s.jar", getArtifact(), getVersion());
