@@ -26,13 +26,10 @@ import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
-import org.apache.solr.client.solrj.impl.CloudSolrClient;
 import org.apache.solr.client.solrj.response.LukeResponse;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
@@ -50,9 +47,6 @@ class CollectionServiceTest {
 
 	@Mock
 	private SolrClient solrClient;
-
-	@Mock
-	private CloudSolrClient cloudSolrClient;
 
 	@Mock
 	private QueryResponse queryResponse;
@@ -76,12 +70,6 @@ class CollectionServiceTest {
 	@Test
 	void constructor_ShouldInitializeWithSolrClient() {
 		assertNotNull(collectionService);
-	}
-
-	@Test
-	void listCollections_WithCloudSolrClient_ShouldReturnCollections() throws Exception {
-		CollectionService cloudService = new CollectionService(cloudSolrClient, objectMapper);
-		assertNotNull(cloudService, "Should be able to construct service with CloudSolrClient");
 	}
 
 	// Collection name extraction tests
@@ -465,16 +453,13 @@ class CollectionServiceTest {
 
 	// List collections tests
 	@Test
-	void listCollections_CloudClient_Success() throws Exception {
-		CloudSolrClient cloudClient = mock(CloudSolrClient.class);
-
+	void listCollections_Success() throws Exception {
 		NamedList<Object> response = new NamedList<>();
 		response.add("collections", Arrays.asList("collection1", "collection2"));
 
-		when(cloudClient.request(any(), any())).thenReturn(response);
+		when(solrClient.request(any(), any())).thenReturn(response);
 
-		CollectionService service = new CollectionService(cloudClient, objectMapper);
-		List<String> result = service.listCollections();
+		List<String> result = collectionService.listCollections();
 
 		assertNotNull(result);
 		assertEquals(2, result.size());
@@ -483,58 +468,33 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void listCollections_CloudClient_NullCollections() throws Exception {
-		CloudSolrClient cloudClient = mock(CloudSolrClient.class);
-
+	void listCollections_NullCollections() throws Exception {
 		NamedList<Object> response = new NamedList<>();
 		response.add("collections", null);
 
-		when(cloudClient.request(any(), any())).thenReturn(response);
-
-		CollectionService service = new CollectionService(cloudClient, objectMapper);
-		List<String> result = service.listCollections();
-
-		assertNotNull(result);
-		assertTrue(result.isEmpty());
-	}
-
-	@Test
-	void listCollections_CloudClient_Error() throws Exception {
-		CloudSolrClient cloudClient = mock(CloudSolrClient.class);
-		when(cloudClient.request(any(), any())).thenThrow(new SolrServerException("Connection error"));
-
-		CollectionService service = new CollectionService(cloudClient, objectMapper);
-		List<String> result = service.listCollections();
-
-		assertNotNull(result);
-		assertTrue(result.isEmpty());
-	}
-
-	@Test
-	void listCollections_NonCloudClient_Success() throws Exception {
-		NamedList<Object> response = new NamedList<>();
-		Map<String, Object> status = new HashMap<>();
-		status.put("core1", new HashMap<>());
-		status.put("core2", new HashMap<>());
-		response.add("status", status);
-
 		when(solrClient.request(any(), any())).thenReturn(response);
 
-		CollectionService service = new CollectionService(solrClient, objectMapper);
-		List<String> result = service.listCollections();
+		List<String> result = collectionService.listCollections();
 
 		assertNotNull(result);
-		assertEquals(2, result.size());
-		assertTrue(result.contains("core1"));
-		assertTrue(result.contains("core2"));
+		assertTrue(result.isEmpty());
 	}
 
 	@Test
-	void listCollections_NonCloudClient_Error() throws Exception {
+	void listCollections_Error() throws Exception {
+		when(solrClient.request(any(), any())).thenThrow(new SolrServerException("Connection error"));
+
+		List<String> result = collectionService.listCollections();
+
+		assertNotNull(result);
+		assertTrue(result.isEmpty());
+	}
+
+	@Test
+	void listCollections_IOError() throws Exception {
 		when(solrClient.request(any(), any())).thenThrow(new IOException("IO error"));
 
-		CollectionService service = new CollectionService(solrClient, objectMapper);
-		List<String> result = service.listCollections();
+		List<String> result = collectionService.listCollections();
 
 		assertNotNull(result);
 		assertTrue(result.isEmpty());
@@ -542,12 +502,10 @@ class CollectionServiceTest {
 
 	// createCollection tests
 	@Test
-	void createCollection_success_cloudClient() throws Exception {
-		CloudSolrClient cloudClient = mock(CloudSolrClient.class);
-		when(cloudClient.request(any(), any())).thenReturn(new NamedList<>());
+	void createCollection_success() throws Exception {
+		when(solrClient.request(any(), isNull())).thenReturn(new NamedList<>());
 
-		CollectionService service = new CollectionService(cloudClient, objectMapper);
-		CollectionCreationResult result = service.createCollection("new_collection", "_default", 1, 1);
+		CollectionCreationResult result = collectionService.createCollection("new_collection", "_default", 1, 1);
 
 		assertNotNull(result);
 		assertTrue(result.success());
@@ -555,13 +513,13 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void createCollection_success_standaloneClient() throws Exception {
+	void createCollection_withDefaults() throws Exception {
 		when(solrClient.request(any(), isNull())).thenReturn(new NamedList<>());
 
-		CollectionCreationResult result = collectionService.createCollection("new_core", null, null, null);
+		CollectionCreationResult result = collectionService.createCollection("new_collection", null, null, null);
 
 		assertTrue(result.success());
-		assertEquals("new_core", result.name());
+		assertEquals("new_collection", result.name());
 	}
 
 	@Test
@@ -579,7 +537,7 @@ class CollectionServiceTest {
 		when(solrClient.request(any(), isNull())).thenThrow(new SolrServerException("Solr error"));
 
 		assertThrows(SolrServerException.class,
-				() -> collectionService.createCollection("fail_core", null, null, null));
+				() -> collectionService.createCollection("fail_collection", null, null, null));
 	}
 
 	// Helper methods to create Metrics API response format
@@ -644,14 +602,12 @@ class CollectionServiceTest {
 		return response;
 	}
 
-	// createCollection tests
+	// createCollection tests (additional)
 	@Test
-	void createCollection_success_cloudClient() throws Exception {
-		CloudSolrClient cloudClient = mock(CloudSolrClient.class);
-		when(cloudClient.request(any(), any())).thenReturn(new NamedList<>());
+	void createCollection_success_withExplicitParams() throws Exception {
+		when(solrClient.request(any(), isNull())).thenReturn(new NamedList<>());
 
-		CollectionService service = new CollectionService(cloudClient, objectMapper);
-		CollectionCreationResult result = service.createCollection("new_collection", "_default", 1, 1);
+		CollectionCreationResult result = collectionService.createCollection("new_collection", "_default", 1, 1);
 
 		assertNotNull(result);
 		assertTrue(result.success());
@@ -660,24 +616,10 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void createCollection_success_standaloneClient() throws Exception {
+	void createCollection_defaultsApplied() throws Exception {
 		when(solrClient.request(any(), isNull())).thenReturn(new NamedList<>());
 
-		CollectionCreationResult result = collectionService.createCollection("new_core", null, null, null);
-
-		assertNotNull(result);
-		assertTrue(result.success());
-		assertEquals("new_core", result.name());
-		assertNotNull(result.createdAt());
-	}
-
-	@Test
-	void createCollection_defaultsApplied() throws Exception {
-		CloudSolrClient cloudClient = mock(CloudSolrClient.class);
-		when(cloudClient.request(any(), any())).thenReturn(new NamedList<>());
-
-		CollectionService service = new CollectionService(cloudClient, objectMapper);
-		CollectionCreationResult result = service.createCollection("defaults_collection", null, null, null);
+		CollectionCreationResult result = collectionService.createCollection("defaults_collection", null, null, null);
 
 		assertTrue(result.success());
 		assertEquals("defaults_collection", result.name());
