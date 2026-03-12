@@ -87,22 +87,23 @@ configurations {
 
 repositories {
     mavenCentral()
+    maven { url = uri("https://repo.spring.io/milestone") }
 }
 
 dependencies {
 
-    developmentOnly(libs.bundles.spring.boot.dev)
+    developmentOnly(libs.spring.boot.docker.compose)
+    developmentOnly(libs.spring.ai.spring.boot.docker.compose) {
+        exclude(group = "org.springframework.boot", module = "spring-boot-starter-mongodb")
+    }
 
-    implementation(libs.spring.boot.starter.web)
+    implementation(libs.spring.boot.starter.webmvc)
+    implementation(libs.spring.boot.starter.json)
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.boot.starter.aop)
     implementation(libs.spring.ai.starter.mcp.server.webmvc)
-    implementation(libs.solr.solrj) {
-        exclude(group = "org.apache.httpcomponents")
-    }
+    implementation(libs.solr.solrj)
     implementation(libs.commons.csv)
-    // JSpecify for nullability annotations
-    implementation(libs.jspecify)
 
     implementation(platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.11.0"))
     implementation("io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter")
@@ -115,6 +116,15 @@ dependencies {
     implementation(libs.spring.boot.starter.security)
     implementation(libs.spring.boot.starter.oauth2.resource.server)
 
+    // OpenTelemetry (HTTP mode only - for metrics, tracing, and log export)
+    implementation(libs.spring.boot.starter.opentelemetry)
+    implementation(libs.opentelemetry.logback.appender)
+    implementation("io.micrometer:micrometer-tracing-bridge-otel")
+    runtimeOnly(libs.micrometer.registry.otlp)
+
+    // AspectJ (required for @Observed annotation support in Spring Boot 4)
+    implementation(libs.spring.boot.starter.aspectj)
+
     // Error Prone and NullAway for null safety analysis
     errorprone(libs.errorprone.core)
     errorprone(libs.nullaway)
@@ -126,8 +136,18 @@ dependencies {
 dependencyManagement {
     imports {
         mavenBom("org.springframework.ai:spring-ai-bom:${libs.versions.spring.ai.get()}")
-        // Align Jetty family to 10.x compatible with SolrJ 9.x
-        mavenBom("org.eclipse.jetty:jetty-bom:${libs.versions.jetty.get()}")
+    }
+}
+
+// Force opentelemetry-proto to a version compiled with protobuf 3.x
+// This resolves NoSuchMethodError with protobuf 4.x
+// See: https://github.com/micrometer-metrics/micrometer/issues/5658
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "io.opentelemetry.proto" && requested.name == "opentelemetry-proto") {
+            useVersion("1.3.2-alpha")
+            because("Version 1.8.0-alpha has protobuf 4.x incompatibility causing NoSuchMethodError")
+        }
     }
 }
 

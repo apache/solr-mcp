@@ -14,24 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.solr.mcp.server.config;
+package org.apache.solr.mcp.server.observability;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 
 /**
- * Configuration class that enables method-level security only when
- * spring.security.enabled=true (or not set).
- *
+ * Minimal test configuration that provides InMemorySpanExporter bean.
  * <p>
- * This allows the application to run without authentication when
- * spring.security.enabled=false, bypassing @PreAuthorize annotations.
+ * Spring Boot's opentelemetry-test starter requires this to be explicitly
+ * configured.
  */
-@Profile("http")
-@Configuration
-@ConditionalOnProperty(name = "spring.security.enabled", havingValue = "true", matchIfMissing = true)
-@EnableMethodSecurity
-class MethodSecurityConfiguration {
+@TestConfiguration
+public class InMemoryTracingTestConfiguration {
+
+	@Bean
+	public InMemorySpanExporter inMemorySpanExporter() {
+		return InMemorySpanExporter.create();
+	}
+
 }

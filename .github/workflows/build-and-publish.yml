@@ -175,7 +175,40 @@ jobs:
                     retention-days: 7
 
     # ============================================================================
-    # Job 2: Publish Docker Images
+    # Job 2: Solr Version Compatibility Tests
+    # ============================================================================
+    # Tests the server against multiple Solr versions using Testcontainers.
+    # Runs in parallel so each Solr version is an independent job.
+    # Tested versions: 8.11, 9.4, 9.9, 9.10, 10
+    # ============================================================================
+    solr-compatibility:
+        name: Solr ${{ matrix.solr-version }} Compatibility
+        runs-on: ubuntu-latest
+
+        strategy:
+            fail-fast: false
+            matrix:
+                solr-version:
+                    - "8.11-slim"
+                    - "9.4-slim"
+                    - "9.9-slim"
+                    - "9.10-slim"
+                    - "10-slim"
+
+        steps:
+            -   name: Checkout code
+                uses: actions/checkout@v4
+
+            -   name: Set up Java
+                uses: ./.github/actions/setup-java
+
+            -   name: Run tests against Solr ${{ matrix.solr-version }}
+                env:
+                    SOLR_VERSION: ${{ matrix.solr-version }}
+                run: ./gradlew test "-Dsolr.test.image=solr:${SOLR_VERSION}"
+
+    # ============================================================================
+    # Job 3: Publish Docker Images
     # ============================================================================
     # This job builds multi-platform Docker images using Jib and publishes them
     # to GitHub Container Registry (GHCR) and Docker Hub.

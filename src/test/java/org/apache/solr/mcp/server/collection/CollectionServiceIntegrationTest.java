@@ -125,23 +125,28 @@ class CollectionServiceIntegrationTest {
 		long timestampTime = metrics.timestamp().getTime();
 		assertTrue(currentTime - timestampTime < 10000, "Timestamp should be recent (within 10 seconds)");
 
-		// Verify optional stats (cache and handler stats may be null, which is
-		// acceptable)
-		if (metrics.cacheStats() != null) {
-			CacheStats cacheStats = metrics.cacheStats();
-			// Verify at least one cache type exists if cache stats are present
-			assertTrue(
-					cacheStats.queryResultCache() != null || cacheStats.documentCache() != null
-							|| cacheStats.filterCache() != null,
-					"At least one cache type should be present if cache stats exist");
-		}
+		// Cache stats via Metrics API
+		assertNotNull(metrics.cacheStats(), "Cache stats should not be null");
+		CacheStats cacheStats = metrics.cacheStats();
+		assertNotNull(cacheStats.queryResultCache(), "Query result cache should be present");
+		assertNotNull(cacheStats.documentCache(), "Document cache should be present");
+		assertNotNull(cacheStats.filterCache(), "Filter cache should be present");
 
-		if (metrics.handlerStats() != null) {
-			HandlerStats handlerStats = metrics.handlerStats();
-			// Verify at least one handler type exists if handler stats are present
-			assertTrue(handlerStats.selectHandler() != null || handlerStats.updateHandler() != null,
-					"At least one handler type should be present if handler stats exist");
-		}
+		CacheInfo qrc = cacheStats.queryResultCache();
+		assertNotNull(qrc.lookups(), "Query result cache lookups should not be null");
+		assertTrue(qrc.lookups() >= 0, "Query result cache lookups should be non-negative");
+		assertNotNull(qrc.size(), "Query result cache size should not be null");
+		assertTrue(qrc.size() >= 0, "Query result cache size should be non-negative");
+
+		// Handler stats via Metrics API
+		assertNotNull(metrics.handlerStats(), "Handler stats should not be null");
+		HandlerStats handlerStats = metrics.handlerStats();
+		assertNotNull(handlerStats.selectHandler(), "Select handler should be present");
+		assertNotNull(handlerStats.updateHandler(), "Update handler should be present");
+
+		HandlerInfo selectHandler = handlerStats.selectHandler();
+		assertNotNull(selectHandler.requests(), "Select handler requests should not be null");
+		assertTrue(selectHandler.requests() >= 0, "Select handler requests should be non-negative");
 	}
 
 	@Test

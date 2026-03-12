@@ -61,11 +61,9 @@ import org.apache.solr.common.SolrInputDocument;
  * List<SolrInputDocument> documents = creator.create(jsonData);
  * }</pre>
  *
- * @version 1.0.0
  * @see SolrInputDocument
  * @see DocumentProcessingException
  * @see FieldNameSanitizer
- * @since 1.0.0
  */
 public interface SolrDocumentCreator {
 

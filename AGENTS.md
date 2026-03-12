@@ -81,18 +81,22 @@ The Solr Docker image used in tests is configurable via the `solr.test.image` sy
 ./gradlew test -Dsolr.test.image=solr:8.11-slim    # Solr 8.11
 ./gradlew test -Dsolr.test.image=solr:9.4-slim     # Solr 9.4
 ./gradlew test -Dsolr.test.image=solr:9.9-slim     # Solr 9.9 (default)
+./gradlew test -Dsolr.test.image=solr:9.10-slim    # Solr 9.10
+./gradlew test -Dsolr.test.image=solr:10-slim      # Solr 10
 ```
 
-**Tested compatible versions:** 8.11, 9.4, 9.9
+**Tested compatible versions:** 8.11, 9.4, 9.9, 9.10, 10
 
-### Solr 10 Compatibility Notes
+### Solr 10 Compatibility
 
-Solr 10 introduces breaking changes that will require updates to this project:
+Solr 10.0.0 is fully supported. Cache and handler metrics use the `/admin/metrics` API
+(available since Solr 7.1+), which works on both Solr 9 and 10. The deprecated `/admin/mbeans`
+endpoint is no longer used.
 
-- **MBeans removal:** `SolrInfoMBeanHandler` is removed. `CollectionService.getCollectionStats()` uses `/admin/mbeans` for cache and handler metrics — this will need to migrate to the `/admin/metrics` endpoint or OpenTelemetry.
-- **Metrics migration:** Dropwizard metrics replaced by OpenTelemetry. All metric names switch to snake_case. JMX, Prometheus exporter, SLF4J, and Graphite reporters are removed.
-- **SolrJ base URL:** SolrClient now only accepts root URLs (e.g., `http://host:8983/solr`). This project already uses root URLs with per-request collection names, so **no change needed** here.
-- **SolrJ dependency:** Upgrade `solr-solrj` from 9.x to 10.x in `gradle/libs.versions.toml`. The Jetty BOM alignment (`jetty = "10.0.22"`) will also need updating since Solr 10 uses Jetty 12.x.
+Remaining known differences from Solr 9:
+- **Metrics format:** Solr 10 uses OpenTelemetry instead of Dropwizard. Metric names switch to snake_case in Solr 10.
+- **SolrJ base URL:** Already uses root URLs — **no change needed**.
+- **SolrJ 10.x dependency:** Not yet on Maven Central (as of 2026-03-06); tests use SolrJ 9.x against a Solr 10 server. Update `solr-solrj` and Jetty BOM when 10.x is released.
 
 ## Key Configuration
 

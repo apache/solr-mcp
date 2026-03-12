@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.solr.mcp.server.config;
+package org.apache.solr.mcp.server.security;
 
 import java.util.List;
 import org.springaicommunity.mcp.security.server.config.McpServerOAuth2Configurer;
@@ -34,13 +34,13 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Profile("http")
 @Configuration
 @EnableWebSecurity
-class McpServerConfiguration {
+class HttpSecurityConfiguration {
 
 	@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri:}")
 	private String issuerUrl;
 
 	@Bean
-	@ConditionalOnProperty(name = "spring.security.enabled", havingValue = "true", matchIfMissing = true)
+	@ConditionalOnProperty(name = "http.security.enabled", havingValue = "true", matchIfMissing = true)
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 		return http
 				// ⬇️ Open every request on the server
@@ -61,7 +61,7 @@ class McpServerConfiguration {
 	}
 
 	@Bean
-	@ConditionalOnProperty(name = "spring.security.enabled", havingValue = "false")
+	@ConditionalOnProperty(name = "http.security.enabled", havingValue = "false")
 	SecurityFilterChain unsecured(HttpSecurity http) throws Exception {
 		return http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
 				// MCP inspector

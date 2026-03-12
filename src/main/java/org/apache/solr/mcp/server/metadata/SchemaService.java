@@ -18,14 +18,17 @@ package org.apache.solr.mcp.server.metadata;
 
 import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+
 import io.micrometer.observation.annotation.Observed;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Spring Service providing schema introspection and management capabilities for
@@ -115,8 +118,6 @@ import org.springframework.stereotype.Service;
  * });
  * }</pre>
  *
- * @version 1.0.0
- * @since 1.0.0
  * @see SchemaRepresentation
  * @see org.apache.solr.client.solrj.request.schema.SchemaRequest
  * @see org.springframework.ai.tool.annotation.Tool
@@ -124,6 +125,8 @@ import org.springframework.stereotype.Service;
 @Service
 @Observed
 public class SchemaService {
+
+	private static final Logger log = LoggerFactory.getLogger(SchemaService.class);
 
 	/** SolrJ client for communicating with Solr server */
 	private final SolrClient solrClient;
@@ -168,6 +171,7 @@ public class SchemaService {
 		try {
 			return toJson(objectMapper, getSchema(collection));
 		} catch (Exception e) {
+			log.warn("Failed to retrieve schema for collection '{}': {}", collection, e.getMessage());
 			return "{\"error\": \"" + e.getMessage() + "\"}";
 		}
 	}

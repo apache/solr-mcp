@@ -23,8 +23,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.client.solrj.request.SolrQuery;
 import org.apache.solr.client.solrj.response.FacetField;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocument;
@@ -94,8 +94,6 @@ import org.springframework.util.StringUtils;
  * results, metadata, and facet information in a format optimized for JSON
  * serialization and consumption by AI clients.
  *
- * @version 1.0.0
- * @since 1.0.0
  * @see SearchResponse
  * @see SolrClient
  * @see McpTool
