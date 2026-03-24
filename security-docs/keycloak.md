@@ -74,7 +74,7 @@ docker run -d --name keycloak \
 
 # 3. Run Solr MCP Server with security enabled
 export PROFILES=http
-export SECURITY_ENABLED=true
+export HTTP_SECURITY_ENABLED=true
 export OAUTH2_ISSUER_URI=http://localhost:8180/realms/solr-mcp
 ./gradlew bootRun
 ```
@@ -168,7 +168,7 @@ The Solr MCP Server is pre-configured to work with any OAuth2/OIDC provider. Upd
 
 ```properties
 # Security toggle - set to true to enable OAuth2 authentication
-spring.security.enabled=${SECURITY_ENABLED:true}
+http.security.enabled=${HTTP_SECURITY_ENABLED:true}
 
 # Keycloak OAuth2 Configuration
 # Format: https://<keycloak-host>/realms/<realm-name>
@@ -183,7 +183,7 @@ No code changes are required—the existing `McpServerConfiguration` handles JWT
 
 ```bash
 export PROFILES=http
-export SECURITY_ENABLED=true
+export HTTP_SECURITY_ENABLED=true
 export OAUTH2_ISSUER_URI=http://localhost:8180/realms/solr-mcp
 ./gradlew bootRun
 ```
@@ -192,7 +192,7 @@ export OAUTH2_ISSUER_URI=http://localhost:8180/realms/solr-mcp
 
 ```bash
 export PROFILES=http
-export SECURITY_ENABLED=false
+export HTTP_SECURITY_ENABLED=false
 ./gradlew bootRun
 ```
 
@@ -422,7 +422,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 
 @Bean
-@ConditionalOnProperty(name = "spring.security.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "http.security.enabled", havingValue = "true", matchIfMissing = true)
 public JwtAuthenticationConverter jwtAuthenticationConverter() {
     JwtGrantedAuthoritiesConverter grantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
     // Keycloak stores realm roles in realm_access.roles
@@ -439,7 +439,7 @@ Wire it into the security filter chain:
 
 ```java
 @Bean
-@ConditionalOnProperty(name = "spring.security.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "http.security.enabled", havingValue = "true", matchIfMissing = true)
 SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationConverter jwtAuthenticationConverter) throws Exception {
     return http
         .authorizeHttpRequests(auth -> {
