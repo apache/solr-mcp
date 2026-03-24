@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.solr.mcp.server.metadata;
+package org.apache.solr.mcp.server.collection;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -840,5 +840,62 @@ class CollectionServiceTest {
 		mbeans.add("QUERYHANDLER", queryHandlerCategory);
 
 		return mbeans;
+	}
+
+	// createCollection tests
+	@Test
+	void createCollection_success_cloudClient() throws Exception {
+		CloudSolrClient cloudClient = mock(CloudSolrClient.class);
+		when(cloudClient.request(any(), any())).thenReturn(new NamedList<>());
+
+		CollectionService service = new CollectionService(cloudClient, objectMapper);
+		CollectionCreationResult result = service.createCollection("new_collection", "_default", 1, 1);
+
+		assertNotNull(result);
+		assertTrue(result.success());
+		assertEquals("new_collection", result.name());
+		assertNotNull(result.createdAt());
+	}
+
+	@Test
+	void createCollection_success_standaloneClient() throws Exception {
+		when(solrClient.request(any(), isNull())).thenReturn(new NamedList<>());
+
+		CollectionCreationResult result = collectionService.createCollection("new_core", null, null, null);
+
+		assertNotNull(result);
+		assertTrue(result.success());
+		assertEquals("new_core", result.name());
+		assertNotNull(result.createdAt());
+	}
+
+	@Test
+	void createCollection_defaultsApplied() throws Exception {
+		CloudSolrClient cloudClient = mock(CloudSolrClient.class);
+		when(cloudClient.request(any(), any())).thenReturn(new NamedList<>());
+
+		CollectionService service = new CollectionService(cloudClient, objectMapper);
+		CollectionCreationResult result = service.createCollection("defaults_collection", null, null, null);
+
+		assertTrue(result.success());
+		assertEquals("defaults_collection", result.name());
+	}
+
+	@Test
+	void createCollection_blankName_throwsIllegalArgument() {
+		assertThrows(IllegalArgumentException.class, () -> collectionService.createCollection("   ", null, null, null));
+	}
+
+	@Test
+	void createCollection_emptyName_throwsIllegalArgument() {
+		assertThrows(IllegalArgumentException.class, () -> collectionService.createCollection("", null, null, null));
+	}
+
+	@Test
+	void createCollection_solrException_propagates() throws Exception {
+		when(solrClient.request(any(), isNull())).thenThrow(new SolrServerException("Solr error"));
+
+		assertThrows(SolrServerException.class,
+				() -> collectionService.createCollection("fail_core", null, null, null));
 	}
 }
