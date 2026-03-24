@@ -84,8 +84,6 @@ import java.util.Set;
  * inconsistencies. Each tool is validated for proper name, description, and
  * schema configuration to ensure MCP protocol compliance.
  *
- * @version 1.0.0
- * @since 1.0.0
  * @see McpClient
  * @see McpClientTransport
  * @see io.modelcontextprotocol.spec.McpSchema.Tool

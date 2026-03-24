@@ -92,8 +92,6 @@ import org.springframework.context.annotation.Configuration;
  * (unchanged)
  * </ul>
  *
- * @version 1.0.0
- * @since 1.0.0
  * @see SolrConfigurationProperties
  * @see Http2SolrClient
  * @see org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -139,9 +137,8 @@ public class SolrConfig {
 	 *
 	 * <p>
 	 * Creates an {@code HttpSolrClient} configured for standard HTTP-based
-	 * communication with Solr servers. This client type is suitable for both
-	 * standalone Solr instances and SolrCloud deployments when used with load
-	 * balancers.
+	 * communication with SolrCloud servers. This client type is suitable for
+	 * SolrCloud deployments when used with load balancers.
 	 *
 	 * <p>
 	 * <strong>Error Handling:</strong>

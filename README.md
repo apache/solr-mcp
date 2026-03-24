@@ -274,7 +274,7 @@ MCP tools.
 
 ### Quick Setup
 
-1. **Configure Auth0** (see detailed guide: [docs/AUTH0_SETUP.md](docs/AUTH0_SETUP.md))
+1. **Configure Auth0** (see detailed guide: [security-docs/AUTH0_SETUP.md](security-docs/AUTH0_SETUP.md))
     - Create an Auth0 Application (Machine to Machine)
     - Create an Auth0 API with your audience identifier
     - Note your Domain, Client ID, Client Secret, and Audience
@@ -304,7 +304,7 @@ MCP tools.
      http://localhost:8080/mcp
    ```
 
-For complete setup instructions, see [docs/AUTH0_SETUP.md](docs/AUTH0_SETUP.md)
+For complete setup instructions, see [security-docs/AUTH0_SETUP.md](security-docs/AUTH0_SETUP.md)
 
 ## Available MCP tools
 
@@ -378,7 +378,7 @@ The `solr://{collection}/schema` resource supports autocompletion for the `{coll
 
 ## Documentation
 
-- [Auth0 Setup (OAuth2 configuration)](docs/AUTH0_SETUP.md)
+- [Auth0 Setup (OAuth2 configuration)](security-docs/AUTH0_SETUP.md)
 
 ## Contributing
 
