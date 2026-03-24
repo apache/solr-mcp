@@ -38,20 +38,15 @@ class SolrConfigUrlNormalizationTest {
 			"http://localhost:8983/solr, http://localhost:8983/solr",
 			"http://localhost:8983/solr/, http://localhost:8983/solr",
 			"http://localhost:8983/custom/solr/, http://localhost:8983/custom/solr"})
-	void testUrlNormalization(String inputUrl, String expectedUrl) {
+	void testUrlNormalization(String inputUrl, String expectedUrl) throws Exception {
 		SolrConfigurationProperties testProperties = new SolrConfigurationProperties(inputUrl);
 		SolrConfig solrConfig = new SolrConfig();
 
-		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(objectMapper));
-		assertNotNull(client);
+		try (SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(objectMapper))) {
+			assertNotNull(client);
 
-		var httpClient = assertInstanceOf(Http2SolrClient.class, client);
-		assertEquals(expectedUrl, httpClient.getBaseURL());
-
-		try {
-			client.close();
-		} catch (Exception _) {
-			// Ignore close errors in test
+			var httpClient = assertInstanceOf(Http2SolrClient.class, client);
+			assertEquals(expectedUrl, httpClient.getBaseURL());
 		}
 	}
 }
