@@ -20,10 +20,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.Reader;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import org.apache.solr.client.solrj.ResponseParser;
+import org.apache.solr.client.solrj.response.ResponseParser;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrException;
@@ -80,23 +80,14 @@ class JsonResponseParser extends ResponseParser {
 	}
 
 	@Override
-	public String getContentType() {
-		return MediaType.APPLICATION_JSON_VALUE;
+	public Collection<String> getContentTypes() {
+		return List.of(MediaType.APPLICATION_JSON_VALUE);
 	}
 
 	@Override
 	public NamedList<Object> processResponse(InputStream body, String encoding) {
 		try {
 			return toNamedList(mapper.readTree(body));
-		} catch (IOException e) {
-			throw new SolrException(SolrException.ErrorCode.SERVER_ERROR, "Failed to parse Solr JSON response", e);
-		}
-	}
-
-	@Override
-	public NamedList<Object> processResponse(Reader reader) {
-		try {
-			return toNamedList(mapper.readTree(reader));
 		} catch (IOException e) {
 			throw new SolrException(SolrException.ErrorCode.SERVER_ERROR, "Failed to parse Solr JSON response", e);
 		}

@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.impl.Http2SolrClient;
+import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,7 +45,7 @@ class SolrConfigUrlNormalizationTest {
 		try (SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(objectMapper))) {
 			assertNotNull(client);
 
-			var httpClient = assertInstanceOf(Http2SolrClient.class, client);
+			var httpClient = assertInstanceOf(HttpJdkSolrClient.class, client);
 			assertEquals(expectedUrl, httpClient.getBaseURL());
 		}
 	}

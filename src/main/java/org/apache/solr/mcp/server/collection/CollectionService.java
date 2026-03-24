@@ -28,12 +28,12 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.LukeRequest;
+import org.apache.solr.client.solrj.request.SolrQuery;
 import org.apache.solr.client.solrj.response.CollectionAdminResponse;
 import org.apache.solr.client.solrj.response.LukeResponse;
 import org.apache.solr.client.solrj.response.QueryResponse;
@@ -352,7 +352,7 @@ public class CollectionService {
 			@SuppressWarnings("unchecked")
 			List<String> collections = (List<String>) response.getResponse().get(COLLECTIONS_KEY);
 			return collections != null ? collections : new ArrayList<>();
-		} catch (SolrServerException | IOException e) {
+		} catch (SolrServerException | IOException _) {
 			return new ArrayList<>();
 		}
 	}
@@ -595,7 +595,9 @@ public class CollectionService {
 			}
 
 			return stats;
-		} catch (SolrServerException | IOException _) {
+		} catch (SolrServerException | IOException | RuntimeException _) {
+			// RuntimeException covers SolrException subclasses (e.g. RemoteSolrException)
+			// thrown when the /admin/mbeans endpoint is unavailable (removed in Solr 10).
 			return null; // Return null instead of empty object
 		}
 	}
@@ -767,7 +769,9 @@ public class CollectionService {
 			}
 
 			return stats;
-		} catch (SolrServerException | IOException _) {
+		} catch (SolrServerException | IOException | RuntimeException _) {
+			// RuntimeException covers SolrException subclasses (e.g. RemoteSolrException)
+			// thrown when the /admin/mbeans endpoint is unavailable (removed in Solr 10).
 			return null; // Return null instead of empty object
 		}
 	}
