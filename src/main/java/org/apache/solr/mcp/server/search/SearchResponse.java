@@ -130,8 +130,6 @@ import java.util.Map;
  * @param facets
  *            nested map structure containing facet field names, values, and
  *            document counts
- * @version 1.0.0
- * @since 1.0.0
  * @see SearchService#search(String, String, List, List, List, Integer, Integer)
  * @see org.apache.solr.client.solrj.response.QueryResponse
  * @see org.apache.solr.common.SolrDocumentList

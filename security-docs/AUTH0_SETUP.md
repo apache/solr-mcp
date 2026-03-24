@@ -287,15 +287,7 @@ OAUTH2_ISSUER_URI=https://your-tenant.auth0.com/
 The application must run in `http` profile to enable OAuth2 security:
 
 ```bash
-# Option 1: Using environment variable
-export PROFILES=http
-./gradlew bootRun
-
-# Option 2: Using Spring Boot argument
-./gradlew bootRun --args='--spring.profiles.active=http'
-
-# Option 3: Using Gradle property
-./gradlew bootRun -Dspring.profiles.active=http
+PROFILES=http ./gradlew bootRun
 ```
 
 ### Application Configuration Details

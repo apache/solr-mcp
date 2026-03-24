@@ -275,7 +275,7 @@ rm -rf .gradle
 
 1. **Verify server is running in HTTP mode**
    ```bash
-   ./gradlew bootRun --args='--spring.profiles.active=http'
+   PROFILES=http ./gradlew bootRun
    ```
 
 2. **Check port is correct**
@@ -408,7 +408,7 @@ If you're still having issues:
 ./gradlew bootRun 2>&1 | tee server.log
 
 # HTTP mode - Spring Boot logging
-./gradlew bootRun --args='--spring.profiles.active=http'
+PROFILES=http ./gradlew bootRun
 ```
 
 ### Solr Logs

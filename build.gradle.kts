@@ -417,6 +417,12 @@ jib {
         environment =
             mapOf(
                 // Disable Spring Boot Docker Compose support when running in container
+                // Docker Compose integration is disabled in the container image.
+                // It is only useful for local development (HTTP profile) where
+                // the host has Docker and a compose.yaml. Inside a container,
+                // Docker Compose cannot start sibling containers without a
+                // Docker socket mount, so it must be turned off.
+                // The application-stdio.properties also disables it for STDIO mode.
                 "SPRING_DOCKER_COMPOSE_ENABLED" to "false",
             )
 
