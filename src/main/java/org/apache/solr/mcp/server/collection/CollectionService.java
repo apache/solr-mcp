@@ -31,17 +31,13 @@ import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
-import org.apache.solr.client.solrj.impl.CloudSolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
-import org.apache.solr.client.solrj.request.CoreAdminRequest;
 import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.LukeRequest;
 import org.apache.solr.client.solrj.response.CollectionAdminResponse;
-import org.apache.solr.client.solrj.response.CoreAdminResponse;
 import org.apache.solr.client.solrj.response.LukeResponse;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
-import org.apache.solr.common.params.CoreAdminParams;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
@@ -67,8 +63,8 @@ import org.springframework.stereotype.Service;
  * <strong>Core Capabilities:</strong>
  *
  * <ul>
- * <li><strong>Collection Discovery</strong>: Lists available collections with
- * automatic SolrCloud vs standalone detection
+ * <li><strong>Collection Discovery</strong>: Lists available collections using
+ * the SolrCloud Collections API
  * <li><strong>Performance Monitoring</strong>: Comprehensive metrics collection
  * including index, query, cache, and handler statistics
  * <li><strong>Health Monitoring</strong>: Real-time health checks with
@@ -100,7 +96,6 @@ import org.springframework.stereotype.Service;
  *
  * <ul>
  * <li><strong>SolrCloud</strong>: Distributed mode using Collections API
- * <li><strong>Standalone</strong>: Single-node mode using Core Admin API
  * </ul>
  *
  * <p>
@@ -319,23 +314,16 @@ public class CollectionService {
 	}
 
 	/**
-	 * Lists all available Solr collections in the cluster.
+	 * Lists all available Solr collections in the SolrCloud cluster.
 	 *
 	 * <p>
-	 * This method automatically detects the Solr deployment type and uses the
-	 * appropriate API:
-	 *
-	 * <ul>
-	 * <li><strong>SolrCloud</strong>: Uses Collections API to list distributed
-	 * collections
-	 * <li><strong>Standalone</strong>: Uses Core Admin API to list individual
-	 * collections
-	 * </ul>
+	 * This method uses the SolrCloud Collections API to retrieve the list of
+	 * available collections. Standalone Solr instances are not supported.
 	 *
 	 * <p>
-	 * In SolrCloud environments, the returned names may include shard identifiers
-	 * (e.g., "films_shard1_replica_n1"). Use {@link #extractCollectionName(String)}
-	 * to get the base collection name if needed.
+	 * The returned names may include shard identifiers (e.g.,
+	 * "films_shard1_replica_n1"). Use {@link #extractCollectionName(String)} to get
+	 * the base collection name if needed.
 	 *
 	 * <p>
 	 * <strong>Error Handling:</strong>
@@ -356,33 +344,17 @@ public class CollectionService {
 	 * @return a list of collection names, or an empty list if unable to retrieve
 	 *         them
 	 * @see CollectionAdminRequest.List
-	 * @see CoreAdminRequest
 	 */
 	@McpTool(name = "list-collections", description = "List solr collections")
 	public List<String> listCollections() {
 		try {
-			if (solrClient instanceof CloudSolrClient) {
-				// For SolrCloud - use Collections API
-				CollectionAdminRequest.List request = new CollectionAdminRequest.List();
-				CollectionAdminResponse response = request.process(solrClient);
+			CollectionAdminRequest.List request = new CollectionAdminRequest.List();
+			CollectionAdminResponse response = request.process(solrClient);
 
-				@SuppressWarnings("unchecked")
-				List<String> collections = (List<String>) response.getResponse().get(COLLECTIONS_KEY);
-				return collections != null ? collections : new ArrayList<>();
-			} else {
-				// For standalone Solr - use Core Admin API
-				CoreAdminRequest coreAdminRequest = new CoreAdminRequest();
-				coreAdminRequest.setAction(CoreAdminParams.CoreAdminAction.STATUS);
-				CoreAdminResponse coreResponse = coreAdminRequest.process(solrClient);
-
-				List<String> cores = new ArrayList<>();
-				NamedList<NamedList<Object>> coreStatus = coreResponse.getCoreStatus();
-				for (int i = 0; i < coreStatus.size(); i++) {
-					cores.add(coreStatus.getName(i));
-				}
-				return cores;
-			}
-		} catch (SolrServerException | IOException _) {
+			@SuppressWarnings("unchecked")
+			List<String> collections = (List<String>) response.getResponse().get(COLLECTIONS_KEY);
+			return collections != null ? collections : new ArrayList<>();
+		} catch (SolrServerException | IOException e) {
 			return new ArrayList<>();
 		}
 	}
@@ -952,9 +924,8 @@ public class CollectionService {
 	 * </ol>
 	 *
 	 * <p>
-	 * This dual approach ensures compatibility with both standalone Solr (which
-	 * returns collection names directly) and SolrCloud (which may return shard
-	 * names).
+	 * This dual approach ensures compatibility with SolrCloud environments where
+	 * shard names may be returned alongside collection names.
 	 *
 	 * <p>
 	 * <strong>Error Handling:</strong>

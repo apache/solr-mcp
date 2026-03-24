@@ -139,9 +139,8 @@ public class SolrConfig {
 	 *
 	 * <p>
 	 * Creates an {@code HttpSolrClient} configured for standard HTTP-based
-	 * communication with Solr servers. This client type is suitable for both
-	 * standalone Solr instances and SolrCloud deployments when used with load
-	 * balancers.
+	 * communication with SolrCloud servers. This client type is suitable for
+	 * SolrCloud deployments when used with load balancers.
 	 *
 	 * <p>
 	 * <strong>Error Handling:</strong>
