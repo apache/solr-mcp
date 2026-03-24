@@ -844,12 +844,10 @@ class CollectionServiceTest {
 
 	// createCollection tests
 	@Test
-	void createCollection_success_cloudClient() throws Exception {
-		CloudSolrClient cloudClient = mock(CloudSolrClient.class);
-		when(cloudClient.request(any(), any())).thenReturn(new NamedList<>());
+	void createCollection_success() throws Exception {
+		when(solrClient.request(any(), isNull())).thenReturn(new NamedList<>());
 
-		CollectionService service = new CollectionService(cloudClient, objectMapper);
-		CollectionCreationResult result = service.createCollection("new_collection", "_default", 1, 1);
+		CollectionCreationResult result = collectionService.createCollection("new_collection", "_default", 1, 1);
 
 		assertNotNull(result);
 		assertTrue(result.success());
@@ -858,24 +856,10 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void createCollection_success_standaloneClient() throws Exception {
+	void createCollection_defaultsApplied() throws Exception {
 		when(solrClient.request(any(), isNull())).thenReturn(new NamedList<>());
 
-		CollectionCreationResult result = collectionService.createCollection("new_core", null, null, null);
-
-		assertNotNull(result);
-		assertTrue(result.success());
-		assertEquals("new_core", result.name());
-		assertNotNull(result.createdAt());
-	}
-
-	@Test
-	void createCollection_defaultsApplied() throws Exception {
-		CloudSolrClient cloudClient = mock(CloudSolrClient.class);
-		when(cloudClient.request(any(), any())).thenReturn(new NamedList<>());
-
-		CollectionService service = new CollectionService(cloudClient, objectMapper);
-		CollectionCreationResult result = service.createCollection("defaults_collection", null, null, null);
+		CollectionCreationResult result = collectionService.createCollection("defaults_collection", null, null, null);
 
 		assertTrue(result.success());
 		assertEquals("defaults_collection", result.name());
