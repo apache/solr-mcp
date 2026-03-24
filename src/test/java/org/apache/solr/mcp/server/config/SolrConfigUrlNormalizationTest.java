@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.Http2SolrClient;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,74 +47,6 @@ class SolrConfigUrlNormalizationTest {
 
 		var httpClient = assertInstanceOf(Http2SolrClient.class, client);
 		assertEquals(expectedUrl, httpClient.getBaseURL());
-
-		try {
-			client.close();
-		} catch (Exception _) {
-			// Ignore close errors in test
-		}
-	}
-
-	@Test
-	void testUrlWithoutTrailingSlash() {
-		SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983");
-		SolrConfig solrConfig = new SolrConfig();
-
-		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(objectMapper));
-		Http2SolrClient httpClient = (Http2SolrClient) client;
-
-		assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
-
-		try {
-			client.close();
-		} catch (Exception _) {
-			// Ignore close errors in test
-		}
-	}
-
-	@Test
-	void testUrlWithTrailingSlashButNoSolrPath() {
-		SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983/");
-		SolrConfig solrConfig = new SolrConfig();
-
-		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(objectMapper));
-		Http2SolrClient httpClient = (Http2SolrClient) client;
-
-		assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
-
-		try {
-			client.close();
-		} catch (Exception _) {
-			// Ignore close errors in test
-		}
-	}
-
-	@Test
-	void testUrlWithSolrPathButNoTrailingSlash() {
-		SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983/solr");
-		SolrConfig solrConfig = new SolrConfig();
-
-		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(objectMapper));
-		Http2SolrClient httpClient = (Http2SolrClient) client;
-
-		assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
-
-		try {
-			client.close();
-		} catch (Exception _) {
-			// Ignore close errors in test
-		}
-	}
-
-	@Test
-	void testUrlAlreadyProperlyFormatted() {
-		SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983/solr/");
-		SolrConfig solrConfig = new SolrConfig();
-
-		SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(objectMapper));
-		Http2SolrClient httpClient = (Http2SolrClient) client;
-
-		assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
 
 		try {
 			client.close();
