@@ -16,6 +16,7 @@
  */
 package org.apache.solr.mcp.server.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.Http2SolrClient;
@@ -165,7 +166,12 @@ public class SolrConfig {
 	 * @see SolrConfigurationProperties#url()
 	 */
 	@Bean
-	SolrClient solrClient(SolrConfigurationProperties properties) {
+	JsonResponseParser jsonResponseParser(ObjectMapper objectMapper) {
+		return new JsonResponseParser(objectMapper);
+	}
+
+	@Bean
+	SolrClient solrClient(SolrConfigurationProperties properties, JsonResponseParser jsonResponseParser) {
 		String url = properties.url();
 
 		// Ensure URL is properly formatted for Solr
@@ -183,8 +189,9 @@ public class SolrConfig {
 			}
 		}
 
-		// Use with explicit base URL
+		// Use with explicit base URL; JSON wire format replaces the JavaBin default
 		return new Http2SolrClient.Builder(url).withConnectionTimeout(CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-				.withIdleTimeout(SOCKET_TIMEOUT_MS, TimeUnit.MILLISECONDS).build();
+				.withIdleTimeout(SOCKET_TIMEOUT_MS, TimeUnit.MILLISECONDS).withResponseParser(jsonResponseParser)
+				.build();
 	}
 }
