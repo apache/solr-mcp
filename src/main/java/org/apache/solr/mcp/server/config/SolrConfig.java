@@ -19,7 +19,7 @@ package org.apache.solr.mcp.server.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.impl.Http2SolrClient;
+import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -94,7 +94,7 @@ import org.springframework.context.annotation.Configuration;
  * </ul>
  *
  * @see SolrConfigurationProperties
- * @see Http2SolrClient
+ * @see HttpJdkSolrClient
  * @see org.springframework.boot.context.properties.EnableConfigurationProperties
  */
 @Configuration
@@ -162,7 +162,7 @@ public class SolrConfig {
 	 *            the injected Solr configuration properties containing connection
 	 *            URL
 	 * @return configured SolrClient instance ready for use in application services
-	 * @see Http2SolrClient.Builder
+	 * @see HttpJdkSolrClient.Builder
 	 * @see SolrConfigurationProperties#url()
 	 */
 	@Bean
@@ -190,7 +190,7 @@ public class SolrConfig {
 		}
 
 		// Use with explicit base URL; JSON wire format replaces the JavaBin default
-		return new Http2SolrClient.Builder(url).withConnectionTimeout(CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+		return new HttpJdkSolrClient.Builder(url).withConnectionTimeout(CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
 				.withIdleTimeout(SOCKET_TIMEOUT_MS, TimeUnit.MILLISECONDS).withResponseParser(jsonResponseParser)
 				.build();
 	}

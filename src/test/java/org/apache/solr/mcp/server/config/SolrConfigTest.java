@@ -19,7 +19,7 @@ package org.apache.solr.mcp.server.config;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.impl.Http2SolrClient;
+import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,9 +49,9 @@ class SolrConfigTest {
 
 		// Verify that the SolrClient is using the correct URL
 		// Note: SolrConfig normalizes the URL to have trailing slash, but
-		// Http2SolrClient removes
+		// HttpJdkSolrClient removes
 		// it
-		var httpSolrClient = assertInstanceOf(Http2SolrClient.class, solrClient);
+		var httpSolrClient = assertInstanceOf(HttpJdkSolrClient.class, solrClient);
 		String expectedUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr";
 		assertEquals(expectedUrl, httpSolrClient.getBaseURL());
 	}
