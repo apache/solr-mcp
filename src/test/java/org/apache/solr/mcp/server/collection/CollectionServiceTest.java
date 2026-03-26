@@ -200,6 +200,7 @@ class CollectionServiceTest {
 		assertNull(result.errorMessage());
 		assertEquals(10L, result.responseTime());
 		assertEquals(100L, result.totalDocuments());
+		assertEquals("test_collection", result.collection());
 	}
 
 	@Test
@@ -217,6 +218,7 @@ class CollectionServiceTest {
 		assertTrue(result.errorMessage().contains("Connection failed"));
 		assertNull(result.responseTime());
 		assertNull(result.totalDocuments());
+		assertEquals("unhealthy_collection", result.collection());
 	}
 
 	@Test

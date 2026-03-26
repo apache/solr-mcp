@@ -428,7 +428,7 @@ public class CollectionService {
 		QueryResponse statsResponse = solrClient.query(actualCollection, new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
 
 		return new SolrMetrics(buildIndexStats(lukeResponse), buildQueryStats(statsResponse),
-				getCacheMetrics(actualCollection), getHandlerMetrics(actualCollection), new Date());
+				fetchCacheMetrics(actualCollection), fetchHandlerMetrics(actualCollection), new Date());
 	}
 
 	/**
@@ -557,14 +557,22 @@ public class CollectionService {
 	 * @see #isCacheStatsEmpty(CacheStats)
 	 */
 	public CacheStats getCacheMetrics(String collection) {
+		String actualCollection = extractCollectionName(collection);
+
+		if (!validateCollectionExists(actualCollection)) {
+			return null;
+		}
+
+		return fetchCacheMetrics(actualCollection);
+	}
+
+	/**
+	 * Internal cache metrics fetch that assumes the collection has already been
+	 * validated and the name has been extracted from any shard identifier.
+	 */
+	private CacheStats fetchCacheMetrics(String collection) {
 		try {
-			String actualCollection = extractCollectionName(collection);
-
-			if (!validateCollectionExists(actualCollection)) {
-				return null;
-			}
-
-			NamedList<Object> coreMetrics = fetchMetrics(actualCollection, CACHE_METRIC_PREFIX);
+			NamedList<Object> coreMetrics = fetchMetrics(collection, CACHE_METRIC_PREFIX);
 			if (coreMetrics == null) {
 				return null;
 			}
@@ -661,18 +669,26 @@ public class CollectionService {
 	 * @see #isHandlerStatsEmpty(HandlerStats)
 	 */
 	public HandlerStats getHandlerMetrics(String collection) {
+		String actualCollection = extractCollectionName(collection);
+
+		if (!validateCollectionExists(actualCollection)) {
+			return null;
+		}
+
+		return fetchHandlerMetrics(actualCollection);
+	}
+
+	/**
+	 * Internal handler metrics fetch that assumes the collection has already been
+	 * validated and the name has been extracted from any shard identifier.
+	 */
+	private HandlerStats fetchHandlerMetrics(String collection) {
 		try {
-			String actualCollection = extractCollectionName(collection);
-
-			if (!validateCollectionExists(actualCollection)) {
-				return null;
-			}
-
 			// Handler metrics are flat keys (e.g. QUERY./select.requests) so we
 			// fetch each handler prefix separately and reconstruct HandlerInfo
-			HandlerInfo selectHandler = fetchFlatHandlerInfo(actualCollection, SELECT_HANDLER_METRIC_PREFIX,
+			HandlerInfo selectHandler = fetchFlatHandlerInfo(collection, SELECT_HANDLER_METRIC_PREFIX,
 					SELECT_HANDLER_KEY);
-			HandlerInfo updateHandler = fetchFlatHandlerInfo(actualCollection, UPDATE_HANDLER_METRIC_PREFIX,
+			HandlerInfo updateHandler = fetchFlatHandlerInfo(collection, UPDATE_HANDLER_METRIC_PREFIX,
 					UPDATE_HANDLER_KEY);
 
 			HandlerStats stats = new HandlerStats(selectHandler, updateHandler);
@@ -941,18 +957,20 @@ public class CollectionService {
 	 */
 	@McpTool(name = "check-health", description = "Check health of a Solr collection")
 	public SolrHealthStatus checkHealth(@McpToolParam(description = "Solr collection") String collection) {
+		String actualCollection = extractCollectionName(collection);
 		try {
 			// Ping Solr
-			SolrPingResponse pingResponse = solrClient.ping(collection);
+			SolrPingResponse pingResponse = solrClient.ping(actualCollection);
 
 			// Get basic stats
-			QueryResponse statsResponse = solrClient.query(collection, new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
+			QueryResponse statsResponse = solrClient.query(actualCollection,
+					new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
 
 			return new SolrHealthStatus(true, null, pingResponse.getElapsedTime(),
-					statsResponse.getResults().getNumFound(), new Date(), null, null, null);
+					statsResponse.getResults().getNumFound(), new Date(), actualCollection, null, null);
 
 		} catch (Exception e) {
-			return new SolrHealthStatus(false, e.getMessage(), null, null, new Date(), null, null, null);
+			return new SolrHealthStatus(false, e.getMessage(), null, null, new Date(), actualCollection, null, null);
 		}
 	}
 

@@ -22,8 +22,11 @@ import java.util.List;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -32,32 +35,28 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
 @Testcontainers(disabledWithoutDocker = true)
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class CollectionServiceIntegrationTest {
+
+	private static final Logger log = LoggerFactory.getLogger(CollectionServiceIntegrationTest.class);
 
 	private static final String TEST_COLLECTION = "test_collection";
 	@Autowired
 	private CollectionService collectionService;
 	@Autowired
 	private SolrClient solrClient;
-	private static boolean initialized = false;
 
-	@BeforeEach
+	@BeforeAll
 	void setupCollection() throws Exception {
+		CollectionAdminRequest.Create createRequest = CollectionAdminRequest.createCollection(TEST_COLLECTION,
+				"_default", 1, 1);
+		createRequest.process(solrClient);
 
-		if (!initialized) {
-			// Create a test collection using the container's connection details
-			// Create a collection for testing
-			CollectionAdminRequest.Create createRequest = CollectionAdminRequest.createCollection(TEST_COLLECTION,
-					"_default", 1, 1);
-			createRequest.process(solrClient);
+		// Verify collection was created successfully
+		CollectionAdminRequest.List listRequest = new CollectionAdminRequest.List();
+		listRequest.process(solrClient);
 
-			// Verify collection was created successfully
-			CollectionAdminRequest.List listRequest = new CollectionAdminRequest.List();
-			listRequest.process(solrClient);
-
-			System.out.println("[DEBUG_LOG] Test collection created: " + TEST_COLLECTION);
-			initialized = true;
-		}
+		log.debug("Test collection created: {}", TEST_COLLECTION);
 	}
 
 	@Test
@@ -65,8 +64,7 @@ class CollectionServiceIntegrationTest {
 		// Test listing collections
 		List<String> collections = collectionService.listCollections();
 
-		// Print the collections for debugging
-		System.out.println("[DEBUG_LOG] Collections: " + collections);
+		log.debug("Collections: {}", collections);
 
 		// Enhanced assertions for collections list
 		assertNotNull(collections, "Collections list should not be null");
@@ -149,8 +147,7 @@ class CollectionServiceIntegrationTest {
 		// Test checking health of a valid collection
 		SolrHealthStatus status = collectionService.checkHealth(TEST_COLLECTION);
 
-		// Print the status for debugging
-		System.out.println("[DEBUG_LOG] Health status for valid collection: " + status);
+		log.debug("Health status for valid collection: {}", status);
 
 		// Enhanced assertions for healthy collection
 		assertNotNull(status, "Health status should not be null");
@@ -175,6 +172,9 @@ class CollectionServiceIntegrationTest {
 		// Verify no error message for healthy collection
 		assertNull(status.errorMessage(), "Error message should be null for healthy collection");
 
+		// Verify collection name is populated
+		assertEquals(TEST_COLLECTION, status.collection(), "Collection name should be populated in health status");
+
 		// Verify string representation contains meaningful information
 		String statusString = status.toString();
 		assertTrue(statusString.contains("healthy") || statusString.contains("true"),
@@ -187,8 +187,7 @@ class CollectionServiceIntegrationTest {
 		String nonExistentCollection = "non_existent_collection";
 		SolrHealthStatus status = collectionService.checkHealth(nonExistentCollection);
 
-		// Print the status for debugging
-		System.out.println("[DEBUG_LOG] Health status for invalid collection: " + status);
+		log.debug("Health status for invalid collection: {}", status);
 
 		// Enhanced assertions for unhealthy collection
 		assertNotNull(status, "Health status should not be null");
@@ -209,6 +208,10 @@ class CollectionServiceIntegrationTest {
 		// Verify that performance metrics are null for unhealthy collection
 		assertNull(status.responseTime(), "Response time should be null for unhealthy collection");
 		assertNull(status.totalDocuments(), "Total documents should be null for unhealthy collection");
+
+		// Verify collection name is populated even for unhealthy collection
+		assertEquals(nonExistentCollection, status.collection(),
+				"Collection name should be populated for unhealthy collection");
 
 		// Verify error message contains meaningful information
 		String errorMessage = status.errorMessage().toLowerCase();
