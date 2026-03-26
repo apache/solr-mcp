@@ -18,12 +18,15 @@ package org.apache.solr.mcp.server.collection;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
-import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.request.CollectionAdminRequest;
-import org.apache.solr.client.solrj.request.SolrQuery;
-import org.apache.solr.common.SolrInputDocument;
+import java.util.Map;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
+import org.apache.solr.mcp.server.indexing.IndexingService;
+import org.apache.solr.mcp.server.search.SearchResponse;
+import org.apache.solr.mcp.server.search.SearchService;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -50,32 +53,43 @@ class CollectionServiceIntegrationTest {
 	private CollectionService collectionService;
 
 	@Autowired
-	private SolrClient solrClient;
+	private IndexingService indexingService;
+
+	@Autowired
+	private SearchService searchService;
+
+	@Autowired
+	private ObjectMapper objectMapper;
 
 	@BeforeAll
 	void setupCollectionWithData() throws Exception {
-		// 1. Create collection
-		CollectionAdminRequest.createCollection(TEST_COLLECTION, "_default", 1, 1).process(solrClient);
+		// 1. Create collection via CollectionService MCP tool
+		CollectionCreationResult created = collectionService.createCollection(TEST_COLLECTION, null, null, null);
+		assertTrue(created.success(), "Collection creation should succeed: " + created.message());
 		log.debug("Test collection created: {}", TEST_COLLECTION);
 
-		// 2. Index documents so metrics have real data
+		// 2. Index documents via IndexingService MCP tool
+		List<Map<String, Object>> docs = new ArrayList<>();
 		for (int i = 0; i < DOC_COUNT; i++) {
-			SolrInputDocument doc = new SolrInputDocument();
-			doc.addField("id", "doc-" + i);
-			doc.addField("title_s", "Document " + i);
-			doc.addField("category_s", (i % 2 == 0) ? "even" : "odd");
-			doc.addField("count_i", i);
-			solrClient.add(TEST_COLLECTION, doc);
+			Map<String, Object> doc = new LinkedHashMap<>();
+			doc.put("id", "doc-" + i);
+			doc.put("title_s", "Document " + i);
+			doc.put("category_s", (i % 2 == 0) ? "even" : "odd");
+			doc.put("count_i", i);
+			docs.add(doc);
 		}
-		solrClient.commit(TEST_COLLECTION);
+		String json = objectMapper.writeValueAsString(docs);
+		indexingService.indexJsonDocuments(TEST_COLLECTION, json);
+		log.debug("Indexed {} documents via IndexingService", DOC_COUNT);
 
-		// 3. Run several queries to populate query result cache and handler stats
+		// 3. Run searches via SearchService MCP tool to populate caches and handler
+		// stats
 		for (int i = 0; i < 5; i++) {
-			solrClient.query(TEST_COLLECTION, new SolrQuery("*:*").setRows(10));
-			solrClient.query(TEST_COLLECTION, new SolrQuery("title_s:Document").setRows(5));
-			solrClient.query(TEST_COLLECTION, new SolrQuery("*:*").addFilterQuery("category_s:even").setRows(10));
+			searchService.search(TEST_COLLECTION, "*:*", null, null, null, 0, 10);
+			searchService.search(TEST_COLLECTION, "title_s:Document", null, null, null, 0, 5);
+			searchService.search(TEST_COLLECTION, "*:*", List.of("category_s:even"), null, null, 0, 10);
 		}
-		log.debug("Indexed {} documents and ran warm-up queries", DOC_COUNT);
+		log.debug("Ran warm-up queries via SearchService");
 	}
 
 	@Test
@@ -246,5 +260,18 @@ class CollectionServiceIntegrationTest {
 		boolean exists = collections.contains(name)
 				|| collections.stream().anyMatch(col -> col.startsWith(name + "_shard"));
 		assertTrue(exists, "Newly created collection should appear in list (found: " + collections + ")");
+	}
+
+	@Test
+	void testSearchVerifiesIndexedDocuments() throws Exception {
+		// Verify the documents we indexed are actually searchable via SearchService
+		SearchResponse all = searchService.search(TEST_COLLECTION, "*:*", null, null, null, 0, DOC_COUNT);
+		assertEquals(DOC_COUNT, all.numFound(), "Should find all indexed documents");
+		assertEquals(DOC_COUNT, all.documents().size(), "Should return all documents in single page");
+
+		// Filter search should return only even-category docs
+		SearchResponse evens = searchService.search(TEST_COLLECTION, "*:*", List.of("category_s:even"), null, null, 0,
+				DOC_COUNT);
+		assertEquals(DOC_COUNT / 2, evens.numFound(), "Should find 25 even-category documents");
 	}
 }
