@@ -177,10 +177,8 @@ class CollectionServiceIntegrationTest {
 
 		// Verify string representation contains meaningful information
 		String statusString = status.toString();
-		if (statusString != null) {
-			assertTrue(statusString.contains("healthy") || statusString.contains("true"),
-					"Status string should indicate healthy state");
-		}
+		assertTrue(statusString.contains("healthy") || statusString.contains("true"),
+				"Status string should indicate healthy state");
 	}
 
 	@Test
@@ -242,6 +240,48 @@ class CollectionServiceIntegrationTest {
 		assertNull(collectionService.extractCollectionName(null), "Null input should return null");
 
 		assertEquals("", collectionService.extractCollectionName(""), "Empty string should return empty string");
+	}
+
+	@Test
+	void testGetCacheMetrics() {
+		CacheStats cacheStats = collectionService.getCacheMetrics(TEST_COLLECTION);
+
+		assertNotNull(cacheStats, "Cache stats should not be null for an existing collection");
+
+		// Solr registers all three caches at collection creation
+		assertNotNull(cacheStats.queryResultCache(), "Query result cache should not be null");
+		assertTrue(cacheStats.queryResultCache().lookups() >= 0, "Query result cache lookups should be non-negative");
+
+		assertNotNull(cacheStats.documentCache(), "Document cache should not be null");
+		assertTrue(cacheStats.documentCache().lookups() >= 0, "Document cache lookups should be non-negative");
+
+		assertNotNull(cacheStats.filterCache(), "Filter cache should not be null");
+		assertTrue(cacheStats.filterCache().lookups() >= 0, "Filter cache lookups should be non-negative");
+	}
+
+	@Test
+	void testGetHandlerMetrics() {
+		HandlerStats handlerStats = collectionService.getHandlerMetrics(TEST_COLLECTION);
+
+		assertNotNull(handlerStats, "Handler stats should not be null for an existing collection");
+
+		assertNotNull(handlerStats.selectHandler(), "Select handler should not be null");
+		assertTrue(handlerStats.selectHandler().requests() >= 0, "Select handler requests should be non-negative");
+
+		assertNotNull(handlerStats.updateHandler(), "Update handler should not be null");
+		assertTrue(handlerStats.updateHandler().requests() >= 0, "Update handler requests should be non-negative");
+	}
+
+	@Test
+	void testGetCacheMetrics_NonExistentCollection() {
+		CacheStats result = collectionService.getCacheMetrics("non_existent_collection");
+		assertNull(result, "Cache metrics for non-existent collection should be null");
+	}
+
+	@Test
+	void testGetHandlerMetrics_NonExistentCollection() {
+		HandlerStats result = collectionService.getHandlerMetrics("non_existent_collection");
+		assertNull(result, "Handler metrics for non-existent collection should be null");
 	}
 
 	@Test

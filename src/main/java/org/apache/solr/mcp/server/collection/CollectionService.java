@@ -133,35 +133,38 @@ public class CollectionService {
 	// Constants for API Parameters and Paths
 	// ========================================
 
-	/** Category parameter value for cache-related MBeans requests */
-	private static final String CACHE_CATEGORY = "CACHE";
-
-	/** Category parameter value for query handler MBeans requests */
-	private static final String QUERY_HANDLER_CATEGORY = "QUERYHANDLER";
-
-	/**
-	 * Combined category parameter value for both query and update handler MBeans
-	 * requests
-	 */
-	private static final String HANDLER_CATEGORIES = "QUERYHANDLER,UPDATEHANDLER";
-
 	/** Universal Solr query pattern to match all documents in a collection */
 	private static final String ALL_DOCUMENTS_QUERY = "*:*";
 
 	/** Suffix pattern used to identify shard names in SolrCloud deployments */
 	private static final String SHARD_SUFFIX = "_shard";
 
-	/** Request parameter name for enabling statistics in MBeans requests */
-	private static final String STATS_PARAM = "stats";
-
-	/** Request parameter name for specifying category filters in MBeans requests */
-	private static final String CAT_PARAM = "cat";
-
 	/** Request parameter name for specifying response writer type */
 	private static final String WT_PARAM = "wt";
 
 	/** JSON format specification for response writer type */
 	private static final String JSON_FORMAT = "json";
+
+	/** URL path for Solr Metrics admin endpoint */
+	private static final String ADMIN_METRICS_PATH = "/admin/metrics";
+
+	/** Request parameter name for specifying the metrics group */
+	private static final String GROUP_PARAM = "group";
+
+	/** Request parameter name for filtering metrics by key prefix */
+	private static final String PREFIX_PARAM = "prefix";
+
+	/** Metrics group for core-level metrics */
+	private static final String CORE_GROUP = "core";
+
+	/** Prefix for cache metrics in the Metrics API */
+	private static final String CACHE_METRIC_PREFIX = "CACHE.searcher";
+
+	/** Prefix for select handler metrics in the Metrics API */
+	private static final String SELECT_HANDLER_METRIC_PREFIX = "QUERY./select";
+
+	/** Prefix for update handler metrics in the Metrics API */
+	private static final String UPDATE_HANDLER_METRIC_PREFIX = "UPDATE./update";
 
 	// ========================================
 	// Constants for Response Parsing
@@ -173,30 +176,23 @@ public class CollectionService {
 	/** Key name for segment count information in Luke response */
 	private static final String SEGMENT_COUNT_KEY = "segmentCount";
 
-	/** Key name for query result cache in MBeans cache responses */
-	private static final String QUERY_RESULT_CACHE_KEY = "queryResultCache";
+	/** Top-level key in Metrics API responses */
+	private static final String METRICS_KEY = "metrics";
 
-	/** Key name for document cache in MBeans cache responses */
-	private static final String DOCUMENT_CACHE_KEY = "documentCache";
+	/** Metrics API key for query result cache */
+	private static final String QUERY_RESULT_CACHE_KEY = "CACHE.searcher.queryResultCache";
 
-	/** Key name for filter cache in MBeans cache responses */
-	private static final String FILTER_CACHE_KEY = "filterCache";
+	/** Metrics API key for document cache */
+	private static final String DOCUMENT_CACHE_KEY = "CACHE.searcher.documentCache";
 
-	/** Key name for statistics section in MBeans responses */
-	private static final String STATS_KEY = "stats";
+	/** Metrics API key for filter cache */
+	private static final String FILTER_CACHE_KEY = "CACHE.searcher.filterCache";
 
-	// ========================================
-	// Constants for Handler Paths
-	// ========================================
+	/** Flat metric key prefix for select handler stats */
+	private static final String SELECT_HANDLER_KEY = "QUERY./select.";
 
-	/** URL path for Solr select (query) handler */
-	private static final String SELECT_HANDLER_PATH = "/select";
-
-	/** URL path for Solr update handler */
-	private static final String UPDATE_HANDLER_PATH = "/update";
-
-	/** URL path for Solr MBeans admin endpoint */
-	private static final String ADMIN_MBEANS_PATH = "/admin/mbeans";
+	/** Flat metric key prefix for update handler stats */
+	private static final String UPDATE_HANDLER_KEY = "UPDATE./update.";
 
 	// ========================================
 	// Constants for Statistics Field Names
@@ -231,12 +227,6 @@ public class CollectionService {
 
 	/** Field name for handler total processing time statistics */
 	private static final String TOTAL_TIME_FIELD = "totalTime";
-
-	/** Field name for handler average time per request statistics */
-	private static final String AVG_TIME_PER_REQUEST_FIELD = "avgTimePerRequest";
-
-	/** Field name for handler average requests per second statistics */
-	private static final String AVG_REQUESTS_PER_SECOND_FIELD = "avgRequestsPerSecond";
 
 	// ========================================
 	// Constants for Error Messages
@@ -525,7 +515,7 @@ public class CollectionService {
 	 * Retrieves cache performance metrics for all cache types in a Solr collection.
 	 *
 	 * <p>
-	 * Collects detailed cache utilization statistics from Solr's MBeans endpoint,
+	 * Collects detailed cache utilization statistics from Solr's Metrics API,
 	 * providing insights into cache effectiveness and memory usage patterns. Cache
 	 * performance directly impacts query response times and system efficiency.
 	 *
@@ -568,37 +558,21 @@ public class CollectionService {
 	 */
 	public CacheStats getCacheMetrics(String collection) {
 		try {
-			// Get MBeans for cache information
-			ModifiableSolrParams params = new ModifiableSolrParams();
-			params.set(STATS_PARAM, "true");
-			params.set(CAT_PARAM, CACHE_CATEGORY);
-			params.set(WT_PARAM, JSON_FORMAT);
-
-			// Extract actual collection name from shard name if needed
 			String actualCollection = extractCollectionName(collection);
 
-			// Validate collection exists first
 			if (!validateCollectionExists(actualCollection)) {
-				return null; // Return null instead of empty object
-			}
-
-			String path = "/" + actualCollection + ADMIN_MBEANS_PATH;
-
-			GenericSolrRequest request = new GenericSolrRequest(SolrRequest.METHOD.GET, path, params);
-
-			NamedList<Object> response = solrClient.request(request);
-			CacheStats stats = extractCacheStats(response);
-
-			// Return null if all cache stats are empty/null
-			if (isCacheStatsEmpty(stats)) {
 				return null;
 			}
 
-			return stats;
+			NamedList<Object> coreMetrics = fetchMetrics(actualCollection, CACHE_METRIC_PREFIX);
+			if (coreMetrics == null) {
+				return null;
+			}
+
+			CacheStats stats = extractCacheStats(coreMetrics);
+			return isCacheStatsEmpty(stats) ? null : stats;
 		} catch (SolrServerException | IOException | RuntimeException _) {
-			// RuntimeException covers SolrException subclasses (e.g. RemoteSolrException)
-			// thrown when the /admin/mbeans endpoint is unavailable (removed in Solr 10).
-			return null; // Return null instead of empty object
+			return null;
 		}
 	}
 
@@ -620,81 +594,26 @@ public class CollectionService {
 	}
 
 	/**
-	 * Extracts cache performance statistics from Solr MBeans response data.
+	 * Extracts cache performance statistics from Solr Metrics API response data.
 	 *
-	 * <p>
-	 * Parses the raw MBeans response to extract structured cache performance
-	 * metrics for all available cache types. Each cache type provides detailed
-	 * statistics including hit ratios, eviction rates, and current utilization.
-	 *
-	 * <p>
-	 * <strong>Parsed Cache Types:</strong>
-	 *
-	 * <ul>
-	 * <li>queryResultCache - Complete query result caching
-	 * <li>documentCache - Retrieved document data caching
-	 * <li>filterCache - Filter query result caching
-	 * </ul>
-	 *
-	 * <p>
-	 * For each cache type, the following metrics are extracted:
-	 *
-	 * <ul>
-	 * <li>lookups, hits, hitratio - Performance effectiveness
-	 * <li>inserts, evictions - Memory management patterns
-	 * <li>size - Current utilization
-	 * </ul>
-	 *
-	 * @param mbeans
-	 *            the raw MBeans response from Solr admin endpoint
+	 * @param coreMetrics
+	 *            the core metrics from the Solr Metrics API
 	 * @return CacheStats object containing parsed metrics for all cache types
-	 * @see CacheStats
-	 * @see CacheInfo
 	 */
-	private CacheStats extractCacheStats(NamedList<Object> mbeans) {
-		CacheInfo queryResultCacheInfo = null;
-		CacheInfo documentCacheInfo = null;
-		CacheInfo filterCacheInfo = null;
+	private CacheStats extractCacheStats(NamedList<Object> coreMetrics) {
+		return new CacheStats(extractSingleCacheInfo(coreMetrics, QUERY_RESULT_CACHE_KEY),
+				extractSingleCacheInfo(coreMetrics, DOCUMENT_CACHE_KEY),
+				extractSingleCacheInfo(coreMetrics, FILTER_CACHE_KEY));
+	}
 
-		@SuppressWarnings("unchecked")
-		NamedList<Object> caches = (NamedList<Object>) mbeans.get(CACHE_CATEGORY);
-
-		if (caches != null) {
-			// Query result cache
-			@SuppressWarnings("unchecked")
-			NamedList<Object> queryResultCache = (NamedList<Object>) caches.get(QUERY_RESULT_CACHE_KEY);
-			if (queryResultCache != null) {
-				@SuppressWarnings("unchecked")
-				NamedList<Object> stats = (NamedList<Object>) queryResultCache.get(STATS_KEY);
-				queryResultCacheInfo = new CacheInfo(getLong(stats, LOOKUPS_FIELD), getLong(stats, HITS_FIELD),
-						getFloat(stats, HITRATIO_FIELD), getLong(stats, INSERTS_FIELD), getLong(stats, EVICTIONS_FIELD),
-						getLong(stats, SIZE_FIELD));
-			}
-
-			// Document cache
-			@SuppressWarnings("unchecked")
-			NamedList<Object> documentCache = (NamedList<Object>) caches.get(DOCUMENT_CACHE_KEY);
-			if (documentCache != null) {
-				@SuppressWarnings("unchecked")
-				NamedList<Object> stats = (NamedList<Object>) documentCache.get(STATS_KEY);
-				documentCacheInfo = new CacheInfo(getLong(stats, LOOKUPS_FIELD), getLong(stats, HITS_FIELD),
-						getFloat(stats, HITRATIO_FIELD), getLong(stats, INSERTS_FIELD), getLong(stats, EVICTIONS_FIELD),
-						getLong(stats, SIZE_FIELD));
-			}
-
-			// Filter cache
-			@SuppressWarnings("unchecked")
-			NamedList<Object> filterCache = (NamedList<Object>) caches.get(FILTER_CACHE_KEY);
-			if (filterCache != null) {
-				@SuppressWarnings("unchecked")
-				NamedList<Object> stats = (NamedList<Object>) filterCache.get(STATS_KEY);
-				filterCacheInfo = new CacheInfo(getLong(stats, LOOKUPS_FIELD), getLong(stats, HITS_FIELD),
-						getFloat(stats, HITRATIO_FIELD), getLong(stats, INSERTS_FIELD), getLong(stats, EVICTIONS_FIELD),
-						getLong(stats, SIZE_FIELD));
-			}
+	@SuppressWarnings("unchecked")
+	private CacheInfo extractSingleCacheInfo(NamedList<Object> coreMetrics, String key) {
+		NamedList<Object> cache = (NamedList<Object>) coreMetrics.get(key);
+		if (cache == null) {
+			return null;
 		}
-
-		return new CacheStats(queryResultCacheInfo, documentCacheInfo, filterCacheInfo);
+		return new CacheInfo(getLong(cache, LOOKUPS_FIELD), getLong(cache, HITS_FIELD), getFloat(cache, HITRATIO_FIELD),
+				getLong(cache, INSERTS_FIELD), getLong(cache, EVICTIONS_FIELD), getLong(cache, SIZE_FIELD));
 	}
 
 	/**
@@ -709,10 +628,10 @@ public class CollectionService {
 	 * <strong>Monitored Handlers:</strong>
 	 *
 	 * <ul>
-	 * <li><strong>Select Handler ({@value #SELECT_HANDLER_PATH})</strong>:
-	 * Processes search and query requests
-	 * <li><strong>Update Handler ({@value #UPDATE_HANDLER_PATH})</strong>:
-	 * Processes document indexing operations
+	 * <li><strong>Select Handler (/select)</strong>: Processes search and query
+	 * requests
+	 * <li><strong>Update Handler (/update)</strong>: Processes document indexing
+	 * operations
 	 * </ul>
 	 *
 	 * <p>
@@ -738,41 +657,28 @@ public class CollectionService {
 	 *         null if unavailable
 	 * @see HandlerStats
 	 * @see HandlerInfo
-	 * @see #extractHandlerStats(NamedList)
+	 * @see #fetchFlatHandlerInfo(String, String, String)
 	 * @see #isHandlerStatsEmpty(HandlerStats)
 	 */
 	public HandlerStats getHandlerMetrics(String collection) {
 		try {
-			ModifiableSolrParams params = new ModifiableSolrParams();
-			params.set(STATS_PARAM, "true");
-			params.set(CAT_PARAM, HANDLER_CATEGORIES);
-			params.set(WT_PARAM, JSON_FORMAT);
-
-			// Extract actual collection name from shard name if needed
 			String actualCollection = extractCollectionName(collection);
 
-			// Validate collection exists first
 			if (!validateCollectionExists(actualCollection)) {
-				return null; // Return null instead of empty object
-			}
-
-			String path = "/" + actualCollection + ADMIN_MBEANS_PATH;
-
-			GenericSolrRequest request = new GenericSolrRequest(SolrRequest.METHOD.GET, path, params);
-
-			NamedList<Object> response = solrClient.request(request);
-			HandlerStats stats = extractHandlerStats(response);
-
-			// Return null if all handler stats are empty/null
-			if (isHandlerStatsEmpty(stats)) {
 				return null;
 			}
 
-			return stats;
+			// Handler metrics are flat keys (e.g. QUERY./select.requests) so we
+			// fetch each handler prefix separately and reconstruct HandlerInfo
+			HandlerInfo selectHandler = fetchFlatHandlerInfo(actualCollection, SELECT_HANDLER_METRIC_PREFIX,
+					SELECT_HANDLER_KEY);
+			HandlerInfo updateHandler = fetchFlatHandlerInfo(actualCollection, UPDATE_HANDLER_METRIC_PREFIX,
+					UPDATE_HANDLER_KEY);
+
+			HandlerStats stats = new HandlerStats(selectHandler, updateHandler);
+			return isHandlerStatsEmpty(stats) ? null : stats;
 		} catch (SolrServerException | IOException | RuntimeException _) {
-			// RuntimeException covers SolrException subclasses (e.g. RemoteSolrException)
-			// thrown when the /admin/mbeans endpoint is unavailable (removed in Solr 10).
-			return null; // Return null instead of empty object
+			return null;
 		}
 	}
 
@@ -793,69 +699,92 @@ public class CollectionService {
 	}
 
 	/**
-	 * Extracts request handler performance statistics from Solr MBeans response
-	 * data.
+	 * Fetches metrics from the Solr Metrics API for a given collection and prefix.
 	 *
-	 * <p>
-	 * Parses the raw MBeans response to extract structured handler performance
-	 * metrics for query and update operations. Each handler provides detailed
-	 * statistics about request processing including volume, errors, and timing.
-	 *
-	 * <p>
-	 * <strong>Parsed Handler Types:</strong>
-	 *
-	 * <ul>
-	 * <li>/select - Search and query request handler
-	 * <li>/update - Document indexing request handler
-	 * </ul>
-	 *
-	 * <p>
-	 * For each handler type, the following metrics are extracted:
-	 *
-	 * <ul>
-	 * <li>requests, errors, timeouts - Volume and reliability
-	 * <li>totalTime, avgTimePerRequest - Performance characteristics
-	 * <li>avgRequestsPerSecond - Throughput capacity
-	 * </ul>
-	 *
-	 * @param mbeans
-	 *            the raw MBeans response from Solr admin endpoint
-	 * @return HandlerStats object containing parsed metrics for all handler types
-	 * @see HandlerStats
-	 * @see HandlerInfo
+	 * @param collection
+	 *            the collection name
+	 * @param prefix
+	 *            the metric key prefix to filter (e.g. "CACHE.searcher", "HANDLER")
+	 * @return the core-level metrics NamedList, or null if unavailable
 	 */
-	private HandlerStats extractHandlerStats(NamedList<Object> mbeans) {
-		HandlerInfo selectHandlerInfo = null;
-		HandlerInfo updateHandlerInfo = null;
+	@SuppressWarnings("unchecked")
+	private NamedList<Object> fetchMetrics(String collection, String prefix) throws SolrServerException, IOException {
+		ModifiableSolrParams params = new ModifiableSolrParams();
+		params.set(GROUP_PARAM, CORE_GROUP);
+		params.set(PREFIX_PARAM, prefix);
+		params.set(WT_PARAM, JSON_FORMAT);
 
-		@SuppressWarnings("unchecked")
-		NamedList<Object> queryHandlers = (NamedList<Object>) mbeans.get(QUERY_HANDLER_CATEGORY);
+		// Metrics API is a node-level endpoint, not per-collection
+		GenericSolrRequest request = new GenericSolrRequest(SolrRequest.METHOD.GET, ADMIN_METRICS_PATH, params);
 
-		if (queryHandlers != null) {
-			// Select handler
-			@SuppressWarnings("unchecked")
-			NamedList<Object> selectHandler = (NamedList<Object>) queryHandlers.get(SELECT_HANDLER_PATH);
-			if (selectHandler != null) {
-				@SuppressWarnings("unchecked")
-				NamedList<Object> stats = (NamedList<Object>) selectHandler.get(STATS_KEY);
-				selectHandlerInfo = new HandlerInfo(getLong(stats, REQUESTS_FIELD), getLong(stats, ERRORS_FIELD),
-						getLong(stats, TIMEOUTS_FIELD), getLong(stats, TOTAL_TIME_FIELD),
-						getFloat(stats, AVG_TIME_PER_REQUEST_FIELD), getFloat(stats, AVG_REQUESTS_PER_SECOND_FIELD));
-			}
-
-			// Update handler
-			@SuppressWarnings("unchecked")
-			NamedList<Object> updateHandler = (NamedList<Object>) queryHandlers.get(UPDATE_HANDLER_PATH);
-			if (updateHandler != null) {
-				@SuppressWarnings("unchecked")
-				NamedList<Object> stats = (NamedList<Object>) updateHandler.get(STATS_KEY);
-				updateHandlerInfo = new HandlerInfo(getLong(stats, REQUESTS_FIELD), getLong(stats, ERRORS_FIELD),
-						getLong(stats, TIMEOUTS_FIELD), getLong(stats, TOTAL_TIME_FIELD),
-						getFloat(stats, AVG_TIME_PER_REQUEST_FIELD), getFloat(stats, AVG_REQUESTS_PER_SECOND_FIELD));
-			}
+		NamedList<Object> response = solrClient.request(request);
+		NamedList<Object> metrics = (NamedList<Object>) response.get(METRICS_KEY);
+		if (metrics == null || metrics.size() == 0) {
+			return null;
 		}
 
-		return new HandlerStats(selectHandlerInfo, updateHandlerInfo);
+		// Find the core registry matching the requested collection
+		// Keys are like "solr.core.<collection>.<shard>.<replica>"
+		String corePrefix = "solr.core." + collection + ".";
+		for (int i = 0; i < metrics.size(); i++) {
+			String key = metrics.getName(i);
+			if (key != null && key.startsWith(corePrefix)) {
+				return (NamedList<Object>) metrics.getVal(i);
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Fetches and extracts handler metrics from flat Solr Metrics API keys.
+	 *
+	 * <p>
+	 * Handler metrics in Solr are stored as flat keys (e.g.
+	 * {@code QUERY./select.requests}) rather than nested objects. This method
+	 * fetches core metrics filtered by the handler prefix and reconstructs a
+	 * {@link HandlerInfo} from the individual flat keys.
+	 *
+	 * @param collection
+	 *            the collection name
+	 * @param metricPrefix
+	 *            the prefix for the Metrics API filter (e.g. {@code QUERY./select})
+	 * @param keyPrefix
+	 *            the flat key prefix including trailing dot (e.g.
+	 *            {@code QUERY./select.})
+	 * @return HandlerInfo with stats, or null if unavailable
+	 */
+	private HandlerInfo fetchFlatHandlerInfo(String collection, String metricPrefix, String keyPrefix)
+			throws SolrServerException, IOException {
+		NamedList<Object> coreMetrics = fetchMetrics(collection, metricPrefix);
+		if (coreMetrics == null) {
+			return null;
+		}
+		return extractFlatHandlerInfo(coreMetrics, keyPrefix);
+	}
+
+	/**
+	 * Extracts a {@link HandlerInfo} from flat metric keys in core metrics.
+	 *
+	 * @param coreMetrics
+	 *            the core metrics NamedList with flat keys
+	 * @param keyPrefix
+	 *            the flat key prefix including trailing dot (e.g.
+	 *            {@code QUERY./select.})
+	 * @return HandlerInfo reconstructed from flat keys, or null if no requests key
+	 *         found
+	 */
+	private HandlerInfo extractFlatHandlerInfo(NamedList<Object> coreMetrics, String keyPrefix) {
+		Long requests = getLong(coreMetrics, keyPrefix + REQUESTS_FIELD);
+		if (requests == null) {
+			return null;
+		}
+		Long errors = getLong(coreMetrics, keyPrefix + ERRORS_FIELD);
+		Long timeouts = getLong(coreMetrics, keyPrefix + TIMEOUTS_FIELD);
+		Long totalTime = getLong(coreMetrics, keyPrefix + TOTAL_TIME_FIELD);
+		// avgTimePerRequest and avgRequestsPerSecond are not available as flat metrics;
+		// compute avgTimePerRequest from totalTime/requests when possible
+		Float avgTimePerRequest = (requests > 0 && totalTime != null) ? (float) totalTime / requests : null;
+		return new HandlerInfo(requests, errors, timeouts, totalTime, avgTimePerRequest, null);
 	}
 
 	/**
