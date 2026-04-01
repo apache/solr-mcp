@@ -14,30 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.solr.mcp.server;
+package org.apache.solr.mcp.server.observability;
 
+import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
-import org.springframework.test.context.DynamicPropertyRegistrar;
-import org.testcontainers.containers.SolrContainer;
-import org.testcontainers.utility.DockerImageName;
 
-@TestConfiguration(proxyBeanMethods = false)
-public class TestcontainersConfiguration {
-
-	private static final int SOLR_PORT = 8983;
-
-	static final String DEFAULT_SOLR_IMAGE = "solr:9.9-slim";
-
-	@Bean
-	SolrContainer solr() {
-		String solrImage = System.getProperty("solr.test.image", DEFAULT_SOLR_IMAGE);
-		return new SolrContainer(DockerImageName.parse(solrImage));
-	}
+/**
+ * Minimal test configuration that provides InMemorySpanExporter bean.
+ * <p>
+ * Spring Boot's opentelemetry-test starter requires this to be explicitly
+ * configured.
+ */
+@TestConfiguration
+public class InMemoryTracingTestConfiguration {
 
 	@Bean
-	DynamicPropertyRegistrar propertiesRegistrar(SolrContainer solr) {
-		return registry -> registry.add("solr.url",
-				() -> "http://" + solr.getHost() + ":" + solr.getMappedPort(SOLR_PORT) + "/solr/");
+	public InMemorySpanExporter inMemorySpanExporter() {
+		return InMemorySpanExporter.create();
 	}
+
 }
