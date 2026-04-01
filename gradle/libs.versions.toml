@@ -15,7 +15,7 @@ mcp-server-security = "0.0.4"
 
 # Error Prone and analysis tools
 errorprone-core = "2.38.0"
-nullaway = "0.12.7"
+nullaway = "0.13.1"
 
 
 # Test dependencies
