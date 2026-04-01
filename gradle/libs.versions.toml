@@ -1,6 +1,6 @@
 [versions]
 # Build plugins
-spring-boot = "3.5.11"
+spring-boot = "3.5.13"
 spring-dependency-management = "1.1.7"
 errorprone-plugin = "4.2.0"
 jib = "3.4.5"
