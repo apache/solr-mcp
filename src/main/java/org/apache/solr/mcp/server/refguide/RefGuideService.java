@@ -57,6 +57,11 @@ public class RefGuideService {
 			@McpToolParam(description = "The search query (e.g., 'circuit breakers', 'indexing')") String query,
 			@McpToolParam(description = "The Solr version (e.g., '9.10', '8.11', 'latest'). Defaults to 'latest'", required = false) String version) {
 
+		if (isVersionLessThan9(version)) {
+			return List.of(
+					"https://archive.apache.org/dist/lucene/solr/ref-guide/apache-solr-ref-guide-" + version + ".pdf");
+		}
+
 		final String targetVersion = (version == null || version.isBlank()) ? "latest" : version.replace('.', '_');
 		final String sitemapContent = restClient.get().uri(SITEMAP_URL).retrieve().body(String.class);
 
@@ -86,8 +91,7 @@ public class RefGuideService {
 			matcher.reset();
 			while (matcher.find()) {
 				String url = matcher.group(1);
-				if (url.contains("/" + targetVersion + "/")
-						|| (targetVersion.equals("latest") && url.contains("/latest/"))) {
+				if (url.contains("/" + targetVersion + "/") || (targetVersion.equals("latest") && url.contains("/latest/"))) {
 					boolean allMatch = true;
 					for (String word : words) {
 						if (!url.toLowerCase().contains(word)) {
@@ -103,5 +107,27 @@ public class RefGuideService {
 		}
 
 		return urls.stream().limit(10).toList();
+
 	}
+
+	private boolean isVersionLessThan9(final String version) {
+
+		if (version == null || version.isBlank() || "latest".equalsIgnoreCase(version)) {
+			return false;
+		}
+
+		try {
+			String[] parts = version.split("\\.");
+			if (parts.length > 0) {
+				int major = Integer.parseInt(parts[0]);
+				return major < 9;
+			}
+		} catch (NumberFormatException e) {
+			// ignore and say not less than 9
+		}
+
+		return false;
+
+	}
+
 }

@@ -50,7 +50,7 @@ class RefGuideServiceTest {
 	@BeforeEach
 	void setUp() {
 		refGuideService = new RefGuideService(restClient);
-		when(restClient.get().uri(anyString()).retrieve().body(String.class)).thenReturn(SITEMAP_CONTENT);
+		lenient().when(restClient.get().uri(anyString()).retrieve().body(String.class)).thenReturn(SITEMAP_CONTENT);
 	}
 
 	@Test
@@ -97,8 +97,20 @@ class RefGuideServiceTest {
 		// Then
 		assertNotNull(results);
 		assertEquals(1, results.size());
-		assertTrue(results.get(0).contains("/8_11/"));
-		assertTrue(results.get(0).contains("indexing-with-tika.html"));
+		assertTrue(results.get(0).contains("/dist/lucene/solr/ref-guide/"));
+		assertTrue(results.get(0).contains("apache-solr-ref-guide-8.11.pdf"));
+	}
+
+	@Test
+	void testSearchRefGuide_VersionLessThanNine() {
+		// When
+		List<String> results = refGuideService.searchRefGuide("anything", "7.7");
+
+		// Then
+		assertNotNull(results);
+		assertEquals(1, results.size());
+		assertEquals("https://archive.apache.org/dist/lucene/solr/ref-guide/apache-solr-ref-guide-7.7.pdf",
+				results.get(0));
 	}
 
 	@Test
