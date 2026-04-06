@@ -357,6 +357,52 @@ public class IndexingService {
 	}
 
 	/**
+	 * Indexes a document from file content into a Solr collection.
+	 *
+	 * <p>
+	 * This method accepts text content that has been extracted from a file by the
+	 * AI chat client. When a user uploads a file (PDF, Word, etc.) through their
+	 * chat client, the client extracts the text and passes it to this tool along
+	 * with the original filename.
+	 *
+	 * <p>
+	 * A single SolrInputDocument is created with the following fields:
+	 *
+	 * <ul>
+	 * <li><strong>id</strong> - Auto-generated UUID
+	 * <li><strong>content</strong> - The extracted text content
+	 * <li><strong>filename</strong> - The original filename
+	 * </ul>
+	 *
+	 * @param collection
+	 *            the name of the Solr collection to index into
+	 * @param content
+	 *            the text content extracted from the file
+	 * @param filename
+	 *            the original filename (e.g. "report.pdf")
+	 * @throws IOException
+	 *             if there are I/O errors during Solr communication
+	 * @throws SolrServerException
+	 *             if Solr server encounters errors during indexing
+	 * @see IndexingDocumentCreator#createSchemalessDocumentsFromFile(String,
+	 *      String)
+	 * @see #indexDocuments(String, List)
+	 */
+	@PreAuthorize("isAuthenticated()")
+	@McpTool(name = "index-file-document", description = "Index a document from file content into a Solr collection. "
+			+ "Use this when a user uploads a file (PDF, Word, Excel, etc.) and the text has "
+			+ "already been extracted by the chat client. Pass the extracted text as content "
+			+ "along with the original filename.")
+	public void indexFileDocument(@McpToolParam(description = "Solr collection to index into") String collection,
+			@McpToolParam(description = "Text content extracted from the file") String content,
+			@McpToolParam(description = "Original filename with extension (e.g. 'report.pdf')") String filename)
+			throws IOException, SolrServerException {
+		List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromFile(content,
+				filename);
+		indexDocuments(collection, documents);
+	}
+
+	/**
 	 * Indexes a list of SolrInputDocument objects into a Solr collection using
 	 * batch processing.
 	 *

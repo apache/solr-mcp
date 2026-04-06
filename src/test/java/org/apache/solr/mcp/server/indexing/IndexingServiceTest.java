@@ -31,6 +31,7 @@ import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.indexing.documentcreator.CsvDocumentCreator;
+import org.apache.solr.mcp.server.indexing.documentcreator.FileDocumentCreator;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
 import org.apache.solr.mcp.server.indexing.documentcreator.JsonDocumentCreator;
 import org.apache.solr.mcp.server.indexing.documentcreator.XmlDocumentCreator;
@@ -77,8 +78,9 @@ class IndexingServiceTest {
 		CsvDocumentCreator csvDocumentCreator = new CsvDocumentCreator();
 		JsonDocumentCreator jsonDocumentCreator = new JsonDocumentCreator();
 
+		FileDocumentCreator fileDocumentCreator = new FileDocumentCreator();
 		indexingDocumentCreator = new IndexingDocumentCreator(xmlDocumentCreator, csvDocumentCreator,
-				jsonDocumentCreator);
+				jsonDocumentCreator, fileDocumentCreator);
 
 		indexingService = new IndexingService(solrClient, indexingDocumentCreator);
 		searchService = new SearchService(solrClient);
@@ -757,6 +759,50 @@ class IndexingServiceTest {
 		assertEquals("Value 6", doc.getFieldValue("trailing_underscores"));
 		assertEquals("Value 7", doc.getFieldValue("multiple_underscores"));
 	}
+
+	@Test
+	void testIndexFileDocumentAndSearch() throws Exception {
+		String content = "Apache Solr provides distributed indexing and search with unique_file_test_marker_42";
+		String filename = "solr-guide.pdf";
+
+		indexingService.indexFileDocument(COLLECTION_NAME, content, filename);
+
+		// Search by content
+		SearchResponse result = searchService.search(COLLECTION_NAME, "content:unique_file_test_marker_42", null, null,
+				null, null, null);
+
+		assertNotNull(result);
+		List<Map<String, Object>> documents = result.documents();
+		assertEquals(1, documents.size());
+
+		Map<String, Object> doc = documents.getFirst();
+		assertNotNull(doc.get("content"));
+		String returnedContent = (String) getFieldValue(doc, "content");
+		assertTrue(returnedContent.contains("unique_file_test_marker_42"));
+		assertEquals("solr-guide.pdf", getFieldValue(doc, "filename"));
+		assertNotNull(doc.get("id"));
+	}
+
+	@Test
+	void testIndexFileDocumentSearchByFilename() throws Exception {
+		String content = "This is a quarterly financial report for Q3 2025.";
+		String filename = "q3_2025_financials_unique_test.xlsx";
+
+		indexingService.indexFileDocument(COLLECTION_NAME, content, filename);
+
+		// Search by filename
+		SearchResponse result = searchService.search(COLLECTION_NAME, "filename:q3_2025_financials_unique_test.xlsx",
+				null, null, null, null, null);
+
+		assertNotNull(result);
+		List<Map<String, Object>> documents = result.documents();
+		assertEquals(1, documents.size());
+
+		Map<String, Object> doc = documents.getFirst();
+		assertEquals("q3_2025_financials_unique_test.xlsx", getFieldValue(doc, "filename"));
+		String returnedContent = (String) getFieldValue(doc, "content");
+		assertTrue(returnedContent.contains("quarterly financial report"));
+	}
 }
 
 @Nested
@@ -1013,6 +1059,36 @@ class UnitTests {
 
 		verify(solrClient).add(eq("test_collection"), any(List.class));
 		verify(solrClient).add(eq("test_collection"), any(SolrInputDocument.class));
+	}
+
+	@Test
+	void indexFileDocument_WithValidInput_ShouldIndexDocuments() throws Exception {
+		String content = "Extracted text from PDF";
+		String filename = "report.pdf";
+		List<SolrInputDocument> mockDocs = createMockDocuments(1);
+		when(indexingDocumentCreator.createSchemalessDocumentsFromFile(content, filename)).thenReturn(mockDocs);
+		when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
+		when(solrClient.commit("test_collection")).thenReturn(null);
+
+		indexingService.indexFileDocument("test_collection", content, filename);
+
+		verify(indexingDocumentCreator).createSchemalessDocumentsFromFile(content, filename);
+		verify(solrClient).add(eq("test_collection"), any(Collection.class));
+		verify(solrClient).commit("test_collection");
+	}
+
+	@Test
+	void indexFileDocument_WhenDocumentCreatorThrowsException_ShouldPropagateException() throws Exception {
+		String content = "";
+		String filename = "report.pdf";
+		when(indexingDocumentCreator.createSchemalessDocumentsFromFile(content, filename))
+				.thenThrow(new IllegalArgumentException("File content cannot be null or empty"));
+
+		assertThrows(IllegalArgumentException.class, () -> {
+			indexingService.indexFileDocument("test_collection", content, filename);
+		});
+		verify(solrClient, never()).add(anyString(), any(Collection.class));
+		verify(solrClient, never()).commit(anyString());
 	}
 
 	@Test
