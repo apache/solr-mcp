@@ -1,13 +1,13 @@
 [versions]
 # Build plugins
-spring-boot = "3.5.11"
+spring-boot = "3.5.13"
 spring-dependency-management = "1.1.7"
 errorprone-plugin = "5.1.0"
 jib = "3.4.5"
 spotless = "7.0.2"
 
 # Main dependencies
-spring-ai = "1.1.3"
+spring-ai = "1.1.4"
 solr = "10.0.0"
 commons-csv = "1.10.0"
 jspecify = "1.0.0"
@@ -21,7 +21,7 @@ nullaway = "0.12.7"
 # Test dependencies
 testcontainers = "1.21.3"
 awaitility = "4.2.2"
-opentelemetry-instrumentation-bom = "2.11.0"
+opentelemetry-instrumentation-bom = "2.26.1"
 
 [libraries]
 # Spring
