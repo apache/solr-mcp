@@ -9,7 +9,7 @@ spotless = "7.0.2"
 # Main dependencies
 spring-ai = "1.1.4"
 solr = "10.0.0"
-commons-csv = "1.10.0"
+commons-csv = "1.14.1"
 jspecify = "1.0.0"
 mcp-server-security = "0.0.4"
 
