@@ -16,8 +16,10 @@
  */
 package org.apache.solr.mcp.server.util;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Utility class for JSON serialization operations.
@@ -30,6 +32,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * @since 0.0.1
  */
 public final class JsonUtils {
+
+	private static final Logger log = LoggerFactory.getLogger(JsonUtils.class);
 
 	private JsonUtils() {
 		// Utility class - prevent instantiation
@@ -51,7 +55,8 @@ public final class JsonUtils {
 	public static String toJson(ObjectMapper objectMapper, Object obj) {
 		try {
 			return objectMapper.writeValueAsString(obj);
-		} catch (JsonProcessingException e) {
+		} catch (JacksonException e) {
+			log.warn("Failed to serialize response: {}", e.getMessage());
 			return "{\"error\": \"Failed to serialize response\"}";
 		}
 	}
