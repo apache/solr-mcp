@@ -11,7 +11,7 @@ spring-ai = "1.1.4"
 solr = "10.0.0"
 commons-csv = "1.14.1"
 jspecify = "1.0.0"
-mcp-server-security = "0.0.4"
+mcp-server-security = "0.0.6"
 
 # Error Prone and analysis tools
 errorprone-core = "2.38.0"
