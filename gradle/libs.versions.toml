@@ -20,7 +20,7 @@ nullaway = "0.13.1"
 
 # Test dependencies
 testcontainers = "1.21.3"
-awaitility = "4.2.2"
+awaitility = "4.3.0"
 opentelemetry-instrumentation-bom = "2.26.1"
 
 [libraries]
