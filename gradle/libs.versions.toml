@@ -14,7 +14,7 @@ jspecify = "1.0.0"
 mcp-server-security = "0.0.6"
 
 # Error Prone and analysis tools
-errorprone-core = "2.38.0"
+errorprone-core = "2.48.0"
 nullaway = "0.13.1"
 
 
