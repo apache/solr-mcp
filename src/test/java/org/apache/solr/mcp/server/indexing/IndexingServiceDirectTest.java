@@ -47,7 +47,7 @@ class IndexingServiceDirectTest {
 	@BeforeEach
 	void setUp() {
 		indexingDocumentCreator = new IndexingDocumentCreator(new XmlDocumentCreator(), new CsvDocumentCreator(),
-				new JsonDocumentCreator());
+				new JsonDocumentCreator(), new FileDocumentCreator());
 		indexingService = new IndexingService(solrClient, indexingDocumentCreator);
 	}
 

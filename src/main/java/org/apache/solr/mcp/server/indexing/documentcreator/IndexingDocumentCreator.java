@@ -62,11 +62,14 @@ public class IndexingDocumentCreator {
 
 	private final JsonDocumentCreator jsonDocumentCreator;
 
+	private final FileDocumentCreator fileDocumentCreator;
+
 	public IndexingDocumentCreator(XmlDocumentCreator xmlDocumentCreator, CsvDocumentCreator csvDocumentCreator,
-			JsonDocumentCreator jsonDocumentCreator) {
+			JsonDocumentCreator jsonDocumentCreator, FileDocumentCreator fileDocumentCreator) {
 		this.xmlDocumentCreator = xmlDocumentCreator;
 		this.csvDocumentCreator = csvDocumentCreator;
 		this.jsonDocumentCreator = jsonDocumentCreator;
+		this.fileDocumentCreator = fileDocumentCreator;
 	}
 
 	/**
@@ -133,5 +136,32 @@ public class IndexingDocumentCreator {
 		}
 
 		return xmlDocumentCreator.create(xml);
+	}
+
+	/**
+	 * Creates a SolrInputDocument from text content extracted from a file.
+	 *
+	 * <p>
+	 * This method is intended for documents uploaded through AI chat clients, where
+	 * the client has already extracted the text content from the original file.
+	 *
+	 * @param content
+	 *            the text content extracted from the file
+	 * @param filename
+	 *            the original filename (stored as metadata)
+	 * @return list of SolrInputDocument objects ready for indexing
+	 * @throws DocumentProcessingException
+	 *             if content extraction fails
+	 * @see FileDocumentCreator
+	 */
+	public List<SolrInputDocument> createSchemalessDocumentsFromFile(String content, String filename)
+			throws DocumentProcessingException {
+		if (content == null || content.isBlank()) {
+			throw new IllegalArgumentException("File content cannot be null or empty");
+		}
+		if (filename == null || filename.isBlank()) {
+			throw new IllegalArgumentException("Filename cannot be null or empty");
+		}
+		return fileDocumentCreator.create(content, filename);
 	}
 }

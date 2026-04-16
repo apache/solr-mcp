@@ -8,7 +8,7 @@ Solr MCP Server is a Spring AI Model Context Protocol (MCP) server that enables 
 
 - **Status:** Apache incubating project (v0.0.2-SNAPSHOT)
 - **Java:** 25+ (centralized in build.gradle.kts)
-- **Framework:** Spring Boot 3.5.8, Spring AI 1.1.2
+- **Framework:** Spring Boot 3.5.8, Spring AI 1.1.4
 - **License:** Apache 2.0
 
 ## Common Commands
@@ -44,7 +44,7 @@ PROFILES=http ./gradlew bootRun    # HTTP mode
 Four service classes expose MCP tools via `@McpTool` annotations:
 
 - **SearchService** (`search/`) - Full-text search with filtering, faceting, sorting, pagination
-- **IndexingService** (`indexing/`) - Document indexing supporting JSON, CSV, XML formats
+- **IndexingService** (`indexing/`) - Document indexing supporting JSON, CSV, XML formats and file uploads (text extracted by chat client)
 - **CollectionService** (`metadata/`) - List collections, get stats, health checks
 - **SchemaService** (`metadata/`) - Schema introspection
 
@@ -53,6 +53,7 @@ Four service classes expose MCP tools via `@McpTool` annotations:
 `indexing/documentcreator/` uses strategy pattern for format parsing:
 - `SolrDocumentCreator` - Common interface
 - `JsonDocumentCreator`, `CsvDocumentCreator`, `XmlDocumentCreator` - Format implementations
+- `FileDocumentCreator` - File content indexing (text already extracted by AI chat client)
 - `IndexingDocumentCreator` - Orchestrator that delegates to format-specific creators
 - `FieldNameSanitizer` - Automatic field name validation for Solr compatibility
 
