@@ -200,6 +200,7 @@ class CollectionServiceTest {
 		assertNull(result.errorMessage());
 		assertEquals(10L, result.responseTime());
 		assertEquals(100L, result.totalDocuments());
+		assertEquals("test_collection", result.collection());
 	}
 
 	@Test
@@ -217,6 +218,7 @@ class CollectionServiceTest {
 		assertTrue(result.errorMessage().contains("Connection failed"));
 		assertNull(result.responseTime());
 		assertNull(result.totalDocuments());
+		assertEquals("unhealthy_collection", result.collection());
 	}
 
 	@Test
@@ -460,9 +462,9 @@ class CollectionServiceTest {
 		CollectionService spyService = spy(collectionService);
 		doReturn(Arrays.asList("test_collection")).when(spyService).listCollections();
 
-		NamedList<Object> mbeans = new NamedList<>();
-		mbeans.add("CACHE", new NamedList<>());
-		when(solrClient.request(any(SolrRequest.class))).thenReturn(mbeans);
+		// Metrics response with core metrics that contain no cache keys
+		NamedList<Object> response = wrapInMetricsResponse(new NamedList<>());
+		when(solrClient.request(any(SolrRequest.class))).thenReturn(response);
 
 		CacheStats result = spyService.getCacheMetrics("test_collection");
 
@@ -474,8 +476,8 @@ class CollectionServiceTest {
 		CollectionService spyService = spy(collectionService);
 		doReturn(Arrays.asList("films_shard1_replica_n1")).when(spyService).listCollections();
 
-		NamedList<Object> mbeans = createMockCacheData();
-		when(solrClient.request(any(SolrRequest.class))).thenReturn(mbeans);
+		NamedList<Object> response = wrapInMetricsResponse(createCacheCoreMetrics(), "films");
+		when(solrClient.request(any(SolrRequest.class))).thenReturn(response);
 
 		CacheStats result = spyService.getCacheMetrics("films_shard1_replica_n1");
 
@@ -484,11 +486,11 @@ class CollectionServiceTest {
 
 	@Test
 	void extractCacheStats() throws Exception {
-		NamedList<Object> mbeans = createMockCacheData();
+		NamedList<Object> coreMetrics = createCacheCoreMetrics();
 		Method method = CollectionService.class.getDeclaredMethod("extractCacheStats", NamedList.class);
 		method.setAccessible(true);
 
-		CacheStats result = (CacheStats) method.invoke(collectionService, mbeans);
+		CacheStats result = (CacheStats) method.invoke(collectionService, coreMetrics);
 
 		assertNotNull(result.queryResultCache());
 		assertEquals(100L, result.queryResultCache().lookups());
@@ -497,11 +499,11 @@ class CollectionServiceTest {
 
 	@Test
 	void extractCacheStats_AllCacheTypes() throws Exception {
-		NamedList<Object> mbeans = createCompleteMockCacheData();
+		NamedList<Object> coreMetrics = createCompleteCacheCoreMetrics();
 		Method method = CollectionService.class.getDeclaredMethod("extractCacheStats", NamedList.class);
 		method.setAccessible(true);
 
-		CacheStats result = (CacheStats) method.invoke(collectionService, mbeans);
+		CacheStats result = (CacheStats) method.invoke(collectionService, coreMetrics);
 
 		assertNotNull(result.queryResultCache());
 		assertNotNull(result.documentCache());
@@ -509,14 +511,14 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void extractCacheStats_NullCacheCategory() throws Exception {
-		NamedList<Object> mbeans = new NamedList<>();
-		mbeans.add("CACHE", null);
+	void extractCacheStats_NoCacheKeys() throws Exception {
+		// Core metrics with no cache keys at all
+		NamedList<Object> coreMetrics = new NamedList<>();
 
 		Method method = CollectionService.class.getDeclaredMethod("extractCacheStats", NamedList.class);
 		method.setAccessible(true);
 
-		CacheStats result = (CacheStats) method.invoke(collectionService, mbeans);
+		CacheStats result = (CacheStats) method.invoke(collectionService, coreMetrics);
 
 		assertNotNull(result);
 		assertNull(result.queryResultCache());
@@ -552,13 +554,15 @@ class CollectionServiceTest {
 		CollectionService spyService = spy(collectionService);
 		doReturn(Arrays.asList("test_collection")).when(spyService).listCollections();
 
-		NamedList<Object> mbeans = createMockHandlerData();
-		when(solrClient.request(any(SolrRequest.class))).thenReturn(mbeans);
+		// getHandlerMetrics makes two fetchMetrics calls (select then update);
+		// return select handler data for both calls (second has no update keys -> null)
+		when(solrClient.request(any(SolrRequest.class))).thenReturn(createMockSelectHandlerData());
 
 		HandlerStats result = spyService.getHandlerMetrics("test_collection");
 
 		assertNotNull(result);
 		assertNotNull(result.selectHandler());
+		assertEquals(500L, result.selectHandler().requests());
 	}
 
 	@Test
@@ -600,9 +604,9 @@ class CollectionServiceTest {
 		CollectionService spyService = spy(collectionService);
 		doReturn(Arrays.asList("test_collection")).when(spyService).listCollections();
 
-		NamedList<Object> mbeans = new NamedList<>();
-		mbeans.add("QUERYHANDLER", new NamedList<>());
-		when(solrClient.request(any(SolrRequest.class))).thenReturn(mbeans);
+		// Metrics response with core metrics that contain no handler keys
+		NamedList<Object> response = wrapInMetricsResponse(new NamedList<>());
+		when(solrClient.request(any(SolrRequest.class))).thenReturn(response);
 
 		HandlerStats result = spyService.getHandlerMetrics("test_collection");
 
@@ -614,8 +618,7 @@ class CollectionServiceTest {
 		CollectionService spyService = spy(collectionService);
 		doReturn(Arrays.asList("films_shard1_replica_n1")).when(spyService).listCollections();
 
-		NamedList<Object> mbeans = createMockHandlerData();
-		when(solrClient.request(any(SolrRequest.class))).thenReturn(mbeans);
+		when(solrClient.request(any(SolrRequest.class))).thenReturn(createMockSelectHandlerData("films"));
 
 		HandlerStats result = spyService.getHandlerMetrics("films_shard1_replica_n1");
 
@@ -623,44 +626,47 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void extractHandlerStats() throws Exception {
-		NamedList<Object> mbeans = createMockHandlerData();
-		Method method = CollectionService.class.getDeclaredMethod("extractHandlerStats", NamedList.class);
+	void extractFlatHandlerInfo_SelectHandler() throws Exception {
+		NamedList<Object> coreMetrics = createSelectHandlerCoreMetrics();
+		Method method = CollectionService.class.getDeclaredMethod("extractFlatHandlerInfo", NamedList.class,
+				String.class);
 		method.setAccessible(true);
 
-		HandlerStats result = (HandlerStats) method.invoke(collectionService, mbeans);
-
-		assertNotNull(result.selectHandler());
-		assertEquals(500L, result.selectHandler().requests());
-	}
-
-	@Test
-	void extractHandlerStats_BothHandlers() throws Exception {
-		NamedList<Object> mbeans = createCompleteHandlerData();
-		Method method = CollectionService.class.getDeclaredMethod("extractHandlerStats", NamedList.class);
-		method.setAccessible(true);
-
-		HandlerStats result = (HandlerStats) method.invoke(collectionService, mbeans);
-
-		assertNotNull(result.selectHandler());
-		assertNotNull(result.updateHandler());
-		assertEquals(500L, result.selectHandler().requests());
-		assertEquals(250L, result.updateHandler().requests());
-	}
-
-	@Test
-	void extractHandlerStats_NullHandlerCategory() throws Exception {
-		NamedList<Object> mbeans = new NamedList<>();
-		mbeans.add("QUERYHANDLER", null);
-
-		Method method = CollectionService.class.getDeclaredMethod("extractHandlerStats", NamedList.class);
-		method.setAccessible(true);
-
-		HandlerStats result = (HandlerStats) method.invoke(collectionService, mbeans);
+		HandlerInfo result = (HandlerInfo) method.invoke(collectionService, coreMetrics, "QUERY./select.");
 
 		assertNotNull(result);
-		assertNull(result.selectHandler());
-		assertNull(result.updateHandler());
+		assertEquals(500L, result.requests());
+		assertEquals(5L, result.errors());
+		assertEquals(2L, result.timeouts());
+		assertEquals(10000L, result.totalTime());
+		// avgTimePerRequest computed: 10000/500 = 20.0
+		assertEquals(20.0f, result.avgTimePerRequest());
+	}
+
+	@Test
+	void extractFlatHandlerInfo_UpdateHandler() throws Exception {
+		NamedList<Object> coreMetrics = createUpdateHandlerCoreMetrics();
+		Method method = CollectionService.class.getDeclaredMethod("extractFlatHandlerInfo", NamedList.class,
+				String.class);
+		method.setAccessible(true);
+
+		HandlerInfo result = (HandlerInfo) method.invoke(collectionService, coreMetrics, "UPDATE./update.");
+
+		assertNotNull(result);
+		assertEquals(250L, result.requests());
+		assertEquals(2L, result.errors());
+	}
+
+	@Test
+	void extractFlatHandlerInfo_NoHandlerKeys() throws Exception {
+		NamedList<Object> coreMetrics = new NamedList<>();
+		Method method = CollectionService.class.getDeclaredMethod("extractFlatHandlerInfo", NamedList.class,
+				String.class);
+		method.setAccessible(true);
+
+		HandlerInfo result = (HandlerInfo) method.invoke(collectionService, coreMetrics, "QUERY./select.");
+
+		assertNull(result);
 	}
 
 	@Test
@@ -725,121 +731,99 @@ class CollectionServiceTest {
 		assertTrue(result.isEmpty());
 	}
 
-	// Helper methods
-	private NamedList<Object> createMockCacheData() {
-		NamedList<Object> mbeans = new NamedList<>();
-		NamedList<Object> cacheCategory = new NamedList<>();
+	// Helper methods — mock the Solr Metrics API response format:
+	// response -> "metrics" -> "solr.core.<name>" -> "CACHE.searcher.xxx" /
+	// "HANDLER./xxx"
+
+	// Core metrics builders (unwrapped — used by reflection tests for extract*
+	// methods)
+	private NamedList<Object> createCacheCoreMetrics() {
+		NamedList<Object> coreMetrics = new NamedList<>();
+
 		NamedList<Object> queryResultCache = new NamedList<>();
-		NamedList<Object> queryStats = new NamedList<>();
+		queryResultCache.add("lookups", 100L);
+		queryResultCache.add("hits", 80L);
+		queryResultCache.add("hitratio", 0.8f);
+		queryResultCache.add("inserts", 20L);
+		queryResultCache.add("evictions", 5L);
+		queryResultCache.add("size", 100L);
+		coreMetrics.add("CACHE.searcher.queryResultCache", queryResultCache);
 
-		queryStats.add("lookups", 100L);
-		queryStats.add("hits", 80L);
-		queryStats.add("hitratio", 0.8f);
-		queryStats.add("inserts", 20L);
-		queryStats.add("evictions", 5L);
-		queryStats.add("size", 100L);
-		queryResultCache.add("stats", queryStats);
-		cacheCategory.add("queryResultCache", queryResultCache);
-		mbeans.add("CACHE", cacheCategory);
-
-		return mbeans;
+		return coreMetrics;
 	}
 
-	private NamedList<Object> createCompleteMockCacheData() {
-		NamedList<Object> mbeans = new NamedList<>();
-		NamedList<Object> cacheCategory = new NamedList<>();
+	private NamedList<Object> createCompleteCacheCoreMetrics() {
+		NamedList<Object> coreMetrics = createCacheCoreMetrics();
 
-		// Query Result Cache
-		NamedList<Object> queryResultCache = new NamedList<>();
-		NamedList<Object> queryStats = new NamedList<>();
-		queryStats.add("lookups", 100L);
-		queryStats.add("hits", 80L);
-		queryStats.add("hitratio", 0.8f);
-		queryStats.add("inserts", 20L);
-		queryStats.add("evictions", 5L);
-		queryStats.add("size", 100L);
-		queryResultCache.add("stats", queryStats);
-
-		// Document Cache
 		NamedList<Object> documentCache = new NamedList<>();
-		NamedList<Object> docStats = new NamedList<>();
-		docStats.add("lookups", 200L);
-		docStats.add("hits", 150L);
-		docStats.add("hitratio", 0.75f);
-		docStats.add("inserts", 50L);
-		docStats.add("evictions", 10L);
-		docStats.add("size", 180L);
-		documentCache.add("stats", docStats);
+		documentCache.add("lookups", 200L);
+		documentCache.add("hits", 150L);
+		documentCache.add("hitratio", 0.75f);
+		documentCache.add("inserts", 50L);
+		documentCache.add("evictions", 10L);
+		documentCache.add("size", 180L);
+		coreMetrics.add("CACHE.searcher.documentCache", documentCache);
 
-		// Filter Cache
 		NamedList<Object> filterCache = new NamedList<>();
-		NamedList<Object> filterStats = new NamedList<>();
-		filterStats.add("lookups", 150L);
-		filterStats.add("hits", 120L);
-		filterStats.add("hitratio", 0.8f);
-		filterStats.add("inserts", 30L);
-		filterStats.add("evictions", 8L);
-		filterStats.add("size", 140L);
-		filterCache.add("stats", filterStats);
+		filterCache.add("lookups", 150L);
+		filterCache.add("hits", 120L);
+		filterCache.add("hitratio", 0.8f);
+		filterCache.add("inserts", 30L);
+		filterCache.add("evictions", 8L);
+		filterCache.add("size", 140L);
+		coreMetrics.add("CACHE.searcher.filterCache", filterCache);
 
-		cacheCategory.add("queryResultCache", queryResultCache);
-		cacheCategory.add("documentCache", documentCache);
-		cacheCategory.add("filterCache", filterCache);
-		mbeans.add("CACHE", cacheCategory);
-
-		return mbeans;
+		return coreMetrics;
 	}
 
-	private NamedList<Object> createMockHandlerData() {
-		NamedList<Object> mbeans = new NamedList<>();
-		NamedList<Object> queryHandlerCategory = new NamedList<>();
-		NamedList<Object> selectHandler = new NamedList<>();
-		NamedList<Object> selectStats = new NamedList<>();
-
-		selectStats.add("requests", 500L);
-		selectStats.add("errors", 5L);
-		selectStats.add("timeouts", 2L);
-		selectStats.add("totalTime", 10000L);
-		selectStats.add("avgTimePerRequest", 20.0f);
-		selectStats.add("avgRequestsPerSecond", 25.0f);
-		selectHandler.add("stats", selectStats);
-		queryHandlerCategory.add("/select", selectHandler);
-		mbeans.add("QUERYHANDLER", queryHandlerCategory);
-
-		return mbeans;
+	// Handler metrics use flat keys in the Metrics API (e.g.
+	// QUERY./select.requests)
+	private NamedList<Object> createSelectHandlerCoreMetrics() {
+		NamedList<Object> coreMetrics = new NamedList<>();
+		coreMetrics.add("QUERY./select.requests", 500L);
+		coreMetrics.add("QUERY./select.errors", 5L);
+		coreMetrics.add("QUERY./select.timeouts", 2L);
+		coreMetrics.add("QUERY./select.totalTime", 10000L);
+		return coreMetrics;
 	}
 
-	private NamedList<Object> createCompleteHandlerData() {
-		NamedList<Object> mbeans = new NamedList<>();
-		NamedList<Object> queryHandlerCategory = new NamedList<>();
+	private NamedList<Object> createUpdateHandlerCoreMetrics() {
+		NamedList<Object> coreMetrics = new NamedList<>();
+		coreMetrics.add("UPDATE./update.requests", 250L);
+		coreMetrics.add("UPDATE./update.errors", 2L);
+		coreMetrics.add("UPDATE./update.timeouts", 1L);
+		coreMetrics.add("UPDATE./update.totalTime", 5000L);
+		return coreMetrics;
+	}
 
-		// Select Handler
-		NamedList<Object> selectHandler = new NamedList<>();
-		NamedList<Object> selectStats = new NamedList<>();
-		selectStats.add("requests", 500L);
-		selectStats.add("errors", 5L);
-		selectStats.add("timeouts", 2L);
-		selectStats.add("totalTime", 10000L);
-		selectStats.add("avgTimePerRequest", 20.0f);
-		selectStats.add("avgRequestsPerSecond", 25.0f);
-		selectHandler.add("stats", selectStats);
+	// Wrapped response builders (used by tests that go through
+	// getCacheMetrics/getHandlerMetrics)
+	private NamedList<Object> createMockCacheData() {
+		return wrapInMetricsResponse(createCacheCoreMetrics());
+	}
 
-		// Update Handler
-		NamedList<Object> updateHandler = new NamedList<>();
-		NamedList<Object> updateStats = new NamedList<>();
-		updateStats.add("requests", 250L);
-		updateStats.add("errors", 2L);
-		updateStats.add("timeouts", 1L);
-		updateStats.add("totalTime", 5000L);
-		updateStats.add("avgTimePerRequest", 20.0f);
-		updateStats.add("avgRequestsPerSecond", 50.0f);
-		updateHandler.add("stats", updateStats);
+	private NamedList<Object> createMockSelectHandlerData() {
+		return wrapInMetricsResponse(createSelectHandlerCoreMetrics());
+	}
 
-		queryHandlerCategory.add("/select", selectHandler);
-		queryHandlerCategory.add("/update", updateHandler);
-		mbeans.add("QUERYHANDLER", queryHandlerCategory);
+	private NamedList<Object> createMockSelectHandlerData(String collection) {
+		return wrapInMetricsResponse(createSelectHandlerCoreMetrics(), collection);
+	}
 
-		return mbeans;
+	private NamedList<Object> createMockUpdateHandlerData() {
+		return wrapInMetricsResponse(createUpdateHandlerCoreMetrics());
+	}
+
+	private NamedList<Object> wrapInMetricsResponse(NamedList<Object> coreMetrics) {
+		return wrapInMetricsResponse(coreMetrics, "test_collection");
+	}
+
+	private NamedList<Object> wrapInMetricsResponse(NamedList<Object> coreMetrics, String collection) {
+		NamedList<Object> metrics = new NamedList<>();
+		metrics.add("solr.core." + collection + ".shard1.replica_n1", coreMetrics);
+		NamedList<Object> response = new NamedList<>();
+		response.add("metrics", metrics);
+		return response;
 	}
 
 	// createCollection tests
