@@ -76,6 +76,8 @@ The server will start on http://localhost:8080
 ### Environment Variables
 
 - `SOLR_URL`: Solr instance URL (default: `http://localhost:8983/solr/`)
+- `SOLR_USERNAME`: HTTP Basic Authentication username (optional; required together with `SOLR_PASSWORD`)
+- `SOLR_PASSWORD`: HTTP Basic Authentication password (optional; required together with `SOLR_USERNAME`)
 - `PROFILES`: Transport mode (`stdio` or `http`)
 - `SPRING_DOCKER_COMPOSE_ENABLED`: Enable/disable Docker Compose integration (default: `true`)
 

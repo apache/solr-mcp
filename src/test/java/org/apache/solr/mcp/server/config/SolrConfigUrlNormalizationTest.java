@@ -39,7 +39,7 @@ class SolrConfigUrlNormalizationTest {
 			"http://localhost:8983/solr/, http://localhost:8983/solr",
 			"http://localhost:8983/custom/solr/, http://localhost:8983/custom/solr"})
 	void testUrlNormalization(String inputUrl, String expectedUrl) throws Exception {
-		SolrConfigurationProperties testProperties = new SolrConfigurationProperties(inputUrl);
+		SolrConfigurationProperties testProperties = new SolrConfigurationProperties(inputUrl, null, null);
 		SolrConfig solrConfig = new SolrConfig();
 
 		try (SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(objectMapper))) {

@@ -16,6 +16,7 @@
  */
 package org.apache.solr.mcp.server.config;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -107,12 +108,29 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * validation and normalization occurs in the {@link SolrConfig} class during
  * SolrClient bean creation.
  *
+ * <p>
+ * <strong>Optional Basic Authentication:</strong>
+ *
+ * <p>
+ * When the target Solr instance requires HTTP Basic Authentication, set both
+ * {@code solr.username} and {@code solr.password} (or the corresponding
+ * {@code SOLR_USERNAME} / {@code SOLR_PASSWORD} environment variables).
+ * Credentials are applied on every request by the configured SolrJ client. If
+ * either value is missing or {@code username} is blank, no authentication
+ * header is attached and the client behaves as before.
+ *
  * @param url
  *            the base URL of the Apache Solr server (required, non-null)
+ * @param username
+ *            the HTTP Basic Authentication username (optional; required
+ *            together with {@code password} to enable auth)
+ * @param password
+ *            the HTTP Basic Authentication password (optional; required
+ *            together with {@code username} to enable auth)
  * @see SolrConfig
  * @see org.springframework.boot.context.properties.ConfigurationProperties
  * @see org.springframework.boot.context.properties.EnableConfigurationProperties
  */
 @ConfigurationProperties(prefix = "solr")
-public record SolrConfigurationProperties(String url) {
+public record SolrConfigurationProperties(String url, @Nullable String username, @Nullable String password) {
 }
