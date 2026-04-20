@@ -302,6 +302,12 @@ tasks.register<Test>("dockerIntegrationTest") {
         includeTags("docker-integration")
     }
 
+    // The native image is AOT-compiled for the STDIO profile only.
+    // Exclude the HTTP integration test when testing the native image.
+    if (nativeBuild) {
+        exclude("**/DockerImageHttpIntegrationTest*")
+    }
+
     // Use the same test classpath and configuration as regular tests
     testClassesDirs = sourceSets["test"].output.classesDirs
     classpath = sourceSets["test"].runtimeClasspath
@@ -503,6 +509,16 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("boot
             "BP_NATIVE_IMAGE" to "true",
             "BP_NATIVE_IMAGE_BUILD_ARGUMENTS" to nativeImageBuildArgs.joinToString(" "),
             "BP_JVM_VERSION" to "25",
+            // The Paketo builder runs Spring AOT processing inside the
+            // builder container. Set the STDIO profile so security
+            // autoconfig exclusions from application-stdio.properties are
+            // applied during AOT hint generation (same effect as the
+            // processAot args block for local nativeCompile).
+            "SPRING_PROFILES_ACTIVE" to "stdio",
+            // BPE_DEFAULT_* sets default runtime environment variables in
+            // the resulting container image.
+            "BPE_DEFAULT_SPRING_PROFILES_ACTIVE" to "stdio",
+            "BPE_DEFAULT_SPRING_DOCKER_COMPOSE_ENABLED" to "false",
         ),
     )
 }

@@ -110,6 +110,10 @@ class DockerImageStdioIntegrationTest {
 			DockerImageName.parse(DOCKER_IMAGE)).withNetwork(network).withEnv("SOLR_URL", "http://solr:8983/solr/")
 			.withEnv("SPRING_DOCKER_COMPOSE_ENABLED", "false")
 			.withLogConsumer(new Slf4jLogConsumer(log).withPrefix("MCP-SERVER"))
+			// Keep stdin open so the STDIO MCP server does not exit on EOF.
+			// Native images start in milliseconds and read stdin immediately;
+			// without this the container exits before the test can observe it.
+			.withCreateContainerCmdModifier(cmd -> cmd.withStdinOpen(true))
 			// Give the application time to start (STDIO mode doesn't produce logs to wait
 			// for)
 			.withStartupTimeout(Duration.ofSeconds(60));
