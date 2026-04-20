@@ -26,7 +26,32 @@ plugins {
     alias(libs.plugins.errorprone)
     alias(libs.plugins.spotless)
     alias(libs.plugins.jib)
+    alias(libs.plugins.graalvm.native)
 }
+
+// GraalVM Native Image (Opt-In)
+// =============================
+// Invoked via `./gradlew ... -Pnative`. See docs/specs/graalvm-native-image.md.
+// When true:
+//   - AOT tasks (processAot) run with spring.profiles.active=stdio so that
+//     security autoconfig exclusions from application-stdio.properties are
+//     applied during hint generation.
+//   - graalvmNative plugin configures nativeCompile / nativeTest tasks.
+//   - Native Docker images use bootBuildImage (see separate configuration).
+// Jib is always JVM-only; it is NOT used for native images.
+val nativeBuild = project.hasProperty("native")
+
+// Shared GraalVM native-image arguments used by both graalvmNative (local builds)
+// and bootBuildImage (Docker builds via Paketo buildpacks).
+val nativeImageBuildArgs =
+    listOf(
+        "--no-fallback",
+        "-H:+ReportExceptionStackTraces",
+        "--initialize-at-build-time=io.opentelemetry.api",
+        "--initialize-at-build-time=io.opentelemetry.context",
+        "--initialize-at-build-time=io.opentelemetry.instrumentation.api",
+        "--initialize-at-build-time=io.opentelemetry.instrumentation.logback",
+    )
 
 group = "org.apache.solr"
 version = "1.0.0-SNAPSHOT"
@@ -283,6 +308,14 @@ tasks.register<Test>("dockerIntegrationTest") {
     // Set longer timeout for Docker tests
     systemProperty("junit.jupiter.execution.timeout.default", "5m")
 
+    // When invoked as `./gradlew dockerIntegrationTest -Pnative`, the Jib
+    // image produced is `solr-mcp:<version>-native`. BuildInfoReader only
+    // knows the plain version, so pass the tag override through a system
+    // property that the integration test can read.
+    if (nativeBuild) {
+        systemProperty("solr.mcp.docker.image.tag.suffix", "-native")
+    }
+
     // Output test results
     testLogging {
         events("passed", "skipped", "failed", "standardOut", "standardError")
@@ -383,12 +416,9 @@ jib {
     }
 
     from {
-        // Use Eclipse Temurin JRE 25 as the base image
-        // Temurin is the open-source build of OpenJDK from Adoptium
         image = "eclipse-temurin:25-jre"
 
-        // Multi-platform support for both AMD64 and ARM64 architectures
-        // This allows the image to run on x86_64 machines and Apple Silicon (M1/M2/M3)
+        // Multi-arch: build for both amd64 and arm64
         platforms {
             platform {
                 architecture = "amd64"
@@ -402,32 +432,20 @@ jib {
     }
 
     to {
-        // Default image name (can be overridden with -Djib.to.image=...)
-        // Format: repository/image-name:tag
         image = "solr-mcp:$version"
-
-        // Tags to apply to the image
-        // The version tag is applied by default, plus "latest" tag
         tags = setOf("latest")
     }
 
     container {
-        // Container environment variables
-        // These are baked into the image but can be overridden at runtime
-        environment =
-            mapOf(
-                // Disable Spring Boot Docker Compose support when running in container
-                // Docker Compose integration is disabled in the container image.
-                // It is only useful for local development (HTTP profile) where
-                // the host has Docker and a compose.yaml. Inside a container,
-                // Docker Compose cannot start sibling containers without a
-                // Docker socket mount, so it must be turned off.
-                // The application-stdio.properties also disables it for STDIO mode.
-                "SPRING_DOCKER_COMPOSE_ENABLED" to "false",
-            )
+        // Disable Spring Boot Docker Compose support when running in container.
+        // Docker Compose integration is disabled in the container image.
+        // It is only useful for local development (HTTP profile) where
+        // the host has Docker and a compose.yaml. Inside a container,
+        // Docker Compose cannot start sibling containers without a
+        // Docker socket mount, so it must be turned off.
+        // The application-stdio.properties also disables it for STDIO mode.
+        environment = mapOf("SPRING_DOCKER_COMPOSE_ENABLED" to "false")
 
-        // JVM flags for containerized environments
-        // These optimize the JVM for running in containers
         jvmFlags =
             listOf(
                 // Use container-aware memory settings
@@ -456,5 +474,62 @@ jib {
                 "io.modelcontextprotocol.server.name" to "io.github.apache/solr-mcp",
             ),
         )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GraalVM Native Image configuration
+// ─────────────────────────────────────────────────────────────────────────────
+// The `org.graalvm.buildtools.native` plugin registers `nativeCompile` and
+// `nativeTest` tasks. They are only useful when a GraalVM toolchain is
+// available; the plugin's presence does not affect regular JVM builds.
+graalvmNative {
+    binaries {
+        named("main") {
+            imageName.set("solr-mcp")
+            // Uses shared nativeImageBuildArgs which include --no-fallback,
+            // -H:+ReportExceptionStackTraces, and OTel --initialize-at-build-time entries.
+            // OTel instrumentation BOM 2.11.0 does not ship native-image metadata.
+            // NOTE: do NOT use io.opentelemetry.instrumentation (too broad) — that
+            // would catch Spring autoconfigure CGLIB proxies which cannot be build-time
+            // initialized.
+            buildArgs.addAll(nativeImageBuildArgs)
+        }
+    }
+    // Tests that are incompatible with native image are annotated
+    // @DisabledInNativeImage and skipped during nativeTest:
+    //   - Mockito-based tests (ByteBuddy cannot generate classes at run time)
+    //   - SolrJ indexing/query integration tests (response parsing uses
+    //     reflection that lacks native-image metadata)
+    // Collection management, schema, and observability integration tests
+    // run normally in the native binary.
+    binaries {
+        named("test") {
+            // The test binary inherits the OTel --initialize-at-build-time entries
+            // from the shared args (filtering out --no-fallback and
+            // -H:+ReportExceptionStackTraces), plus test-specific SDK entries.
+            buildArgs.addAll(
+                nativeImageBuildArgs.filter { it.startsWith("--initialize-at-build-time=") },
+            )
+            buildArgs.addAll(
+                // opentelemetry-sdk-testing on the test classpath adds a ServiceLoader
+                // provider (SettableContextStorageProvider) that is loaded at build time.
+                "--initialize-at-build-time=io.opentelemetry.sdk",
+                // AndroidFriendlyRandomHolder creates a java.util.Random in <clinit>,
+                // which GraalVM forbids in the image heap (stale seed).
+                "--initialize-at-run-time=io.opentelemetry.sdk.internal.AndroidFriendlyRandomHolder",
+            )
+        }
+    }
+}
+
+// When -Pnative is present, pin spring.profiles.active=stdio on the AOT
+// processor so application-stdio.properties (which excludes
+// SecurityAutoConfiguration + ManagementWebSecurityAutoConfiguration) is
+// applied while hint generation runs. Test AOT is intentionally left alone
+// because individual @SpringBootTest classes set their own profiles.
+if (nativeBuild) {
+    tasks.named<JavaExec>("processAot") {
+        args("--spring.profiles.active=stdio")
     }
 }
