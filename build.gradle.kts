@@ -290,7 +290,11 @@ tasks.register<Test>("dockerIntegrationTest") {
 
     // Depend on building the Docker image first (only if Docker is available)
     if (dockerAvailable) {
-        dependsOn(tasks.jibDockerBuild)
+        if (nativeBuild) {
+            dependsOn(tasks.named("bootBuildImage"))
+        } else {
+            dependsOn(tasks.jibDockerBuild)
+        }
     }
 
     // Configure test task to only run docker integration tests
@@ -475,6 +479,32 @@ jib {
             ),
         )
     }
+}
+
+// Native Docker image via Spring Boot Buildpacks
+// ===============================================
+// `bootBuildImage` compiles the native binary inside a Paketo builder
+// container, so it works on any host OS and CPU architecture (macOS
+// Apple Silicon, Linux x86_64, etc.). Jib cannot do this because
+// `nativeCompile` produces a host-OS binary (Mach-O on macOS) that
+// cannot run in a Linux container.
+//
+// This task is always configured for native builds (BP_NATIVE_IMAGE=true).
+// For JVM Docker images, use Jib via `./gradlew jibDockerBuild`.
+//
+// Usage:
+//   ./gradlew bootBuildImage                   # Build native Docker image
+//   ./gradlew dockerIntegrationTest -Pnative   # Test the native image
+tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("bootBuildImage") {
+    imageName.set("solr-mcp:$version-native")
+    tags.set(listOf("solr-mcp:latest-native"))
+    environment.set(
+        mapOf(
+            "BP_NATIVE_IMAGE" to "true",
+            "BP_NATIVE_IMAGE_BUILD_ARGUMENTS" to nativeImageBuildArgs.joinToString(" "),
+            "BP_JVM_VERSION" to "25",
+        ),
+    )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
