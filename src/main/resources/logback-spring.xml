@@ -62,12 +62,10 @@
     </springProfile>
 
     <!--
-        STDIO mode (default) - No console logging
-        STDIO mode must have NO stdout output as it uses stdin/stdout
-        for MCP protocol communication. Default profile is stdio.
+        STDIO mode (default) - stdout suppressed via logging.pattern.console=
+        in application-stdio.properties. No logback-level overrides needed;
+        Spring Boot's empty console pattern keeps stdout clean for MCP
+        JSON-RPC framing.
     -->
-    <springProfile name="stdio">
-        <root level="OFF"/>
-    </springProfile>
 
 </configuration>
