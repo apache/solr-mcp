@@ -491,12 +491,9 @@ jib {
 // ===============================================
 // `bootBuildImage` compiles the native binary inside a Paketo builder
 // container, so it works on any host OS and CPU architecture (macOS
-// Apple Silicon, Linux x86_64, etc.). Jib cannot do this because
-// `nativeCompile` produces a host-OS binary (Mach-O on macOS) that
-// cannot run in a Linux container.
+// Apple Silicon, Linux x86_64, etc.).
 //
-// This task is always configured for native builds (BP_NATIVE_IMAGE=true).
-// For JVM Docker images, use Jib via `./gradlew jibDockerBuild`.
+// Always configured for native builds (BP_NATIVE_IMAGE=true).
 //
 // Usage:
 //   ./gradlew bootBuildImage                   # Build native Docker image
