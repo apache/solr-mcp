@@ -16,11 +16,16 @@
  */
 package org.apache.solr.mcp.server.config;
 
+import java.util.List;
+import org.apache.solr.client.solrj.response.FacetField;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.response.UpdateResponse;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
+import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.common.SolrInputField;
 import org.apache.solr.common.util.NamedList;
+import org.apache.solr.common.util.SimpleOrderedMap;
 import org.jspecify.annotations.Nullable;
 import org.springframework.aot.hint.MemberCategory;
 import org.springframework.aot.hint.RuntimeHints;
@@ -50,18 +55,46 @@ import org.springframework.context.annotation.ImportRuntimeHints;
 @ImportRuntimeHints(SolrNativeHints.Registrar.class)
 public class SolrNativeHints {
 
+	/**
+	 * Package-private record types returned by {@code @McpTool} methods. Jackson
+	 * needs reflection access to serialize these as MCP tool responses in native
+	 * image.
+	 */
+	private static final List<String> MCP_RESPONSE_RECORDS = List.of(
+			"org.apache.solr.mcp.server.collection.CollectionCreationResult",
+			"org.apache.solr.mcp.server.collection.SolrHealthStatus",
+			"org.apache.solr.mcp.server.collection.SolrMetrics", "org.apache.solr.mcp.server.collection.IndexStats",
+			"org.apache.solr.mcp.server.collection.FieldStats", "org.apache.solr.mcp.server.collection.QueryStats",
+			"org.apache.solr.mcp.server.collection.CacheStats", "org.apache.solr.mcp.server.collection.CacheInfo",
+			"org.apache.solr.mcp.server.collection.HandlerStats", "org.apache.solr.mcp.server.collection.HandlerInfo",
+			"org.apache.solr.mcp.server.search.SearchResponse");
+
 	static class Registrar implements RuntimeHintsRegistrar {
 		@Override
 		public void registerHints(RuntimeHints hints, @Nullable ClassLoader classLoader) {
 			MemberCategory[] categories = {MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
 					MemberCategory.INVOKE_DECLARED_METHODS, MemberCategory.DECLARED_FIELDS};
 
+			// SolrJ response types
 			hints.reflection().registerType(QueryResponse.class, categories);
 			hints.reflection().registerType(UpdateResponse.class, categories);
-
 			hints.reflection().registerType(NamedList.class, categories);
+			hints.reflection().registerType(SimpleOrderedMap.class, categories);
 			hints.reflection().registerType(SolrDocument.class, categories);
 			hints.reflection().registerType(SolrDocumentList.class, categories);
+
+			// SolrJ input/indexing types
+			hints.reflection().registerType(SolrInputDocument.class, categories);
+			hints.reflection().registerType(SolrInputField.class, categories);
+
+			// SolrJ facet types
+			hints.reflection().registerType(FacetField.class, categories);
+			hints.reflection().registerType(FacetField.Count.class, categories);
+
+			// MCP tool response records (package-private, registered by name)
+			for (String className : MCP_RESPONSE_RECORDS) {
+				hints.reflection().registerTypeIfPresent(classLoader, className, categories);
+			}
 
 			// Include logback.xml in the native image so logback's early
 			// initialization (before Spring Boot) finds it and applies the

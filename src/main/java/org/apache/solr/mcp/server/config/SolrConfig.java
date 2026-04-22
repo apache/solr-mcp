@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
+import org.apache.solr.client.solrj.request.XMLRequestWriter;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -189,9 +190,11 @@ public class SolrConfig {
 			}
 		}
 
-		// Use with explicit base URL; JSON wire format replaces the JavaBin default
+		// JSON wire format for responses; XML wire format for update requests.
+		// The default JavaBin request writer uses a binary codec that requires
+		// additional reflection metadata in GraalVM native images.
 		return new HttpJdkSolrClient.Builder(url).withConnectionTimeout(CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
 				.withIdleTimeout(SOCKET_TIMEOUT_MS, TimeUnit.MILLISECONDS).withResponseParser(jsonResponseParser)
-				.build();
+				.withRequestWriter(new XMLRequestWriter()).build();
 	}
 }
