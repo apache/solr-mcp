@@ -16,34 +16,45 @@
   limitations under the License.
 -->
 <configuration>
+    <!--
+        Suppress logback internal status messages (|-INFO, |-WARN lines).
+        Without this, logback writes status output directly to stdout during
+        initialization, BEFORE the profile-specific root logger is configured.
+        In STDIO mode this corrupts the MCP JSON-RPC framing.
+    -->
+    <statusListener class="ch.qos.logback.core.status.NopStatusListener"/>
+
     <!-- Import Spring Boot's default logging configuration -->
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
-
-    <!-- Console appender - used by all profiles -->
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>${CONSOLE_LOG_PATTERN:-%d{yyyy-MM-dd HH:mm:ss.SSS} %5p --- [%15.15t] %-40.40logger{39} : %m%n}
-            </pattern>
-            <charset>UTF-8</charset>
-        </encoder>
-    </appender>
-
-    <!--
-        OpenTelemetry appender for log export (HTTP mode only)
-        This appender sends logs to the OpenTelemetry Collector via OTLP.
-        The appender is installed programmatically by OpenTelemetryAppenderInstaller
-        which connects it to the Spring-managed OpenTelemetry SDK instance.
-    -->
-    <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
-        <captureExperimentalAttributes>true</captureExperimentalAttributes>
-        <captureKeyValuePairAttributes>true</captureKeyValuePairAttributes>
-    </appender>
 
     <!--
         HTTP mode - Full observability with console logging and OTEL export
         Used when running as HTTP server with PROFILES=http
+
+        Appenders are defined inside the profile block so they do not exist
+        under the STDIO profile. This avoids logback "not referenced" warnings
+        and keeps STDIO stdout completely clean.
     -->
     <springProfile name="http">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>${CONSOLE_LOG_PATTERN:-%d{yyyy-MM-dd HH:mm:ss.SSS} %5p --- [%15.15t] %-40.40logger{39} : %m%n}
+                </pattern>
+                <charset>UTF-8</charset>
+            </encoder>
+        </appender>
+
+        <!--
+            OpenTelemetry appender for log export.
+            Sends logs to the OpenTelemetry Collector via OTLP.
+            The appender is installed programmatically by OpenTelemetryAppenderInstaller
+            which connects it to the Spring-managed OpenTelemetry SDK instance.
+        -->
+        <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
+            <captureExperimentalAttributes>true</captureExperimentalAttributes>
+            <captureKeyValuePairAttributes>true</captureKeyValuePairAttributes>
+        </appender>
+
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
             <appender-ref ref="OTEL"/>
