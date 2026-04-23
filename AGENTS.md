@@ -32,6 +32,12 @@ Solr MCP Server is a Spring AI Model Context Protocol (MCP) server that enables 
 # Docker
 ./gradlew jibDockerBuild           # Build Docker image locally
 
+# Native image (experimental, requires GraalVM JDK 25)
+./gradlew nativeCompile -Pnative            # Compile native binary (host OS only)
+./gradlew bootBuildImage                     # Build native Docker image (any OS/arch)
+./gradlew nativeTest                         # Run tests as native image
+./gradlew dockerIntegrationTest -Pnative     # Docker integration tests (native)
+
 # Run locally (requires `docker compose up -d` for Solr)
 ./gradlew bootRun                  # STDIO mode (default)
 PROFILES=http ./gradlew bootRun    # HTTP mode
@@ -63,9 +69,62 @@ Four service classes expose MCP tools via `@McpTool` annotations:
 
 Configuration files: `application-stdio.properties`, `application-http.properties`
 
+### Logging Architecture
+
+The STDIO transport uses stdout for JSON-RPC messages, so any stray stdout output
+corrupts the protocol. Logging is configured in two layers:
+
+- **`logback.xml`** — Loaded by logback BEFORE Spring Boot initializes. Contains only
+  a `NopStatusListener` to suppress logback's internal status messages (`|-INFO`,
+  `|-WARN`) that would otherwise be written directly to stdout. Required for native
+  image where logback falls through to `BasicConfigurator` without it.
+- **`logback-spring.xml`** — Loaded by Spring Boot, overrides `logback.xml`. Uses
+  `<springProfile>` blocks to scope appenders per transport mode:
+  - **HTTP**: CONSOLE appender (stdout) + OpenTelemetry appender (OTLP log export with
+    `captureExperimentalAttributes` and `captureKeyValuePairAttributes` enabled).
+  - **STDIO**: No appenders defined. Relies on `logging.pattern.console=` in
+    `application-stdio.properties` to produce empty output from Spring Boot's default
+    console appender. The OTEL appender is intentionally excluded to keep stdout clean.
+- **`application-stdio.properties`** — Sets `logging.pattern.console=` (empty pattern)
+  which suppresses all Spring-managed console logging after Spring Boot initializes.
+
+**Init order**: logback.xml → Spring Boot starts → logback-spring.xml → application-{profile}.properties
+
 ### Why Jib Instead of Spring Boot Buildpacks
 
 Spring Boot Buildpacks output logs to stdout, breaking MCP's STDIO protocol. Jib produces clean images with no stdout pollution, plus faster builds and multi-platform support (amd64/arm64).
+
+### GraalVM Native Image (Opt-In)
+
+An opt-in native image build is available via `-Pnative`, targeting the STDIO profile only.
+The native binary is compiled by `org.graalvm.buildtools.native` (`nativeCompile`) and packaged
+into a Docker image via `bootBuildImage` (Paketo buildpacks). Key configuration:
+
+- **Opt-in flag:** `val nativeBuild = project.hasProperty("native")` in `build.gradle.kts`
+- **Cross-platform:** `bootBuildImage` compiles inside a Linux builder container, so it works on any host OS (macOS, Linux, Windows).
+- **AOT profile:** `processAot` runs with `--spring.profiles.active=stdio` under `-Pnative`
+  so security autoconfig exclusions from `application-stdio.properties` are applied during
+  hint generation. The `@SpringBootApplication` annotation is **not** modified.
+- **OTel build-time init:** OTel instrumentation BOM 2.11.0 lacks native metadata;
+  `--initialize-at-build-time` is set for `io.opentelemetry.api`, `io.opentelemetry.context`,
+  `io.opentelemetry.instrumentation.api`, and `io.opentelemetry.instrumentation.logback`.
+  Do **NOT** add `io.opentelemetry.instrumentation.spring` — it contains CGLIB proxies.
+- **Reflection hints:** `SolrNativeHints.java` registers hints that Spring AOT does
+  not generate automatically:
+  - **SolrJ types** (no native metadata): `QueryResponse`, `UpdateResponse`, `NamedList`,
+    `SimpleOrderedMap`, `SolrDocument`, `SolrDocumentList`, `SolrInputDocument`,
+    `SolrInputField`, `FacetField`, `FacetField.Count`
+  - **MCP tool response records** (invisible to AOT because the MCP framework uses
+    generic `Object` dispatch): `CollectionCreationResult`, `SolrHealthStatus`,
+    `SolrMetrics`, `IndexStats`, `QueryStats`, `CacheStats`, `CacheInfo`,
+    `HandlerStats`, `HandlerInfo`, `FieldStats`, `SearchResponse`
+  - **Resource**: `logback.xml` (see Logging Architecture above)
+- **Wire format:** `SolrConfig` uses `XMLRequestWriter` instead of the default
+  `JavaBinRequestWriter`. The JavaBin binary codec uses deep reflection that would
+  require extensive additional native image hints.
+- **Docker tags:** JVM image = `solr-mcp:<version>` (Jib), native image = `solr-mcp:<version>-native` (bootBuildImage)
+- **CI:** Separate `native.yml` workflow; native failures do not block JVM-path merges.
+- **Spec:** [docs/specs/graalvm-native-image.md](docs/specs/graalvm-native-image.md)
 
 ## Testing Structure
 

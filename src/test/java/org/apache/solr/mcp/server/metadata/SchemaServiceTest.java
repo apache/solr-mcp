@@ -30,6 +30,7 @@ import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
 import org.apache.solr.client.solrj.response.schema.SchemaResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledInNativeImage;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -39,6 +40,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * functionality with various scenarios including success and error cases.
  */
 @ExtendWith(MockitoExtension.class)
+@DisabledInNativeImage
 class SchemaServiceTest {
 
 	@Mock
