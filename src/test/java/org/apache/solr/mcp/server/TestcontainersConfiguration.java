@@ -29,7 +29,7 @@ public class TestcontainersConfiguration {
 
 	@Bean
 	SolrContainer solr() {
-		String solrImage = System.getProperty("solr.test.image");
+		String solrImage = System.getProperty("solr.test.image", "solr:9.9-slim");
 		return new SolrContainer(DockerImageName.parse(solrImage));
 	}
 
