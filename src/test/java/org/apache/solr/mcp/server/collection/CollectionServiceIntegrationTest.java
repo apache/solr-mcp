@@ -18,12 +18,20 @@ package org.apache.solr.mcp.server.collection;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
-import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.request.CollectionAdminRequest;
+import java.util.Map;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
-import org.junit.jupiter.api.BeforeEach;
+import org.apache.solr.mcp.server.indexing.IndexingService;
+import org.apache.solr.mcp.server.search.SearchResponse;
+import org.apache.solr.mcp.server.search.SearchService;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -32,216 +40,210 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
 @Testcontainers(disabledWithoutDocker = true)
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class CollectionServiceIntegrationTest {
 
+	private static final Logger log = LoggerFactory.getLogger(CollectionServiceIntegrationTest.class);
+
 	private static final String TEST_COLLECTION = "test_collection";
+
+	private static final int DOC_COUNT = 50;
+
 	@Autowired
 	private CollectionService collectionService;
+
 	@Autowired
-	private SolrClient solrClient;
-	private static boolean initialized = false;
+	private IndexingService indexingService;
 
-	@BeforeEach
-	void setupCollection() throws Exception {
+	@Autowired
+	private SearchService searchService;
 
-		if (!initialized) {
-			// Create a test collection using the container's connection details
-			// Create a collection for testing
-			CollectionAdminRequest.Create createRequest = CollectionAdminRequest.createCollection(TEST_COLLECTION,
-					"_default", 1, 1);
-			createRequest.process(solrClient);
+	@Autowired
+	private ObjectMapper objectMapper;
 
-			// Verify collection was created successfully
-			CollectionAdminRequest.List listRequest = new CollectionAdminRequest.List();
-			listRequest.process(solrClient);
+	@BeforeAll
+	void setupCollectionWithData() throws Exception {
+		// 1. Create collection via CollectionService MCP tool
+		CollectionCreationResult created = collectionService.createCollection(TEST_COLLECTION, null, null, null);
+		assertTrue(created.success(), "Collection creation should succeed: " + created.message());
+		log.debug("Test collection created: {}", TEST_COLLECTION);
 
-			System.out.println("[DEBUG_LOG] Test collection created: " + TEST_COLLECTION);
-			initialized = true;
+		// 2. Index documents via IndexingService MCP tool
+		List<Map<String, Object>> docs = new ArrayList<>();
+		for (int i = 0; i < DOC_COUNT; i++) {
+			Map<String, Object> doc = new LinkedHashMap<>();
+			doc.put("id", "doc-" + i);
+			doc.put("title_s", "Document " + i);
+			doc.put("category_s", (i % 2 == 0) ? "even" : "odd");
+			doc.put("count_i", i);
+			docs.add(doc);
 		}
+		String json = objectMapper.writeValueAsString(docs);
+		indexingService.indexJsonDocuments(TEST_COLLECTION, json);
+		log.debug("Indexed {} documents via IndexingService", DOC_COUNT);
+
+		// 3. Run searches via SearchService MCP tool to populate caches and handler
+		// stats
+		for (int i = 0; i < 5; i++) {
+			searchService.search(TEST_COLLECTION, "*:*", null, null, null, 0, 10);
+			searchService.search(TEST_COLLECTION, "title_s:Document", null, null, null, 0, 5);
+			searchService.search(TEST_COLLECTION, "*:*", List.of("category_s:even"), null, null, 0, 10);
+		}
+		log.debug("Ran warm-up queries via SearchService");
 	}
 
 	@Test
 	void testListCollections() {
-		// Test listing collections
 		List<String> collections = collectionService.listCollections();
 
-		// Print the collections for debugging
-		System.out.println("[DEBUG_LOG] Collections: " + collections);
+		log.debug("Collections: {}", collections);
 
-		// Enhanced assertions for collections list
-		assertNotNull(collections, "Collections list should not be null");
-		assertFalse(collections.isEmpty(), "Collections list should not be empty");
+		assertNotNull(collections);
+		assertFalse(collections.isEmpty());
 
-		// Check if the test collection exists (either as exact name or as shard)
 		boolean testCollectionExists = collections.contains(TEST_COLLECTION)
 				|| collections.stream().anyMatch(col -> col.startsWith(TEST_COLLECTION + "_shard"));
 		assertTrue(testCollectionExists,
-				"Collections should contain the test collection: " + TEST_COLLECTION + " (found: " + collections + ")");
+				"Collections should contain " + TEST_COLLECTION + " (found: " + collections + ")");
 
-		// Verify collection names are not null or empty
-		for (String collection : collections) {
-			assertNotNull(collection, "Collection name should not be null");
-			assertFalse(collection.trim().isEmpty(), "Collection name should not be empty");
-		}
-
-		// Verify expected collection characteristics
 		assertEquals(collections.size(), collections.stream().distinct().count(), "Collection names should be unique");
-
-		// Verify that collections follow expected naming patterns
-		for (String collection : collections) {
-			// Collection names should either be simple names or shard names
-			assertTrue(collection.matches("^[a-zA-Z0-9_]+(_shard\\d+_replica_n\\d+)?$"),
-					"Collection name should follow expected pattern: " + collection);
-		}
 	}
 
 	@Test
-	void testGetCollectionStats() throws Exception {
-		// Test getting collection stats
+	void testGetCollectionStats_reflectsIndexedData() throws Exception {
 		SolrMetrics metrics = collectionService.getCollectionStats(TEST_COLLECTION);
 
-		// Enhanced assertions for metrics
-		assertNotNull(metrics, "Collection stats should not be null");
-		assertNotNull(metrics.timestamp(), "Timestamp should not be null");
+		assertNotNull(metrics);
+		assertNotNull(metrics.timestamp());
 
-		// Verify index stats
-		assertNotNull(metrics.indexStats(), "Index stats should not be null");
+		// Index stats should reflect the documents we indexed
 		IndexStats indexStats = metrics.indexStats();
-		assertNotNull(indexStats.numDocs(), "Number of documents should not be null");
-		assertTrue(indexStats.numDocs() >= 0, "Number of documents should be non-negative");
+		assertNotNull(indexStats);
+		assertEquals(DOC_COUNT, indexStats.numDocs(), "numDocs should match indexed document count");
+		assertNotNull(indexStats.segmentCount());
+		assertTrue(indexStats.segmentCount() >= 1, "Should have at least one segment after indexing");
 
-		// Verify query stats
-		assertNotNull(metrics.queryStats(), "Query stats should not be null");
+		// Query stats come from the *:* probe query inside getCollectionStats
 		QueryStats queryStats = metrics.queryStats();
-		assertNotNull(queryStats.queryTime(), "Query time should not be null");
-		assertTrue(queryStats.queryTime() >= 0, "Query time should be non-negative");
-		assertNotNull(queryStats.totalResults(), "Total results should not be null");
-		assertTrue(queryStats.totalResults() >= 0, "Total results should be non-negative");
-		assertNotNull(queryStats.start(), "Start should not be null");
-		assertTrue(queryStats.start() >= 0, "Start should be non-negative");
+		assertNotNull(queryStats);
+		assertNotNull(queryStats.queryTime());
+		assertEquals((long) DOC_COUNT, queryStats.totalResults(), "totalResults should match indexed document count");
+		assertEquals(0L, queryStats.start());
 
-		// Verify timestamp is recent (within last 10 seconds)
-		long currentTime = System.currentTimeMillis();
-		long timestampTime = metrics.timestamp().getTime();
-		assertTrue(currentTime - timestampTime < 10000, "Timestamp should be recent (within 10 seconds)");
+		// Cache stats should be present after warm-up queries
+		assertNotNull(metrics.cacheStats(), "Cache stats should not be null after queries ran");
+		CacheStats cacheStats = metrics.cacheStats();
+		assertNotNull(cacheStats.queryResultCache());
+		assertTrue(cacheStats.queryResultCache().lookups() > 0, "Query result cache should have lookups after queries");
+		assertNotNull(cacheStats.documentCache());
+		assertTrue(cacheStats.documentCache().lookups() > 0, "Document cache should have lookups after queries");
+		assertNotNull(cacheStats.filterCache());
+		assertTrue(cacheStats.filterCache().lookups() > 0, "Filter cache should have lookups after filter queries");
 
-		// Verify optional stats (cache and handler stats may be null, which is
-		// acceptable)
-		if (metrics.cacheStats() != null) {
-			CacheStats cacheStats = metrics.cacheStats();
-			// Verify at least one cache type exists if cache stats are present
-			assertTrue(
-					cacheStats.queryResultCache() != null || cacheStats.documentCache() != null
-							|| cacheStats.filterCache() != null,
-					"At least one cache type should be present if cache stats exist");
-		}
-
-		if (metrics.handlerStats() != null) {
-			HandlerStats handlerStats = metrics.handlerStats();
-			// Verify at least one handler type exists if handler stats are present
-			assertTrue(handlerStats.selectHandler() != null || handlerStats.updateHandler() != null,
-					"At least one handler type should be present if handler stats exist");
-		}
+		// Handler stats should reflect actual request counts
+		assertNotNull(metrics.handlerStats(), "Handler stats should not be null after queries ran");
+		HandlerStats handlerStats = metrics.handlerStats();
+		assertNotNull(handlerStats.selectHandler());
+		assertTrue(handlerStats.selectHandler().requests() > 0, "Select handler should have processed requests");
+		assertNotNull(handlerStats.updateHandler());
+		assertTrue(handlerStats.updateHandler().requests() > 0,
+				"Update handler should have processed requests from indexing");
 	}
 
 	@Test
-	void testCheckHealthHealthy() {
-		// Test checking health of a valid collection
+	void testCheckHealth_healthy() {
 		SolrHealthStatus status = collectionService.checkHealth(TEST_COLLECTION);
 
-		// Print the status for debugging
-		System.out.println("[DEBUG_LOG] Health status for valid collection: " + status);
+		log.debug("Health status: {}", status);
 
-		// Enhanced assertions for healthy collection
-		assertNotNull(status, "Health status should not be null");
-		assertTrue(status.isHealthy(), "Collection should be healthy");
+		assertNotNull(status);
+		assertTrue(status.isHealthy());
+		assertNull(status.errorMessage());
+		assertEquals(TEST_COLLECTION, status.collection());
 
-		// Verify response time
-		assertNotNull(status.responseTime(), "Response time should not be null");
-		assertTrue(status.responseTime() >= 0, "Response time should be non-negative");
-		assertTrue(status.responseTime() < 30000, "Response time should be reasonable (< 30 seconds)");
+		assertNotNull(status.responseTime());
+		assertTrue(status.responseTime() >= 0);
 
-		// Verify document count
-		assertNotNull(status.totalDocuments(), "Total documents should not be null");
-		assertTrue(status.totalDocuments() >= 0, "Total documents should be non-negative");
+		assertEquals((long) DOC_COUNT, status.totalDocuments(), "Health check should report indexed document count");
 
-		// Verify timestamp
-		assertNotNull(status.lastChecked(), "Last checked timestamp should not be null");
-		long currentTime = System.currentTimeMillis();
-		long lastCheckedTime = status.lastChecked().getTime();
-		assertTrue(currentTime - lastCheckedTime < 5000,
-				"Last checked timestamp should be very recent (within 5 seconds)");
-
-		// Verify no error message for healthy collection
-		assertNull(status.errorMessage(), "Error message should be null for healthy collection");
-
-		// Verify string representation contains meaningful information
-		String statusString = status.toString();
-		if (statusString != null) {
-			assertTrue(statusString.contains("healthy") || statusString.contains("true"),
-					"Status string should indicate healthy state");
-		}
+		assertNotNull(status.lastChecked());
+		assertTrue(System.currentTimeMillis() - status.lastChecked().getTime() < 5000);
 	}
 
 	@Test
-	void testCheckHealthUnhealthy() {
-		// Test checking health of an invalid collection
-		String nonExistentCollection = "non_existent_collection";
-		SolrHealthStatus status = collectionService.checkHealth(nonExistentCollection);
+	void testCheckHealth_nonExistentCollection() {
+		String missing = "non_existent_collection";
+		SolrHealthStatus status = collectionService.checkHealth(missing);
 
-		// Print the status for debugging
-		System.out.println("[DEBUG_LOG] Health status for invalid collection: " + status);
-
-		// Enhanced assertions for unhealthy collection
-		assertNotNull(status, "Health status should not be null");
-		assertFalse(status.isHealthy(), "Collection should not be healthy");
-
-		// Verify timestamp
-		assertNotNull(status.lastChecked(), "Last checked timestamp should not be null");
-		long currentTime = System.currentTimeMillis();
-		long lastCheckedTime = status.lastChecked().getTime();
-		assertTrue(currentTime - lastCheckedTime < 5000,
-				"Last checked timestamp should be very recent (within 5 seconds)");
-
-		// Verify error message
-		assertNotNull(status.errorMessage(), "Error message should not be null for unhealthy collection");
-		assertFalse(status.errorMessage().trim().isEmpty(),
-				"Error message should not be empty for unhealthy collection");
-
-		// Verify that performance metrics are null for unhealthy collection
-		assertNull(status.responseTime(), "Response time should be null for unhealthy collection");
-		assertNull(status.totalDocuments(), "Total documents should be null for unhealthy collection");
-
-		// Verify error message contains meaningful information
-		String errorMessage = status.errorMessage().toLowerCase();
-		assertTrue(
-				errorMessage.contains("collection") || errorMessage.contains("not found")
-						|| errorMessage.contains("error") || errorMessage.contains("fail"),
-				"Error message should contain meaningful error information");
-
-		// Verify string representation indicates unhealthy state
-		String statusString = status.toString();
-		if (statusString != null) {
-			assertTrue(statusString.contains("false") || statusString.contains("unhealthy")
-					|| statusString.contains("error"), "Status string should indicate unhealthy state");
-		}
+		assertNotNull(status);
+		assertFalse(status.isHealthy());
+		assertNotNull(status.errorMessage());
+		assertFalse(status.errorMessage().isBlank());
+		assertEquals(missing, status.collection());
+		assertNull(status.responseTime());
+		assertNull(status.totalDocuments());
 	}
 
 	@Test
 	void testCollectionNameExtraction() {
-		// Test collection name extraction functionality
-		assertEquals(TEST_COLLECTION, collectionService.extractCollectionName(TEST_COLLECTION),
-				"Regular collection name should be returned as-is");
+		assertEquals(TEST_COLLECTION, collectionService.extractCollectionName(TEST_COLLECTION));
+		assertEquals("films", collectionService.extractCollectionName("films_shard1_replica_n1"));
+		assertEquals("products", collectionService.extractCollectionName("products_shard2_replica_n3"));
+		assertNull(collectionService.extractCollectionName(null));
+		assertEquals("", collectionService.extractCollectionName(""));
+	}
 
-		assertEquals("films", collectionService.extractCollectionName("films_shard1_replica_n1"),
-				"Shard name should be extracted to base collection name");
+	@Test
+	void testGetCacheMetrics_afterQueries() {
+		CacheStats cacheStats = collectionService.getCacheMetrics(TEST_COLLECTION);
 
-		assertEquals("products", collectionService.extractCollectionName("products_shard2_replica_n3"),
-				"Complex shard name should be extracted correctly");
+		assertNotNull(cacheStats, "Cache stats should not be null after warm-up queries");
 
-		assertNull(collectionService.extractCollectionName(null), "Null input should return null");
+		// Query result cache: warm-up queries should have generated lookups
+		CacheInfo qrc = cacheStats.queryResultCache();
+		assertNotNull(qrc);
+		assertTrue(qrc.lookups() > 0, "queryResultCache lookups should be positive after queries");
+		assertNotNull(qrc.hitratio());
+		assertNotNull(qrc.size());
 
-		assertEquals("", collectionService.extractCollectionName(""), "Empty string should return empty string");
+		// Document cache: reading documents populates this cache
+		CacheInfo dc = cacheStats.documentCache();
+		assertNotNull(dc);
+		assertTrue(dc.lookups() > 0, "documentCache lookups should be positive after queries");
+
+		// Filter cache: the filter queries we ran should generate lookups
+		CacheInfo fc = cacheStats.filterCache();
+		assertNotNull(fc);
+		assertTrue(fc.lookups() > 0, "filterCache lookups should be positive after filter queries");
+	}
+
+	@Test
+	void testGetHandlerMetrics_afterQueriesAndIndexing() {
+		HandlerStats handlerStats = collectionService.getHandlerMetrics(TEST_COLLECTION);
+
+		assertNotNull(handlerStats, "Handler stats should not be null after activity");
+
+		// Select handler: warm-up queries should have driven request counts > 0
+		HandlerInfo select = handlerStats.selectHandler();
+		assertNotNull(select);
+		assertTrue(select.requests() > 0, "Select handler requests should be positive after queries");
+		assertNotNull(select.errors());
+		assertNotNull(select.timeouts());
+
+		// Update handler: indexing 50 docs should have driven request counts > 0
+		HandlerInfo update = handlerStats.updateHandler();
+		assertNotNull(update);
+		assertTrue(update.requests() > 0, "Update handler requests should be positive after indexing");
+	}
+
+	@Test
+	void testGetCacheMetrics_nonExistentCollection() {
+		assertNull(collectionService.getCacheMetrics("non_existent_collection"));
+	}
+
+	@Test
+	void testGetHandlerMetrics_nonExistentCollection() {
+		assertNull(collectionService.getHandlerMetrics("non_existent_collection"));
 	}
 
 	@Test
@@ -250,13 +252,26 @@ class CollectionServiceIntegrationTest {
 
 		CollectionCreationResult result = collectionService.createCollection(name, null, null, null);
 
-		assertTrue(result.success(), "Collection creation should succeed");
-		assertEquals(name, result.name(), "Result should contain the collection name");
-		assertNotNull(result.createdAt(), "Creation timestamp should be set");
+		assertTrue(result.success());
+		assertEquals(name, result.name());
+		assertNotNull(result.createdAt());
 
 		List<String> collections = collectionService.listCollections();
-		boolean collectionExists = collections.contains(name)
+		boolean exists = collections.contains(name)
 				|| collections.stream().anyMatch(col -> col.startsWith(name + "_shard"));
-		assertTrue(collectionExists, "Newly created collection should appear in list (found: " + collections + ")");
+		assertTrue(exists, "Newly created collection should appear in list (found: " + collections + ")");
+	}
+
+	@Test
+	void testSearchVerifiesIndexedDocuments() throws Exception {
+		// Verify the documents we indexed are actually searchable via SearchService
+		SearchResponse all = searchService.search(TEST_COLLECTION, "*:*", null, null, null, 0, DOC_COUNT);
+		assertEquals(DOC_COUNT, all.numFound(), "Should find all indexed documents");
+		assertEquals(DOC_COUNT, all.documents().size(), "Should return all documents in single page");
+
+		// Filter search should return only even-category docs
+		SearchResponse evens = searchService.search(TEST_COLLECTION, "*:*", List.of("category_s:even"), null, null, 0,
+				DOC_COUNT);
+		assertEquals(DOC_COUNT / 2, evens.numFound(), "Should find 25 even-category documents");
 	}
 }

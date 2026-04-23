@@ -123,14 +123,14 @@ class CollectionUtilsTest {
 		NamedList<Object> namedList = new NamedList<>();
 		namedList.add("nullKey", null);
 
-		assertEquals(0.0f, CollectionUtils.getFloat(namedList, "nullKey"));
+		assertNull(CollectionUtils.getFloat(namedList, "nullKey"));
 	}
 
 	@Test
 	void testGetFloat_withMissingKey() {
 		NamedList<Object> namedList = new NamedList<>();
 
-		assertEquals(0.0f, CollectionUtils.getFloat(namedList, "missingKey"));
+		assertNull(CollectionUtils.getFloat(namedList, "missingKey"));
 	}
 
 	@Test
@@ -171,6 +171,30 @@ class CollectionUtilsTest {
 		namedList.add("bigDecKey", new BigDecimal("123.45"));
 
 		assertEquals(123.45f, CollectionUtils.getFloat(namedList, "bigDecKey"), 0.001f);
+	}
+
+	@Test
+	void testGetFloat_withValidStringValue() {
+		NamedList<Object> namedList = new NamedList<>();
+		namedList.add("stringKey", "123.45");
+
+		assertEquals(123.45f, CollectionUtils.getFloat(namedList, "stringKey"), 0.001f);
+	}
+
+	@Test
+	void testGetFloat_withInvalidStringValue() {
+		NamedList<Object> namedList = new NamedList<>();
+		namedList.add("invalidStringKey", "not_a_number");
+
+		assertNull(CollectionUtils.getFloat(namedList, "invalidStringKey"));
+	}
+
+	@Test
+	void testGetFloat_withEmptyStringValue() {
+		NamedList<Object> namedList = new NamedList<>();
+		namedList.add("emptyStringKey", "");
+
+		assertNull(CollectionUtils.getFloat(namedList, "emptyStringKey"));
 	}
 
 	@Test
