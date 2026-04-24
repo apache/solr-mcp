@@ -16,6 +16,8 @@
  */
 package org.apache.solr.mcp.server.search;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 import java.util.Map;
 
@@ -134,6 +136,13 @@ import java.util.Map;
  * @see org.apache.solr.client.solrj.response.QueryResponse
  * @see org.apache.solr.common.SolrDocumentList
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record SearchResponse(long numFound, long start, Float maxScore, List<Map<String, Object>> documents,
 		Map<String, Map<String, Long>> facets) {
+
+	public SearchResponse {
+		documents = documents != null ? List.copyOf(documents) : List.of();
+		facets = facets != null ? Map.copyOf(facets) : Map.of();
+	}
 }
