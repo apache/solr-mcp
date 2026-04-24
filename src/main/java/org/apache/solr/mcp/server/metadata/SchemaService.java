@@ -163,6 +163,10 @@ public class SchemaService {
 	 */
 	@McpResource(uri = "solr://{collection}/schema", name = "solr-collection-schema", description = "Schema definition for a Solr collection including fields, field types, and copy fields", mimeType = "application/json")
 	public String getSchemaResource(String collection) {
+		if (collection == null || collection.isBlank()) {
+			throw new IllegalArgumentException("Collection name must not be blank");
+		}
+
 		try {
 			return toJson(objectMapper, getSchema(collection));
 		} catch (Exception e) {
@@ -251,6 +255,10 @@ public class SchemaService {
 	 */
 	@McpTool(name = "get-schema", description = "Get schema for a Solr collection")
 	public SchemaRepresentation getSchema(String collection) throws Exception {
+		if (collection == null || collection.isBlank()) {
+			throw new IllegalArgumentException("Collection name must not be blank");
+		}
+
 		SchemaRequest schemaRequest = new SchemaRequest();
 		return schemaRequest.process(solrClient, collection).getSchemaRepresentation();
 	}
