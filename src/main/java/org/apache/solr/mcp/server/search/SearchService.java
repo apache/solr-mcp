@@ -250,6 +250,10 @@ public class SearchService {
 			@McpToolParam(description = "Number of rows to return", required = false) Integer rows)
 			throws SolrServerException, IOException {
 
+		if (collection == null || collection.isBlank()) {
+			throw new IllegalArgumentException("Collection name must not be blank");
+		}
+
 		// query
 		final SolrQuery solrQuery = new SolrQuery("*:*");
 		if (StringUtils.hasText(query)) {

@@ -411,6 +411,10 @@ public class CollectionService {
 	public SolrMetrics getCollectionStats(
 			@McpToolParam(description = "Solr collection to get stats/metrics for") String collection)
 			throws SolrServerException, IOException {
+		if (collection == null || collection.isBlank()) {
+			throw new IllegalArgumentException(BLANK_COLLECTION_NAME_ERROR);
+		}
+
 		// Extract actual collection name from shard name if needed
 		String actualCollection = extractCollectionName(collection);
 
@@ -957,6 +961,10 @@ public class CollectionService {
 	 */
 	@McpTool(name = "check-health", description = "Check health of a Solr collection")
 	public SolrHealthStatus checkHealth(@McpToolParam(description = "Solr collection") String collection) {
+		if (collection == null || collection.isBlank()) {
+			throw new IllegalArgumentException(BLANK_COLLECTION_NAME_ERROR);
+		}
+
 		String actualCollection = extractCollectionName(collection);
 		try {
 			// Ping Solr
