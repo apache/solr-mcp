@@ -34,6 +34,8 @@ import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.FacetParams;
 import org.apache.solr.mcp.server.util.PromptNames;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.annotation.McpArg;
 import org.springaicommunity.mcp.annotation.McpPrompt;
 import org.springaicommunity.mcp.annotation.McpTool;
@@ -107,6 +109,8 @@ import org.springframework.util.StringUtils;
 @Service
 @Observed
 public class SearchService {
+
+	private static final Logger logger = LoggerFactory.getLogger(SearchService.class);
 
 	/** Key for the field name within a sort clause map. */
 	public static final String SORT_ITEM = "item";
