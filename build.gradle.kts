@@ -121,6 +121,7 @@ dependencies {
     implementation(libs.spring.boot.starter.web)
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.boot.starter.aop)
+    implementation(libs.spring.boot.starter.validation)
     implementation(libs.spring.ai.starter.mcp.server.webmvc)
     implementation(libs.solr.solrj)
     implementation(libs.commons.csv)
