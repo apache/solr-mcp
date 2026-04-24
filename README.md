@@ -4,6 +4,8 @@
 
 A Spring AI Model Context Protocol (MCP) server that provides tools for interacting with Apache Solr. Enables AI assistants like Claude to search, index, and manage Solr collections through the MCP protocol.
 
+**Website:** https://solr.apache.org/mcp | **User Guide:** [Solr Reference Guide Tutorial](https://solr.apache.org/guide/solr/latest/getting-started/tutorial-solr-mcp.html)
+
 ## What's inside
 
 - 🔍 Search Solr collections with filtering, faceting, and pagination
@@ -412,19 +414,23 @@ See [docs/specs/graalvm-native-image.md](docs/specs/graalvm-native-image.md) for
 
 ## Documentation
 
+- [User Guide (Solr Reference Guide)](https://solr.apache.org/guide/solr/latest/getting-started/tutorial-solr-mcp.html) -- comprehensive tutorial covering all transport modes, client integrations, security, and observability
 - [Auth0 Setup (OAuth2 configuration)](security-docs/AUTH0_SETUP.md)
 - [GraalVM native image spec](docs/specs/graalvm-native-image.md)
+
+## Community
+
+- **Website:** https://solr.apache.org/mcp
+- **Slack:** [`#solr-mcp`](https://the-asf.slack.com/archives/C09TVG3BM1P) in the `the-asf` Slack workspace
+- **Mailing lists:** Shared with Apache Solr -- see [mailing lists](https://solr.apache.org/community.html#mailing-lists-chat)
+- **Issues:** https://github.com/apache/solr-mcp/issues
+- **Discussions:** https://github.com/apache/solr-mcp/discussions
 
 ## Contributing
 
 We welcome contributions!
 
 - Start here: [CONTRIBUTING.md](CONTRIBUTING.md)
-
-## Support
-
-- Issues: https://github.com/apache/solr-mcp/issues
-- Discussions: https://github.com/apache/solr-mcp/discussions
 
 ## License
 
