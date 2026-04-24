@@ -24,6 +24,8 @@ import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -106,6 +108,8 @@ import org.xml.sax.SAXException;
 @Service
 @Observed
 public class IndexingService {
+
+	private static final Logger logger = LoggerFactory.getLogger(IndexingService.class);
 
 	private static final int DEFAULT_BATCH_SIZE = 1000;
 
@@ -433,12 +437,14 @@ public class IndexingService {
 				solrClient.add(collection, batch);
 				successCount += batch.size();
 			} catch (SolrServerException | IOException | RuntimeException e) {
+				logger.warn("Batch indexing failed, retrying individually", e);
 				// Try indexing documents individually to identify problematic ones
 				for (SolrInputDocument doc : batch) {
 					try {
 						solrClient.add(collection, doc);
 						successCount++;
-					} catch (SolrServerException | IOException | RuntimeException _) {
+					} catch (SolrServerException | IOException | RuntimeException e2) {
+						logger.debug("Failed to index individual document", e2);
 						// Document failed to index - this is expected behavior for problematic
 						// documents
 						// We continue processing the rest of the batch
@@ -447,7 +453,12 @@ public class IndexingService {
 			}
 		}
 
-		solrClient.commit(collection);
+		try {
+			solrClient.commit(collection);
+		} catch (SolrServerException | IOException e) {
+			logger.error("Failed to commit after indexing to collection: {}", collection, e);
+			throw e;
+		}
 		return successCount;
 	}
 }
