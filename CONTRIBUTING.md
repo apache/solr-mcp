@@ -148,7 +148,6 @@ For OAuth2 configuration with supported providers:
 
 - **Slack:** [`#solr-mcp`](https://the-asf.slack.com/archives/C09TVG3BM1P) in the `the-asf` workspace
 - **Issues:** [GitHub Issues](https://github.com/apache/solr-mcp/issues) for bugs or feature requests
-- **Discussions:** [GitHub Discussions](https://github.com/apache/solr-mcp/discussions) for questions or ideas
 - **Mailing lists:** Shared with Apache Solr -- see [mailing lists](https://solr.apache.org/community.html#mailing-lists-chat)
 
 ## Code of Conduct

@@ -470,7 +470,6 @@ See [docs/specs/graalvm-native-image.md](docs/specs/graalvm-native-image.md) for
 - **Slack:** [`#solr-mcp`](https://the-asf.slack.com/archives/C09TVG3BM1P) in the `the-asf` workspace
 - **Mailing lists:** Shared with Apache Solr -- see [mailing lists](https://solr.apache.org/community.html#mailing-lists-chat)
 - **Issues:** https://github.com/apache/solr-mcp/issues
-- **Discussions:** https://github.com/apache/solr-mcp/discussions
 
 ## Contributing
 
