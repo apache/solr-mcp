@@ -1,254 +1,200 @@
 [![Project Status: Incubating](https://img.shields.io/badge/status-incubating-yellow.svg)](https://github.com/apache/solr-mcp)
 
-# Solr MCP Server
+# Apache Solr MCP Server
 
-A Spring AI Model Context Protocol (MCP) server that provides tools for interacting with Apache Solr. Enables AI assistants like Claude to search, index, and manage Solr collections through the MCP protocol.
+Search, index, and manage [Apache Solr](https://solr.apache.org/) collections using **natural language** -- no need to hand-craft Solr queries, build filter expressions, or memorize the admin API.
 
-## What's inside
+Instead of writing:
 
-- 🔍 Search Solr collections with filtering, faceting, and pagination
-- 📝 Index documents in JSON, CSV, and XML
-- 📁 Create collections with configurable shards, replicas, and configsets
-- 📊 Manage collections and view statistics
-- 🔧 Inspect schema
-- 🔌 Transports: STDIO (Claude Desktop) and HTTP (MCP Inspector)
-- 🔐 OAuth2 security with Auth0 (HTTP mode only)
-- 🐳 Docker images built with Jib
+```
+q=title:"star wars" AND genre_s:"sci-fi"&fq=year_i:[2000 TO *]&facet=true&facet.field=genre_s&sort=score desc&rows=10
+```
 
-## Get started (users)
+Just ask your AI assistant:
 
-- Prerequisites: Java 25+, Docker (and Docker Compose), Git
-- Start Solr with sample data:
-  ```bash
-  docker compose up -d
-  ```
-- Run the server:
-    - **STDIO mode (default)**:
-        - Gradle:
-          ```bash
-          ./gradlew bootRun
-          ```
-        - JAR:
-          ```bash
-          ./gradlew build
-          java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
-          ```
-        - Docker:
-          ```bash
-          docker run -i --rm ghcr.io/apache/solr-mcp:latest
-          ```
-    - **HTTP mode**:
-        - Gradle:
-          ```bash
-          PROFILES=http ./gradlew bootRun
-          ```
-        - JAR:
-          ```bash
-          PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
-          ```
-        - Docker:
-          ```bash
-          docker run -p 8080:8080 --rm -e PROFILES=http ghcr.io/apache/solr-mcp:latest
-          ```
+> *"Find sci-fi movies with 'star wars' in the title released after 2000, show me the genre breakdown, and sort by relevance."*
 
-For more options (custom SOLR_URL, Linux host networking) see the Deployment Guide: docs/DEPLOYMENT.md
+The Solr MCP Server implements the [Model Context Protocol (MCP)](https://spec.modelcontextprotocol.io/) to expose Solr operations as tools that any MCP-compatible AI client can invoke.
 
-### Claude Desktop
+**[Website](https://solr.apache.org/mcp)** ·
+**[Quick Start](https://solr.apache.org/mcp/quick-start.html)** ·
+**[Client Setup](https://solr.apache.org/mcp/clients/claude-desktop.html)** ·
+**[Features](https://solr.apache.org/mcp/features.html)**
 
-Add this to your Claude Desktop config (macOS path shown); then restart Claude.
+## Features
 
-**STDIO mode (default)**
+### MCP Tools
 
-Using Docker:
+| Tool | Description |
+|------|-------------|
+| `search` | Full-text search with filtering, faceting, sorting, and pagination |
+| `index-json-documents` | Index documents from a JSON array |
+| `index-csv-documents` | Index documents from CSV (first row = headers) |
+| `index-xml-documents` | Index documents from XML |
+| `list-collections` | List all Solr collections |
+| `get-collection-stats` | Collection metrics: index stats, query performance, cache hit ratios |
+| `check-health` | Health check with status, document count, and responsiveness |
+| `create-collection` | Create a collection with configurable shards, replicas, and configset |
+| `get-schema` | Retrieve field definitions, field types, dynamic fields, copy fields |
+
+### MCP Resources
+
+| Resource URI | Description |
+|---|---|
+| `solr://collections` | List of all Solr collections in the cluster |
+| `solr://{collection}/schema` | Schema definition for a collection (supports autocompletion) |
+
+### Platform
+
+- **Transports**: STDIO (Claude Desktop, Claude Code) and HTTP (remote access, multi-client)
+- **Security**: OAuth2 with JWT validation (Auth0, Keycloak, Okta) in HTTP mode
+- **Observability**: OpenTelemetry traces, Prometheus metrics, structured logs via LGTM stack
+- **Docker**: Multi-platform images (amd64 + arm64) built with Jib
+
+## Quick Start
+
+Get from zero to a working Claude + Solr integration in under 2 minutes.
+
+**Prerequisites:** [Docker](https://docs.docker.com/get-docker/) and Docker Compose, an MCP client (e.g., [Claude Desktop](https://claude.ai/download))
+
+### 1. Start Solr with sample data
+
+```bash
+git clone https://github.com/apache/solr-mcp.git
+cd solr-mcp
+docker compose up -d
+```
+
+This starts Solr in SolrCloud mode with two sample collections: **films** (1,100+ movies) and **books** (empty, ready for indexing). Wait ~30 seconds, then verify at http://localhost:8983/solr/.
+
+### 2. Configure Claude Desktop
+
+Add to your config file (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+
 ```json
 {
   "mcpServers": {
     "solr-mcp": {
       "command": "docker",
-      "args": ["run", "-i", "--rm", "ghcr.io/apache/solr-mcp:latest"],
-        "env": {
-            "SOLR_URL": "http://localhost:8983/solr/"
-        }
+      "args": ["run", "-i", "--rm",
+               "-e", "SOLR_URL=http://host.docker.internal:8983/solr/",
+               "ghcr.io/apache/solr-mcp:latest"]
     }
   }
 }
 ```
 
-Using JAR:
+Restart Claude Desktop.
 
-```json
-{
-    "mcpServers": {
-        "solr-mcp": {
-            "command": "java",
-            "args": [
-                "-jar",
-                "/absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar"
-            ],
-            "env": {
-                "SOLR_URL": "http://localhost:8983/solr/"
-            }
-        }
-    }
-}
-```
+### 3. Try it out
 
-**HTTP mode**
+- *"Search the films collection for movies directed by Steven Spielberg"*
+- *"What collections are available in Solr?"*
+- *"Show me the schema for the films collection"*
+- *"Index this JSON into the books collection: [{"id": "1", "title": "The Great Gatsby", "author": "F. Scott Fitzgerald"}]"*
 
-Using Docker:
+> For more clients (Claude Code, VS Code, Cursor, JetBrains), see **[Adding to AI Clients](https://solr.apache.org/mcp/clients/claude-desktop.html)** on the website.
 
-```json
-{
-    "mcpServers": {
-        "solr-mcp": {
-            "command": "docker",
-            "args": [
-                "run",
-                "-p",
-                "8080:8080",
-                "--rm",
-                "ghcr.io/apache/solr-mcp:latest"
-            ],
-            "env": {
-                "PROFILES": "http",
-                "SOLR_URL": "http://localhost:8983/solr/"
-            }
-        }
-    }
-}
-```
+## Adding to AI Clients
 
-Using JAR:
+<details>
+<summary><strong>Claude Desktop</strong></summary>
 
-```json
-{
-    "mcpServers": {
-        "solr-mcp": {
-            "command": "java",
-            "args": [
-                "-jar",
-                "/absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar"
-            ],
-            "env": {
-                "PROFILES": "http",
-                "SOLR_URL": "http://localhost:8983/solr/"
-            }
-    }
-  }
-}
-```
+#### STDIO Mode (recommended)
 
-**Connecting to a running HTTP server**
+**Docker:**
 
-If you already have the MCP server running in HTTP mode (via Gradle, JAR, or Docker), you can connect Claude Desktop to
-it using `mcp-remote`:
-
-Running via Gradle:
-
-```bash
-PROFILES=http ./gradlew bootRun
-```
-
-Running locally (JAR):
-
-```bash
-PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
-```
-
-Running via Docker:
-
-```bash
-docker run -p 8080:8080 --rm -e PROFILES=http ghcr.io/apache/solr-mcp:latest
-```
-
-Then add to your `claude_desktop_config.json`:
-
-```json
-{
-    "mcpServers": {
-        "solr-mcp-http": {
-            "command": "npx",
-            "args": [
-                "mcp-remote",
-                "http://localhost:8080/mcp"
-            ]
-        }
-    }
-}
-```
-
-More configuration options: docs/DEPLOYMENT.md#docker-images-with-jib
-
-### Claude Code
-
-Add Solr MCP to [Claude Code](https://docs.anthropic.com/en/docs/claude-code) using the CLI or by adding a `.mcp.json` file to your project root.
-
-**STDIO mode (default)**
-
-Using Docker (CLI):
-```bash
-claude mcp add --transport stdio solr-mcp -- docker run -i --rm ghcr.io/apache/solr-mcp:latest
-```
-
-Using JAR (CLI):
-```bash
-claude mcp add --transport stdio -e SOLR_URL=http://localhost:8983/solr/ solr-mcp -- java -jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar
-```
-
-Or add to your project's `.mcp.json`:
-
-Using Docker:
 ```json
 {
   "mcpServers": {
     "solr-mcp": {
-      "type": "stdio",
       "command": "docker",
-      "args": ["run", "-i", "--rm", "ghcr.io/apache/solr-mcp:latest"],
-      "env": {
-        "SOLR_URL": "http://localhost:8983/solr/"
-      }
+      "args": ["run", "-i", "--rm",
+               "-e", "SOLR_URL=http://host.docker.internal:8983/solr/",
+               "ghcr.io/apache/solr-mcp:latest"]
     }
   }
 }
 ```
 
-Using JAR:
+**JAR:**
+
 ```json
 {
   "mcpServers": {
     "solr-mcp": {
-      "type": "stdio",
       "command": "java",
       "args": ["-jar", "/absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar"],
-      "env": {
-        "SOLR_URL": "http://localhost:8983/solr/"
-      }
+      "env": { "SOLR_URL": "http://localhost:8983/solr/" }
     }
   }
 }
 ```
 
-**HTTP mode**
+#### HTTP Mode
 
-Start the server first (pick one):
-```bash
-# Gradle
-PROFILES=http ./gradlew bootRun
+Start the server first (`PROFILES=http ./gradlew bootRun` or `docker run -p 8080:8080 --rm -e PROFILES=http -e SOLR_URL=http://host.docker.internal:8983/solr/ ghcr.io/apache/solr-mcp:latest`), then:
 
-# JAR
-PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
-
-# Docker
-docker run -p 8080:8080 --rm -e PROFILES=http ghcr.io/apache/solr-mcp:latest
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "command": "npx",
+      "args": ["mcp-remote", "http://localhost:8080/mcp"]
+    }
+  }
+}
 ```
 
-Then add to Claude Code:
+**Linux users:** add `--add-host=host.docker.internal:host-gateway` to Docker commands.
+
+</details>
+
+<details>
+<summary><strong>Claude Code</strong></summary>
+
+#### STDIO Mode (recommended)
+
+**CLI:**
+
+```bash
+# Docker
+claude mcp add --transport stdio solr-mcp -- \
+    docker run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+    ghcr.io/apache/solr-mcp:latest
+
+# JAR
+claude mcp add --transport stdio \
+    -e SOLR_URL=http://localhost:8983/solr/ \
+    solr-mcp -- java -jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar
+```
+
+**`.mcp.json`:**
+
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "type": "stdio",
+      "command": "docker",
+      "args": ["run", "-i", "--rm",
+               "-e", "SOLR_URL=http://host.docker.internal:8983/solr/",
+               "ghcr.io/apache/solr-mcp:latest"]
+    }
+  }
+}
+```
+
+#### HTTP Mode
+
+Start the server first, then:
+
 ```bash
 claude mcp add --transport http solr-mcp http://localhost:8080/mcp
 ```
 
-Or add to `.mcp.json`:
+Or in `.mcp.json`:
+
 ```json
 {
   "mcpServers": {
@@ -260,182 +206,217 @@ Or add to `.mcp.json`:
 }
 ```
 
-## Security (OAuth2)
+</details>
 
-The Solr MCP server supports OAuth2 authentication when running in HTTP mode, providing secure access control for your
-MCP tools.
+<details>
+<summary><strong>VS Code / GitHub Copilot</strong></summary>
 
-### Features
+Create `.vscode/mcp.json` in your project root:
 
-- **OAuth2 Resource Server**: JWT token validation using Auth0 (or any OAuth2 provider)
-- **HTTP Mode Only**: Security is only active when using the `http` profile
-- **CORS Support**: Enabled for MCP Inspector compatibility
-- **Machine-to-Machine**: Uses Client Credentials flow for service authentication
+#### STDIO Mode
 
-### Quick Setup
-
-1. **Configure Auth0** (see detailed guide: [security-docs/AUTH0_SETUP.md](security-docs/AUTH0_SETUP.md))
-    - Create an Auth0 Application (Machine to Machine)
-    - Create an Auth0 API with your audience identifier
-    - Note your Domain, Client ID, Client Secret, and Audience
-
-2. **Set Environment Variable**:
-   ```bash
-   export OAUTH2_ISSUER_URI=https://your-tenant.auth0.com/
-   export PROFILES=http
-   ```
-
-3. **Run the Server**:
-   ```bash
-   ./gradlew bootRun
-   ```
-
-4. **Get Access Token** (using convenience script):
-   ```bash
-   ./scripts/get-auth0-token.sh --domain your-tenant.auth0.com \
-     --client-id YOUR_CLIENT_ID \
-     --client-secret YOUR_CLIENT_SECRET \
-     --audience https://solr-mcp-api
-   ```
-
-5. **Use the Token**:
-   ```bash
-   curl -H "Authorization: Bearer YOUR_TOKEN" \
-     http://localhost:8080/mcp
-   ```
-
-For complete setup instructions, see [security-docs/AUTH0_SETUP.md](security-docs/AUTH0_SETUP.md)
-
-## Available MCP tools
-
-### Search
-
-| Tool | Description |
-|------|-------------|
-| `search` | Full-text search with filtering, faceting, sorting, and pagination |
-
-### Indexing
-
-| Tool | Description |
-|------|-------------|
-| `index-json-documents` | Index documents from a JSON string into a Solr collection |
-| `index-csv-documents` | Index documents from a CSV string into a Solr collection |
-| `index-xml-documents` | Index documents from an XML string into a Solr collection |
-
-### Collections
-
-| Tool | Description |
-|------|-------------|
-| `create-collection` | Create a new Solr collection (configSet, numShards, replicationFactor optional — default to `_default`, `1`, `1`) |
-| `list-collections` | List all available Solr collections |
-| `get-collection-stats` | Get statistics and metrics for a collection |
-| `check-health` | Check the health status of a collection |
-
-### Schema
-
-| Tool | Description |
-|------|-------------|
-| `get-schema` | Retrieve schema information for a collection |
-
-## Available MCP Resources
-
-MCP Resources provide a way to expose data that can be read by MCP clients. The Solr MCP Server provides the following resources:
-
-| Resource URI | Description |
-|--------------|-------------|
-| `solr://collections` | List of all Solr collections available in the cluster |
-| `solr://{collection}/schema` | Schema definition for a specific collection (supports autocompletion) |
-
-### Resource Autocompletion
-
-The `solr://{collection}/schema` resource supports autocompletion for the `{collection}` parameter. MCP clients can use the completion API to get a list of available collection names.
-
-![MCP Inspector Resources](images/mcp-inspector-list-resources.png)
-
-![MCP Inspector Resource Completion](images/mcp-inspector-resource-completion.png)
-
-## Screenshots
-
-- Claude Desktop (STDIO):
-
-  ![Claude Desktop STDIO](images/claude-stdio.png)
-
-- MCP Inspector (HTTP):
-
-  ![MCP Inspector HTTP](images/mcp-inspector-http.png)
-
-- MCP Inspector (HTTP with OAuth2 - Success):
-
-  ![MCP Inspector HTTP OAuth Success](images/mcp-inspector-http-oauth-success.png)
-
-- MCP Inspector (HTTP with OAuth2 - Failure):
-
-  ![MCP Inspector HTTP OAuth Failure](images/mcp-inspector-http-oauth-failure.png)
-
-- MCP Inspector (STDIO):
-
-  ![MCP Inspector STDIO](images/mcp-inspector-stdio.png)
-
-## Native image (experimental)
-
-An opt-in GraalVM native image build is available for the STDIO profile. The
-native binary starts faster and uses less memory than the JVM image.
-
-```bash
-# Build the native Docker image (works on any OS — compiles inside a Linux builder container)
-./gradlew bootBuildImage
-# Produces:  solr-mcp:<version>-native  (also tagged :latest-native)
-
-# Run it
-docker run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ \
-    solr-mcp:latest-native
+```json
+{
+  "servers": {
+    "solr-mcp": {
+      "type": "stdio",
+      "command": "docker",
+      "args": ["run", "-i", "--rm",
+               "-e", "SOLR_URL=http://host.docker.internal:8983/solr/",
+               "ghcr.io/apache/solr-mcp:latest"]
+    }
+  }
+}
 ```
 
-### Claude Desktop (native)
+#### HTTP Mode
+
+```json
+{
+  "servers": {
+    "solr-mcp": {
+      "type": "sse",
+      "url": "http://localhost:8080/mcp"
+    }
+  }
+}
+```
+
+After adding the configuration, Solr MCP tools are available in GitHub Copilot Chat (Agent mode).
+
+</details>
+
+<details>
+<summary><strong>Cursor</strong></summary>
+
+Create `.cursor/mcp.json` in your project root:
+
+#### STDIO Mode
 
 ```json
 {
   "mcpServers": {
     "solr-mcp": {
       "command": "docker",
-      "args": [
-        "run", "-i", "--rm",
-        "-e", "SOLR_URL=http://host.docker.internal:8983/solr/",
-        "solr-mcp:latest-native"
-      ]
+      "args": ["run", "-i", "--rm",
+               "-e", "SOLR_URL=http://host.docker.internal:8983/solr/",
+               "ghcr.io/apache/solr-mcp:latest"]
     }
   }
 }
 ```
 
-See [docs/specs/graalvm-native-image.md](docs/specs/graalvm-native-image.md) for the design and known risks.
+#### HTTP Mode
 
-## Documentation
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "url": "http://localhost:8080/mcp"
+    }
+  }
+}
+```
 
-- [Auth0 Setup (OAuth2 configuration)](security-docs/AUTH0_SETUP.md)
-- [GraalVM native image spec](docs/specs/graalvm-native-image.md)
+Or use **Cursor Settings > Features > MCP Servers > Add New MCP Server**.
+
+</details>
+
+<details>
+<summary><strong>JetBrains IDEs</strong></summary>
+
+Create `.junie/mcp.json` in your project root:
+
+#### STDIO Mode
+
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm",
+               "-e", "SOLR_URL=http://host.docker.internal:8983/solr/",
+               "ghcr.io/apache/solr-mcp:latest"]
+    }
+  }
+}
+```
+
+#### HTTP Mode
+
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "url": "http://localhost:8080/mcp"
+    }
+  }
+}
+```
+
+Or use **Settings > Tools > AI Assistant > MCP Servers > Add**.
+
+</details>
+
+<details>
+<summary><strong>MCP Inspector</strong></summary>
+
+```bash
+npx @modelcontextprotocol/inspector
+```
+
+**HTTP:** connect to `http://localhost:8080/mcp`
+
+**STDIO:** command `docker`, arguments `run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ ghcr.io/apache/solr-mcp:latest`
+
+</details>
+
+## Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SOLR_URL` | Solr base URL | `http://localhost:8983/solr/` |
+| `PROFILES` | Transport mode: `stdio` or `http` | `stdio` |
+| `SECURITY_ENABLED` | Enable OAuth2 authentication (HTTP only) | `false` |
+| `OAUTH2_ISSUER_URI` | OAuth2 issuer URL (Auth0, Keycloak, Okta) | -- |
+| `OTEL_SAMPLING_PROBABILITY` | Tracing sampling rate (0.0--1.0) | `1.0` |
+| `OTEL_TRACES_URL` | OTLP collector endpoint | `http://localhost:4317` |
+
+## Example Prompts
+
+**Searching:**
+- *"Find sci-fi movies released after 2000 and show the genre breakdown"*
+- *"Search films for movies with 'war' in the title, sorted by year"*
+- *"Show me the top 5 most recent films"*
+
+**Indexing:**
+- *"Index this JSON into the books collection: [{"id": "1", "title": "1984", "author": "George Orwell"}]"*
+- *"Create a new collection called products"*
+
+**Managing:**
+- *"What collections are available?"*
+- *"Is the films collection healthy?"*
+- *"Show me the schema for the films collection"*
+- *"How many documents are in the films collection?"*
+
+## Running the Server
+
+### STDIO mode (default)
+
+```bash
+# Docker (recommended)
+docker run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ ghcr.io/apache/solr-mcp:latest
+
+# Gradle
+./gradlew bootRun
+
+# JAR
+./gradlew build
+java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
+```
+
+### HTTP mode
+
+```bash
+# Docker
+docker run -p 8080:8080 --rm -e PROFILES=http -e SOLR_URL=http://host.docker.internal:8983/solr/ ghcr.io/apache/solr-mcp:latest
+
+# Gradle
+PROFILES=http ./gradlew bootRun
+
+# JAR
+PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
+```
+
+The MCP endpoint is available at `http://localhost:8080/mcp`. Verify with `curl http://localhost:8080/actuator/health`.
+
+## Native Image (Experimental)
+
+An opt-in GraalVM native image build is available for the STDIO profile:
+
+```bash
+./gradlew bootBuildImage
+docker run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ solr-mcp:latest-native
+```
+
+See [docs/specs/graalvm-native-image.md](docs/specs/graalvm-native-image.md) for details.
+
+## Community
+
+- **Website:** https://solr.apache.org/mcp
+- **Slack:** [`#solr-mcp`](https://the-asf.slack.com/archives/C09TVG3BM1P) in the `the-asf` workspace
+- **Mailing lists:** Shared with Apache Solr -- see [mailing lists](https://solr.apache.org/community.html#mailing-lists-chat)
+- **Issues:** https://github.com/apache/solr-mcp/issues
+- **Discussions:** https://github.com/apache/solr-mcp/discussions
 
 ## Contributing
 
-We welcome contributions!
-
-- Start here: [CONTRIBUTING.md](CONTRIBUTING.md)
-
-## Support
-
-- Issues: https://github.com/apache/solr-mcp/issues
-- Discussions: https://github.com/apache/solr-mcp/discussions
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions, testing, and PR guidelines.
 
 ## License
 
-Apache License 2.0 — see LICENSE
+Apache License 2.0 -- see [LICENSE](LICENSE)
 
 ## Acknowledgments
 
-Built with:
-
-- Spring AI MCP — https://spring.io/projects/spring-ai
-- Apache Solr — https://solr.apache.org/
-- Jib — https://github.com/GoogleContainerTools/jib
-- Testcontainers — https://www.testcontainers.org/
-- Spring AI MCP Security — https://github.com/spring-ai-community/mcp-security
+Built with [Spring AI MCP](https://spring.io/projects/spring-ai), [Apache Solr](https://solr.apache.org/), [Jib](https://github.com/GoogleContainerTools/jib), [Testcontainers](https://www.testcontainers.org/), and [Spring AI MCP Security](https://github.com/spring-ai-community/mcp-security).

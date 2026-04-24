@@ -137,15 +137,23 @@ For implementation details and examples, see the Development Guide:
 - Dependencies and version catalogs: dev-docs/DEVELOPMENT.md#build-system
 - Documentation practices: dev-docs/DEVELOPMENT.md#modifying-configuration
 
+## Security Setup (HTTP Mode)
+
+For OAuth2 configuration with supported providers:
+
+- [Auth0 Setup Guide](security-docs/AUTH0_SETUP.md)
+- [Keycloak Setup Guide](dev-docs/KEYCLOAK_SETUP.md)
+
 ## Questions or Need Help?
 
-- Open an issue for bugs or feature requests
-- Start a discussion for questions or ideas
-- Check existing issues and discussions first
+- **Slack:** [`#solr-mcp`](https://the-asf.slack.com/archives/C09TVG3BM1P) in the `the-asf` workspace
+- **Issues:** [GitHub Issues](https://github.com/apache/solr-mcp/issues) for bugs or feature requests
+- **Discussions:** [GitHub Discussions](https://github.com/apache/solr-mcp/discussions) for questions or ideas
+- **Mailing lists:** Shared with Apache Solr -- see [mailing lists](https://solr.apache.org/community.html#mailing-lists-chat)
 
 ## Code of Conduct
 
-Be respectful, inclusive, and professional. We're all here to build something great together.
+As an Apache project, we follow the [Apache Code of Conduct](https://www.apache.org/foundation/policies/conduct).
 
 ## License
 
