@@ -4,21 +4,21 @@ Thank you for your interest in contributing to the Solr MCP Server! This documen
 
 ## Developer documentation
 
-To avoid duplication, the environment setup, build/run/test workflows, and detailed developer guides live in the dev-docs folder:
+To avoid duplication, the environment setup, build/run/test workflows, and detailed developer guides live in the [docs/development](docs/development) folder:
 
-- Development Guide (build, run, test, IDE, CI): dev-docs/DEVELOPMENT.md
-- Architecture: dev-docs/ARCHITECTURE.md
-- Deployment (Docker, HTTP vs STDIO): dev-docs/DEPLOYMENT.md
-- Troubleshooting: dev-docs/TROUBLESHOOTING.md
+- [Development Guide](docs/development/DEVELOPMENT.md) -- build, run, test, IDE, CI
+- [Architecture](docs/development/ARCHITECTURE.md) -- project structure and design decisions
+- [Deployment](docs/development/DEPLOYMENT.md) -- Docker, HTTP vs STDIO
+- [Troubleshooting](docs/development/TROUBLESHOOTING.md) -- common issues and solutions
 
-If you're ready to contribute code, see Submitting Changes below.
+If you're ready to contribute code, see [Submitting Changes](#submitting-changes) below.
 
 ## Code Style and Quality
 
 We use Spotless for code formatting and style enforcement. CI enforces `spotlessCheck` on pull requests.
 
-- Commands and details: dev-docs/DEVELOPMENT.md#common-gradle-tasks
-- Build system overview: dev-docs/DEVELOPMENT.md#build-system
+- [Commands and details](docs/development/DEVELOPMENT.md#common-gradle-tasks)
+- [Build system overview](docs/development/DEVELOPMENT.md#build-system)
 
 ### Coding Standards
 
@@ -32,11 +32,11 @@ We use Spotless for code formatting and style enforcement. CI enforces `spotless
 
 To keep this document concise, please see the Development Guide for all testing workflows and tips:
 
-- Testing overview: dev-docs/DEVELOPMENT.md#testing
-- Unit tests: dev-docs/DEVELOPMENT.md#unit-tests
-- Integration tests: dev-docs/DEVELOPMENT.md#integration-tests
-- Docker image tests: dev-docs/DEVELOPMENT.md#docker-integration-tests
-- Coverage reports: dev-docs/DEVELOPMENT.md#testing
+- [Testing overview](docs/development/DEVELOPMENT.md#testing)
+- [Unit tests](docs/development/DEVELOPMENT.md#unit-tests)
+- [Integration tests](docs/development/DEVELOPMENT.md#integration-tests)
+- [Docker image tests](docs/development/DEVELOPMENT.md#docker-integration-tests)
+- [Coverage reports](docs/development/DEVELOPMENT.md#testing)
 
 ## Publishing to Maven Local
 
@@ -131,18 +131,18 @@ test: add integration tests for collection service
 
 For implementation details and examples, see the Development Guide:
 
-- Adding new MCP tools: dev-docs/DEVELOPMENT.md#adding-a-new-mcp-tool
-- Adding a new document format: dev-docs/DEVELOPMENT.md#adding-a-new-document-format
-- Project structure and architecture: dev-docs/ARCHITECTURE.md
-- Dependencies and version catalogs: dev-docs/DEVELOPMENT.md#build-system
-- Documentation practices: dev-docs/DEVELOPMENT.md#modifying-configuration
+- [Adding new MCP tools](docs/development/DEVELOPMENT.md#adding-a-new-mcp-tool)
+- [Adding a new document format](docs/development/DEVELOPMENT.md#adding-a-new-document-format)
+- [Project structure and architecture](docs/development/ARCHITECTURE.md)
+- [Dependencies and version catalogs](docs/development/DEVELOPMENT.md#build-system)
+- [Documentation practices](docs/development/DEVELOPMENT.md#modifying-configuration)
 
 ## Security Setup (HTTP Mode)
 
 For OAuth2 configuration with supported providers:
 
-- [Auth0 Setup Guide](security-docs/AUTH0_SETUP.md)
-- [Keycloak Setup Guide](dev-docs/KEYCLOAK_SETUP.md)
+- [Auth0 Setup Guide](docs/development/AUTH0_SETUP.md)
+- [Keycloak Setup Guide](docs/development/keycloak.md)
 
 ## Questions or Need Help?
 
