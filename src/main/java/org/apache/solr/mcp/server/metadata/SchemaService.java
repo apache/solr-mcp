@@ -20,7 +20,9 @@ import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.observation.annotation.Observed;
+import java.io.IOException;
 import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
 import org.springaicommunity.mcp.annotation.McpResource;
@@ -242,15 +244,17 @@ public class SchemaService {
 	 *            the name of the Solr collection to retrieve schema information for
 	 * @return complete schema representation containing all field and type
 	 *         definitions
-	 * @throws Exception
-	 *             if collection does not exist, access is denied, or communication
-	 *             fails
+	 * @throws SolrServerException
+	 *             if the Solr server returns an error or the collection does not
+	 *             exist
+	 * @throws IOException
+	 *             if communication with the Solr server fails
 	 * @see SchemaRepresentation
 	 * @see SchemaRequest
 	 * @see org.apache.solr.client.solrj.response.schema.SchemaResponse
 	 */
 	@McpTool(name = "get-schema", description = "Get schema for a Solr collection")
-	public SchemaRepresentation getSchema(String collection) throws Exception {
+	public SchemaRepresentation getSchema(String collection) throws SolrServerException, IOException {
 		SchemaRequest schemaRequest = new SchemaRequest();
 		return schemaRequest.process(solrClient, collection).getSchemaRepresentation();
 	}
