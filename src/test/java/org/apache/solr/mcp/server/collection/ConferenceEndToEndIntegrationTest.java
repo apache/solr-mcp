@@ -72,7 +72,7 @@ class ConferenceEndToEndIntegrationTest {
 
 	@Test
 	@Order(1)
-	void collectionAppearsInList() {
+	void collectionAppearsInList() throws Exception {
 		List<String> collections = collectionService.listCollections();
 		boolean found = collections.contains(COLLECTION)
 				|| collections.stream().anyMatch(c -> c.startsWith(COLLECTION + "_shard"));
