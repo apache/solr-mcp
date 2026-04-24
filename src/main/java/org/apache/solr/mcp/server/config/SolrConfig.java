@@ -24,6 +24,7 @@ import org.apache.solr.client.solrj.request.XMLRequestWriter;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestClient;
 
 /**
  * Spring Configuration class for Apache Solr client setup and connection
@@ -169,6 +170,11 @@ public class SolrConfig {
 	@Bean
 	JsonResponseParser jsonResponseParser(ObjectMapper objectMapper) {
 		return new JsonResponseParser(objectMapper);
+	}
+
+	@Bean
+	RestClient restClient(RestClient.Builder builder) {
+		return builder.build();
 	}
 
 	@Bean
