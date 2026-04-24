@@ -194,7 +194,9 @@ class SearchServiceIntegrationTest {
 		List<Map<String, Object>> documents = result.documents();
 		assertEquals(1, documents.size());
 		Map<String, Object> book = documents.getFirst();
-		assertEquals("A Game of Thrones", ((List<?>) book.get("name")).getFirst());
+		List<?> nameField = (List<?>) book.get("name");
+		assertNotNull(nameField);
+		assertEquals("A Game of Thrones", nameField.getFirst());
 	}
 
 	@Test
@@ -205,7 +207,9 @@ class SearchServiceIntegrationTest {
 		List<Map<String, Object>> documents = result.documents();
 		assertEquals(3, documents.size());
 		Map<String, Object> book = documents.getFirst();
-		assertEquals("George R.R. Martin", ((List<?>) book.get("author_ss")).getFirst());
+		List<?> authorField = (List<?>) book.get("author_ss");
+		assertNotNull(authorField);
+		assertEquals("George R.R. Martin", authorField.getFirst());
 	}
 
 	@Test
@@ -224,9 +228,9 @@ class SearchServiceIntegrationTest {
 		List<Map<String, Object>> documents = result.documents();
 		assertFalse(documents.isEmpty());
 		Map<String, Object> book = documents.getFirst();
-		double currentPrice = ((List<?>) book.get("price")).isEmpty()
-				? 0.0
-				: ((Number) ((List<?>) book.get("price")).getFirst()).doubleValue();
+		List<?> priceField = (List<?>) book.get("price");
+		assertNotNull(priceField);
+		double currentPrice = priceField.isEmpty() ? 0.0 : ((Number) priceField.getFirst()).doubleValue();
 		assertTrue(currentPrice > 0);
 	}
 
@@ -277,7 +281,9 @@ class SearchServiceIntegrationTest {
 		assertFalse(documents.isEmpty());
 		int previousSequence = 0;
 		for (Map<String, Object> book : documents) {
-			int currentSequence = ((Number) book.get("sequence_i")).intValue();
+			Number sequenceValue = (Number) book.get("sequence_i");
+			assertNotNull(sequenceValue);
+			int currentSequence = sequenceValue.intValue();
 			assertTrue(currentSequence >= previousSequence, "Books should be sorted by sequence_i in ascending order");
 			previousSequence = currentSequence;
 		}
