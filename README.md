@@ -55,7 +55,7 @@ The Solr MCP Server implements the [Model Context Protocol (MCP)](https://spec.m
 
 Get from zero to a working Claude + Solr integration in under 2 minutes.
 
-**Prerequisites:** [Docker](https://docs.docker.com/get-docker/) and Docker Compose, an MCP client (e.g., [Claude Desktop](https://claude.ai/download))
+**Prerequisites:** Java 25+, [Docker](https://docs.docker.com/get-docker/) and Docker Compose, an MCP client (e.g., [Claude Desktop](https://claude.ai/download))
 
 ### 1. Start Solr with sample data
 
@@ -67,7 +67,13 @@ docker compose up -d
 
 This starts Solr in SolrCloud mode with two sample collections: **films** (1,100+ movies) and **books** (empty, ready for indexing). Wait ~30 seconds, then verify at http://localhost:8983/solr/.
 
-### 2. Configure Claude Desktop
+### 2. Build the server
+
+```bash
+./gradlew build
+```
+
+### 3. Configure Claude Desktop
 
 Add to your config file (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
@@ -75,10 +81,9 @@ Add to your config file (`~/Library/Application Support/Claude/claude_desktop_co
 {
   "mcpServers": {
     "solr-mcp": {
-      "command": "docker",
-      "args": ["run", "-i", "--rm",
-               "-e", "SOLR_URL=http://host.docker.internal:8983/solr/",
-               "ghcr.io/apache/solr-mcp:latest"]
+      "command": "java",
+      "args": ["-jar", "/absolute/path/to/solr-mcp/build/libs/solr-mcp-1.0.0-SNAPSHOT.jar"],
+      "env": { "SOLR_URL": "http://localhost:8983/solr/" }
     }
   }
 }
@@ -86,7 +91,7 @@ Add to your config file (`~/Library/Application Support/Claude/claude_desktop_co
 
 Restart Claude Desktop.
 
-### 3. Try it out
+### 4. Try it out
 
 - *"Search the films collection for movies directed by Steven Spielberg"*
 - *"What collections are available in Solr?"*
@@ -102,21 +107,6 @@ Restart Claude Desktop.
 
 #### STDIO Mode (recommended)
 
-**Docker:**
-
-```json
-{
-  "mcpServers": {
-    "solr-mcp": {
-      "command": "docker",
-      "args": ["run", "-i", "--rm",
-               "-e", "SOLR_URL=http://host.docker.internal:8983/solr/",
-               "ghcr.io/apache/solr-mcp:latest"]
-    }
-  }
-}
-```
-
 **JAR:**
 
 ```json
@@ -131,9 +121,28 @@ Restart Claude Desktop.
 }
 ```
 
+**Docker (local image):**
+
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm",
+               "-e", "SOLR_URL=http://host.docker.internal:8983/solr/",
+               "solr-mcp:latest"]
+    }
+  }
+}
+```
+
+Build the local image first: `./gradlew jibDockerBuild`
+
+**Linux users:** add `--add-host=host.docker.internal:host-gateway` to Docker args.
+
 #### HTTP Mode
 
-Start the server first (`PROFILES=http ./gradlew bootRun` or `docker run -p 8080:8080 --rm -e PROFILES=http -e SOLR_URL=http://host.docker.internal:8983/solr/ ghcr.io/apache/solr-mcp:latest`), then:
+Start the server first (`PROFILES=http ./gradlew bootRun`), then:
 
 ```json
 {
@@ -146,8 +155,6 @@ Start the server first (`PROFILES=http ./gradlew bootRun` or `docker run -p 8080
 }
 ```
 
-**Linux users:** add `--add-host=host.docker.internal:host-gateway` to Docker commands.
-
 </details>
 
 <details>
@@ -158,15 +165,15 @@ Start the server first (`PROFILES=http ./gradlew bootRun` or `docker run -p 8080
 **CLI:**
 
 ```bash
-# Docker
-claude mcp add --transport stdio solr-mcp -- \
-    docker run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ \
-    ghcr.io/apache/solr-mcp:latest
-
 # JAR
 claude mcp add --transport stdio \
     -e SOLR_URL=http://localhost:8983/solr/ \
     solr-mcp -- java -jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar
+
+# Docker (local image)
+claude mcp add --transport stdio solr-mcp -- \
+    docker run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+    solr-mcp:latest
 ```
 
 **`.mcp.json`:**
@@ -176,10 +183,9 @@ claude mcp add --transport stdio \
   "mcpServers": {
     "solr-mcp": {
       "type": "stdio",
-      "command": "docker",
-      "args": ["run", "-i", "--rm",
-               "-e", "SOLR_URL=http://host.docker.internal:8983/solr/",
-               "ghcr.io/apache/solr-mcp:latest"]
+      "command": "java",
+      "args": ["-jar", "/absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar"],
+      "env": { "SOLR_URL": "http://localhost:8983/solr/" }
     }
   }
 }
@@ -215,6 +221,23 @@ Create `.vscode/mcp.json` in your project root:
 
 #### STDIO Mode
 
+**JAR:**
+
+```json
+{
+  "servers": {
+    "solr-mcp": {
+      "type": "stdio",
+      "command": "java",
+      "args": ["-jar", "/absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar"],
+      "env": { "SOLR_URL": "http://localhost:8983/solr/" }
+    }
+  }
+}
+```
+
+**Docker (local image):**
+
 ```json
 {
   "servers": {
@@ -223,7 +246,7 @@ Create `.vscode/mcp.json` in your project root:
       "command": "docker",
       "args": ["run", "-i", "--rm",
                "-e", "SOLR_URL=http://host.docker.internal:8983/solr/",
-               "ghcr.io/apache/solr-mcp:latest"]
+               "solr-mcp:latest"]
     }
   }
 }
@@ -253,6 +276,22 @@ Create `.cursor/mcp.json` in your project root:
 
 #### STDIO Mode
 
+**JAR:**
+
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "command": "java",
+      "args": ["-jar", "/absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar"],
+      "env": { "SOLR_URL": "http://localhost:8983/solr/" }
+    }
+  }
+}
+```
+
+**Docker (local image):**
+
 ```json
 {
   "mcpServers": {
@@ -260,7 +299,7 @@ Create `.cursor/mcp.json` in your project root:
       "command": "docker",
       "args": ["run", "-i", "--rm",
                "-e", "SOLR_URL=http://host.docker.internal:8983/solr/",
-               "ghcr.io/apache/solr-mcp:latest"]
+               "solr-mcp:latest"]
     }
   }
 }
@@ -289,6 +328,22 @@ Create `.junie/mcp.json` in your project root:
 
 #### STDIO Mode
 
+**JAR:**
+
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "command": "java",
+      "args": ["-jar", "/absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar"],
+      "env": { "SOLR_URL": "http://localhost:8983/solr/" }
+    }
+  }
+}
+```
+
+**Docker (local image):**
+
 ```json
 {
   "mcpServers": {
@@ -296,7 +351,7 @@ Create `.junie/mcp.json` in your project root:
       "command": "docker",
       "args": ["run", "-i", "--rm",
                "-e", "SOLR_URL=http://host.docker.internal:8983/solr/",
-               "ghcr.io/apache/solr-mcp:latest"]
+               "solr-mcp:latest"]
     }
   }
 }
@@ -327,7 +382,7 @@ npx @modelcontextprotocol/inspector
 
 **HTTP:** connect to `http://localhost:8080/mcp`
 
-**STDIO:** command `docker`, arguments `run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ ghcr.io/apache/solr-mcp:latest`
+**STDIO:** command `java`, arguments `-jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar`
 
 </details>
 
@@ -364,31 +419,39 @@ npx @modelcontextprotocol/inspector
 ### STDIO mode (default)
 
 ```bash
-# Docker (recommended)
-docker run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ ghcr.io/apache/solr-mcp:latest
-
-# Gradle
-./gradlew bootRun
-
 # JAR
 ./gradlew build
 java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
+
+# Gradle (development)
+./gradlew bootRun
+
+# Docker (local image — build first with ./gradlew jibDockerBuild)
+docker run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ solr-mcp:latest
 ```
 
 ### HTTP mode
 
 ```bash
-# Docker
-docker run -p 8080:8080 --rm -e PROFILES=http -e SOLR_URL=http://host.docker.internal:8983/solr/ ghcr.io/apache/solr-mcp:latest
-
-# Gradle
-PROFILES=http ./gradlew bootRun
-
 # JAR
 PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
+
+# Gradle (development)
+PROFILES=http ./gradlew bootRun
+
+# Docker (local image)
+docker run -p 8080:8080 --rm -e PROFILES=http -e SOLR_URL=http://host.docker.internal:8983/solr/ solr-mcp:latest
 ```
 
 The MCP endpoint is available at `http://localhost:8080/mcp`. Verify with `curl http://localhost:8080/actuator/health`.
+
+### Building a Docker image
+
+```bash
+./gradlew jibDockerBuild
+```
+
+This creates `solr-mcp:latest` locally with multi-platform support (amd64 + arm64).
 
 ## Native Image (Experimental)
 
