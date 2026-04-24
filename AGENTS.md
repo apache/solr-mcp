@@ -117,7 +117,7 @@ into a Docker image via `bootBuildImage` (Paketo buildpacks). Key configuration:
   - **MCP tool response records** (invisible to AOT because the MCP framework uses
     generic `Object` dispatch): `CollectionCreationResult`, `SolrHealthStatus`,
     `SolrMetrics`, `IndexStats`, `QueryStats`, `CacheStats`, `CacheInfo`,
-    `HandlerStats`, `HandlerInfo`, `FieldStats`, `SearchResponse`
+    `HandlerStats`, `HandlerInfo`, `SearchResponse`
   - **Resource**: `logback.xml` (see Logging Architecture above)
 - **Wire format:** `SolrConfig` uses `XMLRequestWriter` instead of the default
   `JavaBinRequestWriter`. The JavaBin binary codec uses deep reflection that would
