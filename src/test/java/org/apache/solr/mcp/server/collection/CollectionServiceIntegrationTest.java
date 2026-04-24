@@ -233,7 +233,7 @@ class CollectionServiceIntegrationTest {
 		assertNotNull(select);
 		assertTrue(select.requests() > 0, "Select handler requests should be positive after queries");
         assertNull(select.errors());
-		assertNotNull(select.timeouts());
+        assertNull(select.timeouts());
 
 		// Update handler: indexing 50 docs should have driven request counts > 0
 		HandlerInfo update = handlerStats.updateHandler();
