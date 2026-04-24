@@ -171,7 +171,7 @@ public class SolrConfig {
 		return new JsonResponseParser(objectMapper);
 	}
 
-	@Bean
+	@Bean(destroyMethod = "close")
 	SolrClient solrClient(SolrConfigurationProperties properties, JsonResponseParser jsonResponseParser) {
 		String url = properties.url();
 
