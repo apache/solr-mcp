@@ -403,8 +403,12 @@ class CollectionServiceTest {
 	// Cache metrics tests
 	@Test
 	void getCacheMetrics_WithNonExistentCollection_ShouldReturnNull() {
-		// When - Mock will not have collection configured
-		CacheStats result = collectionService.getCacheMetrics("nonexistent");
+		// Given - listCollections returns empty (collection not found)
+		CollectionService spyService = spy(collectionService);
+		doReturn(Collections.emptyList()).when(spyService).listCollections();
+
+		// When
+		CacheStats result = spyService.getCacheMetrics("nonexistent");
 
 		// Then
 		assertNull(result);
@@ -544,8 +548,12 @@ class CollectionServiceTest {
 	// Handler metrics tests
 	@Test
 	void getHandlerMetrics_WithNonExistentCollection_ShouldReturnNull() {
-		// When - Mock will not have collection configured
-		HandlerStats result = collectionService.getHandlerMetrics("nonexistent");
+		// Given - listCollections returns empty (collection not found)
+		CollectionService spyService = spy(collectionService);
+		doReturn(Collections.emptyList()).when(spyService).listCollections();
+
+		// When
+		HandlerStats result = spyService.getHandlerMetrics("nonexistent");
 
 		// Then
 		assertNull(result);

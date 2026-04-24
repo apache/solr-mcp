@@ -878,8 +878,9 @@ public class CollectionService {
 	 * <strong>Error Handling:</strong>
 	 *
 	 * <p>
-	 * Returns {@code false} if validation fails due to communication errors,
-	 * allowing calling methods to handle missing collections appropriately.
+	 * Communication errors are handled by {@link #listCollections()}, which returns
+	 * an empty list on failure. Any unexpected runtime exceptions propagate
+	 * naturally rather than being silently converted to {@code false}.
 	 *
 	 * @param collection
 	 *            the collection name to validate
@@ -889,21 +890,17 @@ public class CollectionService {
 	 * @see #extractCollectionName(String)
 	 */
 	private boolean validateCollectionExists(String collection) {
-		try {
-			List<String> collections = listCollections();
+		List<String> collections = listCollections();
 
-			// Check for exact match first
-			if (collections.contains(collection)) {
-				return true;
-			}
-
-			// Check if any of the returned collections start with the collection name (for
-			// shard
-			// names)
-			return collections.stream().anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
-		} catch (Exception e) {
-			return false;
+		// Check for exact match first
+		if (collections.contains(collection)) {
+			return true;
 		}
+
+		// Check if any of the returned collections start with the collection name (for
+		// shard
+		// names)
+		return collections.stream().anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
 	}
 
 	/**
