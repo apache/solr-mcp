@@ -16,6 +16,7 @@
  */
 package org.apache.solr.mcp.server.security;
 
+import java.util.Arrays;
 import java.util.List;
 import org.springaicommunity.mcp.security.server.config.McpServerOAuth2Configurer;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,6 +39,13 @@ class HttpSecurityConfiguration {
 
 	@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri:}")
 	private String issuerUrl;
+
+	// Defaults to localhost patterns so MCP Inspector (which runs on localhost with
+	// various ports) works out of the box. Override via
+	// http.cors.allowed-origin-patterns
+	// to add additional origins (e.g., for remote MCP clients).
+	@Value("${http.cors.allowed-origin-patterns:http://localhost:*,https://localhost:*,http://127.0.0.1:*,https://127.0.0.1:*}")
+	private String allowedOriginPatterns;
 
 	@Bean
 	@ConditionalOnProperty(name = "http.security.enabled", havingValue = "true", matchIfMissing = true)
@@ -69,7 +77,8 @@ class HttpSecurityConfiguration {
 
 	public CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration configuration = new CorsConfiguration();
-		configuration.setAllowedOriginPatterns(List.of("*"));
+		configuration
+				.setAllowedOriginPatterns(Arrays.stream(allowedOriginPatterns.split(",")).map(String::trim).toList());
 		configuration.setAllowedMethods(List.of("*"));
 		configuration.setAllowedHeaders(List.of("*"));
 		configuration.setAllowCredentials(true);
