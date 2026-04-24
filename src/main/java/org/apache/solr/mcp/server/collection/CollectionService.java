@@ -967,10 +967,10 @@ public class CollectionService {
 					new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
 
 			return new SolrHealthStatus(true, null, pingResponse.getElapsedTime(),
-					statsResponse.getResults().getNumFound(), new Date(), actualCollection, null, null);
+					statsResponse.getResults().getNumFound(), new Date(), actualCollection);
 
 		} catch (Exception e) {
-			return new SolrHealthStatus(false, e.getMessage(), null, null, new Date(), actualCollection, null, null);
+			return new SolrHealthStatus(false, e.getMessage(), null, null, new Date(), actualCollection);
 		}
 	}
 
