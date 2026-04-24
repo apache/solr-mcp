@@ -185,7 +185,7 @@ public class SchemaService {
 		try {
 			return toJson(objectMapper, getSchema(collection));
 		} catch (Exception e) {
-			return "{\"error\": \"" + e.getMessage() + "\"}";
+			return toJson(objectMapper, Map.of("error", e.getMessage()));
 		}
 	}
 
