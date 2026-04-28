@@ -24,8 +24,10 @@ import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
-import org.springaicommunity.mcp.annotation.McpTool;
-import org.springaicommunity.mcp.annotation.McpToolParam;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.ai.mcp.annotation.McpTool;
+import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.xml.sax.SAXException;
@@ -106,6 +108,8 @@ import org.xml.sax.SAXException;
 @Service
 @Observed
 public class IndexingService {
+
+	private static final Logger log = LoggerFactory.getLogger(IndexingService.class);
 
 	private static final int DEFAULT_BATCH_SIZE = 1000;
 
@@ -433,15 +437,15 @@ public class IndexingService {
 				solrClient.add(collection, batch);
 				successCount += batch.size();
 			} catch (SolrServerException | IOException | RuntimeException e) {
+				log.warn("Batch indexing failed for collection '{}', falling back to individual documents: {}",
+						collection, e.getMessage());
 				// Try indexing documents individually to identify problematic ones
 				for (SolrInputDocument doc : batch) {
 					try {
 						solrClient.add(collection, doc);
 						successCount++;
-					} catch (SolrServerException | IOException | RuntimeException _) {
-						// Document failed to index - this is expected behavior for problematic
-						// documents
-						// We continue processing the rest of the batch
+					} catch (SolrServerException | IOException | RuntimeException docError) {
+						log.warn("Failed to index document in collection '{}': {}", collection, docError.getMessage());
 					}
 				}
 			}

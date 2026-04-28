@@ -103,8 +103,8 @@ class DistributedTracingTest {
 		await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
 			var spans = tracer.getSpans();
 			assertThat(spans).as("Should have created at least one span").isNotEmpty();
-			assertThat(spans).as("Should have span for search-service#search method")
-					.anyMatch(span -> span.getName().equals("search-service#search"));
+			assertThat(spans).as("Should have span for SearchService#search method")
+					.anyMatch(span -> span.getName().equals("SearchService#search"));
 		});
 	}
 

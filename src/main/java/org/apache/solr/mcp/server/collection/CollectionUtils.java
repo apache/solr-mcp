@@ -64,7 +64,7 @@ import org.apache.solr.common.util.NamedList;
 public class CollectionUtils {
 
 	private CollectionUtils() {
-		// Utility class — prevent instantiation
+		// Utility class - prevent instantiation
 	}
 
 	/**
