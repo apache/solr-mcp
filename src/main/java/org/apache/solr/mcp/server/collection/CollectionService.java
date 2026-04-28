@@ -547,9 +547,10 @@ public class CollectionService {
 	 * Retrieves cache performance metrics for all cache types in a Solr collection.
 	 *
 	 * <p>
-	 * Collects detailed cache utilization statistics from Solr's MBeans endpoint,
-	 * providing insights into cache effectiveness and memory usage patterns. Cache
-	 * performance directly impacts query response times and system efficiency.
+	 * Collects detailed cache utilization statistics from Solr's Metrics API
+	 * endpoint, providing insights into cache effectiveness and memory usage
+	 * patterns. Cache performance directly impacts query response times and system
+	 * efficiency.
 	 *
 	 * <p>
 	 * <strong>Monitored Cache Types:</strong>
