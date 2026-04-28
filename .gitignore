@@ -41,5 +41,5 @@ out/
 .auth-token
 *.token
 
-### Git worktrees ###
+### Claude Code worktrees ###
 .worktrees/
