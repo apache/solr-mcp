@@ -26,7 +26,32 @@ plugins {
     alias(libs.plugins.errorprone)
     alias(libs.plugins.spotless)
     alias(libs.plugins.jib)
+    alias(libs.plugins.graalvm.native)
 }
+
+// GraalVM Native Image (Opt-In)
+// =============================
+// Invoked via `./gradlew ... -Pnative`. See docs/specs/graalvm-native-image.md.
+// When true:
+//   - AOT tasks (processAot) run with spring.profiles.active=stdio so that
+//     security autoconfig exclusions from application-stdio.properties are
+//     applied during hint generation.
+//   - graalvmNative plugin configures nativeCompile / nativeTest tasks.
+//   - Native Docker images use bootBuildImage (see separate configuration).
+// Jib is always JVM-only; it is NOT used for native images.
+val nativeBuild = project.hasProperty("native")
+
+// Shared GraalVM native-image arguments used by both graalvmNative (local builds)
+// and bootBuildImage (Docker builds via Paketo buildpacks).
+val nativeImageBuildArgs =
+    listOf(
+        "--no-fallback",
+        "-H:+ReportExceptionStackTraces",
+        "--initialize-at-build-time=io.opentelemetry.api",
+        "--initialize-at-build-time=io.opentelemetry.context",
+        "--initialize-at-build-time=io.opentelemetry.instrumentation.api",
+        "--initialize-at-build-time=io.opentelemetry.instrumentation.logback",
+    )
 
 group = "org.apache.solr"
 version = "1.0.0-SNAPSHOT"
@@ -209,6 +234,20 @@ tasks.withType<JavaCompile>().configureEach {
     }
 }
 
+// Disable Error Prone / NullAway for AOT-generated sources. The GraalVM native
+// plugin registers compileAotJava and compileAotTestJava tasks that compile
+// Spring Boot AOT-generated bean definitions. These generated sources contain
+// patterns (e.g., args.get(0)) that NullAway flags as nullable, but they are
+// correct code produced by the Spring AOT engine and cannot be modified.
+tasks.matching { it.name == "compileAotJava" || it.name == "compileAotTestJava" }.configureEach {
+    if (this is JavaCompile) {
+        options.errorprone {
+            disableAllChecks.set(true)
+            disable("NullAway")
+        }
+    }
+}
+
 tasks.build {
     dependsOn(tasks.spotlessApply)
 }
@@ -281,12 +320,22 @@ tasks.register<Test>("dockerIntegrationTest") {
 
     // Depend on building the Docker image first (only if Docker is available)
     if (dockerAvailable) {
-        dependsOn(tasks.jibDockerBuild)
+        if (nativeBuild) {
+            dependsOn(tasks.named("bootBuildImage"))
+        } else {
+            dependsOn(tasks.jibDockerBuild)
+        }
     }
 
     // Configure test task to only run docker integration tests
     useJUnitPlatform {
         includeTags("docker-integration")
+    }
+
+    // The native image is AOT-compiled for the STDIO profile only.
+    // Exclude the HTTP integration test when testing the native image.
+    if (nativeBuild) {
+        exclude("**/DockerImageHttpIntegrationTest*")
     }
 
     // Use the same test classpath and configuration as regular tests
@@ -298,6 +347,14 @@ tasks.register<Test>("dockerIntegrationTest") {
 
     // Set longer timeout for Docker tests
     systemProperty("junit.jupiter.execution.timeout.default", "5m")
+
+    // When invoked as `./gradlew dockerIntegrationTest -Pnative`, the Jib
+    // image produced is `solr-mcp:<version>-native`. BuildInfoReader only
+    // knows the plain version, so pass the tag override through a system
+    // property that the integration test can read.
+    if (nativeBuild) {
+        systemProperty("solr.mcp.docker.image.tag.suffix", "-native")
+    }
 
     // Output test results
     testLogging {
@@ -466,5 +523,94 @@ jib {
                 "io.modelcontextprotocol.server.name" to "io.github.apache/solr-mcp",
             ),
         )
+    }
+}
+
+// Native Docker image via Spring Boot Buildpacks
+// ===============================================
+// `bootBuildImage` compiles the native binary inside a Paketo builder
+// container, so it works on any host OS and CPU architecture (macOS
+// Apple Silicon, Linux x86_64, etc.).
+//
+// Always configured for native builds (BP_NATIVE_IMAGE=true).
+//
+// Usage:
+//   ./gradlew bootBuildImage                   # Build native Docker image
+//   ./gradlew dockerIntegrationTest -Pnative   # Test the native image
+tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("bootBuildImage") {
+    imageName.set("solr-mcp:$version-native")
+    tags.set(listOf("solr-mcp:latest-native"))
+    environment.set(
+        mapOf(
+            "BP_NATIVE_IMAGE" to "true",
+            "BP_NATIVE_IMAGE_BUILD_ARGUMENTS" to nativeImageBuildArgs.joinToString(" "),
+            "BP_JVM_VERSION" to "25",
+            // The Paketo builder runs Spring AOT processing inside the
+            // builder container. Set the STDIO profile so security
+            // autoconfig exclusions from application-stdio.properties are
+            // applied during AOT hint generation (same effect as the
+            // processAot args block for local nativeCompile).
+            "SPRING_PROFILES_ACTIVE" to "stdio",
+            // BPE_DEFAULT_* sets default runtime environment variables in
+            // the resulting container image.
+            "BPE_DEFAULT_SPRING_PROFILES_ACTIVE" to "stdio",
+            "BPE_DEFAULT_SPRING_DOCKER_COMPOSE_ENABLED" to "false",
+        ),
+    )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GraalVM Native Image configuration
+// ─────────────────────────────────────────────────────────────────────────────
+// The `org.graalvm.buildtools.native` plugin registers `nativeCompile` and
+// `nativeTest` tasks. They are only useful when a GraalVM toolchain is
+// available; the plugin's presence does not affect regular JVM builds.
+graalvmNative {
+    binaries {
+        named("main") {
+            imageName.set("solr-mcp")
+            // Uses shared nativeImageBuildArgs which include --no-fallback,
+            // -H:+ReportExceptionStackTraces, and OTel --initialize-at-build-time entries.
+            // NOTE: do NOT use io.opentelemetry.instrumentation (too broad) — that
+            // would catch Spring autoconfigure CGLIB proxies which cannot be build-time
+            // initialized.
+            buildArgs.addAll(nativeImageBuildArgs)
+        }
+    }
+    // Tests that are incompatible with native image are annotated
+    // @DisabledInNativeImage and skipped during nativeTest:
+    //   - Mockito-based tests (ByteBuddy cannot generate classes at run time)
+    //   - SolrJ indexing/query integration tests (response parsing uses
+    //     reflection that lacks native-image metadata)
+    // Collection management, schema, and observability integration tests
+    // run normally in the native binary.
+    binaries {
+        named("test") {
+            // The test binary inherits the OTel --initialize-at-build-time entries
+            // from the shared args (filtering out --no-fallback and
+            // -H:+ReportExceptionStackTraces), plus test-specific SDK entries.
+            buildArgs.addAll(
+                nativeImageBuildArgs.filter { it.startsWith("--initialize-at-build-time=") },
+            )
+            buildArgs.addAll(
+                // opentelemetry-sdk-testing on the test classpath adds a ServiceLoader
+                // provider (SettableContextStorageProvider) that is loaded at build time.
+                "--initialize-at-build-time=io.opentelemetry.sdk",
+                // AndroidFriendlyRandomHolder creates a java.util.Random in <clinit>,
+                // which GraalVM forbids in the image heap (stale seed).
+                "--initialize-at-run-time=io.opentelemetry.sdk.internal.AndroidFriendlyRandomHolder",
+            )
+        }
+    }
+}
+
+// When -Pnative is present, pin spring.profiles.active=stdio on the AOT
+// processor so application-stdio.properties (which excludes
+// SecurityAutoConfiguration + ManagementWebSecurityAutoConfiguration) is
+// applied while hint generation runs. Test AOT is intentionally left alone
+// because individual @SpringBootTest classes set their own profiles.
+if (nativeBuild) {
+    tasks.named<JavaExec>("processAot") {
+        args("--spring.profiles.active=stdio")
     }
 }
