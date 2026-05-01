@@ -19,9 +19,11 @@ package org.apache.solr.mcp.server.config;
 import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
+import org.apache.solr.client.solrj.request.XMLRequestWriter;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Spring Configuration class for Apache Solr client setup and connection
@@ -136,11 +138,9 @@ public class SolrConfig {
 	 * <strong>Client Type:</strong>
 	 *
 	 * <p>
-	 * Creates an {@code HttpJdkSolrClient} configured for standard HTTP-based
-	 * communication with Solr servers using the JDK's built-in HTTP client. This
-	 * avoids Jetty version conflicts between SolrJ and Spring Boot. This client
-	 * type is suitable for both standalone Solr instances and SolrCloud deployments
-	 * when used with load balancers.
+	 * Creates an {@code HttpSolrClient} configured for standard HTTP-based
+	 * communication with SolrCloud servers. This client type is suitable for
+	 * SolrCloud deployments when used with load balancers.
 	 *
 	 * <p>
 	 * <strong>Error Handling:</strong>
@@ -155,7 +155,7 @@ public class SolrConfig {
 	 *
 	 * <ul>
 	 * <li>Timeout values are optimized for production workloads
-	 * <li>Connection pooling is handled by the HttpJdkSolrClient internally
+	 * <li>Connection pooling is handled by the HttpSolrClient internally
 	 * <li>Client is thread-safe and suitable for concurrent operations
 	 * </ul>
 	 *
@@ -167,7 +167,12 @@ public class SolrConfig {
 	 * @see SolrConfigurationProperties#url()
 	 */
 	@Bean
-	SolrClient solrClient(SolrConfigurationProperties properties) {
+	JsonResponseParser jsonResponseParser(JsonMapper jsonMapper) {
+		return new JsonResponseParser(jsonMapper);
+	}
+
+	@Bean
+	SolrClient solrClient(SolrConfigurationProperties properties, JsonResponseParser jsonResponseParser) {
 		String url = properties.url();
 
 		// Ensure URL is properly formatted for Solr
@@ -185,9 +190,11 @@ public class SolrConfig {
 			}
 		}
 
-		// Use HttpJdkSolrClient which uses the JDK's built-in HTTP client
-		// This avoids Jetty version conflicts between SolrJ and Spring Boot
+		// JSON wire format for responses; XML wire format for update requests.
+		// The default JavaBin request writer uses a binary codec that requires
+		// additional reflection metadata in GraalVM native images.
 		return new HttpJdkSolrClient.Builder(url).withConnectionTimeout(CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-				.withIdleTimeout(SOCKET_TIMEOUT_MS, TimeUnit.MILLISECONDS).build();
+				.withIdleTimeout(SOCKET_TIMEOUT_MS, TimeUnit.MILLISECONDS).withResponseParser(jsonResponseParser)
+				.withRequestWriter(new XMLRequestWriter()).build();
 	}
 }

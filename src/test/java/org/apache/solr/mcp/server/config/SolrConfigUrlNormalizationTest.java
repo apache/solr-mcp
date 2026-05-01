@@ -16,18 +16,21 @@
  */
 package org.apache.solr.mcp.server.config;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.json.JsonTest;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import tools.jackson.databind.json.JsonMapper;
 
 @JsonTest
 class SolrConfigUrlNormalizationTest {
+
+	@Autowired
+	private JsonMapper jsonMapper;
 
 	@ParameterizedTest
 	@CsvSource({"http://localhost:8983, http://localhost:8983/solr",
@@ -35,15 +38,15 @@ class SolrConfigUrlNormalizationTest {
 			"http://localhost:8983/solr, http://localhost:8983/solr",
 			"http://localhost:8983/solr/, http://localhost:8983/solr",
 			"http://localhost:8983/custom/solr/, http://localhost:8983/custom/solr"})
-    void testUrlNormalization(String inputUrl, String expectedUrl) throws Exception {
+	void testUrlNormalization(String inputUrl, String expectedUrl) throws Exception {
 		SolrConfigurationProperties testProperties = new SolrConfigurationProperties(inputUrl);
 		SolrConfig solrConfig = new SolrConfig();
 
-        try (SolrClient client = solrConfig.solrClient(testProperties)) {
-            assertNotNull(client);
+		try (SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(jsonMapper))) {
+			assertNotNull(client);
 
-            var httpClient = assertInstanceOf(HttpJdkSolrClient.class, client);
-            assertEquals(expectedUrl, httpClient.getBaseURL());
+			var httpClient = assertInstanceOf(HttpJdkSolrClient.class, client);
+			assertEquals(expectedUrl, httpClient.getBaseURL());
 		}
 	}
 }
