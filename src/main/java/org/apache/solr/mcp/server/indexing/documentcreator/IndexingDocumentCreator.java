@@ -123,12 +123,12 @@ public class IndexingDocumentCreator {
 
 		// Input validation
 		if (xml == null || xml.trim().isEmpty()) {
-			throw new IllegalArgumentException("XML input cannot be null or empty");
+			throw new DocumentProcessingException("XML input cannot be null or empty");
 		}
 
 		byte[] xmlBytes = xml.getBytes(StandardCharsets.UTF_8);
 		if (xmlBytes.length > MAX_XML_SIZE_BYTES) {
-			throw new IllegalArgumentException(
+			throw new DocumentProcessingException(
 					"XML document too large: " + xmlBytes.length + " bytes (max: " + MAX_XML_SIZE_BYTES + ")");
 		}
 
