@@ -16,27 +16,30 @@
  */
 package org.apache.solr.mcp.server.collection;
 
+import static org.apache.solr.mcp.server.collection.CollectionUtils.getFloat;
+import static org.apache.solr.mcp.server.collection.CollectionUtils.getInteger;
+import static org.apache.solr.mcp.server.collection.CollectionUtils.getLong;
+import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
+
 import io.micrometer.observation.annotation.Observed;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
-import org.apache.solr.client.solrj.impl.CloudSolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
-import org.apache.solr.client.solrj.request.CoreAdminRequest;
 import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.LukeRequest;
 import org.apache.solr.client.solrj.request.SolrQuery;
 import org.apache.solr.client.solrj.response.CollectionAdminResponse;
-import org.apache.solr.client.solrj.response.CoreAdminResponse;
 import org.apache.solr.client.solrj.response.LukeResponse;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
-import org.apache.solr.common.params.CoreAdminParams;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.ai.mcp.annotation.McpComplete;
 import org.springframework.ai.mcp.annotation.McpResource;
 import org.springframework.ai.mcp.annotation.McpTool;
@@ -44,16 +47,6 @@ import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.json.JsonMapper;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-
-import static org.apache.solr.mcp.server.collection.CollectionUtils.getFloat;
-import static org.apache.solr.mcp.server.collection.CollectionUtils.getInteger;
-import static org.apache.solr.mcp.server.collection.CollectionUtils.getLong;
-import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
 /**
  * Spring Service providing comprehensive Solr collection management and
@@ -70,8 +63,8 @@ import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
  * <strong>Core Capabilities:</strong>
  *
  * <ul>
- * <li><strong>Collection Discovery</strong>: Lists available collections with
- * automatic SolrCloud vs standalone detection
+ * <li><strong>Collection Discovery</strong>: Lists available collections using
+ * the SolrCloud Collections API
  * <li><strong>Performance Monitoring</strong>: Comprehensive metrics collection
  * including index, query, cache, and handler statistics
  * <li><strong>Health Monitoring</strong>: Real-time health checks with
@@ -103,7 +96,6 @@ import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
  *
  * <ul>
  * <li><strong>SolrCloud</strong>: Distributed mode using Collections API
- * <li><strong>Standalone</strong>: Single-node mode using Core Admin API
  * </ul>
  *
  * <p>
@@ -137,8 +129,6 @@ import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 @Observed
 public class CollectionService {
 
-	private static final Logger log = LoggerFactory.getLogger(CollectionService.class);
-
 	// ========================================
 	// Constants for API Parameters and Paths
 	// ========================================
@@ -155,6 +145,27 @@ public class CollectionService {
 	/** JSON format specification for response writer type */
 	private static final String JSON_FORMAT = "json";
 
+	/** URL path for Solr Metrics admin endpoint */
+	private static final String ADMIN_METRICS_PATH = "/admin/metrics";
+
+	/** Request parameter name for specifying the metrics group */
+	private static final String GROUP_PARAM = "group";
+
+	/** Request parameter name for filtering metrics by key prefix */
+	private static final String PREFIX_PARAM = "prefix";
+
+	/** Metrics group for core-level metrics */
+	private static final String CORE_GROUP = "core";
+
+	/** Prefix for cache metrics in the Metrics API */
+	private static final String CACHE_METRIC_PREFIX = "CACHE.searcher";
+
+	/** Prefix for select handler metrics in the Metrics API */
+	private static final String SELECT_HANDLER_METRIC_PREFIX = "QUERY./select";
+
+	/** Prefix for update handler metrics in the Metrics API */
+	private static final String UPDATE_HANDLER_METRIC_PREFIX = "UPDATE./update";
+
 	// ========================================
 	// Constants for Response Parsing
 	// ========================================
@@ -165,42 +176,23 @@ public class CollectionService {
 	/** Key name for segment count information in Luke response */
 	private static final String SEGMENT_COUNT_KEY = "segmentCount";
 
-	/** Key name for the metrics map in Metrics API responses */
+	/** Top-level key in Metrics API responses */
 	private static final String METRICS_KEY = "metrics";
 
-	// ========================================
-	// Metrics API Constants
-	// ========================================
+	/** Metrics API key for query result cache */
+	private static final String QUERY_RESULT_CACHE_KEY = "CACHE.searcher.queryResultCache";
 
-	/** URL path for Solr Metrics API endpoint (available in Solr 7.1+) */
-	private static final String ADMIN_METRICS_PATH = "/admin/metrics";
+	/** Metrics API key for document cache */
+	private static final String DOCUMENT_CACHE_KEY = "CACHE.searcher.documentCache";
 
-	/** Metrics API parameter for metric group */
-	private static final String GROUP_PARAM = "group";
+	/** Metrics API key for filter cache */
+	private static final String FILTER_CACHE_KEY = "CACHE.searcher.filterCache";
 
-	/** Metrics API parameter for metric prefix filter */
-	private static final String PREFIX_PARAM = "prefix";
+	/** Flat metric key prefix for select handler stats */
+	private static final String SELECT_HANDLER_KEY = "QUERY./select.";
 
-	/** Metrics API group value for core-level metrics */
-	private static final String CORE_GROUP = "core";
-
-	/** Metrics API prefix for cache metrics */
-	private static final String CACHE_METRICS_PREFIX = "CACHE.searcher";
-
-	/** Cache name for query result cache */
-	private static final String QUERY_RESULT_CACHE_KEY = "queryResultCache";
-
-	/** Cache name for document cache */
-	private static final String DOCUMENT_CACHE_KEY = "documentCache";
-
-	/** Cache name for filter cache */
-	private static final String FILTER_CACHE_KEY = "filterCache";
-
-	/** Metrics API prefix for query handler metrics */
-	private static final String QUERY_HANDLER_METRICS_PREFIX = "QUERY./select";
-
-	/** Metrics API prefix for update handler metrics */
-	private static final String UPDATE_HANDLER_METRICS_PREFIX = "UPDATE./update";
+	/** Flat metric key prefix for update handler stats */
+	private static final String UPDATE_HANDLER_KEY = "UPDATE./update.";
 
 	// ========================================
 	// Constants for Statistics Field Names
@@ -236,12 +228,6 @@ public class CollectionService {
 	/** Field name for handler total processing time statistics */
 	private static final String TOTAL_TIME_FIELD = "totalTime";
 
-	/** Field name for handler average time per request statistics */
-	private static final String AVG_TIME_PER_REQUEST_FIELD = "avgTimePerRequest";
-
-	/** Field name for handler average requests per second statistics */
-	private static final String AVG_REQUESTS_PER_SECOND_FIELD = "avgRequestsPerSecond";
-
 	// ========================================
 	// Constants for Error Messages
 	// ========================================
@@ -276,7 +262,7 @@ public class CollectionService {
 	 * @param solrClient
 	 *            the SolrJ client instance for communicating with Solr
 	 * @param objectMapper
-	 *            the Jackson JsonMapper for JSON serialization
+	 *            the Jackson ObjectMapper for JSON serialization
 	 * @see SolrClient
 	 * @see SolrConfigurationProperties
 	 */
@@ -316,23 +302,16 @@ public class CollectionService {
 	}
 
 	/**
-	 * Lists all available Solr collections in the cluster.
+	 * Lists all available Solr collections in the SolrCloud cluster.
 	 *
 	 * <p>
-	 * This method automatically detects the Solr deployment type and uses the
-	 * appropriate API:
-	 *
-	 * <ul>
-	 * <li><strong>SolrCloud</strong>: Uses Collections API to list distributed
-	 * collections
-	 * <li><strong>Standalone</strong>: Uses Core Admin API to list individual
-	 * collections
-	 * </ul>
+	 * This method uses the SolrCloud Collections API to retrieve the list of
+	 * available collections. Standalone Solr instances are not supported.
 	 *
 	 * <p>
-	 * In SolrCloud environments, the returned names may include shard identifiers
-	 * (e.g., "films_shard1_replica_n1"). Use {@link #extractCollectionName(String)}
-	 * to get the base collection name if needed.
+	 * The returned names may include shard identifiers (e.g.,
+	 * "films_shard1_replica_n1"). Use {@link #extractCollectionName(String)} to get
+	 * the base collection name if needed.
 	 *
 	 * <p>
 	 * <strong>Error Handling:</strong>
@@ -353,29 +332,17 @@ public class CollectionService {
 	 * @return a list of collection names, or an empty list if unable to retrieve
 	 *         them
 	 * @see CollectionAdminRequest.List
-	 * @see CoreAdminRequest
 	 */
 	@McpTool(name = "list-collections", description = "List solr collections")
 	public List<String> listCollections() {
 		try {
-			if (solrClient instanceof CloudSolrClient) {
-				// For SolrCloud - use Collections API
-				CollectionAdminRequest.List request = new CollectionAdminRequest.List();
-				CollectionAdminResponse response = request.process(solrClient);
+			CollectionAdminRequest.List request = new CollectionAdminRequest.List();
+			CollectionAdminResponse response = request.process(solrClient);
 
-				@SuppressWarnings("unchecked")
-				List<String> collections = (List<String>) response.getResponse().get(COLLECTIONS_KEY);
-				return collections != null ? collections : new ArrayList<>();
-			} else {
-				// For standalone Solr - use Core Admin API
-				CoreAdminRequest coreAdminRequest = new CoreAdminRequest();
-				coreAdminRequest.setAction(CoreAdminParams.CoreAdminAction.STATUS);
-				CoreAdminResponse coreResponse = coreAdminRequest.process(solrClient);
-
-				return new ArrayList<>(coreResponse.getCoreStatus().keySet());
-			}
-		} catch (SolrServerException | IOException e) {
-			log.warn("Failed to list collections: {}", e.getMessage());
+			@SuppressWarnings("unchecked")
+			List<String> collections = (List<String>) response.getResponse().get(COLLECTIONS_KEY);
+			return collections != null ? collections : new ArrayList<>();
+		} catch (SolrServerException | IOException _) {
 			return new ArrayList<>();
 		}
 	}
@@ -461,7 +428,7 @@ public class CollectionService {
 		QueryResponse statsResponse = solrClient.query(actualCollection, new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
 
 		return new SolrMetrics(buildIndexStats(lukeResponse), buildQueryStats(statsResponse),
-				getCacheMetrics(actualCollection), getHandlerMetrics(actualCollection), new Date());
+				fetchCacheMetrics(actualCollection), fetchHandlerMetrics(actualCollection), new Date());
 	}
 
 	/**
@@ -548,10 +515,9 @@ public class CollectionService {
 	 * Retrieves cache performance metrics for all cache types in a Solr collection.
 	 *
 	 * <p>
-	 * Collects detailed cache utilization statistics from Solr's Metrics API
-	 * endpoint, providing insights into cache effectiveness and memory usage
-	 * patterns. Cache performance directly impacts query response times and system
-	 * efficiency.
+	 * Collects detailed cache utilization statistics from Solr's Metrics API,
+	 * providing insights into cache effectiveness and memory usage patterns. Cache
+	 * performance directly impacts query response times and system efficiency.
 	 *
 	 * <p>
 	 * <strong>Monitored Cache Types:</strong>
@@ -587,97 +553,75 @@ public class CollectionService {
 	 *         unavailable
 	 * @see CacheStats
 	 * @see CacheInfo
+	 * @see #extractCacheStats(NamedList)
+	 * @see #isCacheStatsEmpty(CacheStats)
 	 */
 	public CacheStats getCacheMetrics(String collection) {
 		String actualCollection = extractCollectionName(collection);
 
 		if (!validateCollectionExists(actualCollection)) {
-			log.debug("Collection '{}' not found, skipping cache metrics", actualCollection);
 			return null;
 		}
 
+		return fetchCacheMetrics(actualCollection);
+	}
+
+	/**
+	 * Internal cache metrics fetch that assumes the collection has already been
+	 * validated and the name has been extracted from any shard identifier.
+	 */
+	private CacheStats fetchCacheMetrics(String collection) {
 		try {
-			ModifiableSolrParams params = new ModifiableSolrParams();
-			params.set(GROUP_PARAM, CORE_GROUP);
-			params.set(PREFIX_PARAM, CACHE_METRICS_PREFIX);
-			params.set(WT_PARAM, JSON_FORMAT);
-
-			GenericSolrRequest request = new GenericSolrRequest(SolrRequest.METHOD.GET, ADMIN_METRICS_PATH, params);
-			NamedList<Object> response = solrClient.request(request);
-
-			CacheStats stats = extractCacheStats(response, actualCollection);
-			if (isCacheStatsEmpty(stats)) {
-				log.debug("No cache metrics available for collection '{}'", actualCollection);
+			NamedList<Object> coreMetrics = fetchMetrics(collection, CACHE_METRIC_PREFIX);
+			if (coreMetrics == null) {
 				return null;
 			}
 
-			log.debug("Retrieved cache metrics for collection '{}'", actualCollection);
-			return stats;
-		} catch (SolrServerException | IOException | RuntimeException e) {
-			log.warn("Failed to retrieve cache metrics for collection '{}': {}", actualCollection, e.getMessage());
+			CacheStats stats = extractCacheStats(coreMetrics);
+			return isCacheStatsEmpty(stats) ? null : stats;
+		} catch (SolrServerException | IOException | RuntimeException _) {
 			return null;
 		}
 	}
 
+	/**
+	 * Checks if cache statistics are empty or contain no meaningful data.
+	 *
+	 * <p>
+	 * Used to determine whether cache metrics are worth returning to clients. Empty
+	 * cache stats typically indicate that caches are not configured or not yet
+	 * populated with data.
+	 *
+	 * @param stats
+	 *            the cache statistics to evaluate
+	 * @return true if the stats are null or all cache types are null
+	 */
 	private boolean isCacheStatsEmpty(CacheStats stats) {
 		return stats == null
 				|| (stats.queryResultCache() == null && stats.documentCache() == null && stats.filterCache() == null);
 	}
 
+	/**
+	 * Extracts cache performance statistics from Solr Metrics API response data.
+	 *
+	 * @param coreMetrics
+	 *            the core metrics from the Solr Metrics API
+	 * @return CacheStats object containing parsed metrics for all cache types
+	 */
+	private CacheStats extractCacheStats(NamedList<Object> coreMetrics) {
+		return new CacheStats(extractSingleCacheInfo(coreMetrics, QUERY_RESULT_CACHE_KEY),
+				extractSingleCacheInfo(coreMetrics, DOCUMENT_CACHE_KEY),
+				extractSingleCacheInfo(coreMetrics, FILTER_CACHE_KEY));
+	}
+
 	@SuppressWarnings("unchecked")
-	private CacheStats extractCacheStats(NamedList<Object> metricsResponse, String collection) {
-		NamedList<Object> metrics = (NamedList<Object>) metricsResponse.get(METRICS_KEY);
-		if (metrics == null) {
+	private CacheInfo extractSingleCacheInfo(NamedList<Object> coreMetrics, String key) {
+		NamedList<Object> cache = (NamedList<Object>) coreMetrics.get(key);
+		if (cache == null) {
 			return null;
 		}
-
-		NamedList<Object> coreMetrics = findCoreRegistry(metrics, collection);
-		if (coreMetrics == null) {
-			return null;
-		}
-
-		return new CacheStats(extractCacheInfo(coreMetrics, QUERY_RESULT_CACHE_KEY),
-				extractCacheInfo(coreMetrics, DOCUMENT_CACHE_KEY), extractCacheInfo(coreMetrics, FILTER_CACHE_KEY));
-	}
-
-	@SuppressWarnings("unchecked")
-	private NamedList<Object> findCoreRegistry(NamedList<Object> metrics, String collection) {
-		for (int i = 0; i < metrics.size(); i++) {
-			String registryName = metrics.getName(i);
-			if (registryName != null && registryName.startsWith("solr.core.") && registryName.contains(collection)) {
-				Object value = metrics.getVal(i);
-				if (value instanceof NamedList) {
-					return (NamedList<Object>) value;
-				}
-			}
-		}
-		return null;
-	}
-
-	@SuppressWarnings("unchecked")
-	private CacheInfo extractCacheInfo(NamedList<Object> coreMetrics, String cacheName) {
-		Object cacheData = coreMetrics.get(CACHE_METRICS_PREFIX + "." + cacheName);
-		if (cacheData instanceof NamedList) {
-			NamedList<Object> stats = (NamedList<Object>) cacheData;
-			return new CacheInfo(getLong(stats, LOOKUPS_FIELD), getLong(stats, HITS_FIELD),
-					getFloat(stats, HITRATIO_FIELD), getLong(stats, INSERTS_FIELD), getLong(stats, EVICTIONS_FIELD),
-					getLong(stats, SIZE_FIELD));
-		}
-		if (cacheData instanceof java.util.Map) {
-			java.util.Map<String, Object> stats = (java.util.Map<String, Object>) cacheData;
-			return new CacheInfo(numberToLong(stats.get(LOOKUPS_FIELD)), numberToLong(stats.get(HITS_FIELD)),
-					numberToFloat(stats.get(HITRATIO_FIELD)), numberToLong(stats.get(INSERTS_FIELD)),
-					numberToLong(stats.get(EVICTIONS_FIELD)), numberToLong(stats.get(SIZE_FIELD)));
-		}
-		return null;
-	}
-
-	private Long numberToLong(Object value) {
-		return value instanceof Number number ? number.longValue() : null;
-	}
-
-	private Float numberToFloat(Object value) {
-		return value instanceof Number number ? number.floatValue() : 0.0f;
+		return new CacheInfo(getLong(cache, LOOKUPS_FIELD), getLong(cache, HITS_FIELD), getFloat(cache, HITRATIO_FIELD),
+				getLong(cache, INSERTS_FIELD), getLong(cache, EVICTIONS_FIELD), getLong(cache, SIZE_FIELD));
 	}
 
 	/**
@@ -721,71 +665,142 @@ public class CollectionService {
 	 *         null if unavailable
 	 * @see HandlerStats
 	 * @see HandlerInfo
+	 * @see #fetchFlatHandlerInfo(String, String, String)
+	 * @see #isHandlerStatsEmpty(HandlerStats)
 	 */
 	public HandlerStats getHandlerMetrics(String collection) {
 		String actualCollection = extractCollectionName(collection);
 
 		if (!validateCollectionExists(actualCollection)) {
-			log.debug("Collection '{}' not found, skipping handler metrics", actualCollection);
 			return null;
 		}
 
+		return fetchHandlerMetrics(actualCollection);
+	}
+
+	/**
+	 * Internal handler metrics fetch that assumes the collection has already been
+	 * validated and the name has been extracted from any shard identifier.
+	 */
+	private HandlerStats fetchHandlerMetrics(String collection) {
 		try {
-			ModifiableSolrParams params = new ModifiableSolrParams();
-			params.set(GROUP_PARAM, CORE_GROUP);
-			params.set(PREFIX_PARAM, QUERY_HANDLER_METRICS_PREFIX + "," + UPDATE_HANDLER_METRICS_PREFIX);
-			params.set(WT_PARAM, JSON_FORMAT);
+			// Handler metrics are flat keys (e.g. QUERY./select.requests) so we
+			// fetch each handler prefix separately and reconstruct HandlerInfo
+			HandlerInfo selectHandler = fetchFlatHandlerInfo(collection, SELECT_HANDLER_METRIC_PREFIX,
+					SELECT_HANDLER_KEY);
+			HandlerInfo updateHandler = fetchFlatHandlerInfo(collection, UPDATE_HANDLER_METRIC_PREFIX,
+					UPDATE_HANDLER_KEY);
 
-			GenericSolrRequest request = new GenericSolrRequest(SolrRequest.METHOD.GET, ADMIN_METRICS_PATH, params);
-			NamedList<Object> response = solrClient.request(request);
-
-			HandlerStats stats = extractHandlerStats(response, actualCollection);
-			if (isHandlerStatsEmpty(stats)) {
-				log.debug("No handler metrics available for collection '{}'", actualCollection);
-				return null;
-			}
-
-			log.debug("Retrieved handler metrics for collection '{}'", actualCollection);
-			return stats;
-		} catch (SolrServerException | IOException | RuntimeException e) {
-			log.warn("Failed to retrieve handler metrics for collection '{}': {}", actualCollection, e.getMessage());
+			HandlerStats stats = new HandlerStats(selectHandler, updateHandler);
+			return isHandlerStatsEmpty(stats) ? null : stats;
+		} catch (SolrServerException | IOException | RuntimeException _) {
 			return null;
 		}
 	}
 
+	/**
+	 * Checks if handler statistics are empty or contain no meaningful data.
+	 *
+	 * <p>
+	 * Used to determine whether handler metrics are worth returning to clients.
+	 * Empty handler stats typically indicate that handlers haven't processed any
+	 * requests yet or statistics collection is not enabled.
+	 *
+	 * @param stats
+	 *            the handler statistics to evaluate
+	 * @return true if the stats are null or all handler types are null
+	 */
 	private boolean isHandlerStatsEmpty(HandlerStats stats) {
 		return stats == null || (stats.selectHandler() == null && stats.updateHandler() == null);
 	}
 
+	/**
+	 * Fetches metrics from the Solr Metrics API for a given collection and prefix.
+	 *
+	 * @param collection
+	 *            the collection name
+	 * @param prefix
+	 *            the metric key prefix to filter (e.g. "CACHE.searcher", "HANDLER")
+	 * @return the core-level metrics NamedList, or null if unavailable
+	 */
 	@SuppressWarnings("unchecked")
-	private HandlerStats extractHandlerStats(NamedList<Object> metricsResponse, String collection) {
-		NamedList<Object> metrics = (NamedList<Object>) metricsResponse.get(METRICS_KEY);
-		if (metrics == null) {
+	private NamedList<Object> fetchMetrics(String collection, String prefix) throws SolrServerException, IOException {
+		ModifiableSolrParams params = new ModifiableSolrParams();
+		params.set(GROUP_PARAM, CORE_GROUP);
+		params.set(PREFIX_PARAM, prefix);
+		params.set(WT_PARAM, JSON_FORMAT);
+
+		// Metrics API is a node-level endpoint, not per-collection
+		GenericSolrRequest request = new GenericSolrRequest(SolrRequest.METHOD.GET, ADMIN_METRICS_PATH, params);
+
+		NamedList<Object> response = solrClient.request(request);
+		NamedList<Object> metrics = (NamedList<Object>) response.get(METRICS_KEY);
+		if (metrics == null || metrics.size() == 0) {
 			return null;
 		}
 
-		NamedList<Object> coreMetrics = findCoreRegistry(metrics, collection);
+		// Find the core registry matching the requested collection
+		// Keys are like "solr.core.<collection>.<shard>.<replica>"
+		String corePrefix = "solr.core." + collection + ".";
+		for (int i = 0; i < metrics.size(); i++) {
+			String key = metrics.getName(i);
+			if (key != null && key.startsWith(corePrefix)) {
+				return (NamedList<Object>) metrics.getVal(i);
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Fetches and extracts handler metrics from flat Solr Metrics API keys.
+	 *
+	 * <p>
+	 * Handler metrics in Solr are stored as flat keys (e.g.
+	 * {@code QUERY./select.requests}) rather than nested objects. This method
+	 * fetches core metrics filtered by the handler prefix and reconstructs a
+	 * {@link HandlerInfo} from the individual flat keys.
+	 *
+	 * @param collection
+	 *            the collection name
+	 * @param metricPrefix
+	 *            the prefix for the Metrics API filter (e.g. {@code QUERY./select})
+	 * @param keyPrefix
+	 *            the flat key prefix including trailing dot (e.g.
+	 *            {@code QUERY./select.})
+	 * @return HandlerInfo with stats, or null if unavailable
+	 */
+	private HandlerInfo fetchFlatHandlerInfo(String collection, String metricPrefix, String keyPrefix)
+			throws SolrServerException, IOException {
+		NamedList<Object> coreMetrics = fetchMetrics(collection, metricPrefix);
 		if (coreMetrics == null) {
 			return null;
 		}
-
-		return new HandlerStats(extractHandlerInfo(coreMetrics, QUERY_HANDLER_METRICS_PREFIX),
-				extractHandlerInfo(coreMetrics, UPDATE_HANDLER_METRICS_PREFIX));
+		return extractFlatHandlerInfo(coreMetrics, keyPrefix);
 	}
 
-	private HandlerInfo extractHandlerInfo(NamedList<Object> coreMetrics, String handlerPrefix) {
-		Long requests = getLong(coreMetrics, handlerPrefix + "." + REQUESTS_FIELD);
-		Long errors = getLong(coreMetrics, handlerPrefix + "." + ERRORS_FIELD);
-		Long timeouts = getLong(coreMetrics, handlerPrefix + "." + TIMEOUTS_FIELD);
-		Long totalTime = getLong(coreMetrics, handlerPrefix + "." + TOTAL_TIME_FIELD);
-		Float avgTimePerRequest = getFloat(coreMetrics, handlerPrefix + "." + AVG_TIME_PER_REQUEST_FIELD);
-		Float avgRequestsPerSecond = getFloat(coreMetrics, handlerPrefix + "." + AVG_REQUESTS_PER_SECOND_FIELD);
-
-		if (requests == null && errors == null && timeouts == null) {
+	/**
+	 * Extracts a {@link HandlerInfo} from flat metric keys in core metrics.
+	 *
+	 * @param coreMetrics
+	 *            the core metrics NamedList with flat keys
+	 * @param keyPrefix
+	 *            the flat key prefix including trailing dot (e.g.
+	 *            {@code QUERY./select.})
+	 * @return HandlerInfo reconstructed from flat keys, or null if no requests key
+	 *         found
+	 */
+	private HandlerInfo extractFlatHandlerInfo(NamedList<Object> coreMetrics, String keyPrefix) {
+		Long requests = getLong(coreMetrics, keyPrefix + REQUESTS_FIELD);
+		if (requests == null) {
 			return null;
 		}
-
-		return new HandlerInfo(requests, errors, timeouts, totalTime, avgTimePerRequest, avgRequestsPerSecond);
+		Long errors = getLong(coreMetrics, keyPrefix + ERRORS_FIELD);
+		Long timeouts = getLong(coreMetrics, keyPrefix + TIMEOUTS_FIELD);
+		Long totalTime = getLong(coreMetrics, keyPrefix + TOTAL_TIME_FIELD);
+		// avgTimePerRequest and avgRequestsPerSecond are not available as flat metrics;
+		// compute avgTimePerRequest from totalTime/requests when possible
+		Float avgTimePerRequest = (requests > 0 && totalTime != null) ? (float) totalTime / requests : null;
+		return new HandlerInfo(requests, errors, timeouts, totalTime, avgTimePerRequest, null);
 	}
 
 	/**
@@ -856,9 +871,8 @@ public class CollectionService {
 	 * </ol>
 	 *
 	 * <p>
-	 * This dual approach ensures compatibility with both standalone Solr (which
-	 * returns collection names directly) and SolrCloud (which may return shard
-	 * names).
+	 * This dual approach ensures compatibility with SolrCloud environments where
+	 * shard names may be returned alongside collection names.
 	 *
 	 * <p>
 	 * <strong>Error Handling:</strong>
@@ -888,7 +902,6 @@ public class CollectionService {
 			// names)
 			return collections.stream().anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
 		} catch (Exception e) {
-			log.warn("Failed to validate collection '{}': {}", collection, e.getMessage());
 			return false;
 		}
 	}
@@ -944,21 +957,20 @@ public class CollectionService {
 	 */
 	@McpTool(name = "check-health", description = "Check health of a Solr collection")
 	public SolrHealthStatus checkHealth(@McpToolParam(description = "Solr collection") String collection) {
-        String actualCollection = extractCollectionName(collection);
+		String actualCollection = extractCollectionName(collection);
 		try {
 			// Ping Solr
-            SolrPingResponse pingResponse = solrClient.ping(actualCollection);
+			SolrPingResponse pingResponse = solrClient.ping(actualCollection);
 
 			// Get basic stats
-            QueryResponse statsResponse = solrClient.query(actualCollection,
-                    new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
+			QueryResponse statsResponse = solrClient.query(actualCollection,
+					new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
 
 			return new SolrHealthStatus(true, null, pingResponse.getElapsedTime(),
-                    statsResponse.getResults().getNumFound(), new Date(), actualCollection, null, null);
+					statsResponse.getResults().getNumFound(), new Date(), actualCollection, null, null);
 
 		} catch (Exception e) {
-            log.warn("Health check failed for collection '{}': {}", actualCollection, e.getMessage());
-            return new SolrHealthStatus(false, e.getMessage(), null, null, new Date(), actualCollection, null, null);
+			return new SolrHealthStatus(false, e.getMessage(), null, null, new Date(), actualCollection, null, null);
 		}
 	}
 
@@ -1003,7 +1015,8 @@ public class CollectionService {
 			@McpToolParam(description = "Number of shards (SolrCloud only). Defaults to 1.", required = false) Integer numShards,
 			@McpToolParam(description = "Replication factor (SolrCloud only). Defaults to 1.", required = false) Integer replicationFactor)
 			throws SolrServerException, IOException {
-		if (name.isBlank()) {
+
+		if (name == null || name.isBlank()) {
 			throw new IllegalArgumentException(BLANK_COLLECTION_NAME_ERROR);
 		}
 
