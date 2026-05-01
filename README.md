@@ -376,9 +376,44 @@ The `solr://{collection}/schema` resource supports autocompletion for the `{coll
 
   ![MCP Inspector STDIO](images/mcp-inspector-stdio.png)
 
+## Native image (experimental)
+
+An opt-in GraalVM native image build is available for the STDIO profile. The
+native binary starts faster and uses less memory than the JVM image.
+
+```bash
+# Build the native Docker image (works on any OS — compiles inside a Linux builder container)
+./gradlew bootBuildImage
+# Produces:  solr-mcp:<version>-native  (also tagged :latest-native)
+
+# Run it
+docker run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+    solr-mcp:latest-native
+```
+
+### Claude Desktop (native)
+
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "SOLR_URL=http://host.docker.internal:8983/solr/",
+        "solr-mcp:latest-native"
+      ]
+    }
+  }
+}
+```
+
+See [docs/specs/graalvm-native-image.md](docs/specs/graalvm-native-image.md) for the design and known risks.
+
 ## Documentation
 
 - [Auth0 Setup (OAuth2 configuration)](security-docs/AUTH0_SETUP.md)
+- [GraalVM native image spec](docs/specs/graalvm-native-image.md)
 
 ## Contributing
 
