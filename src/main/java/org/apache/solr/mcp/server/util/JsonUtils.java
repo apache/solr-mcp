@@ -16,8 +16,6 @@
  */
 package org.apache.solr.mcp.server.util;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
@@ -32,8 +30,6 @@ import tools.jackson.databind.ObjectMapper;
  * @since 0.0.1
  */
 public final class JsonUtils {
-
-	private static final Logger log = LoggerFactory.getLogger(JsonUtils.class);
 
 	private JsonUtils() {
 		// Utility class - prevent instantiation
@@ -56,7 +52,6 @@ public final class JsonUtils {
 		try {
 			return objectMapper.writeValueAsString(obj);
 		} catch (JacksonException e) {
-			log.warn("Failed to serialize response: {}", e.getMessage());
 			return "{\"error\": \"Failed to serialize response\"}";
 		}
 	}

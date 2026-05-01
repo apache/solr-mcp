@@ -51,10 +51,8 @@ class HttpSecurityConfiguration {
 					auth.anyRequest().authenticated();
 				})
 				// Configure OAuth2 on the MCP server
-				.with(McpServerOAuth2Configurer.mcpServerOAuth2(), (mcpAuthorization) -> {
-					// REQUIRED: the issuerURI
-					mcpAuthorization.authorizationServer(issuerUrl);
-				})
+				.with(McpServerOAuth2Configurer.mcpServerOAuth2(),
+						mcpAuthorization -> mcpAuthorization.authorizationServer(issuerUrl))
 				// MCP inspector
 				.cors(cors -> cors.configurationSource(corsConfigurationSource())).csrf(CsrfConfigurer::disable)
 				.build();
