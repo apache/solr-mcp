@@ -599,6 +599,12 @@ graalvmNative {
                 // AndroidFriendlyRandomHolder creates a java.util.Random in <clinit>,
                 // which GraalVM forbids in the image heap (stale seed).
                 "--initialize-at-run-time=io.opentelemetry.sdk.internal.AndroidFriendlyRandomHolder",
+                // The GraalVM native JUnit launcher embeds test discovery results
+                // (InternalTestPlan, descriptors, etc.) in the image heap at build
+                // time. This pulls in classes from multiple JUnit packages that must
+                // all be initialized at build time.
+                "--initialize-at-build-time=org.junit.platform.launcher",
+                "--initialize-at-build-time=org.junit.jupiter.engine.descriptor",
             )
         }
     }

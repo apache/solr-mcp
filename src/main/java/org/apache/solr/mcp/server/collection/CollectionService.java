@@ -16,16 +16,7 @@
  */
 package org.apache.solr.mcp.server.collection;
 
-import static org.apache.solr.mcp.server.collection.CollectionUtils.getFloat;
-import static org.apache.solr.mcp.server.collection.CollectionUtils.getInteger;
-import static org.apache.solr.mcp.server.collection.CollectionUtils.getLong;
-import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
-
 import io.micrometer.observation.annotation.Observed;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -53,6 +44,16 @@ import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.json.JsonMapper;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+import static org.apache.solr.mcp.server.collection.CollectionUtils.getFloat;
+import static org.apache.solr.mcp.server.collection.CollectionUtils.getInteger;
+import static org.apache.solr.mcp.server.collection.CollectionUtils.getLong;
+import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
 /**
  * Spring Service providing comprehensive Solr collection management and
@@ -943,19 +944,21 @@ public class CollectionService {
 	 */
 	@McpTool(name = "check-health", description = "Check health of a Solr collection")
 	public SolrHealthStatus checkHealth(@McpToolParam(description = "Solr collection") String collection) {
+        String actualCollection = extractCollectionName(collection);
 		try {
 			// Ping Solr
-			SolrPingResponse pingResponse = solrClient.ping(collection);
+            SolrPingResponse pingResponse = solrClient.ping(actualCollection);
 
 			// Get basic stats
-			QueryResponse statsResponse = solrClient.query(collection, new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
+            QueryResponse statsResponse = solrClient.query(actualCollection,
+                    new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
 
 			return new SolrHealthStatus(true, null, pingResponse.getElapsedTime(),
-					statsResponse.getResults().getNumFound(), new Date(), null, null, null);
+                    statsResponse.getResults().getNumFound(), new Date(), actualCollection, null, null);
 
 		} catch (Exception e) {
-			log.warn("Health check failed for collection '{}': {}", collection, e.getMessage());
-			return new SolrHealthStatus(false, e.getMessage(), null, null, new Date(), null, null, null);
+            log.warn("Health check failed for collection '{}': {}", actualCollection, e.getMessage());
+            return new SolrHealthStatus(false, e.getMessage(), null, null, new Date(), actualCollection, null, null);
 		}
 	}
 

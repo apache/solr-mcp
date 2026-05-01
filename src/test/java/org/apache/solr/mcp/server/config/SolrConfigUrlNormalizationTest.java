@@ -16,22 +16,18 @@
  */
 package org.apache.solr.mcp.server.config;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.json.JsonTest;
-import tools.jackson.databind.json.JsonMapper;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @JsonTest
 class SolrConfigUrlNormalizationTest {
-
-	@Autowired
-	private JsonMapper jsonMapper;
 
 	@ParameterizedTest
 	@CsvSource({"http://localhost:8983, http://localhost:8983/solr",
@@ -39,88 +35,15 @@ class SolrConfigUrlNormalizationTest {
 			"http://localhost:8983/solr, http://localhost:8983/solr",
 			"http://localhost:8983/solr/, http://localhost:8983/solr",
 			"http://localhost:8983/custom/solr/, http://localhost:8983/custom/solr"})
-	void testUrlNormalization(String inputUrl, String expectedUrl) {
+    void testUrlNormalization(String inputUrl, String expectedUrl) throws Exception {
 		SolrConfigurationProperties testProperties = new SolrConfigurationProperties(inputUrl);
 		SolrConfig solrConfig = new SolrConfig();
 
-		SolrClient client = solrConfig.solrClient(testProperties);
-		assertNotNull(client);
+        try (SolrClient client = solrConfig.solrClient(testProperties)) {
+            assertNotNull(client);
 
-		var httpClient = assertInstanceOf(HttpJdkSolrClient.class, client);
-		assertEquals(expectedUrl, httpClient.getBaseURL());
-
-		try {
-			client.close();
-		} catch (Exception _) {
-			// Ignore close errors in test
-		}
-	}
-
-	@Test
-	void testUrlWithoutTrailingSlash() {
-		SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983");
-		SolrConfig solrConfig = new SolrConfig();
-
-		SolrClient client = solrConfig.solrClient(testProperties);
-		HttpJdkSolrClient httpClient = (HttpJdkSolrClient) client;
-
-		assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
-
-		try {
-			client.close();
-		} catch (Exception _) {
-			// Ignore close errors in test
-		}
-	}
-
-	@Test
-	void testUrlWithTrailingSlashButNoSolrPath() {
-		SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983/");
-		SolrConfig solrConfig = new SolrConfig();
-
-		SolrClient client = solrConfig.solrClient(testProperties);
-		HttpJdkSolrClient httpClient = (HttpJdkSolrClient) client;
-
-		assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
-
-		try {
-			client.close();
-		} catch (Exception _) {
-			// Ignore close errors in test
-		}
-	}
-
-	@Test
-	void testUrlWithSolrPathButNoTrailingSlash() {
-		SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983/solr");
-		SolrConfig solrConfig = new SolrConfig();
-
-		SolrClient client = solrConfig.solrClient(testProperties);
-		HttpJdkSolrClient httpClient = (HttpJdkSolrClient) client;
-
-		assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
-
-		try {
-			client.close();
-		} catch (Exception _) {
-			// Ignore close errors in test
-		}
-	}
-
-	@Test
-	void testUrlAlreadyProperlyFormatted() {
-		SolrConfigurationProperties testProperties = new SolrConfigurationProperties("http://localhost:8983/solr/");
-		SolrConfig solrConfig = new SolrConfig();
-
-		SolrClient client = solrConfig.solrClient(testProperties);
-		HttpJdkSolrClient httpClient = (HttpJdkSolrClient) client;
-
-		assertEquals("http://localhost:8983/solr", httpClient.getBaseURL());
-
-		try {
-			client.close();
-		} catch (Exception _) {
-			// Ignore close errors in test
+            var httpClient = assertInstanceOf(HttpJdkSolrClient.class, client);
+            assertEquals(expectedUrl, httpClient.getBaseURL());
 		}
 	}
 }
