@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -343,7 +344,8 @@ class XmlIndexingTest {
 
 		// When/Then
 		assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(null))
-				.isInstanceOf(IllegalArgumentException.class).hasMessageContaining("XML input cannot be null or empty");
+				.isInstanceOf(DocumentProcessingException.class)
+				.hasMessageContaining("XML input cannot be null or empty");
 	}
 
 	@Test
@@ -352,7 +354,8 @@ class XmlIndexingTest {
 
 		// When/Then
 		assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(""))
-				.isInstanceOf(IllegalArgumentException.class).hasMessageContaining("XML input cannot be null or empty");
+				.isInstanceOf(DocumentProcessingException.class)
+				.hasMessageContaining("XML input cannot be null or empty");
 	}
 
 	@Test
@@ -361,7 +364,8 @@ class XmlIndexingTest {
 
 		// When/Then
 		assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml("   \n\t  "))
-				.isInstanceOf(IllegalArgumentException.class).hasMessageContaining("XML input cannot be null or empty");
+				.isInstanceOf(DocumentProcessingException.class)
+				.hasMessageContaining("XML input cannot be null or empty");
 	}
 
 	@Test
@@ -389,7 +393,7 @@ class XmlIndexingTest {
 
 		// When/Then
 		assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(largeXml.toString()))
-				.isInstanceOf(IllegalArgumentException.class).hasMessageContaining("XML document too large");
+				.isInstanceOf(DocumentProcessingException.class).hasMessageContaining("XML document too large");
 	}
 
 	@Test
