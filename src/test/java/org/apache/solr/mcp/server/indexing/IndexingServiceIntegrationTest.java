@@ -31,6 +31,7 @@ import org.apache.solr.mcp.server.indexing.documentcreator.XmlDocumentCreator;
 import org.apache.solr.mcp.server.search.SearchResponse;
 import org.apache.solr.mcp.server.search.SearchService;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +46,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  */
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
+@Tag("integration")
 @Testcontainers(disabledWithoutDocker = true)
 @DisabledInNativeImage
 class IndexingServiceIntegrationTest {
