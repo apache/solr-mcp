@@ -49,7 +49,8 @@ class SolrConfigTest {
 
 		// Verify that the SolrClient is using the correct URL
 		// Note: SolrConfig normalizes the URL to have trailing slash, but
-		// HttpJdkSolrClient removes it
+		// HttpJdkSolrClient removes
+		// it
 		var httpSolrClient = assertInstanceOf(HttpJdkSolrClient.class, solrClient);
 		String expectedUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr";
 		assertEquals(expectedUrl, httpSolrClient.getBaseURL());
