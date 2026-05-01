@@ -33,12 +33,11 @@ plugins {
 // =============================
 // Invoked via `./gradlew ... -Pnative`. See docs/specs/graalvm-native-image.md.
 // When true:
-//   - AOT tasks (processAot) run with spring.profiles.active=stdio so that
-//     security autoconfig exclusions from application-stdio.properties are
-//     applied during hint generation.
 //   - graalvmNative plugin configures nativeCompile / nativeTest tasks.
 //   - Native Docker images use bootBuildImage (see separate configuration).
 // Jib is always JVM-only; it is NOT used for native images.
+// Security autoconfig is excluded globally via @SpringBootApplication(exclude=...)
+// so AOT processes both STDIO and HTTP profiles without a profile override.
 val nativeBuild = project.hasProperty("native")
 
 // Shared GraalVM native-image arguments used by both graalvmNative (local builds)
@@ -332,12 +331,6 @@ tasks.register<Test>("dockerIntegrationTest") {
         includeTags("docker-integration")
     }
 
-    // The native image is AOT-compiled for the STDIO profile only.
-    // Exclude the HTTP integration test when testing the native image.
-    if (nativeBuild) {
-        exclude("**/DockerImageHttpIntegrationTest*")
-    }
-
     // Use the same test classpath and configuration as regular tests
     testClassesDirs = sourceSets["test"].output.classesDirs
     classpath = sourceSets["test"].runtimeClasspath
@@ -545,14 +538,10 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("boot
             "BP_NATIVE_IMAGE" to "true",
             "BP_NATIVE_IMAGE_BUILD_ARGUMENTS" to nativeImageBuildArgs.joinToString(" "),
             "BP_JVM_VERSION" to "25",
-            // The Paketo builder runs Spring AOT processing inside the
-            // builder container. Set the STDIO profile so security
-            // autoconfig exclusions from application-stdio.properties are
-            // applied during AOT hint generation (same effect as the
-            // processAot args block for local nativeCompile).
-            "SPRING_PROFILES_ACTIVE" to "stdio",
             // BPE_DEFAULT_* sets default runtime environment variables in
-            // the resulting container image.
+            // the resulting container image. STDIO is the default profile
+            // for Docker usage (Claude Desktop). Override at runtime with
+            // -e SPRING_PROFILES_ACTIVE=http for HTTP mode.
             "BPE_DEFAULT_SPRING_PROFILES_ACTIVE" to "stdio",
             "BPE_DEFAULT_SPRING_DOCKER_COMPOSE_ENABLED" to "false",
         ),
@@ -611,12 +600,6 @@ graalvmNative {
 }
 
 // When -Pnative is present, pin spring.profiles.active=stdio on the AOT
-// processor so application-stdio.properties (which excludes
-// SecurityAutoConfiguration + ManagementWebSecurityAutoConfiguration) is
-// applied while hint generation runs. Test AOT is intentionally left alone
-// because individual @SpringBootTest classes set their own profiles.
-if (nativeBuild) {
-    tasks.named<JavaExec>("processAot") {
-        args("--spring.profiles.active=stdio")
-    }
-}
+// Security autoconfig is excluded globally via @SpringBootApplication(exclude=...)
+// in Main.java, so AOT no longer needs a profile override. HttpSecurityConfiguration
+// uses @Profile("http") + @EnableWebSecurity to provide security only in HTTP mode.
