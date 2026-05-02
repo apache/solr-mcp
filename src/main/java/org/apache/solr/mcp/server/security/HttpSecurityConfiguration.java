@@ -39,6 +39,9 @@ class HttpSecurityConfiguration {
 	@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri:}")
 	private String issuerUrl;
 
+	@Value("${mcp.cors.allowed-origins}")
+	private List<String> allowedOrigins;
+
 	@Bean
 	@ConditionalOnProperty(name = "http.security.enabled", havingValue = "true", matchIfMissing = true)
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -69,9 +72,19 @@ class HttpSecurityConfiguration {
 
 	public CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration configuration = new CorsConfiguration();
-		configuration.setAllowedOriginPatterns(List.of("*"));
-		configuration.setAllowedMethods(List.of("*"));
-		configuration.setAllowedHeaders(List.of("*"));
+		// Use the strict setAllowedOrigins API (not setAllowedOriginPatterns) so the
+		// browser-spec rule that wildcards cannot be combined with credentials is
+		// enforced.
+		// Origins are configurable via the mcp.cors.allowed-origins property
+		// (env: MCP_CORS_ALLOWED_ORIGINS) and default to the MCP Inspector's local
+		// proxy.
+		configuration.setAllowedOrigins(allowedOrigins);
+		// Only the HTTP methods used by the MCP Streamable HTTP transport.
+		configuration.setAllowedMethods(List.of("GET", "POST", "DELETE", "OPTIONS"));
+		// Only the headers the MCP specification requires for the Streamable HTTP
+		// transport.
+		configuration.setAllowedHeaders(
+				List.of("Authorization", "Content-Type", "Mcp-Session-Id", "MCP-Protocol-Version", "Last-Event-ID"));
 		configuration.setAllowCredentials(true);
 
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
