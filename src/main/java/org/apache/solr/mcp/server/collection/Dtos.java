@@ -149,49 +149,6 @@ record IndexStats(
 }
 
 /**
- * Field-level statistics for individual Solr schema fields.
- *
- * <p>
- * Provides detailed information about how individual fields are utilized within
- * the Solr index. This information helps with schema optimization and
- * understanding field usage patterns.
- *
- * <p>
- * <strong>Statistics include:</strong>
- *
- * <ul>
- * <li><strong>type</strong>: Solr field type (e.g., "text_general", "int",
- * "date")
- * <li><strong>docs</strong>: Number of documents containing this field
- * <li><strong>distinct</strong>: Number of unique values for this field
- * </ul>
- *
- * <p>
- * <strong>Analysis Insights:</strong>
- *
- * <p>
- * High cardinality fields (high distinct values) may require special indexing
- * considerations, while sparsely populated fields (low docs count) might
- * benefit from different storage strategies.
- *
- * <p>
- * <strong>Note:</strong> This class is currently unused in the collection
- * statistics but is available for future field-level analysis features.
- */
-@JsonIgnoreProperties(ignoreUnknown = true)
-@JsonInclude(JsonInclude.Include.NON_NULL)
-record FieldStats(
-		/** Solr field type as defined in the schema configuration */
-		String type,
-
-		/** Number of documents in the index that contain this field */
-		Integer docs,
-
-		/** Number of unique/distinct values for this field across all documents */
-		Integer distinct) {
-}
-
-/**
  * Query execution performance metrics from Solr search operations.
  *
  * <p>
@@ -467,13 +424,7 @@ record SolrHealthStatus(
 		@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") Date lastChecked,
 
 		/** Name of the collection that was checked */
-		String collection,
-
-		/** Version of Solr server (when available) */
-		String solrVersion,
-
-		/** Additional status information or state description */
-		String status) {
+		String collection) {
 }
 
 /**
