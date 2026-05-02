@@ -102,10 +102,11 @@ import org.springframework.stereotype.Service;
  * <strong>Error Handling:</strong>
  *
  * <p>
- * The service implements robust error handling with graceful degradation.
- * Failed operations return null values rather than throwing exceptions (except
- * where validation requires it), allowing partial metrics collection when some
- * endpoints are unavailable.
+ * Collection-level operations (listing, validation) propagate
+ * {@link SolrServerException} and {@link IOException} so that callers
+ * (including the MCP framework) receive a clear error when Solr is unreachable.
+ * Sub-metric operations (cache, handler) degrade gracefully and return
+ * {@code null} when their specific endpoints are unavailable.
  *
  * <p>
  * <strong>Example Usage:</strong>
@@ -282,7 +283,7 @@ public class CollectionService {
 	 * @return JSON string containing the list of collections
 	 */
 	@McpResource(uri = "solr://collections", name = "solr-collections", description = "List of all Solr collections available in the cluster", mimeType = "application/json")
-	public String getCollectionsResource() {
+	public String getCollectionsResource() throws SolrServerException, IOException {
 		return toJson(objectMapper, listCollections());
 	}
 
@@ -297,7 +298,7 @@ public class CollectionService {
 	 * @return list of available collection names for autocompletion
 	 */
 	@McpComplete(uri = "solr://{collection}/schema")
-	public List<String> completeCollectionForSchema() {
+	public List<String> completeCollectionForSchema() throws SolrServerException, IOException {
 		return listCollections();
 	}
 
@@ -314,14 +315,6 @@ public class CollectionService {
 	 * the base collection name if needed.
 	 *
 	 * <p>
-	 * <strong>Error Handling:</strong>
-	 *
-	 * <p>
-	 * If the operation fails due to connectivity issues or API errors, an empty
-	 * list is returned rather than throwing an exception, allowing the application
-	 * to continue functioning with degraded capabilities.
-	 *
-	 * <p>
 	 * <strong>MCP Tool Usage:</strong>
 	 *
 	 * <p>
@@ -329,22 +322,22 @@ public class CollectionService {
 	 * natural language requests like "list all collections" or "show me available
 	 * databases".
 	 *
-	 * @return a list of collection names, or an empty list if unable to retrieve
-	 *         them
+	 * @return a list of collection names; never null (returns an empty list when
+	 *         Solr reports no collections)
+	 * @throws SolrServerException
+	 *             if there are errors communicating with Solr
+	 * @throws IOException
+	 *             if there are I/O errors during communication
 	 * @see CollectionAdminRequest.List
 	 */
 	@McpTool(name = "list-collections", description = "List solr collections")
-	public List<String> listCollections() {
-		try {
-			CollectionAdminRequest.List request = new CollectionAdminRequest.List();
-			CollectionAdminResponse response = request.process(solrClient);
+	public List<String> listCollections() throws SolrServerException, IOException {
+		CollectionAdminRequest.List request = new CollectionAdminRequest.List();
+		CollectionAdminResponse response = request.process(solrClient);
 
-			@SuppressWarnings("unchecked")
-			List<String> collections = (List<String>) response.getResponse().get(COLLECTIONS_KEY);
-			return collections != null ? collections : new ArrayList<>();
-		} catch (SolrServerException | IOException _) {
-			return new ArrayList<>();
-		}
+		@SuppressWarnings("unchecked")
+		List<String> collections = (List<String>) response.getResponse().get(COLLECTIONS_KEY);
+		return collections != null ? collections : new ArrayList<>();
 	}
 
 	/**
@@ -556,7 +549,7 @@ public class CollectionService {
 	 * @see #extractCacheStats(NamedList)
 	 * @see #isCacheStatsEmpty(CacheStats)
 	 */
-	public CacheStats getCacheMetrics(String collection) {
+	public CacheStats getCacheMetrics(String collection) throws SolrServerException, IOException {
 		String actualCollection = extractCollectionName(collection);
 
 		if (!validateCollectionExists(actualCollection)) {
@@ -668,7 +661,7 @@ public class CollectionService {
 	 * @see #fetchFlatHandlerInfo(String, String, String)
 	 * @see #isHandlerStatsEmpty(HandlerStats)
 	 */
-	public HandlerStats getHandlerMetrics(String collection) {
+	public HandlerStats getHandlerMetrics(String collection) throws SolrServerException, IOException {
 		String actualCollection = extractCollectionName(collection);
 
 		if (!validateCollectionExists(actualCollection)) {
@@ -874,36 +867,29 @@ public class CollectionService {
 	 * This dual approach ensures compatibility with SolrCloud environments where
 	 * shard names may be returned alongside collection names.
 	 *
-	 * <p>
-	 * <strong>Error Handling:</strong>
-	 *
-	 * <p>
-	 * Returns {@code false} if validation fails due to communication errors,
-	 * allowing calling methods to handle missing collections appropriately.
-	 *
 	 * @param collection
 	 *            the collection name to validate
 	 * @return true if the collection exists (either exact or shard match), false
 	 *         otherwise
+	 * @throws SolrServerException
+	 *             if there are errors communicating with Solr
+	 * @throws IOException
+	 *             if there are I/O errors during communication
 	 * @see #listCollections()
 	 * @see #extractCollectionName(String)
 	 */
-	private boolean validateCollectionExists(String collection) {
-		try {
-			List<String> collections = listCollections();
+	private boolean validateCollectionExists(String collection) throws SolrServerException, IOException {
+		List<String> collections = listCollections();
 
-			// Check for exact match first
-			if (collections.contains(collection)) {
-				return true;
-			}
-
-			// Check if any of the returned collections start with the collection name (for
-			// shard
-			// names)
-			return collections.stream().anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
-		} catch (Exception e) {
-			return false;
+		// Check for exact match first
+		if (collections.contains(collection)) {
+			return true;
 		}
+
+		// Check if any of the returned collections start with the collection name (for
+		// shard
+		// names)
+		return collections.stream().anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
 	}
 
 	/**
