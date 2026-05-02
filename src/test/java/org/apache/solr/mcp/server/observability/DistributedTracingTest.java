@@ -26,6 +26,7 @@ import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.search.SearchService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -60,6 +61,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 		// Enable @Observed annotation support
 		"management.observations.annotations.enabled=true"})
 @Import({TestcontainersConfiguration.class, OpenTelemetryTestConfiguration.class})
+@Tag("integration")
 @Testcontainers(disabledWithoutDocker = true)
 @ActiveProfiles("http")
 class DistributedTracingTest {
