@@ -23,6 +23,8 @@ import io.micrometer.observation.annotation.Observed;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springframework.stereotype.Service;
@@ -123,6 +125,8 @@ import org.springframework.stereotype.Service;
 @Observed
 public class SchemaService {
 
+	private static final Logger logger = LoggerFactory.getLogger(SchemaService.class);
+
 	/** SolrJ client for communicating with Solr server */
 	private final SolrClient solrClient;
 
@@ -166,6 +170,7 @@ public class SchemaService {
 		try {
 			return toJson(objectMapper, getSchema(collection));
 		} catch (Exception e) {
+			logger.error("Failed to get schema for collection: {}", collection, e);
 			return "{\"error\": \"" + e.getMessage() + "\"}";
 		}
 	}

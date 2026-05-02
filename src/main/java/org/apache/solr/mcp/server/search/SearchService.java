@@ -30,6 +30,8 @@ import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.params.FacetParams;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -101,6 +103,8 @@ import org.springframework.util.StringUtils;
 @Service
 @Observed
 public class SearchService {
+
+	private static final Logger logger = LoggerFactory.getLogger(SearchService.class);
 
 	public static final String SORT_ITEM = "item";
 	public static final String SORT_ORDER = "order";

@@ -41,6 +41,8 @@ import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.annotation.McpComplete;
 import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
@@ -128,6 +130,8 @@ import org.springframework.stereotype.Service;
 @Service
 @Observed
 public class CollectionService {
+
+	private static final Logger logger = LoggerFactory.getLogger(CollectionService.class);
 
 	// ========================================
 	// Constants for API Parameters and Paths
@@ -342,7 +346,8 @@ public class CollectionService {
 			@SuppressWarnings("unchecked")
 			List<String> collections = (List<String>) response.getResponse().get(COLLECTIONS_KEY);
 			return collections != null ? collections : new ArrayList<>();
-		} catch (SolrServerException | IOException _) {
+		} catch (SolrServerException | IOException e) {
+			logger.warn("Failed to list collections", e);
 			return new ArrayList<>();
 		}
 	}
@@ -570,16 +575,17 @@ public class CollectionService {
 	 * Internal cache metrics fetch that assumes the collection has already been
 	 * validated and the name has been extracted from any shard identifier.
 	 */
-	private CacheStats fetchCacheMetrics(String collection) {
+	private CacheStats fetchCacheMetrics(String collectionName) {
 		try {
-			NamedList<Object> coreMetrics = fetchMetrics(collection, CACHE_METRIC_PREFIX);
+			NamedList<Object> coreMetrics = fetchMetrics(collectionName, CACHE_METRIC_PREFIX);
 			if (coreMetrics == null) {
 				return null;
 			}
 
 			CacheStats stats = extractCacheStats(coreMetrics);
 			return isCacheStatsEmpty(stats) ? null : stats;
-		} catch (SolrServerException | IOException | RuntimeException _) {
+		} catch (SolrServerException | IOException | RuntimeException e) {
+			logger.debug("Cache metrics unavailable for collection: {}", collectionName, e);
 			return null;
 		}
 	}
@@ -682,18 +688,19 @@ public class CollectionService {
 	 * Internal handler metrics fetch that assumes the collection has already been
 	 * validated and the name has been extracted from any shard identifier.
 	 */
-	private HandlerStats fetchHandlerMetrics(String collection) {
+	private HandlerStats fetchHandlerMetrics(String collectionName) {
 		try {
 			// Handler metrics are flat keys (e.g. QUERY./select.requests) so we
 			// fetch each handler prefix separately and reconstruct HandlerInfo
-			HandlerInfo selectHandler = fetchFlatHandlerInfo(collection, SELECT_HANDLER_METRIC_PREFIX,
+			HandlerInfo selectHandler = fetchFlatHandlerInfo(collectionName, SELECT_HANDLER_METRIC_PREFIX,
 					SELECT_HANDLER_KEY);
-			HandlerInfo updateHandler = fetchFlatHandlerInfo(collection, UPDATE_HANDLER_METRIC_PREFIX,
+			HandlerInfo updateHandler = fetchFlatHandlerInfo(collectionName, UPDATE_HANDLER_METRIC_PREFIX,
 					UPDATE_HANDLER_KEY);
 
 			HandlerStats stats = new HandlerStats(selectHandler, updateHandler);
 			return isHandlerStatsEmpty(stats) ? null : stats;
-		} catch (SolrServerException | IOException | RuntimeException _) {
+		} catch (SolrServerException | IOException | RuntimeException e) {
+			logger.debug("Handler metrics unavailable for collection: {}", collectionName, e);
 			return null;
 		}
 	}
@@ -888,20 +895,21 @@ public class CollectionService {
 	 * @see #listCollections()
 	 * @see #extractCollectionName(String)
 	 */
-	private boolean validateCollectionExists(String collection) {
+	private boolean validateCollectionExists(String collectionOrShard) {
 		try {
 			List<String> collections = listCollections();
 
 			// Check for exact match first
-			if (collections.contains(collection)) {
+			if (collections.contains(collectionOrShard)) {
 				return true;
 			}
 
 			// Check if any of the returned collections start with the collection name (for
 			// shard
 			// names)
-			return collections.stream().anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
+			return collections.stream().anyMatch(c -> c.startsWith(collectionOrShard + SHARD_SUFFIX));
 		} catch (Exception e) {
+			logger.warn("Failed to validate collection existence for: {}", collectionOrShard, e);
 			return false;
 		}
 	}
@@ -970,6 +978,7 @@ public class CollectionService {
 					statsResponse.getResults().getNumFound(), new Date(), actualCollection, null, null);
 
 		} catch (Exception e) {
+			logger.warn("Health check failed for collection: {}", collection, e);
 			return new SolrHealthStatus(false, e.getMessage(), null, null, new Date(), actualCollection, null, null);
 		}
 	}
