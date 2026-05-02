@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -30,6 +31,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
+@Tag("integration")
 @Testcontainers(disabledWithoutDocker = true)
 class SolrConfigTest {
 
