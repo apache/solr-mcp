@@ -203,6 +203,47 @@ tasks.withType<Test> {
     }
 }
 
+tasks.register<Test>("unitTest") {
+    description = "Runs unit tests only (no Testcontainers)"
+    group = "verification"
+
+    useJUnitPlatform {
+        excludeTags("integration", "docker-integration")
+    }
+
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+
+    finalizedBy(tasks.jacocoTestReport)
+
+    reports {
+        html.outputLocation.set(layout.buildDirectory.dir("reports/unitTest"))
+        junitXml.outputLocation.set(layout.buildDirectory.dir("test-results/unitTest"))
+    }
+}
+
+tasks.register<Test>("integrationTest") {
+    description = "Runs Testcontainers-based integration tests"
+    group = "verification"
+
+    useJUnitPlatform {
+        includeTags("integration")
+    }
+
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+
+    systemProperty("solr.test.image", System.getProperty("solr.test.image", "solr:9.9-slim"))
+
+    mustRunAfter(tasks.named("unitTest"))
+    finalizedBy(tasks.jacocoTestReport)
+
+    reports {
+        html.outputLocation.set(layout.buildDirectory.dir("reports/integrationTest"))
+        junitXml.outputLocation.set(layout.buildDirectory.dir("test-results/integrationTest"))
+    }
+}
+
 tasks.jacocoTestReport {
     dependsOn(tasks.test)
     reports {

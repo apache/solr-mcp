@@ -23,7 +23,6 @@
 # WHEN TO USE:
 # -----------
 # ✅ Automatic on every merge to main
-# ✅ Testing pull requests (build + test only, no publish)
 # ✅ Development/testing Docker images
 # ❌ DO NOT use for official ASF releases (use release-publish.yml instead)
 #
@@ -31,7 +30,7 @@
 # --------------------------------
 # build-and-publish.yml (THIS FILE):
 #   - Purpose: Development CI/CD
-#   - Trigger: Automatic (push/PR)
+#   - Trigger: Automatic (push)
 #   - Docker Hub: Personal namespace
 #   - ASF Vote: Not required
 #   - Use for: Daily development work
@@ -67,8 +66,9 @@
 # ------------------
 # 1. Push to 'main' branch - Builds, tests, and publishes Docker images
 # 2. Version tags (v*) - Builds and publishes release images with version tags
-# 3. Pull requests to 'main' - Only builds and tests (no publishing)
-# 4. Manual trigger via workflow_dispatch
+# 3. Manual trigger via workflow_dispatch
+#
+# Note: Pull request validation is handled by ci.yml
 #
 # Jobs:
 # -----
@@ -96,17 +96,14 @@ name: Build and Publish
 
 # Triggers for this workflow
 # - push: runs on commits to main and on version tags (v*)
-# - pull_request: runs on PRs targeting main (build/test only; no publishing)
 # - workflow_dispatch: allows manual execution from the Actions UI
+# Pull request validation is handled separately by ci.yml
 on:
     push:
         branches:
             - main            # Build + publish dev images on main merges
         tags:
             - 'v*'            # CAUTION (ASF): tag pushes will publish images; prefer using release-publish.yml for post-vote releases
-    pull_request:
-        branches:
-            - main            # Build + test validation for incoming changes
     workflow_dispatch:        # Manual runs for maintainers
 
 jobs:
