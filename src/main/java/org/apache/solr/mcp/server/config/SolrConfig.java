@@ -193,8 +193,10 @@ public class SolrConfig {
 		// JSON wire format for responses; XML wire format for update requests.
 		// The default JavaBin request writer uses a binary codec that requires
 		// additional reflection metadata in GraalVM native images.
+		// Force HTTP/1.1: the JDK HttpClient's HTTP/2 transport intermittently
+		// closes reused connections with an EOFException against Solr/Jetty.
 		return new HttpJdkSolrClient.Builder(url).withConnectionTimeout(CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-				.withIdleTimeout(SOCKET_TIMEOUT_MS, TimeUnit.MILLISECONDS).withResponseParser(jsonResponseParser)
-				.withRequestWriter(new XMLRequestWriter()).build();
+				.withIdleTimeout(SOCKET_TIMEOUT_MS, TimeUnit.MILLISECONDS).useHttp1_1(true)
+				.withResponseParser(jsonResponseParser).withRequestWriter(new XMLRequestWriter()).build();
 	}
 }
