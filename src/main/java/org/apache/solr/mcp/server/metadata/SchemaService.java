@@ -20,6 +20,7 @@ import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.observation.annotation.Observed;
+import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
@@ -166,7 +167,7 @@ public class SchemaService {
 		try {
 			return toJson(objectMapper, getSchema(collection));
 		} catch (Exception e) {
-			return "{\"error\": \"" + e.getMessage() + "\"}";
+			return toJson(objectMapper, Map.of("error", e.getMessage()));
 		}
 	}
 
