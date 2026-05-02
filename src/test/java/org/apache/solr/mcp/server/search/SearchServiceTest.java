@@ -16,20 +16,6 @@
  */
 package org.apache.solr.mcp.server.search;
 
-import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.SolrServerException;
-import org.apache.solr.client.solrj.request.SolrQuery;
-import org.apache.solr.client.solrj.response.FacetField;
-import org.apache.solr.client.solrj.response.QueryResponse;
-import org.apache.solr.common.SolrDocument;
-import org.apache.solr.common.SolrDocumentList;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledInNativeImage;
-
-import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -42,6 +28,19 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.client.solrj.request.SolrQuery;
+import org.apache.solr.client.solrj.response.FacetField;
+import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.common.SolrDocument;
+import org.apache.solr.common.SolrDocumentList;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledInNativeImage;
+
 /**
  * Unit tests for SearchService with mocked SolrClient.
  */
@@ -49,13 +48,13 @@ import static org.mockito.Mockito.when;
 class SearchServiceTest {
 
 	@Test
-    void constructor_ShouldInitializeWithSolrClient() {
+	void constructor_ShouldInitializeWithSolrClient() {
 		SearchService localService = new SearchService(mock(SolrClient.class));
 		assertNotNull(localService);
 	}
 
 	@Test
-    void search_WithNullQuery_ShouldDefaultToMatchAll() throws Exception {
+	void search_WithNullQuery_ShouldDefaultToMatchAll() throws Exception {
 		SolrClient mockClient = mock(SolrClient.class);
 		QueryResponse mockResponse = mock(QueryResponse.class);
 		SolrDocumentList mockDocuments = createMockDocumentList();
@@ -72,7 +71,7 @@ class SearchServiceTest {
 	}
 
 	@Test
-    void search_WithCustomQuery_ShouldUseProvidedQuery() throws Exception {
+	void search_WithCustomQuery_ShouldUseProvidedQuery() throws Exception {
 		SolrClient mockClient = mock(SolrClient.class);
 		QueryResponse mockResponse = mock(QueryResponse.class);
 		String customQuery = "name:\"Spring Boot\"";
@@ -90,7 +89,7 @@ class SearchServiceTest {
 	}
 
 	@Test
-    void search_WithFilterQueries_ShouldApplyFilters() throws Exception {
+	void search_WithFilterQueries_ShouldApplyFilters() throws Exception {
 		SolrClient mockClient = mock(SolrClient.class);
 		QueryResponse mockResponse = mock(QueryResponse.class);
 		List<String> filterQueries = List.of("genre_s:fantasy", "price:[0 TO 10]");
@@ -108,7 +107,7 @@ class SearchServiceTest {
 	}
 
 	@Test
-    void search_WithFacetFields_ShouldEnableFaceting() throws Exception {
+	void search_WithFacetFields_ShouldEnableFaceting() throws Exception {
 		SolrClient mockClient = mock(SolrClient.class);
 		QueryResponse mockResponse = mock(QueryResponse.class);
 		List<String> facetFields = List.of("genre_s", "author_ss");
@@ -123,7 +122,7 @@ class SearchServiceTest {
 	}
 
 	@Test
-    void search_WithSortClauses_ShouldApplySorting() throws Exception {
+	void search_WithSortClauses_ShouldApplySorting() throws Exception {
 		SolrClient mockClient = mock(SolrClient.class);
 		QueryResponse mockResponse = mock(QueryResponse.class);
 		List<Map<String, String>> sortClauses = List.of(Map.of("item", "price", "order", "asc"),
@@ -138,7 +137,7 @@ class SearchServiceTest {
 	}
 
 	@Test
-    void search_WithPagination_ShouldApplyStartAndRows() throws Exception {
+	void search_WithPagination_ShouldApplyStartAndRows() throws Exception {
 		SolrClient mockClient = mock(SolrClient.class);
 		QueryResponse mockResponse = mock(QueryResponse.class);
 		Integer start = 10;
@@ -158,7 +157,7 @@ class SearchServiceTest {
 	}
 
 	@Test
-    void search_WithAllParameters_ShouldCombineAllOptions() throws Exception {
+	void search_WithAllParameters_ShouldCombineAllOptions() throws Exception {
 		SolrClient mockClient = mock(SolrClient.class);
 		QueryResponse mockResponse = mock(QueryResponse.class);
 		String query = "title:Java";
@@ -186,7 +185,7 @@ class SearchServiceTest {
 	}
 
 	@Test
-    void search_WhenSolrThrowsException_ShouldPropagateException() throws Exception {
+	void search_WhenSolrThrowsException_ShouldPropagateException() throws Exception {
 		SolrClient mockClient = mock(SolrClient.class);
 		when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
 				.thenThrow(new SolrServerException("Connection error"));
@@ -196,7 +195,7 @@ class SearchServiceTest {
 	}
 
 	@Test
-    void search_WhenIOException_ShouldPropagateException() throws Exception {
+	void search_WhenIOException_ShouldPropagateException() throws Exception {
 		SolrClient mockClient = mock(SolrClient.class);
 		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenThrow(new IOException("Network error"));
 		SearchService localService = new SearchService(mockClient);
@@ -205,7 +204,7 @@ class SearchServiceTest {
 	}
 
 	@Test
-    void search_WithEmptyResults_ShouldReturnEmptyDocumentList() throws Exception {
+	void search_WithEmptyResults_ShouldReturnEmptyDocumentList() throws Exception {
 		SolrClient mockClient = mock(SolrClient.class);
 		QueryResponse mockResponse = mock(QueryResponse.class);
 		SolrDocumentList emptyDocuments = new SolrDocumentList();
@@ -223,7 +222,7 @@ class SearchServiceTest {
 	}
 
 	@Test
-    void search_WithNullFilterQueries_ShouldNotApplyFilters() throws Exception {
+	void search_WithNullFilterQueries_ShouldNotApplyFilters() throws Exception {
 		SolrClient mockClient = mock(SolrClient.class);
 		QueryResponse mockResponse = mock(QueryResponse.class);
 		SolrDocumentList mockDocuments = createMockDocumentList();
@@ -240,7 +239,7 @@ class SearchServiceTest {
 	}
 
 	@Test
-    void search_WithEmptyFacetFields_ShouldNotEnableFaceting() throws Exception {
+	void search_WithEmptyFacetFields_ShouldNotEnableFaceting() throws Exception {
 		SolrClient mockClient = mock(SolrClient.class);
 		QueryResponse mockResponse = mock(QueryResponse.class);
 		SolrDocumentList mockDocuments = createMockDocumentList();
@@ -257,7 +256,7 @@ class SearchServiceTest {
 	}
 
 	@Test
-    void searchResponse_ShouldContainAllFields() throws Exception {
+	void searchResponse_ShouldContainAllFields() throws Exception {
 		SolrClient mockClient = mock(SolrClient.class);
 		QueryResponse mockResponse = mock(QueryResponse.class);
 		SolrDocumentList mockDocuments = createMockDocumentListWithData();
