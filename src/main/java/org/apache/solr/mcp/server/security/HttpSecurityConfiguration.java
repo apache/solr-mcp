@@ -42,14 +42,21 @@ class HttpSecurityConfiguration {
 	@Bean
 	@ConditionalOnProperty(name = "http.security.enabled", havingValue = "true", matchIfMissing = true)
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-		return http
-				// ⬇️ Open every request on the server
-				.authorizeHttpRequests(auth -> {
-					auth.requestMatchers("/actuator").permitAll();
-					auth.requestMatchers("/actuator/*").permitAll();
-					auth.requestMatchers("/mcp").permitAll();
-					auth.anyRequest().authenticated();
-				})
+		return http.authorizeHttpRequests(auth -> {
+			// Liveness/readiness probes need anonymous access for load
+			// balancers and orchestrators. All other actuator endpoints
+			// (loggers, sbom, metrics, prometheus, info) require auth so
+			// that an unauthenticated caller cannot read the dependency
+			// tree, scrape metrics that map the tool surface, or — if
+			// path-matcher semantics ever shift — change log levels.
+			auth.requestMatchers("/actuator/health").permitAll();
+			auth.requestMatchers("/actuator", "/actuator/**").authenticated();
+			// /mcp is gated by @PreAuthorize on individual @McpTool
+			// methods, matching the spring-ai-community/mcp-security
+			// "secured tools" sample pattern.
+			auth.requestMatchers("/mcp").permitAll();
+			auth.anyRequest().authenticated();
+		})
 				// Configure OAuth2 on the MCP server
 				.with(McpServerOAuth2Configurer.mcpServerOAuth2(),
 						mcpAuthorization -> mcpAuthorization.authorizationServer(issuerUrl))
