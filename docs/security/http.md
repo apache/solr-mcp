@@ -118,22 +118,6 @@ exists for browser-based tooling.
    transport spec recommends localhost binding for local servers and
    authentication for everything else.
 
-### Recommended hardening
-
-- **Move actuator to a separate management port** if you don't want it on the
-  same port as MCP traffic:
-  ```properties
-  management.server.port=8081
-  management.server.address=127.0.0.1
-  ```
-  Pair with network-level ACLs so only your monitoring scraper reaches it.
-- **Drop `loggers` and `sbom` from the actuator exposure list** if you don't
-  use them. Each unused endpoint is one less recon surface.
-- **Use short-lived access tokens** (≤1 hour) and refresh tokens via the IdP.
-  The MCP Authorization spec recommends this in §Token Theft.
-- **Monitor `/actuator/loggers` write access** if you keep it exposed; an
-  unexpected `POST` with `configuredLevel=TRACE` is a strong attack signal.
-
 ### Forbidden
 
 - `mcp.cors.allowed-origins=*` together with `allowCredentials=true`.
