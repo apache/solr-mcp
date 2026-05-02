@@ -464,7 +464,7 @@ public class CollectionService {
 	 * @see IndexStats
 	 * @see LukeResponse
 	 */
-	public IndexStats buildIndexStats(LukeResponse lukeResponse) {
+	IndexStats buildIndexStats(LukeResponse lukeResponse) {
 		NamedList<Object> indexInfo = lukeResponse.getIndexInfo();
 
 		// Extract index information using helper methods
@@ -505,7 +505,7 @@ public class CollectionService {
 	 * @see QueryStats
 	 * @see QueryResponse
 	 */
-	public QueryStats buildQueryStats(QueryResponse response) {
+	QueryStats buildQueryStats(QueryResponse response) {
 
 		return new QueryStats(response.getQTime(), response.getResults().getNumFound(),
 				response.getResults().getStart(), response.getResults().getMaxScore());
@@ -556,7 +556,7 @@ public class CollectionService {
 	 * @see #extractCacheStats(NamedList)
 	 * @see #isCacheStatsEmpty(CacheStats)
 	 */
-	public CacheStats getCacheMetrics(String collection) {
+	CacheStats getCacheMetrics(String collection) {
 		String actualCollection = extractCollectionName(collection);
 
 		if (!validateCollectionExists(actualCollection)) {
@@ -668,7 +668,7 @@ public class CollectionService {
 	 * @see #fetchFlatHandlerInfo(String, String, String)
 	 * @see #isHandlerStatsEmpty(HandlerStats)
 	 */
-	public HandlerStats getHandlerMetrics(String collection) {
+	HandlerStats getHandlerMetrics(String collection) {
 		String actualCollection = extractCollectionName(collection);
 
 		if (!validateCollectionExists(actualCollection)) {
