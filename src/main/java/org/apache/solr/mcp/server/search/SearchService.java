@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.SolrQuery;
@@ -104,6 +105,30 @@ public class SearchService {
 
 	public static final String SORT_ITEM = "item";
 	public static final String SORT_ORDER = "order";
+
+	/**
+	 * Maximum number of rows a single search may return. Requests above this are
+	 * clamped, not rejected, since SolrJ clients commonly oversize requests and
+	 * clamping is friendlier and equally effective at preventing OOM.
+	 */
+	private static final int MAX_ROWS = 1000;
+
+	/**
+	 * Maximum offset accepted for pagination. Beyond this, Solr's deep-paging is
+	 * itself a DoS surface (cursorMark should be used instead, but is not yet
+	 * exposed by this MCP tool).
+	 */
+	private static final int MAX_START = 100_000;
+
+	/**
+	 * Allowed pattern for sort field names. Restricted to letters, digits,
+	 * underscore, and dot (for nested fields). This rejects Solr-syntax
+	 * metacharacters such as {@code (}, {@code {}, {@code $}, and whitespace, all
+	 * of which can be used to switch the sort target into a function query and
+	 * build expensive query plans (e.g. {@code sort=if(rord(_val_:...),1,0) asc}).
+	 */
+	private static final Pattern SORT_FIELD_PATTERN = Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_.]*$");
+
 	private final SolrClient solrClient;
 
 	/**
@@ -257,8 +282,24 @@ public class SearchService {
 		}
 
 		// filter queries
+		//
+		// Security: Solr's `fq` parameter is parsed by the same standard query
+		// parser as `q`, so it is vulnerable to the same {!xmlparser ...},
+		// {!join ...}, and {!frange ...} local-param injection vectors. Bind each
+		// user-supplied filter to a separate fq{n} request parameter and reference
+		// it from a constant {!edismax v=$fq{n}}. eDisMax does not honor a
+		// {!parser ...} prefix in its input, so injection attempts are treated as
+		// literal characters. See CWE-943.
 		if (!CollectionUtils.isEmpty(filterQueries)) {
-			solrQuery.setFilterQueries(filterQueries.toArray(new String[0]));
+			int i = 0;
+			for (String fq : filterQueries) {
+				if (StringUtils.hasText(fq)) {
+					String paramName = "fq" + i;
+					solrQuery.addFilterQuery("{!edismax v=$" + paramName + "}");
+					solrQuery.set(paramName, fq);
+					i++;
+				}
+			}
 		}
 
 		// facets
@@ -270,19 +311,42 @@ public class SearchService {
 		}
 
 		// sorting
+		//
+		// Security: Solr's `sort` parameter accepts function queries
+		// (e.g. sort=if(rord(_val_:...),1,0) asc), so a malicious sort field can
+		// build expensive query plans. Validate field names against a strict
+		// alphanumeric/underscore/dot pattern and reject anything else.
 		if (!CollectionUtils.isEmpty(sortClauses)) {
-			solrQuery.setSorts(sortClauses.stream()
-					.map(sortClause -> new SolrQuery.SortClause(sortClause.get(SORT_ITEM), sortClause.get(SORT_ORDER)))
-					.toList());
+			solrQuery.setSorts(sortClauses.stream().map(sortClause -> {
+				String field = sortClause.get(SORT_ITEM);
+				String order = sortClause.get(SORT_ORDER);
+				if (field == null || !SORT_FIELD_PATTERN.matcher(field).matches()) {
+					throw new IllegalArgumentException("Invalid sort field: " + field);
+				}
+				if (order == null) {
+					throw new IllegalArgumentException("Sort order must not be null");
+				}
+				SolrQuery.ORDER parsedOrder;
+				try {
+					parsedOrder = SolrQuery.ORDER.valueOf(order.toLowerCase());
+				} catch (IllegalArgumentException ex) {
+					throw new IllegalArgumentException("Invalid sort order: " + order, ex);
+				}
+				return new SolrQuery.SortClause(field, parsedOrder);
+			}).toList());
 		}
 
 		// pagination
+		//
+		// Security: clamp `start` and `rows` to bounded values to prevent OOM
+		// from unbounded row counts and to keep the caller out of Solr's
+		// deep-paging DoS surface. See CWE-1284.
 		if (start != null) {
-			solrQuery.setStart(start);
+			solrQuery.setStart(Math.min(Math.max(start, 0), MAX_START));
 		}
 
 		if (rows != null) {
-			solrQuery.setRows(rows);
+			solrQuery.setRows(Math.min(Math.max(rows, 0), MAX_ROWS));
 		}
 
 		final QueryResponse queryResponse = solrClient.query(collection, solrQuery);

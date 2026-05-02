@@ -92,7 +92,9 @@ class SearchServiceTest {
 		when(mockResponse.getFacetFields()).thenReturn(null);
 		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
 			SolrQuery q = invocation.getArgument(1);
-			assertArrayEquals(filterQueries.toArray(), q.getFilterQueries());
+			assertArrayEquals(new String[]{"{!edismax v=$fq0}", "{!edismax v=$fq1}"}, q.getFilterQueries());
+			assertEquals("genre_s:fantasy", q.get("fq0"));
+			assertEquals("price:[0 TO 10]", q.get("fq1"));
 			return mockResponse;
 		});
 		SearchService localService = new SearchService(mockClient);
@@ -166,7 +168,8 @@ class SearchServiceTest {
 		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
 			SolrQuery captured = invocation.getArgument(1);
 			assertEquals(query, captured.getQuery());
-			assertArrayEquals(filterQueries.toArray(), captured.getFilterQueries());
+			assertArrayEquals(new String[]{"{!edismax v=$fq0}"}, captured.getFilterQueries());
+			assertEquals("inStock:true", captured.get("fq0"));
 			assertNotNull(captured.getFacetFields());
 			assertEquals(start, captured.getStart());
 			assertEquals(rows, captured.getRows());
@@ -267,6 +270,256 @@ class SearchServiceTest {
 		assertEquals(2, result.documents().size());
 		assertNotNull(result.facets());
 		assertFalse(result.facets().isEmpty());
+	}
+
+	// --- Filter-query injection tests (CWE-943) -----------------------------
+
+	@Test
+	void search_WithPlainFilterQuery_ShouldBindToDereferencedParameter() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		QueryResponse mockResponse = mock(QueryResponse.class);
+		SolrDocumentList mockDocuments = createMockDocumentList();
+		when(mockResponse.getResults()).thenReturn(mockDocuments);
+		when(mockResponse.getFacetFields()).thenReturn(null);
+		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
+			SolrQuery q = invocation.getArgument(1);
+			assertArrayEquals(new String[]{"{!edismax v=$fq0}"}, q.getFilterQueries());
+			assertEquals("status:active", q.get("fq0"));
+			return mockResponse;
+		});
+		SearchService localService = new SearchService(mockClient);
+		SearchResponse result = localService.search("test_collection", null, List.of("status:active"), null, null, null,
+				null);
+		assertNotNull(result);
+	}
+
+	@Test
+	void search_WithFilterQueryXmlParserInjection_ShouldBindIntoDereferencedParameter() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		QueryResponse mockResponse = mock(QueryResponse.class);
+		String malicious = "{!xmlparser v='<root/>'}";
+		SolrDocumentList mockDocuments = createMockDocumentList();
+		when(mockResponse.getResults()).thenReturn(mockDocuments);
+		when(mockResponse.getFacetFields()).thenReturn(null);
+		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
+			SolrQuery q = invocation.getArgument(1);
+			assertArrayEquals(new String[]{"{!edismax v=$fq0}"}, q.getFilterQueries());
+			assertEquals(malicious, q.get("fq0"));
+			// The malicious string must NOT appear as an actual fq value.
+			for (String fq : q.getFilterQueries()) {
+				assertNotEquals(malicious, fq);
+			}
+			return mockResponse;
+		});
+		SearchService localService = new SearchService(mockClient);
+		SearchResponse result = localService.search("test_collection", null, List.of(malicious), null, null, null,
+				null);
+		assertNotNull(result);
+	}
+
+	@Test
+	void search_WithFilterQueryJoinInjection_ShouldBindIntoDereferencedParameter() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		QueryResponse mockResponse = mock(QueryResponse.class);
+		String malicious = "{!join from=id fromIndex=other to=id}*:*";
+		SolrDocumentList mockDocuments = createMockDocumentList();
+		when(mockResponse.getResults()).thenReturn(mockDocuments);
+		when(mockResponse.getFacetFields()).thenReturn(null);
+		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
+			SolrQuery q = invocation.getArgument(1);
+			assertArrayEquals(new String[]{"{!edismax v=$fq0}"}, q.getFilterQueries());
+			assertEquals(malicious, q.get("fq0"));
+			return mockResponse;
+		});
+		SearchService localService = new SearchService(mockClient);
+		SearchResponse result = localService.search("test_collection", null, List.of(malicious), null, null, null,
+				null);
+		assertNotNull(result);
+	}
+
+	@Test
+	void search_WithFilterQueryFrangeInjection_ShouldBindIntoDereferencedParameter() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		QueryResponse mockResponse = mock(QueryResponse.class);
+		String malicious = "{!frange l=0 u=100}price";
+		SolrDocumentList mockDocuments = createMockDocumentList();
+		when(mockResponse.getResults()).thenReturn(mockDocuments);
+		when(mockResponse.getFacetFields()).thenReturn(null);
+		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
+			SolrQuery q = invocation.getArgument(1);
+			assertArrayEquals(new String[]{"{!edismax v=$fq0}"}, q.getFilterQueries());
+			assertEquals(malicious, q.get("fq0"));
+			return mockResponse;
+		});
+		SearchService localService = new SearchService(mockClient);
+		SearchResponse result = localService.search("test_collection", null, List.of(malicious), null, null, null,
+				null);
+		assertNotNull(result);
+	}
+
+	@Test
+	void search_WithBlankFilterQuery_ShouldSkip() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		QueryResponse mockResponse = mock(QueryResponse.class);
+		SolrDocumentList mockDocuments = createMockDocumentList();
+		when(mockResponse.getResults()).thenReturn(mockDocuments);
+		when(mockResponse.getFacetFields()).thenReturn(null);
+		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
+			SolrQuery q = invocation.getArgument(1);
+			assertNull(q.getFilterQueries());
+			assertNull(q.get("fq0"));
+			return mockResponse;
+		});
+		SearchService localService = new SearchService(mockClient);
+		SearchResponse result = localService.search("test_collection", null, List.of(" "), null, null, null, null);
+		assertNotNull(result);
+	}
+
+	@Test
+	void search_WithMultipleFilterQueries_ShouldBindEachToOwnParameter() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		QueryResponse mockResponse = mock(QueryResponse.class);
+		SolrDocumentList mockDocuments = createMockDocumentList();
+		when(mockResponse.getResults()).thenReturn(mockDocuments);
+		when(mockResponse.getFacetFields()).thenReturn(null);
+		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
+			SolrQuery q = invocation.getArgument(1);
+			assertArrayEquals(new String[]{"{!edismax v=$fq0}", "{!edismax v=$fq1}"}, q.getFilterQueries());
+			assertEquals("a:1", q.get("fq0"));
+			assertEquals("b:2", q.get("fq1"));
+			return mockResponse;
+		});
+		SearchService localService = new SearchService(mockClient);
+		SearchResponse result = localService.search("test_collection", null, List.of("a:1", "b:2"), null, null, null,
+				null);
+		assertNotNull(result);
+	}
+
+	// --- Sort-clause validation tests ---------------------------------------
+
+	@Test
+	void search_WithValidSortField_ShouldApplySorting() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		QueryResponse mockResponse = mock(QueryResponse.class);
+		SolrDocumentList mockDocuments = createMockDocumentList();
+		when(mockResponse.getResults()).thenReturn(mockDocuments);
+		when(mockResponse.getFacetFields()).thenReturn(null);
+		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
+			SolrQuery q = invocation.getArgument(1);
+			assertEquals("title asc", q.get("sort"));
+			return mockResponse;
+		});
+		SearchService localService = new SearchService(mockClient);
+		SearchResponse result = localService.search("test_collection", null, null, null,
+				List.of(Map.of("item", "title", "order", "asc")), null, null);
+		assertNotNull(result);
+	}
+
+	@Test
+	void search_WithDottedSortField_ShouldApplySorting() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		QueryResponse mockResponse = mock(QueryResponse.class);
+		SolrDocumentList mockDocuments = createMockDocumentList();
+		when(mockResponse.getResults()).thenReturn(mockDocuments);
+		when(mockResponse.getFacetFields()).thenReturn(null);
+		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
+			SolrQuery q = invocation.getArgument(1);
+			assertEquals("nested.field desc", q.get("sort"));
+			return mockResponse;
+		});
+		SearchService localService = new SearchService(mockClient);
+		SearchResponse result = localService.search("test_collection", null, null, null,
+				List.of(Map.of("item", "nested.field", "order", "desc")), null, null);
+		assertNotNull(result);
+	}
+
+	@Test
+	void search_WithFunctionQuerySortInjection_ShouldThrow() {
+		SolrClient mockClient = mock(SolrClient.class);
+		SearchService localService = new SearchService(mockClient);
+		List<Map<String, String>> sortClauses = List.of(Map.of("item", "if(rord(x),1,0)", "order", "asc"));
+		assertThrows(IllegalArgumentException.class,
+				() -> localService.search("test_collection", null, null, null, sortClauses, null, null));
+	}
+
+	@Test
+	void search_WithBraceSortInjection_ShouldThrow() {
+		SolrClient mockClient = mock(SolrClient.class);
+		SearchService localService = new SearchService(mockClient);
+		List<Map<String, String>> sortClauses = List.of(Map.of("item", "{!func}foo", "order", "asc"));
+		assertThrows(IllegalArgumentException.class,
+				() -> localService.search("test_collection", null, null, null, sortClauses, null, null));
+	}
+
+	@Test
+	void search_WithValSortInjection_ShouldThrow() {
+		SolrClient mockClient = mock(SolrClient.class);
+		SearchService localService = new SearchService(mockClient);
+		List<Map<String, String>> sortClauses = List.of(Map.of("item", "_val_:expensive", "order", "asc"));
+		assertThrows(IllegalArgumentException.class,
+				() -> localService.search("test_collection", null, null, null, sortClauses, null, null));
+	}
+
+	@Test
+	void search_WithInvalidSortOrder_ShouldThrow() {
+		SolrClient mockClient = mock(SolrClient.class);
+		SearchService localService = new SearchService(mockClient);
+		List<Map<String, String>> sortClauses = List.of(Map.of("item", "title", "order", "hack"));
+		assertThrows(IllegalArgumentException.class,
+				() -> localService.search("test_collection", null, null, null, sortClauses, null, null));
+	}
+
+	// --- rows / start clamping tests (CWE-1284) -----------------------------
+
+	@Test
+	void search_WithExcessiveRows_ShouldClampToMax() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		QueryResponse mockResponse = mock(QueryResponse.class);
+		SolrDocumentList mockDocuments = createMockDocumentList();
+		when(mockResponse.getResults()).thenReturn(mockDocuments);
+		when(mockResponse.getFacetFields()).thenReturn(null);
+		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
+			SolrQuery q = invocation.getArgument(1);
+			assertEquals(Integer.valueOf(1000), q.getRows());
+			return mockResponse;
+		});
+		SearchService localService = new SearchService(mockClient);
+		SearchResponse result = localService.search("test_collection", null, null, null, null, null, 2_000_000_000);
+		assertNotNull(result);
+	}
+
+	@Test
+	void search_WithNullRows_ShouldNotSetRowsParameter() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		QueryResponse mockResponse = mock(QueryResponse.class);
+		SolrDocumentList mockDocuments = createMockDocumentList();
+		when(mockResponse.getResults()).thenReturn(mockDocuments);
+		when(mockResponse.getFacetFields()).thenReturn(null);
+		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
+			SolrQuery q = invocation.getArgument(1);
+			assertNull(q.getRows());
+			return mockResponse;
+		});
+		SearchService localService = new SearchService(mockClient);
+		SearchResponse result = localService.search("test_collection", null, null, null, null, null, null);
+		assertNotNull(result);
+	}
+
+	@Test
+	void search_WithExcessiveStart_ShouldClampToMax() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		QueryResponse mockResponse = mock(QueryResponse.class);
+		SolrDocumentList mockDocuments = createMockDocumentList();
+		when(mockResponse.getResults()).thenReturn(mockDocuments);
+		when(mockResponse.getFacetFields()).thenReturn(null);
+		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
+			SolrQuery q = invocation.getArgument(1);
+			assertEquals(Integer.valueOf(100_000), q.getStart());
+			return mockResponse;
+		});
+		SearchService localService = new SearchService(mockClient);
+		SearchResponse result = localService.search("test_collection", null, null, null, null, 200_000, null);
+		assertNotNull(result);
 	}
 
 	private SolrDocumentList createMockDocumentList() {
