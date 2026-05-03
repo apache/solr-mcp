@@ -16,7 +16,9 @@
  */
 package org.apache.solr.mcp.server.indexing;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
@@ -33,7 +35,6 @@ import org.apache.solr.mcp.server.search.SearchService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledInNativeImage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -48,12 +49,10 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Import(TestcontainersConfiguration.class)
 @Tag("integration")
 @Testcontainers(disabledWithoutDocker = true)
-@DisabledInNativeImage
 class IndexingServiceIntegrationTest {
 
-	private static boolean initialized = false;
-
 	private static final String COLLECTION_NAME = "indexing_test_" + System.currentTimeMillis();
+	private static boolean initialized = false;
 	@Autowired
 	private SolrContainer solrContainer;
 	@Autowired

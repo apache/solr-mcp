@@ -18,19 +18,19 @@ package org.apache.solr.mcp.server.config;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.json.JsonTest;
+import tools.jackson.databind.json.JsonMapper;
 
 @JsonTest
 class SolrConfigUrlNormalizationTest {
 
 	@Autowired
-	private ObjectMapper objectMapper;
+	private JsonMapper jsonMapper;
 
 	@ParameterizedTest
 	@CsvSource({"http://localhost:8983, http://localhost:8983/solr",
@@ -42,7 +42,7 @@ class SolrConfigUrlNormalizationTest {
 		SolrConfigurationProperties testProperties = new SolrConfigurationProperties(inputUrl);
 		SolrConfig solrConfig = new SolrConfig();
 
-		try (SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(objectMapper))) {
+		try (SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(jsonMapper))) {
 			assertNotNull(client);
 
 			var httpClient = assertInstanceOf(HttpJdkSolrClient.class, client);

@@ -33,12 +33,11 @@ plugins {
 // =============================
 // Invoked via `./gradlew ... -Pnative`. See docs/specs/graalvm-native-image.md.
 // When true:
-//   - AOT tasks (processAot) run with spring.profiles.active=stdio so that
-//     security autoconfig exclusions from application-stdio.properties are
-//     applied during hint generation.
 //   - graalvmNative plugin configures nativeCompile / nativeTest tasks.
 //   - Native Docker images use bootBuildImage (see separate configuration).
 // Jib is always JVM-only; it is NOT used for native images.
+// Security autoconfig is excluded globally via @SpringBootApplication(exclude=...)
+// so AOT processes both STDIO and HTTP profiles without a profile override.
 val nativeBuild = project.hasProperty("native")
 
 // Shared GraalVM native-image arguments used by both graalvmNative (local builds)
@@ -112,31 +111,35 @@ configurations {
 
 repositories {
     mavenCentral()
+    maven { url = uri("https://repo.spring.io/milestone") }
 }
 
 dependencies {
 
-    developmentOnly(libs.bundles.spring.boot.dev)
+    developmentOnly(libs.spring.boot.docker.compose)
+    developmentOnly(libs.spring.ai.spring.boot.docker.compose) {
+        exclude(group = "org.springframework.boot", module = "spring-boot-starter-mongodb")
+    }
 
-    implementation(libs.spring.boot.starter.web)
+    implementation(libs.spring.boot.starter.webmvc)
+    implementation(libs.spring.boot.starter.json)
     implementation(libs.spring.boot.starter.actuator)
-    implementation(libs.spring.boot.starter.aop)
     implementation(libs.spring.ai.starter.mcp.server.webmvc)
     implementation(libs.solr.solrj)
     implementation(libs.commons.csv)
-    // JSpecify for nullability annotations
-    implementation(libs.jspecify)
-
-    implementation(platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.11.0"))
-    implementation("io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter")
-    implementation(libs.micrometer.tracing.bridge.otel)
-
-    implementation("io.micrometer:micrometer-registry-prometheus")
 
     // Security
     implementation(libs.mcp.server.security)
     implementation(libs.spring.boot.starter.security)
     implementation(libs.spring.boot.starter.oauth2.resource.server)
+
+    // Observability: Spring Boot 4 idiomatic OpenTelemetry support
+    // spring-boot-starter-opentelemetry provides traces, metrics, and log export via OTLP
+    // spring-boot-starter-aspectj enables @Observed annotation support (replaces starter-aop in SB4)
+    implementation(libs.spring.boot.starter.opentelemetry)
+    implementation(libs.spring.boot.starter.aspectj)
+    implementation(libs.opentelemetry.logback.appender)
+    runtimeOnly(libs.micrometer.registry.otlp)
 
     // Error Prone and NullAway for null safety analysis
     errorprone(libs.errorprone.core)
@@ -149,6 +152,18 @@ dependencies {
 dependencyManagement {
     imports {
         mavenBom("org.springframework.ai:spring-ai-bom:${libs.versions.spring.ai.get()}")
+    }
+}
+
+// Force opentelemetry-proto to a version compiled with protobuf 3.x
+// This resolves NoSuchMethodError with protobuf 4.x
+// See: https://github.com/micrometer-metrics/micrometer/issues/5658
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "io.opentelemetry.proto" && requested.name == "opentelemetry-proto") {
+            useVersion("1.3.2-alpha")
+            because("Version 1.8.0-alpha has protobuf 4.x incompatibility causing NoSuchMethodError")
+        }
     }
 }
 
@@ -259,6 +274,20 @@ tasks.withType<JavaCompile>().configureEach {
     }
 }
 
+// Disable Error Prone / NullAway for AOT-generated sources. The GraalVM native
+// plugin registers compileAotJava and compileAotTestJava tasks that compile
+// Spring Boot AOT-generated bean definitions. These generated sources contain
+// patterns (e.g., args.get(0)) that NullAway flags as nullable, but they are
+// correct code produced by the Spring AOT engine and cannot be modified.
+tasks.matching { it.name == "compileAotJava" || it.name == "compileAotTestJava" }.configureEach {
+    if (this is JavaCompile) {
+        options.errorprone {
+            disableAllChecks.set(true)
+            disable("NullAway")
+        }
+    }
+}
+
 tasks.build {
     dependsOn(tasks.spotlessApply)
 }
@@ -341,12 +370,6 @@ tasks.register<Test>("dockerIntegrationTest") {
     // Configure test task to only run docker integration tests
     useJUnitPlatform {
         includeTags("docker-integration")
-    }
-
-    // The native image is AOT-compiled for the STDIO profile only.
-    // Exclude the HTTP integration test when testing the native image.
-    if (nativeBuild) {
-        exclude("**/DockerImageHttpIntegrationTest*")
     }
 
     // Use the same test classpath and configuration as regular tests
@@ -467,9 +490,12 @@ jib {
     }
 
     from {
+        // Use Eclipse Temurin JRE 25 as the base image
+        // Temurin is the open-source build of OpenJDK from Adoptium
         image = "eclipse-temurin:25-jre"
 
-        // Multi-arch: build for both amd64 and arm64
+        // Multi-platform support for both AMD64 and ARM64 architectures
+        // This allows the image to run on x86_64 machines and Apple Silicon (M1/M2/M3)
         platforms {
             platform {
                 architecture = "amd64"
@@ -483,20 +509,26 @@ jib {
     }
 
     to {
+        // Default image name (can be overridden with -Djib.to.image=...)
+        // Format: repository/image-name:tag
         image = "solr-mcp:$version"
+
+        // Tags to apply to the image
+        // The version tag is applied by default, plus "latest" tag
         tags = setOf("latest")
     }
 
     container {
-        // Disable Spring Boot Docker Compose support when running in container.
-        // Docker Compose integration is disabled in the container image.
-        // It is only useful for local development (HTTP profile) where
-        // the host has Docker and a compose.yaml. Inside a container,
-        // Docker Compose cannot start sibling containers without a
-        // Docker socket mount, so it must be turned off.
-        // The application-stdio.properties also disables it for STDIO mode.
-        environment = mapOf("SPRING_DOCKER_COMPOSE_ENABLED" to "false")
+        // Container environment variables
+        // These are baked into the image but can be overridden at runtime
+        environment =
+            mapOf(
+                // Disable Spring Boot Docker Compose support when running in container
+                "SPRING_DOCKER_COMPOSE_ENABLED" to "false",
+            )
 
+        // JVM flags for containerized environments
+        // These optimize the JVM for running in containers
         jvmFlags =
             listOf(
                 // Use container-aware memory settings
@@ -547,15 +579,17 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("boot
             "BP_NATIVE_IMAGE" to "true",
             "BP_NATIVE_IMAGE_BUILD_ARGUMENTS" to nativeImageBuildArgs.joinToString(" "),
             "BP_JVM_VERSION" to "25",
-            // The Paketo builder runs Spring AOT processing inside the
-            // builder container. Set the STDIO profile so security
-            // autoconfig exclusions from application-stdio.properties are
-            // applied during AOT hint generation (same effect as the
-            // processAot args block for local nativeCompile).
-            "SPRING_PROFILES_ACTIVE" to "stdio",
             // BPE_DEFAULT_* sets default runtime environment variables in
-            // the resulting container image.
-            "BPE_DEFAULT_SPRING_PROFILES_ACTIVE" to "stdio",
+            // the resulting container image. STDIO is the default profile
+            // for Docker usage (Claude Desktop). Override at runtime with
+            // -e PROFILES=http for HTTP mode.
+            //
+            // Use PROFILES (not SPRING_PROFILES_ACTIVE) so application.properties'
+            // `spring.profiles.active=${PROFILES:stdio}` interpolation drives the
+            // active profile. Setting SPRING_PROFILES_ACTIVE directly would
+            // override that placeholder and prevent callers from switching modes
+            // via the documented PROFILES env var (see DockerImageHttpIntegrationTest).
+            "BPE_DEFAULT_PROFILES" to "stdio",
             "BPE_DEFAULT_SPRING_DOCKER_COMPOSE_ENABLED" to "false",
         ),
     )
@@ -573,7 +607,6 @@ graalvmNative {
             imageName.set("solr-mcp")
             // Uses shared nativeImageBuildArgs which include --no-fallback,
             // -H:+ReportExceptionStackTraces, and OTel --initialize-at-build-time entries.
-            // OTel instrumentation BOM 2.11.0 does not ship native-image metadata.
             // NOTE: do NOT use io.opentelemetry.instrumentation (too broad) — that
             // would catch Spring autoconfigure CGLIB proxies which cannot be build-time
             // initialized.
@@ -602,18 +635,19 @@ graalvmNative {
                 // AndroidFriendlyRandomHolder creates a java.util.Random in <clinit>,
                 // which GraalVM forbids in the image heap (stale seed).
                 "--initialize-at-run-time=io.opentelemetry.sdk.internal.AndroidFriendlyRandomHolder",
+                // The GraalVM native JUnit launcher embeds test discovery results
+                // (InternalTestPlan, descriptors, etc.) in the image heap at build
+                // time. This pulls in classes from multiple JUnit packages that must
+                // all be initialized at build time.
+                "--initialize-at-build-time=org.junit.platform.launcher",
+                "--initialize-at-build-time=org.junit.platform.engine",
+                "--initialize-at-build-time=org.junit.jupiter.engine.descriptor",
             )
         }
     }
 }
 
 // When -Pnative is present, pin spring.profiles.active=stdio on the AOT
-// processor so application-stdio.properties (which excludes
-// SecurityAutoConfiguration + ManagementWebSecurityAutoConfiguration) is
-// applied while hint generation runs. Test AOT is intentionally left alone
-// because individual @SpringBootTest classes set their own profiles.
-if (nativeBuild) {
-    tasks.named<JavaExec>("processAot") {
-        args("--spring.profiles.active=stdio")
-    }
-}
+// Security autoconfig is excluded globally via @SpringBootApplication(exclude=...)
+// in Main.java, so AOT no longer needs a profile override. HttpSecurityConfiguration
+// uses @Profile("http") + @EnableWebSecurity to provide security only in HTTP mode.

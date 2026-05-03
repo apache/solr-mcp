@@ -21,7 +21,6 @@ import static org.apache.solr.mcp.server.collection.CollectionUtils.getInteger;
 import static org.apache.solr.mcp.server.collection.CollectionUtils.getLong;
 import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -41,12 +40,13 @@ import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
-import org.springaicommunity.mcp.annotation.McpComplete;
-import org.springaicommunity.mcp.annotation.McpResource;
-import org.springaicommunity.mcp.annotation.McpTool;
-import org.springaicommunity.mcp.annotation.McpToolParam;
+import org.springframework.ai.mcp.annotation.McpComplete;
+import org.springframework.ai.mcp.annotation.McpResource;
+import org.springframework.ai.mcp.annotation.McpTool;
+import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Spring Service providing comprehensive Solr collection management and
@@ -250,7 +250,7 @@ public class CollectionService {
 	/** SolrJ client for communicating with Solr server */
 	private final SolrClient solrClient;
 
-	private final ObjectMapper objectMapper;
+	private final JsonMapper objectMapper;
 
 	/**
 	 * Constructs a new CollectionService with the required dependencies.
@@ -266,7 +266,7 @@ public class CollectionService {
 	 * @see SolrClient
 	 * @see SolrConfigurationProperties
 	 */
-	public CollectionService(SolrClient solrClient, ObjectMapper objectMapper) {
+	public CollectionService(SolrClient solrClient, JsonMapper objectMapper) {
 		this.solrClient = solrClient;
 		this.objectMapper = objectMapper;
 	}

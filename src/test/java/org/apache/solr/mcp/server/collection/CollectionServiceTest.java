@@ -21,7 +21,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
@@ -41,6 +40,7 @@ import org.junit.jupiter.api.condition.DisabledInNativeImage;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import tools.jackson.databind.json.JsonMapper;
 
 @ExtendWith(MockitoExtension.class)
 @DisabledInNativeImage
@@ -60,7 +60,7 @@ class CollectionServiceTest {
 
 	private CollectionService collectionService;
 
-	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final JsonMapper objectMapper = JsonMapper.shared();
 
 	@BeforeEach
 	void setUp() {

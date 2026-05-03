@@ -42,7 +42,7 @@ import org.springframework.context.annotation.ImportRuntimeHints;
  * {@code HttpJdkSolrClient}), avoiding the JavaBin/XML codec paths that
  * historically drive most SolrJ native-image issues. The hints below cover the
  * narrow remaining surface: response containers and the {@code NamedList} admin
- * shape returned by the mbeans path.
+ * shape returned by the Metrics API path.
  *
  * <p>
  * This class is registered unconditionally — on the JVM path it is a no-op
@@ -91,10 +91,32 @@ public class SolrNativeHints {
 			hints.reflection().registerType(FacetField.class, categories);
 			hints.reflection().registerType(FacetField.Count.class, categories);
 
+			// SolrJ / Solr API model types used by CoreAdminResponse.getCoreStatus()
+			// which deserializes via Jackson (fasterxml) reflection.
+			for (String solrApiType : List.of("org.apache.solr.client.api.model.SolrJerseyResponse",
+					"org.apache.solr.client.api.model.SolrJerseyResponse$ResponseHeader",
+					"org.apache.solr.client.api.model.ErrorInfo", "org.apache.solr.client.api.model.CoreStatusResponse",
+					"org.apache.solr.client.api.model.CoreStatusResponse$SingleCoreData",
+					"org.apache.solr.client.api.model.CoreStatusResponse$CloudDetails",
+					"org.apache.solr.client.api.model.CoreStatusResponse$IndexDetails")) {
+				hints.reflection().registerTypeIfPresent(classLoader, solrApiType, categories);
+			}
+
+			// Spring AI MCP annotation internals — MetaUtils reflectively
+			// instantiates DefaultMetaProvider via its no-arg constructor.
+			hints.reflection().registerTypeIfPresent(classLoader,
+					"org.springframework.ai.mcp.annotation.context.DefaultMetaProvider", categories);
+
 			// MCP tool response records (package-private, registered by name)
 			for (String className : MCP_RESPONSE_RECORDS) {
 				hints.reflection().registerTypeIfPresent(classLoader, className, categories);
 			}
+
+			// SolrJ EnvUtils loads these properties files in its static
+			// initializer; without them getResourceAsStream returns null
+			// and the <clinit> throws NullPointerException.
+			hints.resources().registerPattern("EnvToSyspropMappings.properties");
+			hints.resources().registerPattern("DeprecatedSystemPropertyMappings.properties");
 
 			// Include logback.xml in the native image so logback's early
 			// initialization (before Spring Boot) finds it and applies the

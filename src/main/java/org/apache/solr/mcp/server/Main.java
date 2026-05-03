@@ -103,7 +103,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * @see SchemaService
  * @see org.springframework.boot.SpringApplication
  */
-@SpringBootApplication
+@SpringBootApplication(excludeName = {
+		"org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration",
+		"org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration"})
 public class Main {
 	static void main(String[] args) {
 		SpringApplication.run(Main.class, args);

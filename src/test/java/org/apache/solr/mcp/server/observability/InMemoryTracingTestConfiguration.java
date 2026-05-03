@@ -14,25 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.solr.mcp.server;
+package org.apache.solr.mcp.server.observability;
 
-import io.modelcontextprotocol.client.transport.ServerParameters;
-import io.modelcontextprotocol.client.transport.StdioClientTransport;
-import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
-import tools.jackson.databind.json.JsonMapper;
+import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 
-// run after project has been built with "./gradlew build -x test and the mcp server jar is
-// connected to a running solr"
-public class ClientStdio {
+/**
+ * Minimal test configuration that provides InMemorySpanExporter bean.
+ * <p>
+ * Spring Boot's opentelemetry-test starter requires this to be explicitly
+ * configured.
+ */
+@TestConfiguration
+public class InMemoryTracingTestConfiguration {
 
-	static void main() {
-
-		String jarName = String.format("build/libs/%s", BuildInfoReader.getJarFileName());
-
-		var stdioParams = ServerParameters.builder("java").args("-jar", jarName).build();
-
-		var transport = new StdioClientTransport(stdioParams, new JacksonMcpJsonMapper(JsonMapper.builder().build()));
-
-		new SampleClient(transport).run();
+	@Bean
+	public InMemorySpanExporter inMemorySpanExporter() {
+		return InMemorySpanExporter.create();
 	}
+
 }
