@@ -582,8 +582,14 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("boot
             // BPE_DEFAULT_* sets default runtime environment variables in
             // the resulting container image. STDIO is the default profile
             // for Docker usage (Claude Desktop). Override at runtime with
-            // -e SPRING_PROFILES_ACTIVE=http for HTTP mode.
-            "BPE_DEFAULT_SPRING_PROFILES_ACTIVE" to "stdio",
+            // -e PROFILES=http for HTTP mode.
+            //
+            // Use PROFILES (not SPRING_PROFILES_ACTIVE) so application.properties'
+            // `spring.profiles.active=${PROFILES:stdio}` interpolation drives the
+            // active profile. Setting SPRING_PROFILES_ACTIVE directly would
+            // override that placeholder and prevent callers from switching modes
+            // via the documented PROFILES env var (see DockerImageHttpIntegrationTest).
+            "BPE_DEFAULT_PROFILES" to "stdio",
             "BPE_DEFAULT_SPRING_DOCKER_COMPOSE_ENABLED" to "false",
         ),
     )
@@ -634,6 +640,7 @@ graalvmNative {
                 // time. This pulls in classes from multiple JUnit packages that must
                 // all be initialized at build time.
                 "--initialize-at-build-time=org.junit.platform.launcher",
+                "--initialize-at-build-time=org.junit.platform.engine",
                 "--initialize-at-build-time=org.junit.jupiter.engine.descriptor",
             )
         }
