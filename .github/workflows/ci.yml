@@ -142,7 +142,38 @@ jobs:
                     retention-days: 7
 
     # ========================================================================
-    # Job 4: Solr Version Compatibility
+    # Job 4: JVM Docker Integration
+    # ========================================================================
+    # Runs DockerImageStdioIntegrationTest and DockerImageHttpIntegrationTest
+    # against the JVM Docker image produced by Jib. Validates that the
+    # production container starts and serves both transports correctly.
+    # ========================================================================
+    jvm-docker-tests:
+        name: JVM Docker Integration
+        runs-on: ubuntu-latest
+        needs: build
+        timeout-minutes: 30
+
+        steps:
+            -   name: Checkout code
+                uses: actions/checkout@v4
+
+            -   name: Set up Java
+                uses: ./.github/actions/setup-java
+
+            -   name: Run JVM Docker integration tests
+                run: ./gradlew dockerIntegrationTest --no-daemon
+
+            -   name: Upload test results
+                if: always()
+                uses: actions/upload-artifact@v4
+                with:
+                    name: jvm-docker-test-results
+                    path: build/reports/dockerIntegrationTest
+                    retention-days: 7
+
+    # ========================================================================
+    # Job 5: Solr Version Compatibility
     # ========================================================================
     # Tests against multiple Solr versions to catch compatibility regressions.
     # Only runs when the PR has the "solr-compatibility" label (opt-in).
