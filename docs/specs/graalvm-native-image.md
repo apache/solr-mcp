@@ -152,11 +152,24 @@ val nativeBuild = project.hasProperty("native")
 
 The `-Pnative` flag is only needed for:
 - `nativeCompile` — triggers `processAot` with the STDIO profile.
-- `dockerIntegrationTest` — selects the `-native` image tag suffix.
+- `dockerIntegrationTest` — selects the `-native` image tag suffix and
+  excludes `DockerImageHttpIntegrationTest` (the native image is AOT-locked
+  to STDIO; HTTP test runs only against the JVM Jib image).
 
 `bootBuildImage` is always configured for native builds (it passes
 `BP_NATIVE_IMAGE=true` unconditionally). No `-Pnative` flag is required
 to run it.
+
+### 5.3.1 BuildInfoReader image-name resolution
+
+`BuildInfoReader.getDockerImageName()` honors the
+`solr.mcp.docker.image.tag.suffix` system property and appends it to the
+build version. The Gradle `dockerIntegrationTest` task sets this to
+`-native` under `-Pnative`, so the test resolves
+`solr-mcp:VERSION-native` and exercises the buildpack-built image rather
+than (silently) any leftover Jib image with the unsuffixed name. Without
+the property the resolution is `solr-mcp:VERSION`, matching the Jib
+default.
 
 ### 5.4 bootBuildImage config for native
 
@@ -314,17 +327,20 @@ path as opt-in behind the same flag; document the gap.
 
 ## 9. CI
 
-Add a separate GitHub Actions workflow (or job in the existing one)
-`native.yml`:
-- Triggers: `workflow_dispatch` and on PRs touching this spec, the native
-  config, or `gradle/libs.versions.toml`.
+A separate GitHub Actions workflow `native.yml` runs on every PR
+(no path filter — native compatibility is validated unconditionally).
+- Triggers: `workflow_dispatch` and `pull_request` (no `paths:` filter).
 - Steps:
   1. Set up GraalVM JDK 25 (via `graalvm/setup-graalvm@v1`).
   2. `./gradlew nativeTest`
   3. `./gradlew bootBuildImage`
   4. `./gradlew dockerIntegrationTest -Pnative` (native-mode variant of the
-     STDIO integration test).
+     STDIO integration test; HTTP test is excluded under `-Pnative`).
   5. `scripts/benchmark-native.sh` — upload results table as a job artifact.
+
+`ci.yml` separately runs `./gradlew dockerIntegrationTest` (Jib JVM,
+both STDIO + HTTP test classes) under the `JVM Docker Integration`
+job, on every PR.
 
 The default PR build (`./gradlew build`) remains JVM-only and fast.
 
