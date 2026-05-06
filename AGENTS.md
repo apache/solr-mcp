@@ -210,9 +210,54 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
 
 ## Testing Structure
 
-- **Unit tests** (`*Test.java`): Mocked dependencies, fast execution
-- **Integration tests** (`*IntegrationTest.java`, `*DirectTest.java`): Real Solr via Testcontainers
-- **Docker tests** (`containerization/`): Tagged `@Tag("docker-integration")`, run separately
+- **Unit tests** (`*Test.java`): Mocked dependencies, fast execution. Mockito-based
+  unit tests are `@DisabledInNativeImage` because ByteBuddy proxies don't survive
+  GraalVM's closed-world assumption.
+- **Integration tests** (`*IntegrationTest.java`, `*DirectTest.java`): Real Solr via
+  Testcontainers. Run as part of `./gradlew build` (JVM) and `./gradlew nativeTest -Pnative`
+  (native test binary).
+- **Docker tests** (`containerization/`): Tagged `@Tag("docker-integration")`, only
+  run via `./gradlew dockerIntegrationTest`. They drive a built Docker image as a
+  black-box subject under test.
+
+### MCP-protocol vs container smoke tests
+
+Two different layers verify stdio behavior — easy to confuse:
+
+- `McpClientStdioIntegrationTest` (top-level package) spawns the raw `java -jar`
+  JAR as a subprocess and runs the full MCP tool-call workflow. Verifies the
+  application's stdio JSON-RPC at the JVM-process layer. Runs in `./gradlew build`
+  and `./gradlew nativeTest -Pnative`. It does **not** test any Docker image.
+- `DockerImageMcpClientStdioIntegrationTest` (`containerization/`) does the same
+  workflow but spawns `docker run -i <image>` instead of `java -jar`. This is
+  the protocol-level Docker image verification. Runs only in
+  `dockerIntegrationTest`.
+- `DockerImageStdioIntegrationTest` is a container **smoke** test (starts, stays
+  alive, no errors in logs). It does not exercise MCP at all.
+- `DockerImageHttpIntegrationTest` exercises the HTTP transport via real HTTP
+  calls to `/actuator/health`, etc.
+
+### Image × Mode test coverage
+
+Each Gradle invocation builds a different image and runs the appropriate test
+subset. Together the three invocations cover all four image × mode combinations:
+
+| Gradle invocation                                          | Image built                       | Tests that run                                                                                              |
+|------------------------------------------------------------|-----------------------------------|-------------------------------------------------------------------------------------------------------------|
+| `./gradlew dockerIntegrationTest`                          | Jib JVM `solr-mcp:<v>`            | `DockerImageStdioIntegrationTest` (smoke) + `DockerImageMcpClientStdioIntegrationTest` (MCP STDIO protocol) + `DockerImageHttpIntegrationTest` (HTTP endpoint) |
+| `./gradlew dockerIntegrationTest -Pnative`                 | Paketo `solr-mcp:<v>-native-stdio` | `DockerImageStdioIntegrationTest` + `DockerImageMcpClientStdioIntegrationTest`                                |
+| `./gradlew dockerIntegrationTest -Pnative -Pprofile=http`  | Paketo `solr-mcp:<v>-native-http`  | `DockerImageHttpIntegrationTest`                                                                              |
+
+The native-stdio image excludes the HTTP test (no servlet beans in the closed
+world). The native-http image excludes the stdio tests (no MCP STDIO transport
+in that profile). The Jib JVM image runs all three because it serves both
+modes.
+
+### CI coverage gap
+
+`build-and-publish.yml` runs the Jib JVM path. `native.yml` runs only
+`-Pnative` (stdio). **`-Pnative -Pprofile=http` has no CI coverage yet** — the
+http native variant is only verified locally.
 
 ### Solr Version Compatibility Testing
 
