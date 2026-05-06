@@ -388,18 +388,24 @@ jobs:
             exit 1
           fi
 
-      - name: Build and push native image
+      # Build to the local Docker daemon (no --publishImage), then docker push.
+      # Spring Boot's bootBuildImage publishRegistry auth doesn't interoperate
+      # with GHCR — same credentials succeed for `docker login` (above) but
+      # fail for bootBuildImage's push, regardless of URL format. Splitting
+      # build and push lets us reuse the working docker login session.
+      - name: Build native image (local daemon)
         env:
           IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/solr-mcp:${{ inputs.release_version }}-native-${{ matrix.profile }}-${{ matrix.arch.name }}
           PROFILE: ${{ matrix.profile }}
-          DOCKER_PUBLISH_URL: ghcr.io
-          DOCKER_PUBLISH_USERNAME: ${{ github.actor }}
-          DOCKER_PUBLISH_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./gradlew bootBuildImage -Pnative "-Pprofile=${PROFILE}" \
             "--imageName=${IMAGE_NAME}" \
-            --publishImage \
             --no-daemon
+
+      - name: Push native image to GHCR
+        env:
+          IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/solr-mcp:${{ inputs.release_version }}-native-${{ matrix.profile }}-${{ matrix.arch.name }}
+        run: docker push "${IMAGE_NAME}"
 
   # Assemble per-profile manifest lists from the arch-specific tags pushed
   # above. Consumers pull `:<v>-native-<profile>` (or `:latest-native-<profile>`)
