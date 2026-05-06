@@ -253,11 +253,11 @@ world). The native-http image excludes the stdio tests (no MCP STDIO transport
 in that profile). The Jib JVM image runs all three because it serves both
 modes.
 
-### CI coverage gap
+### CI coverage
 
-`build-and-publish.yml` runs the Jib JVM path. `native.yml` runs only
-`-Pnative` (stdio). **`-Pnative -Pprofile=http` has no CI coverage yet** — the
-http native variant is only verified locally.
+`native.yml` runs `dockerIntegrationTest` over a `[stdio, http]` matrix on
+every PR that touches native-related files, so both Paketo native variants
+are exercised. The Jib JVM path runs in `build-and-publish.yml`.
 
 ### Solr Version Compatibility Testing
 

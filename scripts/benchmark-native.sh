@@ -39,7 +39,7 @@ RUNS="${RUNS:-5}"
 SOLR_URL="${SOLR_URL:-http://host.docker.internal:8983/solr/}"
 VERSION="$(grep '^version = ' build.gradle.kts | sed 's/version = "\(.*\)"/\1/')"
 JVM_IMAGE="solr-mcp:${VERSION}"
-NATIVE_IMAGE="solr-mcp:${VERSION}-native"
+NATIVE_IMAGE="solr-mcp:${VERSION}-native-stdio"
 RESULT_FILE="docs/specs/benchmark-results.md"
 # Require this many consecutive RSS samples within 1 MB to declare startup complete
 STABLE_THRESHOLD="${STABLE_THRESHOLD:-3}"
@@ -54,8 +54,8 @@ log() { printf '▶ %s\n' "$*" >&2; }
 build_images() {
 	log "Building JVM image…"
 	./gradlew jibDockerBuild
-	log "Building native image (this can take several minutes)…"
-	./gradlew bootBuildImage
+	log "Building native stdio image (this can take several minutes)…"
+	./gradlew bootBuildImage -Pnative
 }
 
 image_size_mb() {
