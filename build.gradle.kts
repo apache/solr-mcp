@@ -192,6 +192,13 @@ tasks.withType<Test> {
             excludeTags("docker-integration")
         }
     }
+    // McpClientStdioIntegrationTest spawns `java -jar build/libs/<bootJar>` as a
+    // subprocess. Without an explicit dependency, `:test` runs before `:bootJar`
+    // (e.g., when invoked transitively by `nativeTest`), the jar is missing, the
+    // subprocess silently fails, and the MCP client times out on initialize().
+    if (name != "dockerIntegrationTest") {
+        dependsOn(tasks.bootJar)
+    }
     // Forward solr.test.image system property to test JVMs for Solr version compatibility testing
     systemProperty("solr.test.image", System.getProperty("solr.test.image", "solr:9.9-slim"))
     if (name != "dockerIntegrationTest") {
