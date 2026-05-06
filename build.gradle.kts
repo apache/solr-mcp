@@ -465,15 +465,6 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("boot
                 "BPE_DEFAULT_SPRING_DOCKER_COMPOSE_ENABLED" to "false",
             ),
         )
-        // Wire registry credentials from environment variables for `--publishImage`
-        // pushes. Empty strings disable auth (local builds without push).
-        docker {
-            publishRegistry {
-                url.set(providers.environmentVariable("DOCKER_PUBLISH_URL").orElse(""))
-                username.set(providers.environmentVariable("DOCKER_PUBLISH_USERNAME").orElse(""))
-                password.set(providers.environmentVariable("DOCKER_PUBLISH_PASSWORD").orElse(""))
-            }
-        }
     }
     // When -Pnative is not set, this task is unreachable (graalvm-native plugin
     // not applied → Spring Boot's auto-config doesn't extend bootBuildImage for
