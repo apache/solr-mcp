@@ -392,7 +392,7 @@ jobs:
         env:
           IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/solr-mcp:${{ inputs.release_version }}-native-${{ matrix.profile }}-${{ matrix.arch.name }}
           PROFILE: ${{ matrix.profile }}
-          DOCKER_PUBLISH_URL: https://ghcr.io
+          DOCKER_PUBLISH_URL: ghcr.io
           DOCKER_PUBLISH_USERNAME: ${{ github.actor }}
           DOCKER_PUBLISH_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         run: |
