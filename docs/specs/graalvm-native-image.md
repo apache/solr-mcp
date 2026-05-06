@@ -152,24 +152,27 @@ val nativeBuild = project.hasProperty("native")
 
 The `-Pnative` flag is only needed for:
 - `nativeCompile` — triggers `processAot` with the STDIO profile.
-- `dockerIntegrationTest` — selects the `-native` image tag suffix and
-  excludes `DockerImageHttpIntegrationTest` (the native image is AOT-locked
-  to STDIO; HTTP test runs only against the JVM Jib image).
-
-`bootBuildImage` is always configured for native builds (it passes
-`BP_NATIVE_IMAGE=true` unconditionally). No `-Pnative` flag is required
-to run it.
+- `dockerIntegrationTest` — selects per-profile image tag suffixes:
+  - no flags → JVM Jib image (`solr-mcp:VERSION`); runs all docker-integration tests
+  - `-Pnative` (default profile=stdio) → `-native-stdio` suffix; excludes the HTTP test
+  - `-Pnative -Pprofile=http` → `-native-http` suffix; runs only the HTTP test
+  (Each native image is AOT-locked to one transport; see "Why two native
+  images" in CLAUDE.md / README.md.)
 
 ### 5.3.1 BuildInfoReader image-name resolution
 
 `BuildInfoReader.getDockerImageName()` honors the
 `solr.mcp.docker.image.tag.suffix` system property and appends it to the
-build version. The Gradle `dockerIntegrationTest` task sets this to
-`-native` under `-Pnative`, so the test resolves
-`solr-mcp:VERSION-native` and exercises the buildpack-built image rather
-than (silently) any leftover Jib image with the unsuffixed name. Without
-the property the resolution is `solr-mcp:VERSION`, matching the Jib
-default.
+build version. The Gradle `dockerIntegrationTest` task sets this per
+invocation:
+
+- `dockerIntegrationTest` (Jib JVM): no suffix → `solr-mcp:VERSION`
+- `dockerIntegrationTest -Pnative` (stdio): `-native-stdio` suffix
+- `dockerIntegrationTest -Pnative -Pprofile=http`: `-native-http` suffix
+
+Without honoring the suffix, native-image tests previously resolved
+`solr-mcp:VERSION` and silently exercised any cached JVM Jib image rather
+than the buildpack-built native image they were nominally testing.
 
 ### 5.4 bootBuildImage config for native
 

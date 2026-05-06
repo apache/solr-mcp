@@ -43,16 +43,16 @@ import org.testcontainers.utility.DockerImageName;
  * lines and {@code initialize()} will fail.
  *
  * <p>
- * Image under test: {@link BuildInfoReader#getDockerImageName()} plus the
- * {@code solr.mcp.docker.image.tag.suffix} system property (set to
- * {@code -native} for {@code dockerIntegrationTest -Pnative}, empty otherwise).
+ * Image under test: {@link BuildInfoReader#getDockerImageName()}, which honors
+ * the {@code solr.mcp.docker.image.tag.suffix} system property
+ * ({@code -native-stdio} for {@code dockerIntegrationTest -Pnative}, empty for
+ * the JVM Jib path).
  */
 @Tag("docker-integration")
 @Testcontainers(disabledWithoutDocker = true)
 class DockerImageMcpClientStdioIntegrationTest extends McpClientIntegrationTestBase {
 
-	private static final String DOCKER_IMAGE = BuildInfoReader.getDockerImageName()
-			+ System.getProperty("solr.mcp.docker.image.tag.suffix", "");
+	private static final String DOCKER_IMAGE = BuildInfoReader.getDockerImageName();
 
 	@Container
 	static final SolrContainer solrContainer = new SolrContainer(
