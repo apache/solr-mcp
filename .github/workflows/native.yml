@@ -68,7 +68,7 @@ jobs:
             # rely on Mockito proxies can fail under native; keep an eye on
             # the output and file focused hints in SolrNativeHints as needed.
             -   name: Run native tests
-                run: ./gradlew nativeTest --no-daemon
+                run: ./gradlew nativeTest -Pnative --no-daemon
 
     native-image:
         name: native Docker image + STDIO integration

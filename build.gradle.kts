@@ -26,20 +26,31 @@ plugins {
     alias(libs.plugins.errorprone)
     alias(libs.plugins.spotless)
     alias(libs.plugins.jib)
-    alias(libs.plugins.graalvm.native)
+    alias(libs.plugins.graalvm.native) apply false
 }
 
 // GraalVM Native Image (Opt-In)
 // =============================
-// Invoked via `./gradlew ... -Pnative`. See docs/specs/graalvm-native-image.md.
-// When true:
-//   - AOT tasks (processAot) run with spring.profiles.active=stdio so that
-//     security autoconfig exclusions from application-stdio.properties are
-//     applied during hint generation.
-//   - graalvmNative plugin configures nativeCompile / nativeTest tasks.
-//   - Native Docker images use bootBuildImage (see separate configuration).
-// Jib is always JVM-only; it is NOT used for native images.
+// `-Pnative` is the single switch that controls all native-related behavior:
+//   - applies the graalvm-native plugin (registers nativeCompile / nativeTest)
+//   - Spring Boot's bootBuildImage auto-configures for native (Paketo native-image
+//     buildpack) when graalvm-native is on the classpath
+//   - dockerIntegrationTest tags the image accordingly
+// Without `-Pnative`, the graalvm-native plugin is not applied and bootBuildImage
+// produces a plain JVM Paketo image.
 val nativeBuild = project.hasProperty("native")
+
+// Native image profile selector: -Pprofile=stdio (default) or -Pprofile=http.
+// Determines the Spring profile active during AOT, which decides whether the
+// resulting native binary serves stdio or http transport.
+val nativeProfile: String = (project.findProperty("profile") as String?) ?: "stdio"
+
+if (nativeBuild) {
+    apply(plugin = "org.graalvm.buildtools.native")
+    require(nativeProfile == "stdio" || nativeProfile == "http") {
+        "Invalid -Pprofile=$nativeProfile; expected 'stdio' or 'http'"
+    }
+}
 
 // Shared GraalVM native-image arguments used by both graalvmNative (local builds)
 // and bootBuildImage (Docker builds via Paketo buildpacks).
@@ -284,35 +295,23 @@ spotless {
 
 // Docker Integration Test Task
 // =============================
-// This task runs integration tests for the Docker image produced by Jib.
-// It is separate from the regular test task and must be explicitly invoked.
+// Runs integration tests against the appropriate Docker image:
 //
-// Usage:
-//   ./gradlew dockerIntegrationTest
+//   ./gradlew dockerIntegrationTest                            # Jib JVM image — both stdio + http
+//   ./gradlew dockerIntegrationTest -Pnative                   # Paketo native-stdio image
+//   ./gradlew dockerIntegrationTest -Pnative -Pprofile=http    # Paketo native-http image
 //
-// Prerequisites:
-//   - Docker must be installed and running
-//   - The task will automatically build the Docker image using jibDockerBuild
-//
-// The task:
-//   - Checks if Docker is available
-//   - Builds the Docker image using Jib (if Docker is available)
-//   - Runs tests tagged with "docker-integration"
-//   - Uses the same test configuration as regular tests
-//
-// Notes:
-//   - If Docker is not available, the task will fail with a helpful error message
-//   - The test will verify the Docker image starts correctly and remains stable
-//   - Tests run in isolation from regular unit tests
+// Test selection per image mode (Image × Mode matrix in CLAUDE.md):
+//   Jib JVM: stdio smoke + http endpoint + MCP stdio (Jib has clean stdout)
+//   Native stdio: stdio smoke + MCP stdio (no http servlet beans)
+//   Native http: http endpoint test (AOT'd for servlet)
 tasks.register<Test>("dockerIntegrationTest") {
     description = "Runs integration tests for the Docker image"
     group = "verification"
 
     // Always run this task, don't use Gradle's up-to-date checking
-    // Docker images can change without Gradle knowing
     outputs.upToDateWhen { false }
 
-    // Check if Docker is available
     val dockerAvailable =
         try {
             val process = ProcessBuilder("docker", "info").start()
@@ -329,7 +328,6 @@ tasks.register<Test>("dockerIntegrationTest") {
         }
     }
 
-    // Depend on building the Docker image first (only if Docker is available)
     if (dockerAvailable) {
         if (nativeBuild) {
             dependsOn(tasks.named("bootBuildImage"))
@@ -338,138 +336,85 @@ tasks.register<Test>("dockerIntegrationTest") {
         }
     }
 
-    // Configure test task to only run docker integration tests
     useJUnitPlatform {
         includeTags("docker-integration")
     }
 
-    // The native image is AOT-compiled for the STDIO profile only.
-    // Exclude the HTTP integration test when testing the native image.
-    if (nativeBuild) {
-        exclude("**/DockerImageHttpIntegrationTest*")
-    }
-
-    // Use the same test classpath and configuration as regular tests
     testClassesDirs = sourceSets["test"].output.classesDirs
     classpath = sourceSets["test"].runtimeClasspath
 
-    // Ensure this doesn't trigger the regular test task or jacocoTestReport
     mustRunAfter(tasks.test)
-
-    // Set longer timeout for Docker tests
     systemProperty("junit.jupiter.execution.timeout.default", "5m")
 
-    // When invoked as `./gradlew dockerIntegrationTest -Pnative`, the Jib
-    // image produced is `solr-mcp:<version>-native`. BuildInfoReader only
-    // knows the plain version, so pass the tag override through a system
-    // property that the integration test can read.
     if (nativeBuild) {
-        systemProperty("solr.mcp.docker.image.tag.suffix", "-native")
+        // Native images are tagged solr-mcp:<v>-native-<profile>; tests append
+        // this suffix to BuildInfoReader.getDockerImageName().
+        systemProperty("solr.mcp.docker.image.tag.suffix", "-native-$nativeProfile")
+        if (nativeProfile == "stdio") {
+            // stdio binary has no servlet beans → HTTP test would fail.
+            exclude("**/DockerImageHttpIntegrationTest*")
+        } else {
+            // http binary has no stdio MCP transport → stdio MCP test would fail.
+            // Smoke-only stdio test (DockerImageStdioIntegrationTest) is also
+            // skipped because it spawns the container expecting stdin to stay open.
+            exclude("**/DockerImageMcpClientStdioIntegrationTest*")
+            exclude("**/DockerImageStdioIntegrationTest*")
+        }
     }
+    // For Jib JVM (no -Pnative): no exclusions — all three test classes run.
 
-    // Output test results
     testLogging {
         events("passed", "skipped", "failed", "standardOut", "standardError")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
         showStandardStreams = true
     }
 
-    // Generate separate test report in a different directory
     reports {
         html.outputLocation.set(layout.buildDirectory.dir("reports/dockerIntegrationTest"))
         junitXml.outputLocation.set(layout.buildDirectory.dir("test-results/dockerIntegrationTest"))
     }
 }
 
-// Jib Plugin Configuration
-// =========================
-// Jib is a Gradle plugin that builds optimized Docker images without requiring Docker installed.
-// It creates layered images for faster rebuilds and smaller image sizes.
+// Docker images: Jib (JVM) + Paketo bootBuildImage (native, per-profile)
+// ======================================================================
+// Three image artifacts cover the full stdio/http × jvm/native matrix:
 //
-// Key features:
-// - Multi-platform support (amd64 and arm64)
-// - No Docker daemon required
-// - Reproducible builds
-// - Optimized layering for faster deployments
+//   ./gradlew jibDockerBuild                              # JVM:    solr-mcp:<v>           (both stdio + http via PROFILES)
+//   ./gradlew bootBuildImage -Pnative                     # Native: solr-mcp:<v>-native-stdio   (stdio only, AOT pinned)
+//   ./gradlew bootBuildImage -Pnative -Pprofile=http      # Native: solr-mcp:<v>-native-http    (http only, AOT pinned)
 //
-// Building Images:
-// ----------------
-// 1. Build to Docker daemon (requires Docker installed):
-//    ./gradlew jibDockerBuild
-//    Creates image: solr-mcp:1.0.0-SNAPSHOT
+// Why three images:
+// - Jib's JVM image has clean stdout (java -jar entrypoint, no launcher script),
+//   so a single image serves both stdio and http via runtime PROFILES.
+// - Paketo's JVM image is unsuitable for stdio (libjvm helpers pollute stdout —
+//   see https://github.com/paketo-buildpacks/libjvm/issues/482).
+// - Native images must AOT-pin to one profile because Spring AOT bakes
+//   spring.main.web-application-type into the binary; activating both profiles
+//   picks `servlet` (http overrides stdio) and forces Tomcat to start regardless
+//   of runtime PROFILES, breaking stdio. Hence one native image per profile.
 //
-// 2. Push to Docker Hub (requires authentication):
-//    docker login
-//    ./gradlew jib -Djib.to.image=dockerhub-username/solr-mcp:1.0.0-SNAPSHOT
-//
-// 3. Push to GitHub Container Registry (requires authentication):
-//    echo $GITHUB_TOKEN | docker login ghcr.io -u GITHUB_USERNAME --password-stdin
-//    ./gradlew jib -Djib.to.image=ghcr.io/github-username/solr-mcp:1.0.0-SNAPSHOT
-//
-// Authentication:
-// ---------------
-// For Docker Hub:
-//   docker login
-//
-// For GitHub Container Registry:
-//   Create a Personal Access Token (classic) with write:packages scope at:
-//   https://github.com/settings/tokens
-//   Then authenticate:
-//   echo YOUR_TOKEN | docker login ghcr.io -u YOUR_USERNAME --password-stdin
-//
-// Alternative: Set credentials in ~/.gradle/gradle.properties:
-//   jib.to.auth.username=YOUR_USERNAME
-//   jib.to.auth.password=YOUR_TOKEN_OR_PASSWORD
-//
-// Docker Executable Configuration:
-// ---------------------------------
-// Jib needs to find the Docker executable to build images. By default, it uses these paths:
-// - macOS: /usr/local/bin/docker
-// - Linux: /usr/bin/docker
-// - Windows: C:\Program Files\Docker\Docker\resources\bin\docker.exe
-//
-// If Docker is installed in a different location, set the DOCKER_EXECUTABLE environment variable:
-//   export DOCKER_EXECUTABLE=/custom/path/to/docker
-//   ./gradlew jibDockerBuild
-//
-// Or in gradle.properties:
-//   systemProp.DOCKER_EXECUTABLE=/custom/path/to/docker
-//
-// Environment Variables:
-// ----------------------
-// The container is pre-configured with:
-// - SPRING_DOCKER_COMPOSE_ENABLED=false (Docker Compose disabled in container)
-// - SOLR_URL=http://host.docker.internal:8983/solr/ (default Solr connection)
-//
-// These can be overridden at runtime:
-//   docker run -e SOLR_URL=http://custom-solr:8983/solr/ solr-mcp:1.0.0-SNAPSHOT
-jib {
-    // Configure Docker client executable path
-    // This ensures Jib can find Docker even if it's not in Gradle's PATH
-    // Can be overridden with environment variable: DOCKER_EXECUTABLE=/path/to/docker
-    dockerClient {
-        executable = System.getenv("DOCKER_EXECUTABLE") ?: when {
-            // macOS with Docker Desktop
-            org.gradle.internal.os.OperatingSystem
-                .current()
-                .isMacOsX -> "/usr/local/bin/docker"
-            // Linux (most distributions)
-            org.gradle.internal.os.OperatingSystem
-                .current()
-                .isLinux -> "/usr/bin/docker"
-            // Windows with Docker Desktop
-            org.gradle.internal.os.OperatingSystem
-                .current()
-                .isWindows -> "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe"
-            // Fallback to PATH lookup
-            else -> "docker"
-        }
-    }
+// Multi-arch (amd64 + arm64) is handled in CI via a GitHub Actions matrix.
 
+// Jib JVM image — clean stdout, multi-arch, both stdio and http modes.
+jib {
+    dockerClient {
+        executable = System.getenv("DOCKER_EXECUTABLE")
+            ?: when {
+                org.gradle.internal.os.OperatingSystem
+                    .current()
+                    .isMacOsX -> "/usr/local/bin/docker"
+                org.gradle.internal.os.OperatingSystem
+                    .current()
+                    .isLinux -> "/usr/bin/docker"
+                org.gradle.internal.os.OperatingSystem
+                    .current()
+                    .isWindows ->
+                    "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe"
+                else -> "docker"
+            }
+    }
     from {
         image = "eclipse-temurin:25-jre"
-
-        // Multi-arch: build for both amd64 and arm64
         platforms {
             platform {
                 architecture = "amd64"
@@ -481,39 +426,19 @@ jib {
             }
         }
     }
-
     to {
         image = "solr-mcp:$version"
         tags = setOf("latest")
     }
-
     container {
-        // Disable Spring Boot Docker Compose support when running in container.
-        // Docker Compose integration is disabled in the container image.
-        // It is only useful for local development (HTTP profile) where
-        // the host has Docker and a compose.yaml. Inside a container,
-        // Docker Compose cannot start sibling containers without a
-        // Docker socket mount, so it must be turned off.
-        // The application-stdio.properties also disables it for STDIO mode.
-        environment = mapOf("SPRING_DOCKER_COMPOSE_ENABLED" to "false")
-
-        jvmFlags =
-            listOf(
-                // Use container-aware memory settings
-                "-XX:+UseContainerSupport",
-                // Set max RAM percentage (default 75%)
-                "-XX:MaxRAMPercentage=75.0",
+        environment =
+            mapOf(
+                "PROFILES" to "stdio",
+                "SPRING_DOCKER_COMPOSE_ENABLED" to "false",
             )
-
-        // Explicitly set main class to avoid ASM scanning issues with newer Java versions
+        jvmFlags = listOf("-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0")
         mainClass = "org.apache.solr.mcp.server.Main"
-
-        // Port exposures (for documentation purposes)
-        // The application doesn't expose ports by default (STDIO mode)
-        // If running in HTTP mode, the port would be 8080
         ports = listOf("8080")
-
-        // Labels for image metadata
         labels.set(
             mapOf(
                 "org.opencontainers.image.title" to "Solr MCP Server",
@@ -521,104 +446,75 @@ jib {
                 "org.opencontainers.image.version" to version.toString(),
                 "org.opencontainers.image.vendor" to "Apache Software Foundation",
                 "org.opencontainers.image.licenses" to "Apache-2.0",
-                // MCP Registry annotation for server discovery
                 "io.modelcontextprotocol.server.name" to "io.github.apache/solr-mcp",
             ),
         )
     }
 }
 
-// Native Docker image via Spring Boot Buildpacks
-// ===============================================
-// `bootBuildImage` compiles the native binary inside a Paketo builder
-// container, so it works on any host OS and CPU architecture (macOS
-// Apple Silicon, Linux x86_64, etc.).
-//
-// Always configured for native builds (BP_NATIVE_IMAGE=true).
-//
-// Usage:
-//   ./gradlew bootBuildImage                   # Build native Docker image
-//   ./gradlew dockerIntegrationTest -Pnative   # Test the native image
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("bootBuildImage") {
-    imageName.set("solr-mcp:$version-native")
-    tags.set(listOf("solr-mcp:latest-native"))
-    environment.set(
-        mapOf(
-            "BP_NATIVE_IMAGE" to "true",
-            "BP_NATIVE_IMAGE_BUILD_ARGUMENTS" to nativeImageBuildArgs.joinToString(" "),
-            "BP_JVM_VERSION" to "25",
-            // The Paketo builder runs Spring AOT processing inside the
-            // builder container. Set the STDIO profile so security
-            // autoconfig exclusions from application-stdio.properties are
-            // applied during AOT hint generation (same effect as the
-            // processAot args block for local nativeCompile).
-            "SPRING_PROFILES_ACTIVE" to "stdio",
-            // BPE_DEFAULT_* sets default runtime environment variables in
-            // the resulting container image.
-            "BPE_DEFAULT_SPRING_PROFILES_ACTIVE" to "stdio",
-            "BPE_DEFAULT_SPRING_DOCKER_COMPOSE_ENABLED" to "false",
-        ),
-    )
+    if (nativeBuild) {
+        imageName.set("solr-mcp:$version-native-$nativeProfile")
+        tags.set(listOf("solr-mcp:latest-native-$nativeProfile"))
+        environment.set(
+            mapOf(
+                "BP_JVM_VERSION" to "25",
+                "BP_NATIVE_IMAGE_BUILD_ARGUMENTS" to nativeImageBuildArgs.joinToString(" "),
+                "SPRING_PROFILES_ACTIVE" to nativeProfile,
+                "BPE_DEFAULT_PROFILES" to nativeProfile,
+                "BPE_DEFAULT_SPRING_DOCKER_COMPOSE_ENABLED" to "false",
+            ),
+        )
+    }
+    // When -Pnative is not set, this task is unreachable (graalvm-native plugin
+    // not applied → Spring Boot's auto-config doesn't extend bootBuildImage for
+    // native, but the task still exists). We use Jib for JVM images, so this
+    // branch is intentionally a no-op rather than producing a confusing image.
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GraalVM Native Image configuration
+// GraalVM Native Image configuration (only applied when -Pnative is set)
 // ─────────────────────────────────────────────────────────────────────────────
 // The `org.graalvm.buildtools.native` plugin registers `nativeCompile` and
-// `nativeTest` tasks. They are only useful when a GraalVM toolchain is
-// available; the plugin's presence does not affect regular JVM builds.
-graalvmNative {
-    binaries {
-        named("main") {
-            imageName.set("solr-mcp")
-            // Uses shared nativeImageBuildArgs which include --no-fallback,
-            // -H:+ReportExceptionStackTraces, and OTel --initialize-at-build-time entries.
-            // OTel instrumentation BOM 2.11.0 does not ship native-image metadata.
-            // NOTE: do NOT use io.opentelemetry.instrumentation (too broad) — that
-            // would catch Spring autoconfigure CGLIB proxies which cannot be build-time
-            // initialized.
-            buildArgs.addAll(nativeImageBuildArgs)
-        }
-    }
-    // Tests that are incompatible with native image are annotated
-    // @DisabledInNativeImage and skipped during nativeTest:
-    //   - Mockito-based tests (ByteBuddy cannot generate classes at run time)
-    // Testcontainers-based integration tests (collection, indexing, search,
-    // schema, observability) run normally in the native binary.
-    binaries {
-        named("test") {
-            // The test binary inherits the OTel --initialize-at-build-time entries
-            // from the shared args (filtering out --no-fallback and
-            // -H:+ReportExceptionStackTraces), plus test-specific SDK entries.
-            buildArgs.addAll(
-                nativeImageBuildArgs.filter { it.startsWith("--initialize-at-build-time=") },
-            )
-            buildArgs.addAll(
-                // opentelemetry-sdk-testing on the test classpath adds a ServiceLoader
-                // provider (SettableContextStorageProvider) that is loaded at build time.
-                "--initialize-at-build-time=io.opentelemetry.sdk",
-                // AndroidFriendlyRandomHolder creates a java.util.Random in <clinit>,
-                // which GraalVM forbids in the image heap (stale seed).
-                "--initialize-at-run-time=io.opentelemetry.sdk.internal.AndroidFriendlyRandomHolder",
-                // The GraalVM native JUnit launcher embeds test discovery results
-                // (InternalTestPlan, descriptors, TestTag, etc.) in the image heap
-                // at build time. This pulls in classes from multiple JUnit packages
-                // that must all be initialized at build time.
-                "--initialize-at-build-time=org.junit.platform.launcher",
-                "--initialize-at-build-time=org.junit.platform.engine",
-                "--initialize-at-build-time=org.junit.jupiter.engine.descriptor",
-            )
-        }
-    }
-}
-
-// When -Pnative is present, pin spring.profiles.active=stdio on the AOT
-// processor so application-stdio.properties (which excludes
-// SecurityAutoConfiguration + ManagementWebSecurityAutoConfiguration) is
-// applied while hint generation runs. Test AOT is intentionally left alone
-// because individual @SpringBootTest classes set their own profiles.
+// `nativeTest` tasks and triggers Spring Boot's bootBuildImage to use the
+// Paketo native-image buildpack.
+//
+// AOT runs with the stdio profile only. The http profile sets
+// spring.main.web-application-type=servlet, which Spring AOT bakes in at
+// build time — activating both profiles produces a binary that always starts
+// Tomcat regardless of runtime PROFILES, breaking STDIO. The native image is
+// therefore STDIO-only.
 if (nativeBuild) {
+    extensions.configure<org.graalvm.buildtools.gradle.dsl.GraalVMExtension>("graalvmNative") {
+        binaries {
+            named("main") {
+                imageName.set("solr-mcp")
+                buildArgs.addAll(nativeImageBuildArgs)
+            }
+            named("test") {
+                // Test binary inherits OTel --initialize-at-build-time entries from the
+                // shared args (filtering out --no-fallback and -H:+ReportExceptionStackTraces),
+                // plus test-specific SDK entries.
+                buildArgs.addAll(
+                    nativeImageBuildArgs.filter { it.startsWith("--initialize-at-build-time=") },
+                )
+                buildArgs.addAll(
+                    // opentelemetry-sdk-testing adds a ServiceLoader provider
+                    // (SettableContextStorageProvider) loaded at build time.
+                    "--initialize-at-build-time=io.opentelemetry.sdk",
+                    // AndroidFriendlyRandomHolder creates a java.util.Random in <clinit>,
+                    // which GraalVM forbids in the image heap (stale seed).
+                    "--initialize-at-run-time=io.opentelemetry.sdk.internal.AndroidFriendlyRandomHolder",
+                    // The GraalVM native JUnit launcher embeds test discovery results
+                    // (InternalTestPlan, descriptors, TestTag, etc.) in the image heap.
+                    "--initialize-at-build-time=org.junit.platform.launcher",
+                    "--initialize-at-build-time=org.junit.platform.engine",
+                    "--initialize-at-build-time=org.junit.jupiter.engine.descriptor",
+                )
+            }
+        }
+    }
     tasks.named<JavaExec>("processAot") {
-        args("--spring.profiles.active=stdio")
+        args("--spring.profiles.active=$nativeProfile")
     }
 }

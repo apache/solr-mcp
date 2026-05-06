@@ -43,7 +43,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 @Tag("integration")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-abstract class McpClientIntegrationTestBase {
+public abstract class McpClientIntegrationTestBase {
 
 	protected static final String COLLECTION = "mcp-client-test";
 

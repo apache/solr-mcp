@@ -22,25 +22,71 @@ Solr MCP Server is a Spring AI Model Context Protocol (MCP) server that enables 
 ./gradlew test                               # Run all tests
 ./gradlew test --tests SearchServiceTest     # Run specific test class
 ./gradlew test --tests "*IntegrationTest"    # Run integration tests
-./gradlew dockerIntegrationTest              # Run Docker image tests (requires jibDockerBuild first)
 ./gradlew test jacocoTestReport              # Tests with coverage report
 
 # Code formatting (REQUIRED before commit)
 ./gradlew spotlessApply            # Apply formatting
 ./gradlew spotlessCheck            # Check formatting
 
-# Docker
-./gradlew jibDockerBuild           # Build Docker image locally
+# Docker images
+./gradlew jibDockerBuild                                  # JVM (Jib):    solr-mcp:<v>                  (both stdio + http)
+./gradlew bootBuildImage -Pnative                         # Native stdio: solr-mcp:<v>-native-stdio
+./gradlew bootBuildImage -Pnative -Pprofile=http          # Native http:  solr-mcp:<v>-native-http
+./gradlew dockerIntegrationTest                           # Test JVM Jib (stdio + http + MCP stdio)
+./gradlew dockerIntegrationTest -Pnative                  # Test native stdio
+./gradlew dockerIntegrationTest -Pnative -Pprofile=http   # Test native http
 
-# Native image (experimental, requires GraalVM JDK 25)
-./gradlew nativeCompile -Pnative            # Compile native binary (host OS only)
-./gradlew bootBuildImage                     # Build native Docker image (any OS/arch)
-./gradlew nativeTest                         # Run tests as native image
-./gradlew dockerIntegrationTest -Pnative     # Docker integration tests (native)
+# Native image (requires GraalVM JDK 25; -Pnative applies the graalvm-native plugin)
+./gradlew nativeCompile -Pnative             # Compile native binary (host OS only)
+./gradlew nativeTest -Pnative                # Run tests as native image
 
 # Run locally (requires `docker compose up -d` for Solr)
 ./gradlew bootRun                  # STDIO mode (default)
 PROFILES=http ./gradlew bootRun    # HTTP mode
+```
+
+## Image × Mode matrix
+
+Three published image artifacts cover the full transport × runtime matrix:
+
+| Image                          | Toolchain | Build command                                            | STDIO | HTTP |
+|--------------------------------|-----------|----------------------------------------------------------|-------|------|
+| `solr-mcp:<v>`                 | Jib       | `./gradlew jibDockerBuild`                               | ✅    | ✅   |
+| `solr-mcp:<v>-native-stdio`    | Paketo    | `./gradlew bootBuildImage -Pnative`                      | ✅    | ❌   |
+| `solr-mcp:<v>-native-http`     | Paketo    | `./gradlew bootBuildImage -Pnative -Pprofile=http`       | ❌    | ✅   |
+
+Why three images:
+
+- **Jib's JVM image is dual-mode** because Jib uses a clean `java -jar`
+  entrypoint with no launcher script. Stdout stays clean for MCP STDIO, and
+  runtime `PROFILES=http` switches to web mode.
+- **Paketo's JVM image is unsuitable for stdio** — its `libjvm` helpers
+  (memory calculator, NMT, ca-certificates) write 6 lines to stdout before
+  the JVM, breaking MCP's JSON-RPC stream. Verified via
+  `DockerImageMcpClientStdioIntegrationTest`. Filed upstream as
+  [paketo-buildpacks/libjvm#482](https://github.com/paketo-buildpacks/libjvm/issues/482).
+  We use Jib for the JVM image instead.
+- **Native images must AOT-pin to one profile** because Spring AOT bakes
+  `spring.main.web-application-type` into the binary; activating both profiles
+  picks `servlet` (http overrides stdio) and forces Tomcat to start regardless
+  of runtime `PROFILES`. So one native image per profile.
+
+Run examples:
+
+```bash
+# STDIO — Jib JVM (default profile is stdio)
+docker run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ solr-mcp:latest
+
+# STDIO — native (faster startup, smaller image)
+docker run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ solr-mcp:latest-native-stdio
+
+# HTTP — Jib JVM
+docker run -p 8080:8080 --rm -e PROFILES=http \
+    -e SOLR_URL=http://host.docker.internal:8983/solr/ solr-mcp:latest
+
+# HTTP — native
+docker run -p 8080:8080 --rm -e PROFILES=http \
+    -e SOLR_URL=http://host.docker.internal:8983/solr/ solr-mcp:latest-native-http
 ```
 
 ## Architecture
@@ -90,21 +136,55 @@ corrupts the protocol. Logging is configured in two layers:
 
 **Init order**: logback.xml → Spring Boot starts → logback-spring.xml → application-{profile}.properties
 
-### Why Jib Instead of Spring Boot Buildpacks
+### Docker image strategy
 
-Spring Boot Buildpacks output logs to stdout, breaking MCP's STDIO protocol. Jib produces clean images with no stdout pollution, plus faster builds and multi-platform support (amd64/arm64).
+Two toolchains, three image artifacts. See **Image × Mode matrix** above
+for the published-artifact summary.
 
-### GraalVM Native Image (Opt-In)
+- **Jib** builds the JVM image (`solr-mcp:<v>`). Plain `java -jar` entrypoint,
+  multi-arch (amd64 + arm64), clean stdout. One image serves both stdio and
+  http; runtime `PROFILES` env var selects.
+- **Paketo `bootBuildImage`** builds two native-image variants:
+  - `solr-mcp:<v>-native-stdio` via `./gradlew bootBuildImage -Pnative`
+  - `solr-mcp:<v>-native-http`  via `./gradlew bootBuildImage -Pnative -Pprofile=http`
 
-An opt-in native image build is available via `-Pnative`, targeting the STDIO profile only.
-The native binary is compiled by `org.graalvm.buildtools.native` (`nativeCompile`) and packaged
-into a Docker image via `bootBuildImage` (Paketo buildpacks). Key configuration:
+**Why not Paketo for the JVM image:** Paketo's `libjvm` runtime helpers
+(memory calculator, NMT, ca-certificates) write 6 status lines to stdout
+before the JVM starts. This breaks MCP STDIO at the protocol level;
+verified end-to-end via `DockerImageMcpClientStdioIntegrationTest` (Spring
+AI MCP client times out on `initialize()`). Filed upstream as
+[paketo-buildpacks/libjvm#482](https://github.com/paketo-buildpacks/libjvm/issues/482).
+Jib doesn't have this problem because it writes a plain `java -jar`
+entrypoint — no launcher script, no stdout pollution.
 
-- **Opt-in flag:** `val nativeBuild = project.hasProperty("native")` in `build.gradle.kts`
-- **Cross-platform:** `bootBuildImage` compiles inside a Linux builder container, so it works on any host OS (macOS, Linux, Windows).
-- **AOT profile:** `processAot` runs with `--spring.profiles.active=stdio` under `-Pnative`
-  so security autoconfig exclusions from `application-stdio.properties` are applied during
-  hint generation. The `@SpringBootApplication` annotation is **not** modified.
+**Why two native images instead of one:** Spring AOT bakes
+`spring.main.web-application-type` into the binary at AOT time. Activating
+both `stdio` and `http` profiles during AOT picks `servlet` (http overrides
+stdio), which forces Tomcat to start regardless of the runtime `PROFILES`
+value — breaking stdio. So we AOT-pin per profile and produce one native
+image per transport: stdio binary excludes web servlet beans; http binary
+includes them.
+
+### GraalVM Native Image
+
+Native image is enabled via `-Pnative`. The native binary is compiled by the
+`org.graalvm.buildtools.native` plugin (`nativeCompile`) or via Paketo
+buildpacks (`bootBuildImage -Pnative`). Key configuration:
+
+- **Opt-in flag:** `val nativeBuild = project.hasProperty("native")` in
+  `build.gradle.kts`. The `graalvm-native` plugin is applied conditionally on
+  this flag, and the entire `graalvmNative { ... }` configuration block runs
+  only under `-Pnative`. `nativeCompile`, `nativeTest`, and the native variant
+  of `bootBuildImage` all require `-Pnative`.
+- **Per-profile AOT pin:** `processAot` runs with
+  `--spring.profiles.active=$nativeProfile` where `nativeProfile` is `stdio`
+  by default or `http` if `-Pprofile=http` is passed. Activating both profiles
+  during AOT picks `servlet` and forces Tomcat regardless of runtime
+  `PROFILES`, breaking stdio — hence one native image per profile.
+- **Cross-platform builds:** `bootBuildImage` compiles inside a Linux builder
+  container, so it works on any host OS (macOS, Linux, Windows). Multi-arch
+  (amd64+arm64) is handled in CI via a GitHub Actions matrix; local builds
+  produce a single image for the host architecture.
 - **OTel build-time init:** OTel instrumentation BOM 2.11.0 lacks native metadata;
   `--initialize-at-build-time` is set for `io.opentelemetry.api`, `io.opentelemetry.context`,
   `io.opentelemetry.instrumentation.api`, and `io.opentelemetry.instrumentation.logback`.
@@ -122,7 +202,9 @@ into a Docker image via `bootBuildImage` (Paketo buildpacks). Key configuration:
 - **Wire format:** `SolrConfig` uses `XMLRequestWriter` instead of the default
   `JavaBinRequestWriter`. The JavaBin binary codec uses deep reflection that would
   require extensive additional native image hints.
-- **Docker tags:** JVM image = `solr-mcp:<version>` (Jib), native image = `solr-mcp:<version>-native` (bootBuildImage)
+- **Docker tags:** Jib JVM = `solr-mcp:<version>` (`solr-mcp:latest`).
+  Paketo native = `solr-mcp:<version>-native-stdio` /
+  `solr-mcp:<version>-native-http` (with corresponding `:latest-native-*` tags).
 - **CI:** Separate `native.yml` workflow; native failures do not block JVM-path merges.
 - **Spec:** [docs/specs/graalvm-native-image.md](docs/specs/graalvm-native-image.md)
 

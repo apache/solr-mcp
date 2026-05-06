@@ -177,7 +177,7 @@ Then add to your `claude_desktop_config.json`:
 }
 ```
 
-More configuration options: docs/DEPLOYMENT.md#docker-images-with-jib
+More configuration options: see the **Building Docker images** section below.
 
 ### Claude Code
 
@@ -376,22 +376,63 @@ The `solr://{collection}/schema` resource supports autocompletion for the `{coll
 
   ![MCP Inspector STDIO](images/mcp-inspector-stdio.png)
 
-## Native image (experimental)
+## Building Docker images
 
-An opt-in GraalVM native image build is available for the STDIO profile. The
-native binary starts faster and uses less memory than the JVM image.
+Three image artifacts cover the full transport × runtime matrix. The JVM
+image is built with Jib (clean stdout, multi-arch); the native variants are
+built with Paketo Cloud Native Buildpacks.
+
+| Image                              | Toolchain | Build command                                            | STDIO | HTTP |
+|------------------------------------|-----------|----------------------------------------------------------|-------|------|
+| `solr-mcp:<version>`               | Jib       | `./gradlew jibDockerBuild`                               | ✅    | ✅   |
+| `solr-mcp:<version>-native-stdio`  | Paketo    | `./gradlew bootBuildImage -Pnative`                      | ✅    | ❌   |
+| `solr-mcp:<version>-native-http`   | Paketo    | `./gradlew bootBuildImage -Pnative -Pprofile=http`       | ❌    | ✅   |
+
+### Run commands
 
 ```bash
-# Build the native Docker image (works on any OS — compiles inside a Linux builder container)
-./gradlew bootBuildImage
-# Produces:  solr-mcp:<version>-native  (also tagged :latest-native)
+# STDIO — Jib JVM (default profile is stdio)
+docker run -i --rm \
+    -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+    solr-mcp:latest
 
-# Run it
-docker run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ \
-    solr-mcp:latest-native
+# STDIO — native (faster startup, smaller image)
+docker run -i --rm \
+    -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+    solr-mcp:latest-native-stdio
+
+# HTTP — Jib JVM
+docker run -p 8080:8080 --rm \
+    -e PROFILES=http \
+    -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+    solr-mcp:latest
+
+# HTTP — native
+docker run -p 8080:8080 --rm \
+    -e PROFILES=http \
+    -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+    solr-mcp:latest-native-http
 ```
 
-### Claude Desktop (native)
+### Why three images
+
+- **Jib's JVM image is dual-mode** because Jib uses a clean `java -jar`
+  entrypoint with no launcher script. Stdout stays clean for MCP STDIO,
+  and runtime `PROFILES=http` switches to web mode.
+- **Paketo's JVM image is unsuitable for stdio** — its `libjvm` helpers
+  (memory calculator, NMT, ca-certificates) write 6 lines to stdout before
+  the JVM, breaking MCP's JSON-RPC stream. Verified end-to-end by
+  `DockerImageMcpClientStdioIntegrationTest` (Spring AI MCP client times
+  out on `initialize()`). Filed upstream as
+  [paketo-buildpacks/libjvm#482](https://github.com/paketo-buildpacks/libjvm/issues/482).
+  We use Jib for the JVM image instead.
+- **Native images must AOT-pin to one profile.** Spring AOT bakes
+  `spring.main.web-application-type` into the binary at AOT time. Activating
+  both profiles picks `servlet` (http overrides stdio), which forces Tomcat
+  to start regardless of the runtime `PROFILES` value, breaking stdio. So
+  we ship one native image per transport.
+
+### Claude Desktop (native, STDIO)
 
 ```json
 {
@@ -408,7 +449,7 @@ docker run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ \
 }
 ```
 
-See [docs/specs/graalvm-native-image.md](docs/specs/graalvm-native-image.md) for the design and known risks.
+See [docs/specs/graalvm-native-image.md](docs/specs/graalvm-native-image.md) for the native image design and known risks.
 
 ## Documentation
 
@@ -437,5 +478,6 @@ Built with:
 - Spring AI MCP — https://spring.io/projects/spring-ai
 - Apache Solr — https://solr.apache.org/
 - Jib — https://github.com/GoogleContainerTools/jib
+- Paketo Cloud Native Buildpacks — https://paketo.io/
 - Testcontainers — https://www.testcontainers.org/
 - Spring AI MCP Security — https://github.com/spring-ai-community/mcp-security
