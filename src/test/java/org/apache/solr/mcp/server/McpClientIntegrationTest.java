@@ -16,10 +16,15 @@
  */
 package org.apache.solr.mcp.server;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
@@ -41,6 +46,8 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Integration test that exercises the MCP server through a real MCP client.
@@ -61,12 +68,41 @@ class McpClientIntegrationTest {
 
 	private static final String COLLECTION = "mcp-client-test";
 
-	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+	private static final JsonMapper JSON_MAPPER = JsonMapper.shared();
 
 	@LocalServerPort
 	private int port;
 
 	private McpSyncClient mcpClient;
+
+	private static String extractText(CallToolResult result) {
+		assertNotNull(result.content(), "Result content should not be null");
+		assertFalse(result.content().isEmpty(), "Result content should not be empty");
+		assertInstanceOf(TextContent.class, result.content().get(0), "Content should be TextContent");
+		return ((TextContent) result.content().get(0)).text();
+	}
+
+	private static void assertNotError(CallToolResult result) {
+		if (Boolean.TRUE.equals(result.isError())) {
+			String errorText = result.content().isEmpty()
+					? "unknown error"
+					: ((TextContent) result.content().get(0)).text();
+			fail("MCP tool call returned error: " + errorText);
+		}
+	}
+
+	private static int getNumFound(Map<String, Object> response) {
+		Object value = response.get("numFound");
+		assertNotNull(value, "numFound should be present in response");
+		return ((Number) value).intValue();
+	}
+
+	@SuppressWarnings("unchecked")
+	private static List<Map<String, Object>> getDocuments(Map<String, Object> response) {
+		Object value = response.get("documents");
+		assertNotNull(value, "documents should be present in response");
+		return (List<Map<String, Object>>) value;
+	}
 
 	@BeforeAll
 	void setupClient() {
@@ -170,7 +206,7 @@ class McpClientIntegrationTest {
 		assertNotError(result);
 		String text = extractText(result);
 
-		Map<String, Object> response = OBJECT_MAPPER.readValue(text, new TypeReference<>() {
+		Map<String, Object> response = JSON_MAPPER.readValue(text, new TypeReference<>() {
 		});
 		assertEquals(5, getNumFound(response), "Should find all 5 documents");
 	}
@@ -185,7 +221,7 @@ class McpClientIntegrationTest {
 		assertNotError(result);
 		String text = extractText(result);
 
-		Map<String, Object> response = OBJECT_MAPPER.readValue(text, new TypeReference<>() {
+		Map<String, Object> response = JSON_MAPPER.readValue(text, new TypeReference<>() {
 		});
 		assertEquals(2, getNumFound(response), "Should find 2 search-category documents");
 	}
@@ -200,7 +236,7 @@ class McpClientIntegrationTest {
 		assertNotError(result);
 		String text = extractText(result);
 
-		Map<String, Object> response = OBJECT_MAPPER.readValue(text, new TypeReference<>() {
+		Map<String, Object> response = JSON_MAPPER.readValue(text, new TypeReference<>() {
 		});
 		int numFound = getNumFound(response);
 		assertTrue(numFound >= 1, "Should find at least 1 document with 'Solr' in title: " + numFound);
@@ -214,9 +250,9 @@ class McpClientIntegrationTest {
 		CallToolResult page2 = mcpClient.callTool(
 				new CallToolRequest("search", Map.of("collection", COLLECTION, "query", "*:*", "start", 2, "rows", 2)));
 
-		Map<String, Object> response1 = OBJECT_MAPPER.readValue(extractText(page1), new TypeReference<>() {
+		Map<String, Object> response1 = JSON_MAPPER.readValue(extractText(page1), new TypeReference<>() {
 		});
-		Map<String, Object> response2 = OBJECT_MAPPER.readValue(extractText(page2), new TypeReference<>() {
+		Map<String, Object> response2 = JSON_MAPPER.readValue(extractText(page2), new TypeReference<>() {
 		});
 
 		List<Map<String, Object>> docs1 = getDocuments(response1);
@@ -260,7 +296,7 @@ class McpClientIntegrationTest {
 		assertNotError(result);
 		String text = extractText(result);
 
-		Map<String, Object> response = OBJECT_MAPPER.readValue(text, new TypeReference<>() {
+		Map<String, Object> response = JSON_MAPPER.readValue(text, new TypeReference<>() {
 		});
 		@SuppressWarnings("unchecked")
 		Map<String, Object> facets = (Map<String, Object>) response.get("facets");
@@ -290,38 +326,9 @@ class McpClientIntegrationTest {
 		CallToolResult result = mcpClient
 				.callTool(new CallToolRequest("search", Map.of("collection", COLLECTION, "query", "*:*", "rows", 0)));
 
-		Map<String, Object> response = OBJECT_MAPPER.readValue(extractText(result), new TypeReference<>() {
+		Map<String, Object> response = JSON_MAPPER.readValue(extractText(result), new TypeReference<>() {
 		});
 		assertEquals(7, getNumFound(response), "Should find 7 documents (5 JSON + 2 CSV)");
-	}
-
-	private static String extractText(CallToolResult result) {
-		assertNotNull(result.content(), "Result content should not be null");
-		assertFalse(result.content().isEmpty(), "Result content should not be empty");
-		assertInstanceOf(TextContent.class, result.content().get(0), "Content should be TextContent");
-		return ((TextContent) result.content().get(0)).text();
-	}
-
-	private static void assertNotError(CallToolResult result) {
-		if (Boolean.TRUE.equals(result.isError())) {
-			String errorText = result.content().isEmpty()
-					? "unknown error"
-					: ((TextContent) result.content().get(0)).text();
-			fail("MCP tool call returned error: " + errorText);
-		}
-	}
-
-	private static int getNumFound(Map<String, Object> response) {
-		Object value = response.get("numFound");
-		assertNotNull(value, "numFound should be present in response");
-		return ((Number) value).intValue();
-	}
-
-	@SuppressWarnings("unchecked")
-	private static List<Map<String, Object>> getDocuments(Map<String, Object> response) {
-		Object value = response.get("documents");
-		assertNotNull(value, "documents should be present in response");
-		return (List<Map<String, Object>>) value;
 	}
 
 }

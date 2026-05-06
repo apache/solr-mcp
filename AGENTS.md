@@ -8,7 +8,7 @@ Solr MCP Server is a Spring AI Model Context Protocol (MCP) server that enables 
 
 - **Status:** Apache incubating project (v0.0.2-SNAPSHOT)
 - **Java:** 25+ (centralized in build.gradle.kts)
-- **Framework:** Spring Boot 3.5.13, Spring AI 1.1.4
+- **Framework:** Spring Boot 4.0.6, Spring AI 2.0.0-M5
 - **License:** Apache 2.0
 
 ## Common Commands
@@ -94,37 +94,26 @@ corrupts the protocol. Logging is configured in two layers:
 
 Spring Boot Buildpacks output logs to stdout, breaking MCP's STDIO protocol. Jib produces clean images with no stdout pollution, plus faster builds and multi-platform support (amd64/arm64).
 
-### GraalVM Native Image (Opt-In)
+### Spring Boot 4 Notes
 
-An opt-in native image build is available via `-Pnative`, targeting the STDIO profile only.
-The native binary is compiled by `org.graalvm.buildtools.native` (`nativeCompile`) and packaged
-into a Docker image via `bootBuildImage` (Paketo buildpacks). Key configuration:
+This branch targets Spring Boot 4.0.6 ([release notes](https://spring.io/blog/2026/04/23/spring-boot-4-0-6-available-now))
+and Spring AI 2.0.0-M5. Key differences from the main (SB 3.x) branch:
 
-- **Opt-in flag:** `val nativeBuild = project.hasProperty("native")` in `build.gradle.kts`
-- **Cross-platform:** `bootBuildImage` compiles inside a Linux builder container, so it works on any host OS (macOS, Linux, Windows).
-- **AOT profile:** `processAot` runs with `--spring.profiles.active=stdio` under `-Pnative`
-  so security autoconfig exclusions from `application-stdio.properties` are applied during
-  hint generation. The `@SpringBootApplication` annotation is **not** modified.
-- **OTel build-time init:** OTel instrumentation BOM 2.11.0 lacks native metadata;
-  `--initialize-at-build-time` is set for `io.opentelemetry.api`, `io.opentelemetry.context`,
-  `io.opentelemetry.instrumentation.api`, and `io.opentelemetry.instrumentation.logback`.
-  Do **NOT** add `io.opentelemetry.instrumentation.spring` — it contains CGLIB proxies.
-- **Reflection hints:** `SolrNativeHints.java` registers hints that Spring AOT does
-  not generate automatically:
-  - **SolrJ types** (no native metadata): `QueryResponse`, `UpdateResponse`, `NamedList`,
-    `SimpleOrderedMap`, `SolrDocument`, `SolrDocumentList`, `SolrInputDocument`,
-    `SolrInputField`, `FacetField`, `FacetField.Count`
-  - **MCP tool response records** (invisible to AOT because the MCP framework uses
-    generic `Object` dispatch): `CollectionCreationResult`, `SolrHealthStatus`,
-    `SolrMetrics`, `IndexStats`, `QueryStats`, `CacheStats`, `CacheInfo`,
-    `HandlerStats`, `HandlerInfo`, `FieldStats`, `SearchResponse`
-  - **Resource**: `logback.xml` (see Logging Architecture above)
-- **Wire format:** `SolrConfig` uses `XMLRequestWriter` instead of the default
-  `JavaBinRequestWriter`. The JavaBin binary codec uses deep reflection that would
-  require extensive additional native image hints.
-- **Docker tags:** JVM image = `solr-mcp:<version>` (Jib), native image = `solr-mcp:<version>-native` (bootBuildImage)
-- **CI:** Separate `native.yml` workflow; native failures do not block JVM-path merges.
-- **Spec:** [docs/specs/graalvm-native-image.md](docs/specs/graalvm-native-image.md)
+- **Jackson 3:** `tools.jackson.databind` replaces `com.fasterxml.jackson.databind`. Annotations
+  remain in `com.fasterxml.jackson.annotation`.
+- **MCP Annotations:** Package moved from `org.springaicommunity.mcp.annotation` to
+  `org.springframework.ai.mcp.annotation` in Spring AI 2.0.
+- **Testcontainers 2.x:** Module names changed (e.g., `testcontainers-junit-jupiter`, `testcontainers-solr`).
+- **JSpecify:** Built into Spring Boot 4 — no separate dependency needed.
+- **`spring-boot-starter-aop` removed:** Replaced by `spring-boot-starter-aspectj` for
+  `@Observed` annotation support.
+- **Observability:** Uses `spring-boot-starter-opentelemetry` (SB4 idiomatic) for traces,
+  metrics, and log export via OTLP. The old `micrometer-tracing-bridge-otel` + manual OTel BOM
+  approach from SB 3.x is no longer needed.
+- **MCP SDK:** Uses `io.modelcontextprotocol.sdk:mcp:2.0.0-M2` with Jackson 3 module
+  (`mcp-json-jackson3`).
+- **Span naming:** `@Observed` spans use `ClassName#methodName` (PascalCase) instead of
+  SB3's `class-name#method-name` (kebab-case).
 
 ## Testing Structure
 
@@ -157,7 +146,7 @@ Remaining known differences from Solr 9:
 - **`/admin/mbeans` removed:** Cache and handler stats from `getCollectionStats()` will always be `null` on Solr 10. A future migration to `/admin/metrics` will restore these metrics.
 - **Metrics migration:** Dropwizard metrics replaced by OpenTelemetry. Metric names switch to snake_case in Solr 10.
 - **SolrJ base URL:** Already uses root URLs — **no change needed**.
-- **SolrJ 10.x dependency:** Not yet on Maven Central (as of 2026-03-06); tests use SolrJ 9.x against a Solr 10 server. Update `solr-solrj` and Jetty BOM when 10.x is released.
+- **SolrJ 10.x dependency:** Using SolrJ 10.0.0.
 
 ## Key Configuration
 
