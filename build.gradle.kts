@@ -583,10 +583,8 @@ graalvmNative {
     // Tests that are incompatible with native image are annotated
     // @DisabledInNativeImage and skipped during nativeTest:
     //   - Mockito-based tests (ByteBuddy cannot generate classes at run time)
-    //   - SolrJ indexing/query integration tests (response parsing uses
-    //     reflection that lacks native-image metadata)
-    // Collection management, schema, and observability integration tests
-    // run normally in the native binary.
+    // Testcontainers-based integration tests (collection, indexing, search,
+    // schema, observability) run normally in the native binary.
     binaries {
         named("test") {
             // The test binary inherits the OTel --initialize-at-build-time entries
@@ -602,6 +600,13 @@ graalvmNative {
                 // AndroidFriendlyRandomHolder creates a java.util.Random in <clinit>,
                 // which GraalVM forbids in the image heap (stale seed).
                 "--initialize-at-run-time=io.opentelemetry.sdk.internal.AndroidFriendlyRandomHolder",
+                // The GraalVM native JUnit launcher embeds test discovery results
+                // (InternalTestPlan, descriptors, TestTag, etc.) in the image heap
+                // at build time. This pulls in classes from multiple JUnit packages
+                // that must all be initialized at build time.
+                "--initialize-at-build-time=org.junit.platform.launcher",
+                "--initialize-at-build-time=org.junit.platform.engine",
+                "--initialize-at-build-time=org.junit.jupiter.engine.descriptor",
             )
         }
     }
