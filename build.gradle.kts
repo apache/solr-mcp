@@ -112,31 +112,35 @@ configurations {
 
 repositories {
     mavenCentral()
+    maven { url = uri("https://repo.spring.io/milestone") }
 }
 
 dependencies {
 
-    developmentOnly(libs.bundles.spring.boot.dev)
+    developmentOnly(libs.spring.boot.docker.compose)
+    developmentOnly(libs.spring.ai.spring.boot.docker.compose) {
+        exclude(group = "org.springframework.boot", module = "spring-boot-starter-mongodb")
+    }
 
-    implementation(libs.spring.boot.starter.web)
+    implementation(libs.spring.boot.starter.webmvc)
+    implementation(libs.spring.boot.starter.json)
     implementation(libs.spring.boot.starter.actuator)
-    implementation(libs.spring.boot.starter.aop)
     implementation(libs.spring.ai.starter.mcp.server.webmvc)
     implementation(libs.solr.solrj)
     implementation(libs.commons.csv)
-    // JSpecify for nullability annotations
-    implementation(libs.jspecify)
-
-    implementation(platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.11.0"))
-    implementation("io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter")
-    implementation(libs.micrometer.tracing.bridge.otel)
-
-    implementation("io.micrometer:micrometer-registry-prometheus")
 
     // Security
     implementation(libs.mcp.server.security)
     implementation(libs.spring.boot.starter.security)
     implementation(libs.spring.boot.starter.oauth2.resource.server)
+
+    // Observability: Spring Boot 4 idiomatic OpenTelemetry support
+    // spring-boot-starter-opentelemetry provides traces, metrics, and log export via OTLP
+    // spring-boot-starter-aspectj enables @Observed annotation support (replaces starter-aop in SB4)
+    implementation(libs.spring.boot.starter.opentelemetry)
+    implementation(libs.spring.boot.starter.aspectj)
+    implementation(libs.opentelemetry.logback.appender)
+    runtimeOnly(libs.micrometer.registry.otlp)
 
     // Error Prone and NullAway for null safety analysis
     errorprone(libs.errorprone.core)
@@ -149,6 +153,18 @@ dependencies {
 dependencyManagement {
     imports {
         mavenBom("org.springframework.ai:spring-ai-bom:${libs.versions.spring.ai.get()}")
+    }
+}
+
+// Force opentelemetry-proto to a version compiled with protobuf 3.x
+// This resolves NoSuchMethodError with protobuf 4.x
+// See: https://github.com/micrometer-metrics/micrometer/issues/5658
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "io.opentelemetry.proto" && requested.name == "opentelemetry-proto") {
+            useVersion("1.3.2-alpha")
+            because("Version 1.8.0-alpha has protobuf 4.x incompatibility causing NoSuchMethodError")
+        }
     }
 }
 
@@ -256,6 +272,20 @@ tasks.withType<JavaCompile>().configureEach {
         disableAllChecks.set(true) // Other error prone checks are disabled
         option("NullAway:OnlyNullMarked", "true") // Enable nullness checks only in null-marked code
         error("NullAway") // bump checks from warnings (default) to errors
+    }
+}
+
+// Disable Error Prone / NullAway for AOT-generated sources. The GraalVM native
+// plugin registers compileAotJava and compileAotTestJava tasks that compile
+// Spring Boot AOT-generated bean definitions. These generated sources contain
+// patterns (e.g., args.get(0)) that NullAway flags as nullable, but they are
+// correct code produced by the Spring AOT engine and cannot be modified.
+tasks.matching { it.name == "compileAotJava" || it.name == "compileAotTestJava" }.configureEach {
+    if (this is JavaCompile) {
+        options.errorprone {
+            disableAllChecks.set(true)
+            disable("NullAway")
+        }
     }
 }
 
@@ -467,9 +497,12 @@ jib {
     }
 
     from {
+        // Use Eclipse Temurin JRE 25 as the base image
+        // Temurin is the open-source build of OpenJDK from Adoptium
         image = "eclipse-temurin:25-jre"
 
-        // Multi-arch: build for both amd64 and arm64
+        // Multi-platform support for both AMD64 and ARM64 architectures
+        // This allows the image to run on x86_64 machines and Apple Silicon (M1/M2/M3)
         platforms {
             platform {
                 architecture = "amd64"
@@ -483,20 +516,26 @@ jib {
     }
 
     to {
+        // Default image name (can be overridden with -Djib.to.image=...)
+        // Format: repository/image-name:tag
         image = "solr-mcp:$version"
+
+        // Tags to apply to the image
+        // The version tag is applied by default, plus "latest" tag
         tags = setOf("latest")
     }
 
     container {
-        // Disable Spring Boot Docker Compose support when running in container.
-        // Docker Compose integration is disabled in the container image.
-        // It is only useful for local development (HTTP profile) where
-        // the host has Docker and a compose.yaml. Inside a container,
-        // Docker Compose cannot start sibling containers without a
-        // Docker socket mount, so it must be turned off.
-        // The application-stdio.properties also disables it for STDIO mode.
-        environment = mapOf("SPRING_DOCKER_COMPOSE_ENABLED" to "false")
+        // Container environment variables
+        // These are baked into the image but can be overridden at runtime
+        environment =
+            mapOf(
+                // Disable Spring Boot Docker Compose support when running in container
+                "SPRING_DOCKER_COMPOSE_ENABLED" to "false",
+            )
 
+        // JVM flags for containerized environments
+        // These optimize the JVM for running in containers
         jvmFlags =
             listOf(
                 // Use container-aware memory settings
@@ -573,7 +612,6 @@ graalvmNative {
             imageName.set("solr-mcp")
             // Uses shared nativeImageBuildArgs which include --no-fallback,
             // -H:+ReportExceptionStackTraces, and OTel --initialize-at-build-time entries.
-            // OTel instrumentation BOM 2.11.0 does not ship native-image metadata.
             // NOTE: do NOT use io.opentelemetry.instrumentation (too broad) — that
             // would catch Spring autoconfigure CGLIB proxies which cannot be build-time
             // initialized.
@@ -602,6 +640,12 @@ graalvmNative {
                 // AndroidFriendlyRandomHolder creates a java.util.Random in <clinit>,
                 // which GraalVM forbids in the image heap (stale seed).
                 "--initialize-at-run-time=io.opentelemetry.sdk.internal.AndroidFriendlyRandomHolder",
+                // The GraalVM native JUnit launcher embeds test discovery results
+                // (InternalTestPlan, descriptors, etc.) in the image heap at build
+                // time. This pulls in classes from multiple JUnit packages that must
+                // all be initialized at build time.
+                "--initialize-at-build-time=org.junit.platform.launcher",
+                "--initialize-at-build-time=org.junit.jupiter.engine.descriptor",
             )
         }
     }

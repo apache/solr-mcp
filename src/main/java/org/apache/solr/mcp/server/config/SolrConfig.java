@@ -16,7 +16,6 @@
  */
 package org.apache.solr.mcp.server.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
@@ -24,6 +23,7 @@ import org.apache.solr.client.solrj.request.XMLRequestWriter;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Spring Configuration class for Apache Solr client setup and connection
@@ -167,8 +167,8 @@ public class SolrConfig {
 	 * @see SolrConfigurationProperties#url()
 	 */
 	@Bean
-	JsonResponseParser jsonResponseParser(ObjectMapper objectMapper) {
-		return new JsonResponseParser(objectMapper);
+	JsonResponseParser jsonResponseParser(JsonMapper jsonMapper) {
+		return new JsonResponseParser(jsonMapper);
 	}
 
 	@Bean
@@ -193,8 +193,10 @@ public class SolrConfig {
 		// JSON wire format for responses; XML wire format for update requests.
 		// The default JavaBin request writer uses a binary codec that requires
 		// additional reflection metadata in GraalVM native images.
+		// Force HTTP/1.1: the JDK HttpClient's HTTP/2 transport intermittently
+		// closes reused connections with an EOFException against Solr/Jetty.
 		return new HttpJdkSolrClient.Builder(url).withConnectionTimeout(CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-				.withIdleTimeout(SOCKET_TIMEOUT_MS, TimeUnit.MILLISECONDS).withResponseParser(jsonResponseParser)
-				.withRequestWriter(new XMLRequestWriter()).build();
+				.withIdleTimeout(SOCKET_TIMEOUT_MS, TimeUnit.MILLISECONDS).useHttp1_1(true)
+				.withResponseParser(jsonResponseParser).withRequestWriter(new XMLRequestWriter()).build();
 	}
 }

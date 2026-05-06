@@ -190,13 +190,11 @@ types actually used: `QueryResponse`, `UpdateResponse`, `NamedList`,
 
 ### 6.2 OpenTelemetry / Micrometer tracing
 
-The OpenTelemetry Spring Boot Starter officially supports native image
-in newer versions. However, the project currently pins
-`opentelemetry-instrumentation-bom:2.11.0`, which does **not** ship
-native-image reachability metadata. The version catalog declares `2.26.1`
-but bumping introduces an OTel SDK incompatibility with Spring Boot
-3.5.x (`io.opentelemetry.common.ComponentLoader` not found), so the
-bump is deferred until the OTel SDK and Spring Boot BOMs are aligned.
+Spring Boot 4 uses `spring-boot-starter-opentelemetry` which provides
+idiomatic OpenTelemetry support with better native image compatibility
+than the manual OTel BOM approach used in Spring Boot 3.x. The OTel
+logback appender (`opentelemetry-logback-appender-1.0`) is declared
+separately in the version catalog.
 
 **Build-time initialization workaround:** The OTel logback appender's
 `LoggingEventMapper` holds static `AttributeKey` fields (via
@@ -212,7 +210,7 @@ block adds targeted `--initialize-at-build-time` for four OTel packages:
 included — it contains CGLIB proxy classes that cannot be build-time
 initialized.
 
-The OTLP/gRPC exporter is only wired in the HTTP profile, so the STDIO
+The OTLP exporter is only wired in the HTTP profile, so the STDIO
 native image does not exercise its reflection surface.
 
 ### 6.3 Security / OAuth2 on classpath under STDIO
