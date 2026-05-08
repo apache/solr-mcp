@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.Date;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Data Transfer Objects (DTOs) for the Apache Solr MCP Server.
@@ -95,13 +96,13 @@ record SolrMetrics(
 		 * Cache utilization statistics for query result, document, and filter caches
 		 * (may be null)
 		 */
-		CacheStats cacheStats,
+		@Nullable CacheStats cacheStats,
 
 		/**
 		 * Request handler performance metrics for select and update operations (may be
 		 * null)
 		 */
-		HandlerStats handlerStats,
+		@Nullable HandlerStats handlerStats,
 
 		/** Timestamp when these metrics were collected, formatted as ISO 8601 */
 		@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") Date timestamp) {
@@ -145,7 +146,7 @@ record IndexStats(
 		 * Number of Lucene segments in the index (lower numbers generally indicate
 		 * better performance)
 		 */
-		Integer segmentCount) {
+		@Nullable Integer segmentCount) {
 }
 
 /**
@@ -231,8 +232,11 @@ record QueryStats(
 		/** Starting position for paginated results (0-based offset) */
 		Long start,
 
-		/** Highest relevance score among the returned documents */
-		Float maxScore) {
+		/**
+		 * Highest relevance score among the returned documents (null when scoring
+		 * disabled)
+		 */
+		@Nullable Float maxScore) {
 }
 
 /**
@@ -265,14 +269,16 @@ record QueryStats(
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record CacheStats(
-		/** Performance metrics for the query result cache */
-		CacheInfo queryResultCache,
+		/**
+		 * Performance metrics for the query result cache (null if cache not configured)
+		 */
+		@Nullable CacheInfo queryResultCache,
 
-		/** Performance metrics for the document cache */
-		CacheInfo documentCache,
+		/** Performance metrics for the document cache (null if cache not configured) */
+		@Nullable CacheInfo documentCache,
 
-		/** Performance metrics for the filter cache */
-		CacheInfo filterCache) {
+		/** Performance metrics for the filter cache (null if cache not configured) */
+		@Nullable CacheInfo filterCache) {
 }
 
 /**
@@ -359,11 +365,17 @@ record CacheInfo(
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record HandlerStats(
-		/** Performance metrics for the search/select request handler */
-		HandlerInfo selectHandler,
+		/**
+		 * Performance metrics for the search/select request handler (null if handler
+		 * unavailable)
+		 */
+		@Nullable HandlerInfo selectHandler,
 
-		/** Performance metrics for the document update request handler */
-		HandlerInfo updateHandler) {
+		/**
+		 * Performance metrics for the document update request handler (null if handler
+		 * unavailable)
+		 */
+		@Nullable HandlerInfo updateHandler) {
 }
 
 /**
@@ -397,20 +409,27 @@ record HandlerInfo(
 		/** Total number of requests processed by this handler */
 		Long requests,
 
-		/** Number of requests that resulted in errors */
-		Long errors,
+		/** Number of requests that resulted in errors (null if metric unavailable) */
+		@Nullable Long errors,
 
-		/** Number of requests that exceeded timeout limits */
-		Long timeouts,
+		/**
+		 * Number of requests that exceeded timeout limits (null if metric unavailable)
+		 */
+		@Nullable Long timeouts,
 
-		/** Cumulative time spent processing all requests (milliseconds) */
-		Long totalTime,
+		/**
+		 * Cumulative time spent processing all requests (milliseconds, null if metric
+		 * unavailable)
+		 */
+		@Nullable Long totalTime,
 
-		/** Average time per request in milliseconds */
-		Float avgTimePerRequest,
+		/**
+		 * Average time per request in milliseconds (null if unavailable or no requests)
+		 */
+		@Nullable Float avgTimePerRequest,
 
-		/** Average throughput in requests per second */
-		Float avgRequestsPerSecond) {
+		/** Average throughput in requests per second (null if unavailable) */
+		@Nullable Float avgRequestsPerSecond) {
 }
 
 /**
@@ -455,13 +474,18 @@ record SolrHealthStatus(
 		boolean isHealthy,
 
 		/** Detailed error message when isHealthy is false, null when healthy */
-		String errorMessage,
+		@Nullable String errorMessage,
 
-		/** Response time in milliseconds for the health check ping request */
-		Long responseTime,
+		/**
+		 * Response time in milliseconds for the health check ping request (null on
+		 * error)
+		 */
+		@Nullable Long responseTime,
 
-		/** Total number of documents currently indexed in the collection */
-		Long totalDocuments,
+		/**
+		 * Total number of documents currently indexed in the collection (null on error)
+		 */
+		@Nullable Long totalDocuments,
 
 		/** Timestamp when this health check was performed, formatted as ISO 8601 */
 		@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") Date lastChecked,
@@ -469,11 +493,13 @@ record SolrHealthStatus(
 		/** Name of the collection that was checked */
 		String collection,
 
-		/** Version of Solr server (when available) */
-		String solrVersion,
+		/** Version of Solr server (null when unavailable) */
+		@Nullable String solrVersion,
 
-		/** Additional status information or state description */
-		String status) {
+		/**
+		 * Additional status information or state description (null when unavailable)
+		 */
+		@Nullable String status) {
 }
 
 /**

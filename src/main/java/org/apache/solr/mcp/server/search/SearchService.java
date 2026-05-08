@@ -30,6 +30,7 @@ import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.params.FacetParams;
+import org.jspecify.annotations.Nullable;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -242,12 +243,12 @@ public class SearchService {
 			    }
 			""")
 	public SearchResponse search(@McpToolParam(description = "Solr collection to query") String collection,
-			@McpToolParam(description = "Solr q parameter. If none specified defaults to \"*:*\"", required = false) String query,
-			@McpToolParam(description = "Solr fq parameter", required = false) List<String> filterQueries,
-			@McpToolParam(description = "Solr facet fields", required = false) List<String> facetFields,
-			@McpToolParam(description = "Solr sort parameter", required = false) List<Map<String, String>> sortClauses,
-			@McpToolParam(description = "Starting offset for pagination", required = false) Integer start,
-			@McpToolParam(description = "Number of rows to return", required = false) Integer rows)
+			@McpToolParam(description = "Solr q parameter. If none specified defaults to \"*:*\"", required = false) @Nullable String query,
+			@McpToolParam(description = "Solr fq parameter", required = false) @Nullable List<String> filterQueries,
+			@McpToolParam(description = "Solr facet fields", required = false) @Nullable List<String> facetFields,
+			@McpToolParam(description = "Solr sort parameter", required = false) @Nullable List<Map<String, String>> sortClauses,
+			@McpToolParam(description = "Starting offset for pagination", required = false) @Nullable Integer start,
+			@McpToolParam(description = "Number of rows to return", required = false) @Nullable Integer rows)
 			throws SolrServerException, IOException {
 
 		// query
