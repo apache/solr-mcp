@@ -333,6 +333,7 @@ public class CollectionService {
 	 *         them
 	 * @see CollectionAdminRequest.List
 	 */
+	@PreAuthorize("isAuthenticated()")
 	@McpTool(name = "list-collections", description = "List solr collections")
 	public List<String> listCollections() {
 		try {
@@ -407,6 +408,7 @@ public class CollectionService {
 	 * @see LukeRequest
 	 * @see #extractCollectionName(String)
 	 */
+	@PreAuthorize("isAuthenticated()")
 	@McpTool(name = "get-collection-stats", description = "Get stats/metrics on a Solr collection")
 	public SolrMetrics getCollectionStats(
 			@McpToolParam(description = "Solr collection to get stats/metrics for") String collection)
@@ -955,6 +957,7 @@ public class CollectionService {
 	 * @see SolrHealthStatus
 	 * @see SolrPingResponse
 	 */
+	@PreAuthorize("isAuthenticated()")
 	@McpTool(name = "check-health", description = "Check health of a Solr collection")
 	public SolrHealthStatus checkHealth(@McpToolParam(description = "Solr collection") String collection) {
 		String actualCollection = extractCollectionName(collection);
