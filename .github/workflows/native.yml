@@ -26,7 +26,8 @@
 #
 # Jobs:
 #   - native-test: ./gradlew nativeTest against Solr via Testcontainers
-#   - native-image: build the native Docker image + run STDIO integration test
+#   - native-image: build the native Docker image + run dockerIntegrationTest
+#       (matrix over profile=[stdio, http] so both native variants are covered)
 #   - benchmark: compare JVM vs native image size / startup / RSS
 
 name: Native Image
@@ -71,9 +72,13 @@ jobs:
                 run: ./gradlew nativeTest -Pnative --no-daemon
 
     native-image:
-        name: native Docker image + STDIO integration
+        name: native Docker image (${{ matrix.profile }}) + integration
         runs-on: ubuntu-latest
         timeout-minutes: 60
+        strategy:
+            fail-fast: false
+            matrix:
+                profile: [stdio, http]
         steps:
             -   name: Checkout
                 uses: actions/checkout@v4
@@ -89,17 +94,17 @@ jobs:
             -   name: Grant execute permission for gradlew
                 run: chmod +x gradlew
 
-            -   name: Build native Docker image
-                run: ./gradlew bootBuildImage --no-daemon
+            -   name: Build native Docker image (${{ matrix.profile }})
+                run: ./gradlew bootBuildImage -Pnative -Pprofile=${{ matrix.profile }} --no-daemon
 
-            -   name: Run STDIO integration test against native image
-                run: ./gradlew dockerIntegrationTest -Pnative --no-daemon
+            -   name: Run integration tests against native ${{ matrix.profile }} image
+                run: ./gradlew dockerIntegrationTest -Pnative -Pprofile=${{ matrix.profile }} --no-daemon
 
             -   name: Upload integration test results
                 if: always()
                 uses: actions/upload-artifact@v4
                 with:
-                    name: native-integration-results
+                    name: native-integration-results-${{ matrix.profile }}
                     path: build/reports/dockerIntegrationTest
                     retention-days: 7
 

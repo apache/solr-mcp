@@ -54,6 +54,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @SpringBootTest(properties = {
 		// Enable HTTP mode for observability
 		"spring.profiles.active=http",
+		// Tracing test does not exercise the OAuth2 filter chain; opt out of
+		// secure-by-default to avoid requiring a live JWKS endpoint at startup.
+		"http.security.enabled=false",
 		// Disable OTLP export in tests - we're using SimpleTracer instead
 		"management.otlp.tracing.endpoint=", "management.opentelemetry.logging.export.otlp.enabled=false",
 		// Ensure 100% sampling for tests

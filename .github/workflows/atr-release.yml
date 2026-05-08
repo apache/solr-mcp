@@ -29,7 +29,7 @@
 # 3. Request ATR onboarding from dev@tooling.apache.org
 #
 # STATUS: Workflow is ready but prerequisites are not met
-# See: dev-docs/ATR_TESTING_GUIDE.md for complete implementation path
+# See: docs/development/ATR_TESTING_GUIDE.md for complete implementation path
 #
 # WHEN TO USE:
 # -----------

@@ -41,6 +41,12 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
 
 	private static final int MAX_INPUT_SIZE_BYTES = 10 * 1024 * 1024;
 
+	private final ObjectMapper objectMapper;
+
+	public JsonDocumentCreator(ObjectMapper objectMapper) {
+		this.objectMapper = objectMapper;
+	}
+
 	/**
 	 * Creates a list of schema-less SolrInputDocument objects from a JSON string.
 	 *
@@ -111,8 +117,7 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
 		List<SolrInputDocument> documents = new ArrayList<>();
 
 		try {
-			ObjectMapper mapper = new ObjectMapper();
-			JsonNode rootNode = mapper.readTree(json);
+			JsonNode rootNode = this.objectMapper.readTree(json);
 
 			if (rootNode.isArray()) {
 				for (JsonNode item : rootNode) {

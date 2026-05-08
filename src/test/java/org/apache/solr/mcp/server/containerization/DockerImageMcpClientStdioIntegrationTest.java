@@ -1,0 +1,74 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.solr.mcp.server.containerization;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.modelcontextprotocol.client.McpClient;
+import io.modelcontextprotocol.client.McpSyncClient;
+import io.modelcontextprotocol.client.transport.ServerParameters;
+import io.modelcontextprotocol.client.transport.StdioClientTransport;
+import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
+import org.apache.solr.mcp.server.BuildInfoReader;
+import org.apache.solr.mcp.server.McpClientIntegrationTestBase;
+import org.junit.jupiter.api.Tag;
+import org.testcontainers.containers.SolrContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
+
+/**
+ * End-to-end MCP STDIO test against the Paketo Docker image built by
+ * {@code bootBuildImage}. Spawns {@code docker run -i} as the MCP server
+ * subprocess and drives the full MCP tool-call workflow over the JSON-RPC stdio
+ * protocol — exactly how a client like Claude Desktop would use it.
+ *
+ * <p>
+ * This is the protocol-level verification of stdout cleanliness. If Paketo's
+ * libjvm helpers (memory calculator, NMT, ca-certificates) write to stdout
+ * before the JVM starts, the MCP client's JSON-RPC parser will choke on those
+ * lines and {@code initialize()} will fail.
+ *
+ * <p>
+ * Image under test: {@link BuildInfoReader#getDockerImageName()} plus the
+ * {@code solr.mcp.docker.image.tag.suffix} system property (set to
+ * {@code -native} for {@code dockerIntegrationTest -Pnative}, empty otherwise).
+ */
+@Tag("docker-integration")
+@Testcontainers(disabledWithoutDocker = true)
+class DockerImageMcpClientStdioIntegrationTest extends McpClientIntegrationTestBase {
+
+	private static final String DOCKER_IMAGE = BuildInfoReader.getDockerImageName()
+			+ System.getProperty("solr.mcp.docker.image.tag.suffix", "");
+
+	@Container
+	static final SolrContainer solrContainer = new SolrContainer(
+			DockerImageName.parse(System.getProperty("solr.test.image", "solr:9.9-slim")));
+
+	@Override
+	protected McpSyncClient createClient() {
+		String solrUrl = "http://host.docker.internal:" + solrContainer.getMappedPort(8983) + "/solr/";
+
+		var params = ServerParameters.builder("docker")
+				.args("run", "-i", "--rm", "--add-host=host.docker.internal:host-gateway", "-e", "SOLR_URL=" + solrUrl,
+						"-e", "SPRING_DOCKER_COMPOSE_ENABLED=false", DOCKER_IMAGE)
+				.build();
+
+		var transport = new StdioClientTransport(params, new JacksonMcpJsonMapper(new ObjectMapper()));
+		return McpClient.sync(transport).build();
+	}
+
+}

@@ -193,11 +193,13 @@ public class IndexingService {
 	 */
 	@PreAuthorize("isAuthenticated()")
 	@McpTool(name = "index-json-documents", description = "Index documents from json String into Solr collection")
-	public void indexJsonDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
+	public String indexJsonDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "JSON string containing documents to index") String json)
 			throws IOException, SolrServerException {
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
-		indexDocuments(collection, schemalessDoc);
+		int successCount = indexDocuments(collection, schemalessDoc);
+		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
+				+ collection + "'";
 	}
 
 	/**
@@ -259,11 +261,13 @@ public class IndexingService {
 	 */
 	@PreAuthorize("isAuthenticated()")
 	@McpTool(name = "index-csv-documents", description = "Index documents from CSV string into Solr collection")
-	public void indexCsvDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
+	public String indexCsvDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "CSV string containing documents to index") String csv)
 			throws IOException, SolrServerException {
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromCsv(csv);
-		indexDocuments(collection, schemalessDoc);
+		int successCount = indexDocuments(collection, schemalessDoc);
+		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
+				+ collection + "'";
 	}
 
 	/**
@@ -349,11 +353,13 @@ public class IndexingService {
 	 */
 	@PreAuthorize("isAuthenticated()")
 	@McpTool(name = "index-xml-documents", description = "Index documents from XML string into Solr collection")
-	public void indexXmlDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
+	public String indexXmlDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "XML string containing documents to index") String xml)
 			throws ParserConfigurationException, SAXException, IOException, SolrServerException {
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromXml(xml);
-		indexDocuments(collection, schemalessDoc);
+		int successCount = indexDocuments(collection, schemalessDoc);
+		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
+				+ collection + "'";
 	}
 
 	/**
