@@ -50,9 +50,20 @@ class HttpSecurityConfiguration {
 					auth.requestMatchers("/mcp").permitAll();
 					auth.anyRequest().authenticated();
 				})
-				// Configure OAuth2 on the MCP server
+				// Configure OAuth2 on the MCP server.
+				//
+				// resourcePath: declares "/mcp" as the canonical resource indicator
+				// for OAuth 2.0 Protected Resource Metadata (RFC 9728), which is what
+				// MCP clients use to discover the authorization server.
+				//
+				// validateAudienceClaim: per the MCP Authorization specification, MCP
+				// servers MUST validate that tokens were specifically issued for them.
+				// The audience is matched against the resource indicator (RFC 8707)
+				// configured above. The IdP must populate the JWT "aud" claim
+				// accordingly — see docs/security/http.md for IdP configuration notes.
 				.with(McpServerOAuth2Configurer.mcpServerOAuth2(),
-						mcpAuthorization -> mcpAuthorization.authorizationServer(issuerUrl))
+						mcpAuthorization -> mcpAuthorization.authorizationServer(issuerUrl).resourcePath("/mcp")
+								.validateAudienceClaim(true))
 				// MCP inspector
 				.cors(cors -> cors.configurationSource(corsConfigurationSource())).csrf(CsrfConfigurer::disable)
 				.build();
