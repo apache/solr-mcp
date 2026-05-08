@@ -70,7 +70,8 @@ class IndexingServiceIntegrationTest {
 		// Boot test
 		XmlDocumentCreator xmlDocumentCreator = new XmlDocumentCreator();
 		CsvDocumentCreator csvDocumentCreator = new CsvDocumentCreator();
-		JsonDocumentCreator jsonDocumentCreator = new JsonDocumentCreator();
+		JsonDocumentCreator jsonDocumentCreator = new JsonDocumentCreator(
+				new com.fasterxml.jackson.databind.ObjectMapper());
 
 		indexingDocumentCreator = new IndexingDocumentCreator(xmlDocumentCreator, csvDocumentCreator,
 				jsonDocumentCreator);
