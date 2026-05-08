@@ -450,7 +450,7 @@ Before this workflow can be used, you must complete:
 3. **Configure Secrets**
     - Add `ASF_USERNAME` secret with your ASF ID
 
-For complete implementation guide, see: [dev-docs/ATR_TESTING_GUIDE.md](ATR_TESTING_GUIDE.md)
+For complete implementation guide, see: [ATR Testing Guide](ATR_TESTING_GUIDE.md)
 
 #### When to Use (Future)
 
@@ -563,7 +563,7 @@ gh workflow run atr-release-test.yml \
 ✅ Complete prerequisites first:
    1. Implement automated signing
    2. Request ATR onboarding
-   3. See: dev-docs/ATR_TESTING_GUIDE.md
+   3. See: docs/development/ATR_TESTING_GUIDE.md
 ```
 
 ---
