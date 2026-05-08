@@ -1,6 +1,20 @@
 # Spec: GraalVM Native Image Support (Opt-In, bootBuildImage, STDIO)
 
-Status: Draft
+Status: **Partially superseded** — this spec describes the original plan
+(Jib for JVM images, `bootBuildImage` for native images, STDIO profile only
+for native). The current state has evolved:
+
+- Jib has been **dropped**. Both JVM and native images are now built with
+  `bootBuildImage` (Paketo Cloud Native Buildpacks).
+- Native AOT now processes both `stdio` and `http` profiles, so the native
+  image serves both modes via the runtime `PROFILES` env var.
+- The JVM Paketo image suffers from stdout pollution (libjvm helpers) and is
+  therefore HTTP-only; the native image is the recommended STDIO artifact.
+
+See `CLAUDE.md` (Image × Mode matrix) and `README.md` (Building Docker images)
+for the current commands and tradeoffs. The historical content below is kept
+for context on the original design decisions.
+
 Owner: TBD
 Target branch: `claude/graalvm-native-image-support-u1RqL`
 Related: [Spring AI 1.1 blog post](https://spring.io/blog/2025/05/20/your-first-spring-ai-1)
