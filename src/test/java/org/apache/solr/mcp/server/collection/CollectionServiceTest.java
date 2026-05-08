@@ -74,16 +74,14 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void listCollections_WhenExceptionOccurs_ShouldReturnEmptyList() throws Exception {
+	void listCollections_WhenExceptionOccurs_ShouldPropagate() throws Exception {
 		// Given - mock throws exception
 		when(solrClient.request(any(), any())).thenThrow(new SolrServerException("Connection error"));
 
-		// When
-		List<String> result = collectionService.listCollections();
-
-		// Then
-		assertNotNull(result);
-		assertTrue(result.isEmpty());
+		// When / Then - exception propagates to caller
+		SolrServerException exception = assertThrows(SolrServerException.class,
+				() -> collectionService.listCollections());
+		assertTrue(exception.getMessage().contains("Connection error"));
 	}
 
 	// Collection name extraction tests
@@ -365,7 +363,7 @@ class CollectionServiceTest {
 
 	// Collection validation tests
 	@Test
-	void getCollectionStats_NotFound() {
+	void getCollectionStats_NotFound() throws Exception {
 		CollectionService spyService = spy(collectionService);
 		doReturn(Collections.emptyList()).when(spyService).listCollections();
 
@@ -390,7 +388,7 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void validateCollectionExists_WithException() throws Exception {
+	void validateCollectionExists_WithEmptyList() throws Exception {
 		CollectionService spyService = spy(collectionService);
 		doReturn(Collections.emptyList()).when(spyService).listCollections();
 
@@ -402,9 +400,12 @@ class CollectionServiceTest {
 
 	// Cache metrics tests
 	@Test
-	void getCacheMetrics_WithNonExistentCollection_ShouldReturnNull() {
-		// When - Mock will not have collection configured
-		CacheStats result = collectionService.getCacheMetrics("nonexistent");
+	void getCacheMetrics_WithNonExistentCollection_ShouldReturnNull() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		doReturn(Collections.emptyList()).when(spyService).listCollections();
+
+		// When - collection not found in empty list
+		CacheStats result = spyService.getCacheMetrics("nonexistent");
 
 		// Then
 		assertNull(result);
@@ -426,7 +427,7 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void getCacheMetrics_CollectionNotFound() {
+	void getCacheMetrics_CollectionNotFound() throws Exception {
 		CollectionService spyService = spy(collectionService);
 		doReturn(Collections.emptyList()).when(spyService).listCollections();
 
@@ -543,9 +544,12 @@ class CollectionServiceTest {
 
 	// Handler metrics tests
 	@Test
-	void getHandlerMetrics_WithNonExistentCollection_ShouldReturnNull() {
-		// When - Mock will not have collection configured
-		HandlerStats result = collectionService.getHandlerMetrics("nonexistent");
+	void getHandlerMetrics_WithNonExistentCollection_ShouldReturnNull() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		doReturn(Collections.emptyList()).when(spyService).listCollections();
+
+		// When - collection not found in empty list
+		HandlerStats result = spyService.getHandlerMetrics("nonexistent");
 
 		// Then
 		assertNull(result);
@@ -568,7 +572,7 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void getHandlerMetrics_CollectionNotFound() {
+	void getHandlerMetrics_CollectionNotFound() throws Exception {
 		CollectionService spyService = spy(collectionService);
 		doReturn(Collections.emptyList()).when(spyService).listCollections();
 
@@ -714,23 +718,17 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void listCollections_Error() throws Exception {
+	void listCollections_SolrServerException_Propagates() throws Exception {
 		when(solrClient.request(any(), any())).thenThrow(new SolrServerException("Connection error"));
 
-		List<String> result = collectionService.listCollections();
-
-		assertNotNull(result);
-		assertTrue(result.isEmpty());
+		assertThrows(SolrServerException.class, () -> collectionService.listCollections());
 	}
 
 	@Test
-	void listCollections_IOError() throws Exception {
+	void listCollections_IOException_Propagates() throws Exception {
 		when(solrClient.request(any(), any())).thenThrow(new IOException("IO error"));
 
-		List<String> result = collectionService.listCollections();
-
-		assertNotNull(result);
-		assertTrue(result.isEmpty());
+		assertThrows(IOException.class, () -> collectionService.listCollections());
 	}
 
 	// Helper methods — mock the Solr Metrics API response format:
