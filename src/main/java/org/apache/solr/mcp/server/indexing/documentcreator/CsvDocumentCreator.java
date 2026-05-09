@@ -105,6 +105,10 @@ public class CsvDocumentCreator implements SolrDocumentCreator {
 	 * @see FieldNameSanitizer#sanitizeFieldName(String)
 	 */
 	public List<SolrInputDocument> create(String csv) throws DocumentProcessingException {
+		if (csv == null || csv.isBlank()) {
+			return new ArrayList<>();
+		}
+
 		if (csv.getBytes(StandardCharsets.UTF_8).length > MAX_INPUT_SIZE_BYTES) {
 			throw new DocumentProcessingException(
 					"Input too large: exceeds maximum size of " + MAX_INPUT_SIZE_BYTES + " bytes");
