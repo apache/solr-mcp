@@ -16,7 +16,9 @@
  */
 package org.apache.solr.mcp.server.config;
 
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
 
 /**
  * Spring Boot Configuration Properties record for Apache Solr connection
@@ -113,6 +115,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @see org.springframework.boot.context.properties.ConfigurationProperties
  * @see org.springframework.boot.context.properties.EnableConfigurationProperties
  */
+@Validated
 @ConfigurationProperties(prefix = "solr")
-public record SolrConfigurationProperties(String url) {
+public record SolrConfigurationProperties(@NotBlank String url) {
 }
