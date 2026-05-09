@@ -81,7 +81,10 @@ class JsonResponseParser extends ResponseParser {
 
 	@Override
 	public Collection<String> getContentTypes() {
-		return List.of(MediaType.APPLICATION_JSON_VALUE);
+		// Some Solr endpoints (notably /admin/ping and some standalone-mode handlers)
+		// return JSON-encoded bodies with Content-Type: text/plain. Accept it so SolrJ
+		// does not reject otherwise-valid responses.
+		return List.of(MediaType.APPLICATION_JSON_VALUE, MediaType.TEXT_PLAIN_VALUE);
 	}
 
 	@Override
