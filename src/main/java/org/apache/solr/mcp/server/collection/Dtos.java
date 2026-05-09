@@ -19,7 +19,7 @@ package org.apache.solr.mcp.server.collection;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import java.util.Date;
+import java.time.Instant;
 
 /**
  * Data Transfer Objects (DTOs) for the Apache Solr MCP Server.
@@ -104,7 +104,7 @@ record SolrMetrics(
 		HandlerStats handlerStats,
 
 		/** Timestamp when these metrics were collected, formatted as ISO 8601 */
-		@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") Date timestamp) {
+		@JsonFormat(shape = JsonFormat.Shape.STRING) Instant timestamp) {
 }
 
 /**
@@ -464,7 +464,7 @@ record SolrHealthStatus(
 		Long totalDocuments,
 
 		/** Timestamp when this health check was performed, formatted as ISO 8601 */
-		@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") Date lastChecked,
+		@JsonFormat(shape = JsonFormat.Shape.STRING) Instant lastChecked,
 
 		/** Name of the collection that was checked */
 		String collection,
@@ -497,5 +497,5 @@ record CollectionCreationResult(
 		String message,
 
 		/** Timestamp when the collection was created, formatted as ISO 8601 */
-		@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") Date createdAt) {
+		@JsonFormat(shape = JsonFormat.Shape.STRING) Instant createdAt) {
 }
