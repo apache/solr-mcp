@@ -196,8 +196,14 @@ public class SearchService {
 	 * @param collection
 	 *            The Solr collection to query
 	 * @param query
-	 *            The Solr query string (q parameter). Defaults to "*:*" if not
-	 *            specified
+	 *            The user-supplied search expression. To prevent local-param
+	 *            injection (e.g. {@code {!xmlparser ...}}, {@code {!join ...}},
+	 *            {@code {!func}}/{@code _val_}), this value is bound to the
+	 *            {@code qq} request parameter and dereferenced from a constant
+	 *            {@code q={!edismax v=$qq}}. The eDisMax parser is forced and does
+	 *            not honor a {@code {!parser ...}} prefix in its input, so any such
+	 *            prefix is treated as literal characters. Defaults to {@code *:*}
+	 *            if not specified
 	 * @param filterQueries
 	 *            List of filter queries (fq parameter)
 	 * @param facetFields
@@ -251,9 +257,18 @@ public class SearchService {
 			throws SolrServerException, IOException {
 
 		// query
+		//
+		// Security: bind user input via Solr parameter dereferencing so that the
+		// standard query parser never sees raw user input. The actual q value is
+		// the constant "{!edismax v=$qq}", which tells Solr to parse the value of
+		// the qq parameter using eDisMax. eDisMax does not honor a {!parser ...}
+		// local-param prefix inside its input, so injection attempts such as
+		// {!xmlparser ...}, {!join ...}, or {!func}/_val_ are treated as literal
+		// characters rather than parser switches. See CWE-943.
 		final SolrQuery solrQuery = new SolrQuery("*:*");
 		if (StringUtils.hasText(query)) {
-			solrQuery.setQuery(query);
+			solrQuery.setQuery("{!edismax v=$qq}");
+			solrQuery.set("qq", query);
 		}
 
 		// filter queries

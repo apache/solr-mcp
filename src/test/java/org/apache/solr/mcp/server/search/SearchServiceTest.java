@@ -34,6 +34,7 @@ import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
+import org.mockito.ArgumentCaptor;
 
 /**
  * Unit tests for SearchService with mocked SolrClient.
@@ -57,6 +58,7 @@ class SearchServiceTest {
 		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
 			SolrQuery q = invocation.getArgument(1);
 			assertEquals("*:*", q.getQuery());
+			assertNull(q.get("qq"));
 			return mockResponse;
 		});
 		SearchService localService = new SearchService(mockClient);
@@ -65,7 +67,110 @@ class SearchServiceTest {
 	}
 
 	@Test
-	void search_WithCustomQuery_ShouldUseProvidedQuery() throws Exception {
+	void search_WithBlankQuery_ShouldDefaultToMatchAllAndNotBindQq() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		QueryResponse mockResponse = mock(QueryResponse.class);
+		SolrDocumentList mockDocuments = createMockDocumentList();
+		when(mockResponse.getResults()).thenReturn(mockDocuments);
+		when(mockResponse.getFacetFields()).thenReturn(null);
+		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
+			SolrQuery q = invocation.getArgument(1);
+			assertEquals("*:*", q.getQuery());
+			assertNull(q.get("qq"));
+			return mockResponse;
+		});
+		SearchService localService = new SearchService(mockClient);
+		SearchResponse result = localService.search("test_collection", "   ", null, null, null, null, null);
+		assertNotNull(result);
+	}
+
+	@Test
+	void search_WithSimpleQueryString_ShouldBindToQqAndForceEdismax() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		QueryResponse mockResponse = mock(QueryResponse.class);
+		SolrDocumentList mockDocuments = createMockDocumentList();
+		when(mockResponse.getResults()).thenReturn(mockDocuments);
+		when(mockResponse.getFacetFields()).thenReturn(null);
+		ArgumentCaptor<SolrQuery> captor = ArgumentCaptor.forClass(SolrQuery.class);
+		when(mockClient.query(eq("test_collection"), captor.capture())).thenReturn(mockResponse);
+
+		SearchService localService = new SearchService(mockClient);
+		SearchResponse result = localService.search("test_collection", "laptop", null, null, null, null, null);
+		assertNotNull(result);
+
+		SolrQuery captured = captor.getValue();
+		assertEquals("{!edismax v=$qq}", captured.getQuery());
+		assertEquals("laptop", captured.get("qq"));
+	}
+
+	@Test
+	void search_WithXmlParserInjection_ShouldBindMaliciousStringToQq() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		QueryResponse mockResponse = mock(QueryResponse.class);
+		SolrDocumentList mockDocuments = createMockDocumentList();
+		when(mockResponse.getResults()).thenReturn(mockDocuments);
+		when(mockResponse.getFacetFields()).thenReturn(null);
+		ArgumentCaptor<SolrQuery> captor = ArgumentCaptor.forClass(SolrQuery.class);
+		when(mockClient.query(eq("test_collection"), captor.capture())).thenReturn(mockResponse);
+
+		String malicious = "{!xmlparser v='<root/>'}";
+		SearchService localService = new SearchService(mockClient);
+		SearchResponse result = localService.search("test_collection", malicious, null, null, null, null, null);
+		assertNotNull(result);
+
+		SolrQuery captured = captor.getValue();
+		// The constant q forces eDisMax — the malicious string MUST end up in qq,
+		// NOT in q where the standard parser would honor the {!xmlparser ...} prefix.
+		assertEquals("{!edismax v=$qq}", captured.getQuery());
+		assertEquals(malicious, captured.get("qq"));
+		assertFalse(captured.getQuery().contains("xmlparser"),
+				"q must not contain user-supplied parser switch directives");
+	}
+
+	@Test
+	void search_WithJoinParserInjection_ShouldBindMaliciousStringToQq() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		QueryResponse mockResponse = mock(QueryResponse.class);
+		SolrDocumentList mockDocuments = createMockDocumentList();
+		when(mockResponse.getResults()).thenReturn(mockDocuments);
+		when(mockResponse.getFacetFields()).thenReturn(null);
+		ArgumentCaptor<SolrQuery> captor = ArgumentCaptor.forClass(SolrQuery.class);
+		when(mockClient.query(eq("test_collection"), captor.capture())).thenReturn(mockResponse);
+
+		String malicious = "{!join from=id fromIndex=other to=id}*:*";
+		SearchService localService = new SearchService(mockClient);
+		SearchResponse result = localService.search("test_collection", malicious, null, null, null, null, null);
+		assertNotNull(result);
+
+		SolrQuery captured = captor.getValue();
+		assertEquals("{!edismax v=$qq}", captured.getQuery());
+		assertEquals(malicious, captured.get("qq"));
+		assertFalse(captured.getQuery().contains("join"), "q must not allow cross-collection {!join ...} injection");
+	}
+
+	@Test
+	void search_WithFunctionQueryInjection_ShouldBindMaliciousStringToQq() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		QueryResponse mockResponse = mock(QueryResponse.class);
+		SolrDocumentList mockDocuments = createMockDocumentList();
+		when(mockResponse.getResults()).thenReturn(mockDocuments);
+		when(mockResponse.getFacetFields()).thenReturn(null);
+		ArgumentCaptor<SolrQuery> captor = ArgumentCaptor.forClass(SolrQuery.class);
+		when(mockClient.query(eq("test_collection"), captor.capture())).thenReturn(mockResponse);
+
+		String malicious = "_val_:recip(rord(id),1,1000,1000)";
+		SearchService localService = new SearchService(mockClient);
+		SearchResponse result = localService.search("test_collection", malicious, null, null, null, null, null);
+		assertNotNull(result);
+
+		SolrQuery captured = captor.getValue();
+		assertEquals("{!edismax v=$qq}", captured.getQuery());
+		assertEquals(malicious, captured.get("qq"));
+		assertFalse(captured.getQuery().contains("_val_"), "q must not allow function-query (_val_) injection");
+	}
+
+	@Test
+	void search_WithCustomQuery_ShouldBindToQqParameter() throws Exception {
 		SolrClient mockClient = mock(SolrClient.class);
 		QueryResponse mockResponse = mock(QueryResponse.class);
 		String customQuery = "name:\"Spring Boot\"";
@@ -74,7 +179,8 @@ class SearchServiceTest {
 		when(mockResponse.getFacetFields()).thenReturn(null);
 		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
 			SolrQuery q = invocation.getArgument(1);
-			assertEquals(customQuery, q.getQuery());
+			assertEquals("{!edismax v=$qq}", q.getQuery());
+			assertEquals(customQuery, q.get("qq"));
 			return mockResponse;
 		});
 		SearchService localService = new SearchService(mockClient);
@@ -165,7 +271,8 @@ class SearchServiceTest {
 		when(mockResponse.getFacetFields()).thenReturn(createMockFacetFields());
 		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
 			SolrQuery captured = invocation.getArgument(1);
-			assertEquals(query, captured.getQuery());
+			assertEquals("{!edismax v=$qq}", captured.getQuery());
+			assertEquals(query, captured.get("qq"));
 			assertArrayEquals(filterQueries.toArray(), captured.getFilterQueries());
 			assertNotNull(captured.getFacetFields());
 			assertEquals(start, captured.getStart());
