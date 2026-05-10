@@ -645,6 +645,7 @@ graalvmNative {
                 // time. This pulls in classes from multiple JUnit packages that must
                 // all be initialized at build time.
                 "--initialize-at-build-time=org.junit.platform.launcher",
+                "--initialize-at-build-time=org.junit.platform.engine",
                 "--initialize-at-build-time=org.junit.jupiter.engine.descriptor",
             )
         }
