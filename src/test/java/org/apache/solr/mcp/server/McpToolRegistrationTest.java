@@ -25,6 +25,7 @@ import java.util.List;
 import org.apache.solr.mcp.server.collection.CollectionService;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.apache.solr.mcp.server.metadata.SchemaService;
+import org.apache.solr.mcp.server.refguide.RefGuideService;
 import org.apache.solr.mcp.server.search.SearchService;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.annotation.McpTool;
@@ -137,6 +138,26 @@ class McpToolRegistrationTest {
 	}
 
 	@Test
+	void testRefGuideServiceHasToolAnnotations() {
+		// Get all methods from RefGuideService
+		Method[] methods = RefGuideService.class.getDeclaredMethods();
+
+		// Find methods with @McpTool annotation
+		List<Method> mcpToolMethods = Arrays.stream(methods).filter(m -> m.isAnnotationPresent(McpTool.class)).toList();
+
+		// Verify at least one method has the annotation
+		assertFalse(mcpToolMethods.isEmpty(),
+				"RefGuideService should have at least one method with @McpTool annotation");
+
+		// Verify each tool has proper annotations
+		for (Method method : mcpToolMethods) {
+			McpTool toolAnnotation = method.getAnnotation(McpTool.class);
+			assertNotNull(toolAnnotation.description(), "Tool description should not be null");
+			assertFalse(toolAnnotation.description().isBlank(), "Tool description should not be blank");
+		}
+	}
+
+	@Test
 	void testAllMcpToolsHaveUniqueNames() {
 		// Collect all MCP tool names from all services
 		List<String> toolNames = new java.util.ArrayList<>();
@@ -152,6 +173,9 @@ class McpToolRegistrationTest {
 
 		// SchemaService
 		addToolNames(SchemaService.class, toolNames);
+
+		// RefGuideService
+		addToolNames(RefGuideService.class, toolNames);
 
 		// Verify all tool names are unique
 		long uniqueCount = toolNames.stream().distinct().count();
