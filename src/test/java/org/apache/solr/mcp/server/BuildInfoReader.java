@@ -89,10 +89,17 @@ public class BuildInfoReader {
 	/**
 	 * Gets the Docker image name in the format "artifact:version".
 	 *
-	 * @return Docker image name (e.g., "solr-mcp:1.0.0-SNAPSHOT")
+	 * <p>
+	 * When the {@code solr.mcp.docker.image.tag.suffix} system property is set
+	 * (e.g. {@code -native} for native image builds), the suffix is appended to the
+	 * version tag so the test resolves to the correct local Docker image.
+	 *
+	 * @return Docker image name (e.g., "solr-mcp:1.0.0-SNAPSHOT" or
+	 *         "solr-mcp:1.0.0-SNAPSHOT-native")
 	 */
 	public static String getDockerImageName() {
-		return String.format("%s:%s", getArtifact(), getVersion());
+		String suffix = System.getProperty("solr.mcp.docker.image.tag.suffix", "");
+		return String.format("%s:%s%s", getArtifact(), getVersion(), suffix);
 	}
 
 	/**
