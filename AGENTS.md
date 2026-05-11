@@ -123,17 +123,17 @@ and Spring AI 2.0.0-M5. Key differences from the main (SB 3.x) branch:
 
 ### Solr Version Compatibility Testing
 
-The Solr Docker image used in tests is configurable via the `solr.test.image` system property (default: `solr:9.9-slim`):
+The Solr Docker image used in tests is configurable via the `solr.test.image` system property (default: `solr:9.10-slim`):
 
 ```bash
-./gradlew test -Dsolr.test.image=solr:8.11-slim    # Solr 8.11
-./gradlew test -Dsolr.test.image=solr:9.4-slim     # Solr 9.4
-./gradlew test -Dsolr.test.image=solr:9.9-slim     # Solr 9.9 (default)
-./gradlew test -Dsolr.test.image=solr:9.10-slim    # Solr 9.10
+./gradlew test -Dsolr.test.image=solr:9.10-slim    # Solr 9.10 (default)
 ./gradlew test -Dsolr.test.image=solr:10-slim      # Solr 10
 ```
 
-**Tested compatible versions:** 8.11, 9.4, 9.9, 9.10, 10
+**Supported versions:** 9.10 (previous-major maintenance) and 10 (current). These are
+the only non-EOL Solr lines as of May 2026 — Solr 8.x is EOL (8.11.4 was the final
+release after Lucene 8 EOL) and Solr 9.x is maintained only on the 9.10.x branch.
+Older versions (8.11, 9.0–9.9) may still work but are not exercised in CI.
 
 ### Solr 10 Compatibility
 

@@ -174,9 +174,10 @@ jobs:
     # ============================================================================
     # Job 2: Solr Version Compatibility Tests
     # ============================================================================
-    # Tests the server against multiple Solr versions using Testcontainers.
-    # Runs in parallel so each Solr version is an independent job.
-    # Tested versions: 8.11, 9.4, 9.9, 9.10, 10
+    # Tests the server against currently supported (non-EOL) Solr versions using
+    # Testcontainers. As of May 2026: Solr 8.x is EOL and 9.x is maintained only
+    # at 9.10.x, so the matrix is 9.10 (previous-major maintenance) and 10
+    # (current).
     # ============================================================================
     solr-compatibility:
         name: Solr ${{ matrix.solr-version }} Compatibility
@@ -186,9 +187,6 @@ jobs:
             fail-fast: false
             matrix:
                 solr-version:
-                    - "8.11-slim"
-                    - "9.4-slim"
-                    - "9.9-slim"
                     - "9.10-slim"
                     - "10-slim"
 

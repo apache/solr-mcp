@@ -29,7 +29,7 @@
 #   - native-test: ./gradlew nativeTest against Solr via Testcontainers
 #   - native-image: build the native Docker image + run STDIO integration test
 #   - benchmark: compare JVM vs native image size / startup / RSS
-#   - native-solr-matrix: nightly only — nativeTest across Solr 8.11/9.4/9.10/10
+#   - native-solr-matrix: nightly only — nativeTest across non-EOL Solr 9.10/10
 
 name: Native Image
 
@@ -156,8 +156,6 @@ jobs:
             fail-fast: false
             matrix:
                 solr-version:
-                    - "8.11-slim"
-                    - "9.4-slim"
                     - "9.10-slim"
                     - "10-slim"
         steps:

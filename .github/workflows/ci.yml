@@ -25,7 +25,7 @@
 #   5. solr-compatibility - Multi-version Solr matrix (auto, src-gated)
 #
 # The solr-compatibility job runs automatically on every PR that touches
-# source or build files. Docs-only PRs skip it. Default Solr 9.9 is
+# source or build files. Docs-only PRs skip it. Default Solr 9.10 is
 # already covered by the integration-tests job.
 # ============================================================================
 
@@ -138,7 +138,7 @@ jobs:
     # Job 3: Integration Tests
     # ========================================================================
     # Runs Testcontainers-based integration tests against the default Solr
-    # version (9.9). These tests start real Solr containers via Docker.
+    # version (9.10). These tests start real Solr containers via Docker.
     # ========================================================================
     integration-tests:
         name: Integration Tests
@@ -175,10 +175,11 @@ jobs:
     # ========================================================================
     # Job 4: Solr Version Compatibility
     # ========================================================================
-    # Tests against multiple Solr versions to catch compatibility regressions.
-    # Runs automatically on every PR that touches src/build files (gated by
-    # the `changes` job). Solr 9.9 is omitted since it is already tested in
-    # integration-tests.
+    # Tests against currently supported (non-EOL) Solr versions. As of May 2026
+    # the only non-EOL lines are 9.x (maintained at 9.10.x) and 10.x. Older 9.x
+    # minors and the entire 8.x line are EOL. Runs on every PR that touches
+    # src/build files (gated by the `changes` job). The default integration-tests
+    # job uses 9.10-slim, so this matrix only adds 10-slim coverage.
     # ========================================================================
     solr-compatibility:
         name: Solr ${{ matrix.solr-version }} Compatibility
@@ -191,8 +192,6 @@ jobs:
             fail-fast: false
             matrix:
                 solr-version:
-                    - "9.4-slim"
-                    - "9.10-slim"
                     - "10-slim"
 
         steps:
