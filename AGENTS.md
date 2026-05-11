@@ -148,10 +148,15 @@ The Solr Docker image used in tests is configurable via the `solr.test.image` sy
 
 ### Solr 10 Compatibility
 
-Solr 10.0.0 is fully supported with the JSON wire format. The `/admin/mbeans` endpoint was
-removed in Solr 10; `getCacheMetrics()` and `getHandlerMetrics()` now catch `RuntimeException`
-(which covers `RemoteSolrException`) so they degrade gracefully and return `null`. Tests that
-check `cacheStats` and `handlerStats` already handle `null` values.
+Solr 10.0.0 is supported for the core search/index/admin paths over the JSON wire format.
+The `/admin/mbeans` endpoint was removed and `getCacheMetrics()` / `getHandlerMetrics()` were
+migrated to `/admin/metrics` in #61. **However, Solr 10 dropped XML/JSON/javabin output from
+`/admin/metrics` in favor of Prometheus and OTLP exposition formats** (SOLR-17458 / SIP-23),
+and renamed metrics to snake_case. Our existing JSON-keyed extraction therefore reads nothing
+on Solr 10; `getCacheMetrics()` and `getHandlerMetrics()` swallow the resulting error and
+return `null`. The three cache/handler integration tests use `Assumptions.assumeTrue(...)` to
+skip these assertions on Solr 10 while still validating them on Solr 8.11 / 9.x. A future
+migration to a Prometheus/OTLP-aware parser would restore these metrics on Solr 10.
 
 Remaining known differences from Solr 9:
 - **`/admin/mbeans` removed:** Cache and handler stats from `getCollectionStats()` will always be `null` on Solr 10. A future migration to `/admin/metrics` will restore these metrics.
