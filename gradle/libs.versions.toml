@@ -8,7 +8,7 @@ spotless = "7.0.2"
 graalvm-native = "0.10.6"
 
 # Main dependencies
-spring-ai = "2.0.0-M5"
+spring-ai = "2.0.0-M6"
 solr = "10.0.0"
 commons-csv = "1.14.1"
 mcp-server-security = "0.0.6"
