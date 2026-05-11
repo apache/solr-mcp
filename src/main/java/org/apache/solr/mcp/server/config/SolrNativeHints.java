@@ -96,6 +96,13 @@ public class SolrNativeHints {
 				hints.reflection().registerTypeIfPresent(classLoader, className, categories);
 			}
 
+			// Spring AI MCP reflectively instantiates DefaultMetaProvider via its
+			// no-arg constructor in MetaUtils.getMeta() when building resource
+			// specifications. AOT does not generate this hint automatically.
+			hints.reflection().registerTypeIfPresent(classLoader,
+					"org.springaicommunity.mcp.context.DefaultMetaProvider",
+					MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
+
 			// Include logback.xml in the native image so logback's early
 			// initialization (before Spring Boot) finds it and applies the
 			// NopStatusListener. Without this, logback falls through to
