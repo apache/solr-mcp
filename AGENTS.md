@@ -123,24 +123,29 @@ and Spring AI 2.0.0-M5. Key differences from the main (SB 3.x) branch:
 
 ### Solr Version Compatibility Testing
 
-The Solr Docker image used in tests is configurable via the `solr.test.image` system property (default: `solr:9.9-slim`):
+The Solr Docker image used in tests is configurable via the `solr.test.image` system property (default: `solr:9.10-slim`):
 
 ```bash
-./gradlew test -Dsolr.test.image=solr:8.11-slim    # Solr 8.11
-./gradlew test -Dsolr.test.image=solr:9.4-slim     # Solr 9.4
-./gradlew test -Dsolr.test.image=solr:9.9-slim     # Solr 9.9 (default)
-./gradlew test -Dsolr.test.image=solr:9.10-slim    # Solr 9.10
+./gradlew test -Dsolr.test.image=solr:9.10-slim    # Solr 9.10 (default)
 ./gradlew test -Dsolr.test.image=solr:10-slim      # Solr 10
 ```
 
-**Tested compatible versions:** 8.11, 9.4, 9.9, 9.10, 10
+**Supported versions:** 9.10 (previous-major maintenance) and 10 (current). These are
+the only non-EOL Solr lines as of May 2026 — Solr 8.x is EOL (8.11.4 was the final
+release after Lucene 8 EOL) and Solr 9.x is maintained only on the 9.10.x branch.
+Older versions (8.11, 9.0–9.9) may still work but are not exercised in CI.
 
 ### Solr 10 Compatibility
 
-Solr 10.0.0 is fully supported with the JSON wire format. The `/admin/mbeans` endpoint was
-removed in Solr 10; `getCacheMetrics()` and `getHandlerMetrics()` now catch `RuntimeException`
-(which covers `RemoteSolrException`) so they degrade gracefully and return `null`. Tests that
-check `cacheStats` and `handlerStats` already handle `null` values.
+Solr 10.0.0 is supported for the core search/index/admin paths over the JSON wire format.
+The `/admin/mbeans` endpoint was removed and `getCacheMetrics()` / `getHandlerMetrics()` were
+migrated to `/admin/metrics` in #61. **However, Solr 10 dropped XML/JSON/javabin output from
+`/admin/metrics` in favor of Prometheus and OTLP exposition formats** (SOLR-17458 / SIP-23),
+and renamed metrics to snake_case. Our existing JSON-keyed extraction therefore reads nothing
+on Solr 10; `getCacheMetrics()` and `getHandlerMetrics()` swallow the resulting error and
+return `null`. The three cache/handler integration tests use `Assumptions.assumeTrue(...)` to
+skip these assertions on Solr 10 while still validating them on Solr 8.11 / 9.x. A future
+migration to a Prometheus/OTLP-aware parser would restore these metrics on Solr 10.
 
 Remaining known differences from Solr 9:
 - **`/admin/mbeans` removed:** Cache and handler stats from `getCollectionStats()` will always be `null` on Solr 10. A future migration to `/admin/metrics` will restore these metrics.

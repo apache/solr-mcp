@@ -198,7 +198,7 @@ tasks.withType<Test> {
         }
     }
     // Forward solr.test.image system property to test JVMs for Solr version compatibility testing
-    systemProperty("solr.test.image", System.getProperty("solr.test.image", "solr:9.9-slim"))
+    systemProperty("solr.test.image", System.getProperty("solr.test.image", "solr:9.10-slim"))
     if (name != "dockerIntegrationTest") {
         finalizedBy(tasks.jacocoTestReport)
     }
@@ -234,7 +234,7 @@ tasks.register<Test>("integrationTest") {
     testClassesDirs = sourceSets["test"].output.classesDirs
     classpath = sourceSets["test"].runtimeClasspath
 
-    systemProperty("solr.test.image", System.getProperty("solr.test.image", "solr:9.9-slim"))
+    systemProperty("solr.test.image", System.getProperty("solr.test.image", "solr:9.10-slim"))
 
     mustRunAfter(tasks.named("unitTest"))
     finalizedBy(tasks.jacocoTestReport)
@@ -641,9 +641,9 @@ graalvmNative {
                 // which GraalVM forbids in the image heap (stale seed).
                 "--initialize-at-run-time=io.opentelemetry.sdk.internal.AndroidFriendlyRandomHolder",
                 // The GraalVM native JUnit launcher embeds test discovery results
-                // (InternalTestPlan, descriptors, etc.) in the image heap at build
-                // time. This pulls in classes from multiple JUnit packages that must
-                // all be initialized at build time.
+                // (InternalTestPlan, descriptors, TestTag, etc.) in the image heap
+                // at build time. This pulls in classes from multiple JUnit packages
+                // that must all be initialized at build time.
                 "--initialize-at-build-time=org.junit.platform.launcher",
                 "--initialize-at-build-time=org.junit.platform.engine",
                 "--initialize-at-build-time=org.junit.jupiter.engine.descriptor",

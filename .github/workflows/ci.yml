@@ -18,14 +18,15 @@
 # ============================================================================
 #
 # Validates pull requests against main with:
-#   1. build        - Compile + format check (fast feedback)
-#   2. unit-tests   - Pure unit tests (no Docker/Testcontainers)
-#   3. integration-tests - Testcontainers-based integration tests
-#   4. solr-compatibility - Multi-version Solr matrix (label-gated)
+#   1. changes      - Detect whether src/build files changed
+#   2. build        - Compile + format check (fast feedback)
+#   3. unit-tests   - Pure unit tests (no Docker/Testcontainers)
+#   4. integration-tests - Testcontainers-based integration tests
+#   5. solr-compatibility - Multi-version Solr matrix (auto, src-gated)
 #
-# The solr-compatibility job only runs when the PR has the
-# "solr-compatibility" label. Default Solr 9.9 is already covered
-# by the integration-tests job.
+# The solr-compatibility job runs automatically on every PR that touches
+# source or build files. Docs-only PRs skip it. Default Solr 9.10 is
+# already covered by the integration-tests job.
 # ============================================================================
 
 name: CI
@@ -43,6 +44,36 @@ permissions:
     contents: read
 
 jobs:
+    # ========================================================================
+    # Job 0: Changes
+    # ========================================================================
+    # Detects whether src/build files changed so docs-only PRs can skip the
+    # expensive Solr compatibility matrix.
+    # ========================================================================
+    changes:
+        name: Detect changes
+        runs-on: ubuntu-latest
+        timeout-minutes: 2
+        outputs:
+            src: ${{ steps.filter.outputs.src }}
+        steps:
+            -   name: Checkout code
+                uses: actions/checkout@v4
+
+            -   name: Detect source changes
+                id: filter
+                uses: dorny/paths-filter@v3
+                with:
+                    filters: |
+                        src:
+                          - 'src/**'
+                          - 'build.gradle.kts'
+                          - 'settings.gradle.kts'
+                          - 'gradle/**'
+                          - 'gradle.properties'
+                          - '.github/workflows/ci.yml'
+                          - '.github/actions/setup-java/**'
+
     # ========================================================================
     # Job 1: Build
     # ========================================================================
@@ -107,7 +138,7 @@ jobs:
     # Job 3: Integration Tests
     # ========================================================================
     # Runs Testcontainers-based integration tests against the default Solr
-    # version (9.9). These tests start real Solr containers via Docker.
+    # version (9.10). These tests start real Solr containers via Docker.
     # ========================================================================
     integration-tests:
         name: Integration Tests
@@ -144,24 +175,23 @@ jobs:
     # ========================================================================
     # Job 4: Solr Version Compatibility
     # ========================================================================
-    # Tests against multiple Solr versions to catch compatibility regressions.
-    # Only runs when the PR has the "solr-compatibility" label (opt-in).
-    # Solr 9.9 is omitted since it is already tested in integration-tests.
+    # Tests against currently supported (non-EOL) Solr versions. As of May 2026
+    # the only non-EOL lines are 9.x (maintained at 9.10.x) and 10.x. Older 9.x
+    # minors and the entire 8.x line are EOL. Runs on every PR that touches
+    # src/build files (gated by the `changes` job). The default integration-tests
+    # job uses 9.10-slim, so this matrix only adds 10-slim coverage.
     # ========================================================================
     solr-compatibility:
         name: Solr ${{ matrix.solr-version }} Compatibility
         runs-on: ubuntu-latest
-        needs: integration-tests
-        if: contains(github.event.pull_request.labels.*.name, 'solr-compatibility')
+        needs: [changes, integration-tests]
+        if: needs.changes.outputs.src == 'true'
         timeout-minutes: 30
 
         strategy:
             fail-fast: false
             matrix:
                 solr-version:
-                    - "8.11-slim"
-                    - "9.4-slim"
-                    - "9.10-slim"
                     - "10-slim"
 
         steps:

@@ -118,6 +118,15 @@ public class SolrNativeHints {
 			hints.resources().registerPattern("EnvToSyspropMappings.properties");
 			hints.resources().registerPattern("DeprecatedSystemPropertyMappings.properties");
 
+			// Older springaicommunity location of DefaultMetaProvider (Spring AI 1.x
+			// transitive). Spring AI 2.x relocated this to
+			// org.springframework.ai.mcp.annotation.context.DefaultMetaProvider,
+			// which is registered above. Kept defensively via registerTypeIfPresent
+			// so this is a no-op when the older class isn't on the classpath.
+			hints.reflection().registerTypeIfPresent(classLoader,
+					"org.springaicommunity.mcp.context.DefaultMetaProvider",
+					MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
+
 			// Include logback.xml in the native image so logback's early
 			// initialization (before Spring Boot) finds it and applies the
 			// NopStatusListener. Without this, logback falls through to
