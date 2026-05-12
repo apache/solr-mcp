@@ -23,11 +23,13 @@
 # Triggers:
 #   - Manual (workflow_dispatch)
 #   - PRs that touch native-related files
+#   - Nightly cron at 3 AM UTC (full Solr matrix coverage)
 #
 # Jobs:
 #   - native-test: ./gradlew nativeTest against Solr via Testcontainers
 #   - native-image: build the native Docker image + run STDIO integration test
 #   - benchmark: compare JVM vs native image size / startup / RSS
+#   - native-solr-matrix: nightly only — nativeTest across Solr 8.11/9.4/9.10/10
 
 name: Native Image
 
@@ -42,6 +44,9 @@ on:
             - '.github/workflows/native.yml'
             - 'src/main/java/**/*NativeHints*.java'
             - 'src/main/resources/META-INF/native-image/**'
+    schedule:
+        # 3 AM UTC daily — runs after the 2 AM nightly-build job.
+        - cron: '0 3 * * *'
 
 jobs:
     native-test:
@@ -133,3 +138,52 @@ jobs:
                     name: native-benchmark-results
                     path: docs/specs/benchmark-results.md
                     retention-days: 30
+
+    # ========================================================================
+    # native-solr-matrix (nightly only)
+    # ========================================================================
+    # Runs nativeTest against the full Solr compatibility matrix on the
+    # nightly cron schedule (and on manual workflow_dispatch). Skipped on
+    # PRs to keep PR feedback fast — PRs only get the default Solr version
+    # via the native-test job above.
+    # ========================================================================
+    native-solr-matrix:
+        name: nativeTest Solr ${{ matrix.solr-version }}
+        runs-on: ubuntu-latest
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        timeout-minutes: 60
+        strategy:
+            fail-fast: false
+            matrix:
+                solr-version:
+                    - "8.11-slim"
+                    - "9.4-slim"
+                    - "9.10-slim"
+                    - "10-slim"
+        steps:
+            -   name: Checkout
+                uses: actions/checkout@v4
+
+            -   name: Set up GraalVM JDK 25
+                uses: graalvm/setup-graalvm@v1
+                with:
+                    java-version: '25'
+                    distribution: 'graalvm'
+                    github-token: ${{ secrets.GITHUB_TOKEN }}
+                    cache: 'gradle'
+
+            -   name: Grant execute permission for gradlew
+                run: chmod +x gradlew
+
+            -   name: Run native tests against Solr ${{ matrix.solr-version }}
+                env:
+                    SOLR_VERSION: ${{ matrix.solr-version }}
+                run: ./gradlew nativeTest -Pnative --no-daemon "-Dsolr.test.image=solr:${SOLR_VERSION}"
+
+            -   name: Upload test results
+                if: always()
+                uses: actions/upload-artifact@v4
+                with:
+                    name: native-solr-${{ matrix.solr-version }}-results
+                    path: build/reports/tests/
+                    retention-days: 7
