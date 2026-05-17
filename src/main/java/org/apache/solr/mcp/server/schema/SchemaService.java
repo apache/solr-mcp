@@ -23,10 +23,13 @@ import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.client.solrj.request.schema.AnalyzerDefinition;
+import org.apache.solr.client.solrj.request.schema.FieldTypeDefinition;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
 import org.springaicommunity.mcp.annotation.McpResource;
@@ -290,6 +293,66 @@ public class SchemaService {
 
 		new SchemaRequest.MultiUpdate(updates).process(solrClient, collection);
 		return new SchemaUpdateResult(collection, true, names, new Date());
+	}
+
+	@PreAuthorize("isAuthenticated()")
+	@McpTool(name = "add-field-types", description = "Add one or more field types to a Solr collection schema. "
+			+ "Call get-schema first to inspect existing field types before adding. "
+			+ "Each map follows the Solr Schema API add-field-type shape: required keys "
+			+ "'name' and 'class', optional 'analyzer' (or 'indexAnalyzer'+'queryAnalyzer'), "
+			+ "and class-specific attributes. " + "Common recipes: "
+			+ "(1) case-insensitive exact match: class=solr.TextField with analyzer "
+			+ "{tokenizer:{class:solr.KeywordTokenizerFactory}, filters:[{class:solr.LowerCaseFilterFactory}]}; "
+			+ "(2) dense vector for semantic search: class=solr.DenseVectorField with "
+			+ "vectorDimension, similarityFunction (cosine/dot_product/euclidean), and knnAlgorithm=hnsw; "
+			+ "(3) autocomplete: class=solr.TextField with separate indexAnalyzer using EdgeNGramFilterFactory "
+			+ "and queryAnalyzer without it. " + "After adding a type, use add-fields to create fields of that type. "
+			+ "Commands run in input order; partial application possible on failure.")
+	public SchemaUpdateResult addFieldTypes(@McpToolParam(description = "Solr collection name") String collection,
+			@McpToolParam(description = "List of field type definitions (Solr add-field-type JSON shape)") List<Map<String, Object>> fieldTypes)
+			throws SolrServerException, IOException {
+		requireCollection(collection);
+		requireNonEmpty(fieldTypes, "fieldTypes");
+
+		List<String> names = new ArrayList<>(fieldTypes.size());
+		List<SchemaRequest.Update> updates = new ArrayList<>(fieldTypes.size());
+		for (Map<String, Object> fieldType : fieldTypes) {
+			names.add((String) fieldType.get("name"));
+			updates.add(new SchemaRequest.AddFieldType(toFieldTypeDefinition(fieldType)));
+		}
+
+		new SchemaRequest.MultiUpdate(updates).process(solrClient, collection);
+		return new SchemaUpdateResult(collection, true, names, new Date());
+	}
+
+	/**
+	 * Builds a {@link FieldTypeDefinition} from a flat input map matching the Solr
+	 * Schema API add-field-type JSON shape. SolrJ's {@code FieldTypeDefinition}
+	 * stores name/class and other scalar attributes inside an attributes map, with
+	 * analyzers pulled into typed sub-objects — so we can't deserialize the flat
+	 * input directly via Jackson.
+	 */
+	private FieldTypeDefinition toFieldTypeDefinition(Map<String, Object> input) {
+		FieldTypeDefinition def = new FieldTypeDefinition();
+		Map<String, Object> attributes = new LinkedHashMap<>(input);
+		Object analyzer = attributes.remove("analyzer");
+		Object indexAnalyzer = attributes.remove("indexAnalyzer");
+		Object queryAnalyzer = attributes.remove("queryAnalyzer");
+		def.setAttributes(attributes);
+		if (analyzer != null) {
+			def.setAnalyzer(toAnalyzerDefinition(analyzer));
+		}
+		if (indexAnalyzer != null) {
+			def.setIndexAnalyzer(toAnalyzerDefinition(indexAnalyzer));
+		}
+		if (queryAnalyzer != null) {
+			def.setQueryAnalyzer(toAnalyzerDefinition(queryAnalyzer));
+		}
+		return def;
+	}
+
+	private AnalyzerDefinition toAnalyzerDefinition(Object raw) {
+		return objectMapper.convertValue(raw, AnalyzerDefinition.class);
 	}
 
 	private static void requireCollection(String collection) {

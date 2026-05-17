@@ -200,4 +200,88 @@ class SchemaServiceTest {
 		assertThrows(SolrServerException.class,
 				() -> schemaService.addFields("col", List.of(Map.of("name", "x", "type", "string"))));
 	}
+
+	@Test
+	void addFieldTypes_blankCollection_throws() {
+		assertThrows(IllegalArgumentException.class,
+				() -> schemaService.addFieldTypes(null, List.of(Map.of("name", "x", "class", "solr.StrField"))));
+		assertThrows(IllegalArgumentException.class,
+				() -> schemaService.addFieldTypes("", List.of(Map.of("name", "x", "class", "solr.StrField"))));
+	}
+
+	@Test
+	void addFieldTypes_emptyList_throws() {
+		assertThrows(IllegalArgumentException.class, () -> schemaService.addFieldTypes("col", null));
+		assertThrows(IllegalArgumentException.class, () -> schemaService.addFieldTypes("col", List.of()));
+	}
+
+	@Test
+	void addFieldTypes_happyPathWithAnalyzer_buildsCorrectFieldTypeDefinition() throws Exception {
+		// Use a real ObjectMapper so convertValue actually works
+		ObjectMapper realMapper = new ObjectMapper();
+		SchemaService service = new SchemaService(solrClient, realMapper);
+
+		List<Map<String, Object>> types = List.of(Map.of("name", "text_lowercase", "class", "solr.TextField",
+				"analyzer", Map.of("tokenizer", Map.of("class", "solr.KeywordTokenizerFactory"), "filters",
+						List.of(Map.of("class", "solr.LowerCaseFilterFactory")))));
+
+		when(solrClient.request(any(SolrRequest.class), eq("col"))).thenReturn(new NamedList<>());
+
+		SchemaUpdateResult result = service.addFieldTypes("col", types);
+
+		assertTrue(result.success());
+		assertEquals(List.of("text_lowercase"), result.addedNames());
+
+		ArgumentCaptor<SolrRequest> captor = ArgumentCaptor.forClass(SolrRequest.class);
+		verify(solrClient).request(captor.capture(), eq("col"));
+		assertInstanceOf(MultiUpdate.class, captor.getValue());
+	}
+
+	@Test
+	void addFieldTypes_separateAnalyzers_buildsCorrectFieldTypeDefinition() throws Exception {
+		ObjectMapper realMapper = new ObjectMapper();
+		SchemaService service = new SchemaService(solrClient, realMapper);
+
+		List<Map<String, Object>> types = List.of(Map.of("name", "text_autocomplete", "class", "solr.TextField",
+				"indexAnalyzer",
+				Map.of("tokenizer", Map.of("class", "solr.KeywordTokenizerFactory"), "filters",
+						List.of(Map.of("class", "solr.LowerCaseFilterFactory"),
+								Map.of("class", "solr.EdgeNGramFilterFactory", "minGramSize", 2, "maxGramSize", 20))),
+				"queryAnalyzer", Map.of("tokenizer", Map.of("class", "solr.KeywordTokenizerFactory"), "filters",
+						List.of(Map.of("class", "solr.LowerCaseFilterFactory")))));
+
+		when(solrClient.request(any(SolrRequest.class), eq("col"))).thenReturn(new NamedList<>());
+
+		SchemaUpdateResult result = service.addFieldTypes("col", types);
+
+		assertTrue(result.success());
+		assertEquals(List.of("text_autocomplete"), result.addedNames());
+	}
+
+	@Test
+	void addFieldTypes_denseVectorField_noAnalyzer() throws Exception {
+		ObjectMapper realMapper = new ObjectMapper();
+		SchemaService service = new SchemaService(solrClient, realMapper);
+
+		List<Map<String, Object>> types = List.of(Map.of("name", "openai_embedding", "class", "solr.DenseVectorField",
+				"vectorDimension", 1536, "similarityFunction", "cosine", "knnAlgorithm", "hnsw"));
+
+		when(solrClient.request(any(SolrRequest.class), eq("col"))).thenReturn(new NamedList<>());
+
+		SchemaUpdateResult result = service.addFieldTypes("col", types);
+
+		assertTrue(result.success());
+		assertEquals(List.of("openai_embedding"), result.addedNames());
+	}
+
+	@Test
+	void addFieldTypes_solrThrows_propagates() throws Exception {
+		ObjectMapper realMapper = new ObjectMapper();
+		SchemaService service = new SchemaService(solrClient, realMapper);
+
+		when(solrClient.request(any(SolrRequest.class), eq("col"))).thenThrow(new SolrServerException("simulated"));
+
+		assertThrows(SolrServerException.class,
+				() -> service.addFieldTypes("col", List.of(Map.of("name", "x", "class", "solr.StrField"))));
+	}
 }
