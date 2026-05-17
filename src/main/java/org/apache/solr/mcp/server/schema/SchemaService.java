@@ -284,7 +284,7 @@ public class SchemaService {
 		List<String> names = new ArrayList<>(fields.size());
 		List<SchemaRequest.Update> updates = new ArrayList<>(fields.size());
 		for (Map<String, Object> field : fields) {
-			names.add(String.valueOf(field.get("name")));
+			names.add((String) field.get("name"));
 			updates.add(new SchemaRequest.AddField(field));
 		}
 
