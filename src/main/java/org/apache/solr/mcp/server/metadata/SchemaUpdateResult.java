@@ -16,6 +16,9 @@
  */
 package org.apache.solr.mcp.server.metadata;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.Date;
 import java.util.List;
 
@@ -27,5 +30,8 @@ import java.util.List;
  * produce a result. {@code addedNames} echoes the {@code name} field from each
  * input definition in input order, useful for confirming what was sent.
  */
-public record SchemaUpdateResult(String collection, boolean success, List<String> addedNames, Date timestamp) {
+@JsonIgnoreProperties(ignoreUnknown = true)
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public record SchemaUpdateResult(String collection, boolean success, List<String> addedNames,
+		@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") Date timestamp) {
 }
