@@ -207,6 +207,8 @@ class SchemaServiceTest {
 				() -> schemaService.addFieldTypes(null, List.of(Map.of("name", "x", "class", "solr.StrField"))));
 		assertThrows(IllegalArgumentException.class,
 				() -> schemaService.addFieldTypes("", List.of(Map.of("name", "x", "class", "solr.StrField"))));
+		assertThrows(IllegalArgumentException.class,
+				() -> schemaService.addFieldTypes("   ", List.of(Map.of("name", "x", "class", "solr.StrField"))));
 	}
 
 	@Test
