@@ -19,19 +19,26 @@ package org.apache.solr.mcp.server.schema;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
+import org.apache.solr.client.solrj.request.schema.SchemaRequest.MultiUpdate;
 import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
 import org.apache.solr.client.solrj.response.schema.SchemaResponse;
+import org.apache.solr.common.util.NamedList;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -148,5 +155,49 @@ class SchemaServiceTest {
 		assertDoesNotThrow(() -> {
 			new SchemaService(null, objectMapper);
 		});
+	}
+
+	@Test
+	void addFields_blankCollection_throws() {
+		assertThrows(IllegalArgumentException.class,
+				() -> schemaService.addFields(null, List.of(Map.of("name", "x", "type", "string"))));
+		assertThrows(IllegalArgumentException.class,
+				() -> schemaService.addFields("", List.of(Map.of("name", "x", "type", "string"))));
+		assertThrows(IllegalArgumentException.class,
+				() -> schemaService.addFields("   ", List.of(Map.of("name", "x", "type", "string"))));
+	}
+
+	@Test
+	void addFields_emptyList_throws() {
+		assertThrows(IllegalArgumentException.class, () -> schemaService.addFields("col", null));
+		assertThrows(IllegalArgumentException.class, () -> schemaService.addFields("col", List.of()));
+	}
+
+	@Test
+	void addFields_happyPath_buildsMultiUpdateAndEchoesNames() throws Exception {
+		List<Map<String, Object>> fields = List.of(
+				Map.of("name", "title", "type", "text_general", "stored", true, "indexed", true),
+				Map.of("name", "platform", "type", "string", "stored", true, "indexed", true, "docValues", true));
+
+		when(solrClient.request(any(SolrRequest.class), eq("col"))).thenReturn(new NamedList<>());
+
+		SchemaUpdateResult result = schemaService.addFields("col", fields);
+
+		assertTrue(result.success());
+		assertEquals(List.of("title", "platform"), result.addedNames());
+		assertEquals("col", result.collection());
+		assertNotNull(result.timestamp());
+
+		ArgumentCaptor<SolrRequest> captor = ArgumentCaptor.forClass(SolrRequest.class);
+		verify(solrClient).request(captor.capture(), eq("col"));
+		assertInstanceOf(MultiUpdate.class, captor.getValue());
+	}
+
+	@Test
+	void addFields_solrThrows_propagates() throws Exception {
+		when(solrClient.request(any(SolrRequest.class), eq("col"))).thenThrow(new SolrServerException("simulated"));
+
+		assertThrows(SolrServerException.class,
+				() -> schemaService.addFields("col", List.of(Map.of("name", "x", "type", "string"))));
 	}
 }

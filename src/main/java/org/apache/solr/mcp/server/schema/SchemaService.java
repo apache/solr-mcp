@@ -20,11 +20,18 @@ import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.observation.annotation.Observed;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
 import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
+import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
@@ -255,5 +262,45 @@ public class SchemaService {
 	public SchemaRepresentation getSchema(String collection) throws Exception {
 		SchemaRequest schemaRequest = new SchemaRequest();
 		return schemaRequest.process(solrClient, collection).getSchemaRepresentation();
+	}
+
+	@PreAuthorize("isAuthenticated()")
+	@McpTool(name = "add-fields", description = "Add one or more fields to a Solr collection schema. "
+			+ "Call get-schema first to inspect existing field configuration before adding. "
+			+ "Each field map follows the Solr Schema API add-field shape: required keys "
+			+ "'name' and 'type', plus optional 'stored', 'indexed', 'docValues', "
+			+ "'multiValued', 'required', 'omitNorms', etc. "
+			+ "Example: {\"name\":\"platform\",\"type\":\"string\",\"stored\":true,\"indexed\":true,\"docValues\":true}. "
+			+ "Use 'strings' (not 'string') for multi-valued string fields. "
+			+ "Note: this only adds new fields; existing fields cannot be modified. "
+			+ "Commands run in input order; if one fails mid-batch, prior commands remain applied "
+			+ "(use get-schema to inspect on failure).")
+	public SchemaUpdateResult addFields(@McpToolParam(description = "Solr collection name") String collection,
+			@McpToolParam(description = "List of field definitions (Solr add-field JSON shape)") List<Map<String, Object>> fields)
+			throws SolrServerException, IOException {
+		requireCollection(collection);
+		requireNonEmpty(fields, "fields");
+
+		List<String> names = new ArrayList<>(fields.size());
+		List<SchemaRequest.Update> updates = new ArrayList<>(fields.size());
+		for (Map<String, Object> field : fields) {
+			names.add(String.valueOf(field.get("name")));
+			updates.add(new SchemaRequest.AddField(field));
+		}
+
+		new SchemaRequest.MultiUpdate(updates).process(solrClient, collection);
+		return new SchemaUpdateResult(collection, true, names, new Date());
+	}
+
+	private static void requireCollection(String collection) {
+		if (collection == null || collection.isBlank()) {
+			throw new IllegalArgumentException("Collection name must not be blank");
+		}
+	}
+
+	private static void requireNonEmpty(List<?> list, String name) {
+		if (list == null || list.isEmpty()) {
+			throw new IllegalArgumentException(name + " must not be empty");
+		}
 	}
 }
