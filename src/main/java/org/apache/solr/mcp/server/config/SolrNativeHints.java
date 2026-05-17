@@ -91,6 +91,13 @@ public class SolrNativeHints {
 			hints.reflection().registerType(FacetField.class, categories);
 			hints.reflection().registerType(FacetField.Count.class, categories);
 
+			// SolrJ schema request types (needed for Jackson's convertValue in native
+			// image)
+			hints.reflection().registerType(org.apache.solr.client.solrj.request.schema.AnalyzerDefinition.class,
+					categories);
+			hints.reflection().registerType(org.apache.solr.client.solrj.request.schema.FieldTypeDefinition.class,
+					categories);
+
 			// MCP tool response records (package-private, registered by name)
 			for (String className : MCP_RESPONSE_RECORDS) {
 				hints.reflection().registerTypeIfPresent(classLoader, className, categories);
