@@ -86,6 +86,8 @@ public abstract class McpClientIntegrationTestBase {
 		assertTrue(toolNames.contains("check-health"), "Should have check-health tool");
 		assertTrue(toolNames.contains("get-collection-stats"), "Should have get-collection-stats tool");
 		assertTrue(toolNames.contains("get-schema"), "Should have get-schema tool");
+		assertTrue(toolNames.contains("add-fields"), "Should have add-fields tool");
+		assertTrue(toolNames.contains("add-field-types"), "Should have add-field-types tool");
 	}
 
 	@Test
@@ -277,6 +279,59 @@ public abstract class McpClientIntegrationTestBase {
 		Map<String, Object> response = OBJECT_MAPPER.readValue(extractText(result), new TypeReference<>() {
 		});
 		assertEquals(7, getNumFound(response), "Should find 7 documents (5 JSON + 2 CSV)");
+	}
+
+	@Test
+	@Order(16)
+	void addFieldsToTestCollection() throws Exception {
+		List<Map<String, Object>> fields = List.of(
+				Map.of("name", "platform", "type", "string", "stored", true, "indexed", true, "docValues", true),
+				Map.of("name", "release_year", "type", "pint", "stored", true, "indexed", true, "docValues", true),
+				Map.of("name", "genres", "type", "strings", "stored", true, "indexed", true, "docValues", true));
+
+		CallToolResult result = mcpClient
+				.callTool(new CallToolRequest("add-fields", Map.of("collection", COLLECTION, "fields", fields)));
+
+		assertNotNull(result);
+		assertNotError(result);
+		String text = extractText(result);
+		assertTrue(text.contains("platform"), "Result should mention added 'platform': " + text);
+		assertTrue(text.contains("release_year"), "Result should mention added 'release_year': " + text);
+		assertTrue(text.contains("genres"), "Result should mention added 'genres': " + text);
+	}
+
+	@Test
+	@Order(17)
+	void indexDocumentWithNewFields() {
+		String json = """
+				[
+				  {"id": "show-1", "title": "Breaking Bad", "author": "Vince Gilligan",
+				   "category": "show", "platform": "Netflix",
+				   "release_year": 2008, "genres": ["drama", "crime"]}
+				]
+				""";
+
+		CallToolResult result = mcpClient
+				.callTool(new CallToolRequest("index-json-documents", Map.of("collection", COLLECTION, "json", json)));
+
+		assertNotNull(result);
+		assertNotError(result);
+	}
+
+	@Test
+	@Order(18)
+	void searchWithNewFieldFilters() throws Exception {
+		CallToolResult byPlatform = mcpClient.callTool(new CallToolRequest("search",
+				Map.of("collection", COLLECTION, "query", "*:*", "filterQueries", List.of("platform:Netflix"))));
+		Map<String, Object> r1 = OBJECT_MAPPER.readValue(extractText(byPlatform), new TypeReference<>() {
+		});
+		assertEquals(1, getNumFound(r1), "Should find exactly 1 doc with platform=Netflix");
+
+		CallToolResult byGenre = mcpClient.callTool(new CallToolRequest("search",
+				Map.of("collection", COLLECTION, "query", "*:*", "filterQueries", List.of("genres:crime"))));
+		Map<String, Object> r2 = OBJECT_MAPPER.readValue(extractText(byGenre), new TypeReference<>() {
+		});
+		assertEquals(1, getNumFound(r2), "Multi-valued 'genres' should match on 'crime'");
 	}
 
 	protected static String extractText(CallToolResult result) {
