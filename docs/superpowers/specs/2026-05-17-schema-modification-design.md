@@ -72,7 +72,7 @@ Out of scope (issue #30 still partially open after merge):
 ## Architecture
 
 Add the two tools as methods on the existing `SchemaService`
-(`src/main/java/org/apache/solr/mcp/server/metadata/SchemaService.java`). Same package,
+(`src/main/java/org/apache/solr/mcp/server/schema/SchemaService.java`). Same package,
 same constructor dependencies (`SolrClient`, `ObjectMapper`), same annotations as
 `getSchema`. No new service class.
 
@@ -142,7 +142,7 @@ public SchemaUpdateResult addFieldTypes(
 ### Result type
 
 New record `SchemaUpdateResult` in a new file
-`src/main/java/org/apache/solr/mcp/server/metadata/SchemaUpdateResult.java`. Shape matches
+`src/main/java/org/apache/solr/mcp/server/schema/SchemaUpdateResult.java`. Shape matches
 `CollectionCreationResult` (project convention):
 
 ```java
@@ -257,7 +257,7 @@ Resource hints: none new.
 
 ### `SchemaServiceTest` (unit, Mockito, `@DisabledInNativeImage`)
 
-New file at `src/test/java/org/apache/solr/mcp/server/metadata/SchemaServiceTest.java`
+New file at `src/test/java/org/apache/solr/mcp/server/schema/SchemaServiceTest.java`
 (or extend if exists). Cases:
 
 - `addFields_blankCollection_throws()` — null and blank collection
@@ -274,7 +274,7 @@ New file at `src/test/java/org/apache/solr/mcp/server/metadata/SchemaServiceTest
 
 ### `SchemaServiceIntegrationTest` (Testcontainers, real Solr)
 
-New file `src/test/java/org/apache/solr/mcp/server/metadata/SchemaServiceIntegrationTest.java`.
+New file `src/test/java/org/apache/solr/mcp/server/schema/SchemaServiceIntegrationTest.java`.
 Pattern follows existing `*IntegrationTest` classes (real `SolrContainer`, real `SolrClient`).
 
 - `addFields_endToEnd_persistsToSchema()` — create collection via `CollectionService`, call
@@ -372,7 +372,7 @@ Untracked `.DS_Store` and the rest of `docs/superpowers/` stay alone.
 
 Per project + user CLAUDE.md:
 
-- Conventional Commits: `feat(metadata): add add-fields and add-field-types MCP tools`
+- Conventional Commits: `feat(schema): add add-fields and add-field-types MCP tools`
 - `Signed-off-by:` in every commit (user's global instruction; `git commit -s`)
 - `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`
 

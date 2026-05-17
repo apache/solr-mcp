@@ -15,13 +15,13 @@
 ## File Structure
 
 **Create:**
-- `src/main/java/org/apache/solr/mcp/server/metadata/SchemaUpdateResult.java` — MCP tool response record
+- `src/main/java/org/apache/solr/mcp/server/schema/SchemaUpdateResult.java` — MCP tool response record
 
 **Modify:**
-- `src/main/java/org/apache/solr/mcp/server/metadata/SchemaService.java` — add 2 `@McpTool` methods + 2 private helpers
+- `src/main/java/org/apache/solr/mcp/server/schema/SchemaService.java` — add 2 `@McpTool` methods + 2 private helpers
 - `src/main/java/org/apache/solr/mcp/server/config/SolrNativeHints.java` — register `SchemaUpdateResult` for reflection
-- `src/test/java/org/apache/solr/mcp/server/metadata/SchemaServiceTest.java` — extend with unit tests for new methods
-- `src/test/java/org/apache/solr/mcp/server/metadata/SchemaServiceIntegrationTest.java` — extend with integration tests for new methods
+- `src/test/java/org/apache/solr/mcp/server/schema/SchemaServiceTest.java` — extend with unit tests for new methods
+- `src/test/java/org/apache/solr/mcp/server/schema/SchemaServiceIntegrationTest.java` — extend with integration tests for new methods
 - `src/test/java/org/apache/solr/mcp/server/McpClientIntegrationTestBase.java` — append ordered tests 16–18 exercising new MCP tools
 - `README.md` — document the two new MCP tools
 - `CLAUDE.md` — update SchemaService description
@@ -93,7 +93,7 @@ Expected: commit succeeds. `git log -1 --stat` shows both files added.
 ## Task 2: Create `SchemaUpdateResult` record
 
 **Files:**
-- Create: `src/main/java/org/apache/solr/mcp/server/metadata/SchemaUpdateResult.java`
+- Create: `src/main/java/org/apache/solr/mcp/server/schema/SchemaUpdateResult.java`
 
 No tests for the record itself (Java records are trivial); it'll be exercised by every test in subsequent tasks.
 
@@ -116,7 +116,7 @@ No tests for the record itself (Java records are trivial); it'll be exercised by
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.solr.mcp.server.metadata;
+package org.apache.solr.mcp.server.schema;
 
 import java.util.Date;
 import java.util.List;
@@ -143,9 +143,9 @@ Expected: BUILD SUCCESSFUL.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/main/java/org/apache/solr/mcp/server/metadata/SchemaUpdateResult.java
+git add src/main/java/org/apache/solr/mcp/server/schema/SchemaUpdateResult.java
 git commit -s -m "$(cat <<'EOF'
-feat(metadata): add SchemaUpdateResult record for schema modification tools
+feat(schema): add SchemaUpdateResult record for schema modification tools
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF
@@ -157,8 +157,8 @@ EOF
 ## Task 3: Implement `addFields` (TDD)
 
 **Files:**
-- Modify: `src/main/java/org/apache/solr/mcp/server/metadata/SchemaService.java`
-- Modify: `src/test/java/org/apache/solr/mcp/server/metadata/SchemaServiceTest.java`
+- Modify: `src/main/java/org/apache/solr/mcp/server/schema/SchemaService.java`
+- Modify: `src/test/java/org/apache/solr/mcp/server/schema/SchemaServiceTest.java`
 
 Existing imports in `SchemaServiceTest` already include `SchemaRequest` and the mock infrastructure. Use the same `MockitoExtension` setup.
 
@@ -287,10 +287,10 @@ Expected: all SchemaServiceTest tests PASS, including the 4 new ones.
 
 ```bash
 ./gradlew spotlessApply
-git add src/main/java/org/apache/solr/mcp/server/metadata/SchemaService.java \
-        src/test/java/org/apache/solr/mcp/server/metadata/SchemaServiceTest.java
+git add src/main/java/org/apache/solr/mcp/server/schema/SchemaService.java \
+        src/test/java/org/apache/solr/mcp/server/schema/SchemaServiceTest.java
 git commit -s -m "$(cat <<'EOF'
-feat(metadata): add add-fields MCP tool for additive schema modification
+feat(schema): add add-fields MCP tool for additive schema modification
 
 Closes part of #30. Adds one or more fields atomically per call via
 SolrJ's SchemaRequest.MultiUpdate. Input is List<Map<String, Object>>
@@ -308,8 +308,8 @@ EOF
 ## Task 4: Implement `addFieldTypes` + `toFieldTypeDefinition` (TDD)
 
 **Files:**
-- Modify: `src/main/java/org/apache/solr/mcp/server/metadata/SchemaService.java`
-- Modify: `src/test/java/org/apache/solr/mcp/server/metadata/SchemaServiceTest.java`
+- Modify: `src/main/java/org/apache/solr/mcp/server/schema/SchemaService.java`
+- Modify: `src/test/java/org/apache/solr/mcp/server/schema/SchemaServiceTest.java`
 
 - [ ] **Step 1: Add the failing tests to `SchemaServiceTest`**
 
@@ -511,10 +511,10 @@ Expected: all 9+ new tests PASS plus the pre-existing tests still pass.
 
 ```bash
 ./gradlew spotlessApply
-git add src/main/java/org/apache/solr/mcp/server/metadata/SchemaService.java \
-        src/test/java/org/apache/solr/mcp/server/metadata/SchemaServiceTest.java
+git add src/main/java/org/apache/solr/mcp/server/schema/SchemaService.java \
+        src/test/java/org/apache/solr/mcp/server/schema/SchemaServiceTest.java
 git commit -s -m "$(cat <<'EOF'
-feat(metadata): add add-field-types MCP tool with FieldTypeDefinition helper
+feat(schema): add add-field-types MCP tool with FieldTypeDefinition helper
 
 Supports single analyzer, separate index/query analyzers, and non-analyzer
 field types like DenseVectorField. Manual conversion from flat input map
@@ -545,7 +545,7 @@ private static final List<String> MCP_RESPONSE_RECORDS = List.of(
         "org.apache.solr.mcp.server.collection.CacheStats", "org.apache.solr.mcp.server.collection.CacheInfo",
         "org.apache.solr.mcp.server.collection.HandlerStats", "org.apache.solr.mcp.server.collection.HandlerInfo",
         "org.apache.solr.mcp.server.search.SearchResponse",
-        "org.apache.solr.mcp.server.metadata.SchemaUpdateResult");
+        "org.apache.solr.mcp.server.schema.SchemaUpdateResult");
 ```
 
 - [ ] **Step 2: Verify compilation**
@@ -577,7 +577,7 @@ EOF
 ## Task 6: Extend `SchemaServiceIntegrationTest` with real-Solr integration tests
 
 **Files:**
-- Modify: `src/test/java/org/apache/solr/mcp/server/metadata/SchemaServiceIntegrationTest.java`
+- Modify: `src/test/java/org/apache/solr/mcp/server/schema/SchemaServiceIntegrationTest.java`
 
 Reuse the existing `TEST_COLLECTION = "schema_test_collection"` setup. Use unique field/type names per test method to avoid collisions across test ordering.
 
@@ -710,10 +710,10 @@ Expected: all integration tests PASS (existing + 5 new). If Docker isn't running
 
 ```bash
 ./gradlew spotlessApply
-git add src/test/java/org/apache/solr/mcp/server/metadata/SchemaServiceIntegrationTest.java \
-        src/main/java/org/apache/solr/mcp/server/metadata/SchemaService.java
+git add src/test/java/org/apache/solr/mcp/server/schema/SchemaServiceIntegrationTest.java \
+        src/main/java/org/apache/solr/mcp/server/schema/SchemaService.java
 git commit -s -m "$(cat <<'EOF'
-test(metadata): integration tests for add-fields and add-field-types
+test(schema): integration tests for add-fields and add-field-types
 
 End-to-end against real Solr via Testcontainers. Verifies schema
 round-trip, custom analyzer behavior, vector field type registration,
@@ -876,13 +876,13 @@ EOF
 Find the `- **SchemaService**` line under "MCP Tools" → "Architecture". Change:
 
 ```
-- **SchemaService** (`metadata/`) - Schema introspection
+- **SchemaService** (`schema/`) - Schema introspection
 ```
 
 to:
 
 ```
-- **SchemaService** (`metadata/`) - Schema introspection and additive modification (add-fields, add-field-types)
+- **SchemaService** (`schema/`) - Schema introspection and additive modification (add-fields, add-field-types)
 ```
 
 - [ ] **Step 2: Commit**
@@ -1003,7 +1003,7 @@ Expected: PR is created and the URL is printed. Share the URL with the user.
 
 ## Notes for the executor
 
-- **Conventional commits.** Every commit uses a Conventional Commits prefix (`feat`, `test`, `docs`, `fix`, `chore`, `style`) and the scope where applicable (`feat(metadata):`, `test(metadata):`, `docs:`).
+- **Conventional commits.** Every commit uses a Conventional Commits prefix (`feat`, `test`, `docs`, `fix`, `chore`, `style`) and the scope where applicable (`feat(schema):`, `test(schema):`, `docs:`).
 - **Signoffs.** Every commit uses `-s` (or includes `Signed-off-by:` manually). User's global CLAUDE.md requires this.
 - **Spotless.** Run `./gradlew spotlessApply` before each commit. The pre-commit hook or CI will reject unformatted code otherwise.
 - **No `--no-verify` or `--no-gpg-sign`.** Hard rule per the system prompt.
