@@ -71,7 +71,7 @@ class CollectionServiceIntegrationTest {
 	void setupCollectionWithData() throws Exception {
 		// 1. Create collection via CollectionService MCP tool
 		CollectionCreationResult created = collectionService.createCollection(TEST_COLLECTION, null, null, null);
-		assertTrue(created.success(), "Collection creation should succeed: " + created.message());
+		assertEquals(TEST_COLLECTION, created.name(), "Collection creation should echo collection name");
 		log.debug("Test collection created: {}", TEST_COLLECTION);
 
 		// 2. Index documents via IndexingService MCP tool
@@ -120,7 +120,6 @@ class CollectionServiceIntegrationTest {
 		SolrMetrics metrics = collectionService.getCollectionStats(TEST_COLLECTION);
 
 		assertNotNull(metrics);
-		assertNotNull(metrics.timestamp());
 
 		// Index stats should reflect the documents we indexed
 		IndexStats indexStats = metrics.indexStats();
@@ -171,9 +170,6 @@ class CollectionServiceIntegrationTest {
 		assertTrue(status.responseTime() >= 0);
 
 		assertEquals((long) DOC_COUNT, status.totalDocuments(), "Health check should report indexed document count");
-
-		assertNotNull(status.lastChecked());
-		assertTrue(System.currentTimeMillis() - status.lastChecked().getTime() < 5000);
 	}
 
 	@Test
@@ -258,9 +254,7 @@ class CollectionServiceIntegrationTest {
 
 		CollectionCreationResult result = collectionService.createCollection(name, null, null, null);
 
-		assertTrue(result.success());
 		assertEquals(name, result.name());
-		assertNotNull(result.createdAt());
 
 		List<String> collections = collectionService.listCollections();
 		boolean exists = collections.contains(name)

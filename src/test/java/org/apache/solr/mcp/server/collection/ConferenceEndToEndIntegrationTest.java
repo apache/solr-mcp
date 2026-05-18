@@ -66,7 +66,7 @@ class ConferenceEndToEndIntegrationTest {
 	@BeforeAll
 	void createAndIndexConferences() throws Exception {
 		CollectionCreationResult result = collectionService.createCollection(COLLECTION, null, null, null);
-		assertTrue(result.success(), "Collection creation should succeed: " + result.message());
+		assertEquals(COLLECTION, result.name(), "Collection creation should echo collection name");
 
 		String json = Files.readString(Path.of("mydata/devnexus-2026.json"));
 		indexingService.indexJsonDocuments(COLLECTION, json);

@@ -163,7 +163,7 @@ public abstract class McpClientIntegrationTestBase {
 		assertNotNull(result);
 		assertNotError(result);
 		String text = extractText(result);
-		assertTrue(text.contains("success") || text.contains("true"), "Collection creation should succeed: " + text);
+		assertTrue(text.contains(COLLECTION), "Collection creation result should echo the collection name: " + text);
 	}
 
 	@Test
@@ -416,8 +416,8 @@ public abstract class McpClientIntegrationTestBase {
 		assertNotNull(result);
 		assertNotError(result);
 		String text = extractText(result);
-		assertTrue(text.contains("success") || text.contains("true"),
-				"Shows collection creation should succeed: " + text);
+		assertTrue(text.contains(SHOWS_COLLECTION),
+				"Shows collection creation result should echo the collection name: " + text);
 	}
 
 	@Test

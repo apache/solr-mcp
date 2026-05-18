@@ -836,9 +836,7 @@ class CollectionServiceTest {
 		CollectionCreationResult result = collectionService.createCollection("new_collection", "_default", 1, 1);
 
 		assertNotNull(result);
-		assertTrue(result.success());
 		assertEquals("new_collection", result.name());
-		assertNotNull(result.createdAt());
 	}
 
 	@Test
@@ -847,7 +845,6 @@ class CollectionServiceTest {
 
 		CollectionCreationResult result = collectionService.createCollection("defaults_collection", null, null, null);
 
-		assertTrue(result.success());
 		assertEquals("defaults_collection", result.name());
 	}
 

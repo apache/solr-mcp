@@ -16,10 +16,8 @@
  */
 package org.apache.solr.mcp.server.collection;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import java.util.Date;
 
 /**
  * Data Transfer Objects (DTOs) for the Apache Solr MCP Server.
@@ -101,10 +99,7 @@ record SolrMetrics(
 		 * Request handler performance metrics for select and update operations (may be
 		 * null)
 		 */
-		HandlerStats handlerStats,
-
-		/** Timestamp when these metrics were collected, formatted as ISO 8601 */
-		@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") Date timestamp) {
+		HandlerStats handlerStats) {
 }
 
 /**
@@ -463,39 +458,21 @@ record SolrHealthStatus(
 		/** Total number of documents currently indexed in the collection */
 		Long totalDocuments,
 
-		/** Timestamp when this health check was performed, formatted as ISO 8601 */
-		@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") Date lastChecked,
-
 		/** Name of the collection that was checked */
-		String collection,
-
-		/** Version of Solr server (when available) */
-		String solrVersion,
-
-		/** Additional status information or state description */
-		String status) {
+		String collection) {
 }
 
 /**
  * Result of a collection creation operation.
  *
  * <p>
- * Returned by the {@code create-collection} MCP tool to communicate the outcome
- * of a collection creation request. On success, {@code success} is {@code true}
- * and {@code createdAt} records when the operation completed.
+ * Returned by the {@code create-collection} MCP tool to echo the name of the
+ * newly-created collection. Failures throw rather than producing this result,
+ * so there is no need for a {@code success} flag.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record CollectionCreationResult(
 		/** Name of the collection that was created */
-		String name,
-
-		/** Whether the collection was successfully created */
-		boolean success,
-
-		/** Optional message describing the outcome */
-		String message,
-
-		/** Timestamp when the collection was created, formatted as ISO 8601 */
-		@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") Date createdAt) {
+		String name) {
 }

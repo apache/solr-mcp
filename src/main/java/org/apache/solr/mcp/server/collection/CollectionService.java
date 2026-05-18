@@ -26,7 +26,6 @@ import io.micrometer.observation.annotation.Observed;
 import io.modelcontextprotocol.spec.McpSchema.CompleteRequest;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import org.apache.solr.client.solrj.SolrClient;
@@ -525,7 +524,7 @@ public class CollectionService {
 		QueryResponse statsResponse = solrClient.query(actualCollection, new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
 
 		return new SolrMetrics(buildIndexStats(lukeResponse), buildQueryStats(statsResponse),
-				fetchCacheMetrics(actualCollection), fetchHandlerMetrics(actualCollection), new Date());
+				fetchCacheMetrics(actualCollection), fetchHandlerMetrics(actualCollection));
 	}
 
 	/**
@@ -1069,10 +1068,10 @@ public class CollectionService {
 					new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
 
 			return new SolrHealthStatus(true, null, pingResponse.getElapsedTime(),
-					statsResponse.getResults().getNumFound(), new Date(), actualCollection, null, null);
+					statsResponse.getResults().getNumFound(), actualCollection);
 
 		} catch (Exception e) {
-			return new SolrHealthStatus(false, e.getMessage(), null, null, new Date(), actualCollection, null, null);
+			return new SolrHealthStatus(false, e.getMessage(), null, null, actualCollection);
 		}
 	}
 
@@ -1136,7 +1135,7 @@ public class CollectionService {
 		CollectionAdminRequest.createCollection(name, effectiveConfigSet, effectiveShards, effectiveRf)
 				.process(solrClient);
 
-		return new CollectionCreationResult(name, true, "Collection created successfully", new Date());
+		return new CollectionCreationResult(name);
 	}
 
 	/**
