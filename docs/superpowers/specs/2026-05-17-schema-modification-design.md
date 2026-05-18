@@ -142,20 +142,16 @@ public SchemaUpdateResult addFieldTypes(
 ### Result type
 
 New record `SchemaUpdateResult` in a new file
-`src/main/java/org/apache/solr/mcp/server/schema/SchemaUpdateResult.java`. Shape matches
-`CollectionCreationResult` (project convention):
+`src/main/java/org/apache/solr/mcp/server/schema/SchemaUpdateResult.java`:
 
 ```java
-public record SchemaUpdateResult(
-    String collection,
-    boolean success,
-    List<String> addedNames,
-    Date timestamp
-) {}
+public record SchemaUpdateResult(String collection, List<String> addedNames) {}
 ```
 
-`success` is always `true` on return (failures throw). `addedNames` echoes the `name` from
-each input definition in input order. No `failures` field — see Failure mode below.
+Failures throw and never produce this result, so no `success` flag is needed.
+`addedNames` echoes the `name` from each input definition in input order so the
+caller can confirm what landed. No `timestamp` — sub-second operation; the MCP
+host records call timing already.
 
 ### Implementation skeleton
 

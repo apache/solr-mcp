@@ -16,22 +16,19 @@
  */
 package org.apache.solr.mcp.server.schema;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import java.util.Date;
 import java.util.List;
 
 /**
  * Result of an additive schema update (add-fields or add-field-types).
  *
  * <p>
- * {@code success} is always {@code true} on return — failures throw and never
- * produce a result. {@code addedNames} echoes the {@code name} field from each
- * input definition in input order, useful for confirming what was sent.
+ * Failures throw and never produce this result, so no {@code success} flag is
+ * needed. {@code addedNames} echoes the {@code name} field from each input
+ * definition in input order so the caller can confirm what landed.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public record SchemaUpdateResult(String collection, boolean success, List<String> addedNames,
-		@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") Date timestamp) {
+public record SchemaUpdateResult(String collection, List<String> addedNames) {
 }

@@ -183,10 +183,8 @@ class SchemaServiceTest {
 
 		SchemaUpdateResult result = schemaService.addFields("col", fields);
 
-		assertTrue(result.success());
 		assertEquals(List.of("title", "platform"), result.addedNames());
 		assertEquals("col", result.collection());
-		assertNotNull(result.timestamp());
 
 		ArgumentCaptor<SolrRequest> captor = ArgumentCaptor.forClass(SolrRequest.class);
 		verify(solrClient).request(captor.capture(), eq("col"));
@@ -231,7 +229,6 @@ class SchemaServiceTest {
 
 		SchemaUpdateResult result = service.addFieldTypes("col", types);
 
-		assertTrue(result.success());
 		assertEquals(List.of("text_lowercase"), result.addedNames());
 
 		ArgumentCaptor<SolrRequest> captor = ArgumentCaptor.forClass(SolrRequest.class);
@@ -256,7 +253,6 @@ class SchemaServiceTest {
 
 		SchemaUpdateResult result = service.addFieldTypes("col", types);
 
-		assertTrue(result.success());
 		assertEquals(List.of("text_autocomplete"), result.addedNames());
 	}
 
@@ -272,7 +268,6 @@ class SchemaServiceTest {
 
 		SchemaUpdateResult result = service.addFieldTypes("col", types);
 
-		assertTrue(result.success());
 		assertEquals(List.of("openai_embedding"), result.addedNames());
 	}
 

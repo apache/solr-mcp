@@ -190,7 +190,6 @@ class SchemaServiceIntegrationTest {
 
 		SchemaUpdateResult result = schemaService.addFields(TEST_COLLECTION, fields);
 
-		assertTrue(result.success());
 		assertEquals(List.of("addf_title", "addf_platform", "addf_year"), result.addedNames());
 
 		SchemaRepresentation schema = schemaService.getSchema(TEST_COLLECTION);

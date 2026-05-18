@@ -22,7 +22,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -292,7 +291,7 @@ public class SchemaService {
 		}
 
 		new SchemaRequest.MultiUpdate(updates).process(solrClient, collection);
-		return new SchemaUpdateResult(collection, true, names, new Date());
+		return new SchemaUpdateResult(collection, names);
 	}
 
 	@PreAuthorize("isAuthenticated()")
@@ -322,7 +321,7 @@ public class SchemaService {
 		}
 
 		new SchemaRequest.MultiUpdate(updates).process(solrClient, collection);
-		return new SchemaUpdateResult(collection, true, names, new Date());
+		return new SchemaUpdateResult(collection, names);
 	}
 
 	/**
