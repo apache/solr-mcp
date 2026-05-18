@@ -276,8 +276,8 @@ public class SchemaService {
 			+ "Example: {\"name\":\"platform\",\"type\":\"string\",\"stored\":true,\"indexed\":true,\"docValues\":true}. "
 			+ "Use 'strings' (not 'string') for multi-valued string fields. "
 			+ "Note: this only adds new fields; existing fields cannot be modified. "
-			+ "Commands run in input order; if one fails mid-batch, prior commands remain applied "
-			+ "(use get-schema to inspect on failure).")
+			+ "Solr's Schema API is transactional — if any command in the batch fails, "
+			+ "none are applied. On failure, fix the invalid field(s) and retry the whole batch.")
 	public SchemaUpdateResult addFields(@McpToolParam(description = "Solr collection name") String collection,
 			@McpToolParam(description = "List of field definitions (Solr add-field JSON shape)") List<Map<String, Object>> fields)
 			throws SolrServerException, IOException {
@@ -307,7 +307,7 @@ public class SchemaService {
 			+ "vectorDimension, similarityFunction (cosine/dot_product/euclidean), and knnAlgorithm=hnsw; "
 			+ "(3) autocomplete: class=solr.TextField with separate indexAnalyzer using EdgeNGramFilterFactory "
 			+ "and queryAnalyzer without it. " + "After adding a type, use add-fields to create fields of that type. "
-			+ "Commands run in input order; partial application possible on failure.")
+			+ "Solr's Schema API is transactional — if any command in the batch fails, none are applied.")
 	public SchemaUpdateResult addFieldTypes(@McpToolParam(description = "Solr collection name") String collection,
 			@McpToolParam(description = "List of field type definitions (Solr add-field-type JSON shape)") List<Map<String, Object>> fieldTypes)
 			throws SolrServerException, IOException {
@@ -351,8 +351,60 @@ public class SchemaService {
 		return def;
 	}
 
+	/**
+	 * Builds an {@link AnalyzerDefinition} from a flat input map matching the Solr
+	 * Schema API analyzer shape. SolrJ's {@code AnalyzerDefinition} only exposes
+	 * typed setters for {@code charFilters}, {@code tokenizer}, and
+	 * {@code filters}; every other analyzer-level key (e.g.
+	 * {@code "class":"solr.WhitespaceAnalyzer"}, {@code "luceneMatchVersion"},
+	 * {@code "positionIncrementGap"}) must go through {@code setAttributes} or Solr
+	 * never sees them.
+	 *
+	 * <p>
+	 * A naive {@code objectMapper.convertValue(raw, AnalyzerDefinition.class)}
+	 * silently drops those unrecognized top-level keys, which breaks the valid
+	 * single-class analyzer form
+	 * {@code {"analyzer":{"class":"solr.WhitespaceAnalyzer"}}}. This helper does
+	 * the split manually so unknown keys are preserved as attributes.
+	 */
 	private AnalyzerDefinition toAnalyzerDefinition(Object raw) {
-		return objectMapper.convertValue(raw, AnalyzerDefinition.class);
+		if (!(raw instanceof Map<?, ?> rawMap)) {
+			// Defensive: unexpected shape (e.g. analyzer specified as a bare class
+			// name string). Let Jackson try its default conversion.
+			return objectMapper.convertValue(raw, AnalyzerDefinition.class);
+		}
+		@SuppressWarnings("unchecked")
+		Map<String, Object> input = (Map<String, Object>) rawMap;
+
+		AnalyzerDefinition def = new AnalyzerDefinition();
+		Map<String, Object> attributes = new LinkedHashMap<>(input);
+
+		Object charFilters = attributes.remove("charFilters");
+		Object tokenizer = attributes.remove("tokenizer");
+		Object filters = attributes.remove("filters");
+
+		// Anything left (class, luceneMatchVersion, positionIncrementGap, ...)
+		// is an attribute and must be passed through; SolrJ emits these inside
+		// the analyzer JSON alongside the typed sub-objects.
+		if (!attributes.isEmpty()) {
+			def.setAttributes(attributes);
+		}
+		if (charFilters instanceof List<?> charFilterList) {
+			@SuppressWarnings("unchecked")
+			List<Map<String, Object>> typed = (List<Map<String, Object>>) charFilterList;
+			def.setCharFilters(typed);
+		}
+		if (tokenizer instanceof Map<?, ?> tokenizerMap) {
+			@SuppressWarnings("unchecked")
+			Map<String, Object> typed = (Map<String, Object>) tokenizerMap;
+			def.setTokenizer(typed);
+		}
+		if (filters instanceof List<?> filterList) {
+			@SuppressWarnings("unchecked")
+			List<Map<String, Object>> typed = (List<Map<String, Object>>) filterList;
+			def.setFilters(typed);
+		}
+		return def;
 	}
 
 	private static void requireCollection(String collection) {

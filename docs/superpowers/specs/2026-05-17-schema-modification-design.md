@@ -105,8 +105,8 @@ reliability and reduce variance across model capabilities.
         "Example: {\"name\":\"platform\",\"type\":\"string\",\"stored\":true,\"indexed\":true,\"docValues\":true}. " +
         "Use 'strings' (not 'string') for multi-valued string fields. " +
         "Note: this only adds new fields; existing fields cannot be modified. " +
-        "Commands run in input order; if one fails mid-batch, prior commands remain applied " +
-        "(use get-schema to inspect on failure)."
+        "Solr's Schema API is transactional — if any command in the batch fails, " +
+        "none are applied. On failure, fix the invalid field(s) and retry the whole batch."
 )
 public SchemaUpdateResult addFields(
     @McpToolParam(description = "Solr collection name") String collection,
@@ -130,7 +130,7 @@ public SchemaUpdateResult addFields(
         "(3) autocomplete: class=solr.TextField with separate indexAnalyzer using EdgeNGramFilterFactory " +
         "and queryAnalyzer without it. " +
         "After adding a type, use add-fields to create fields of that type. " +
-        "Commands run in input order; partial application possible on failure."
+        "Solr's Schema API is transactional — if any command in the batch fails, none are applied."
 )
 public SchemaUpdateResult addFieldTypes(
     @McpToolParam(description = "Solr collection name") String collection,
@@ -232,12 +232,12 @@ duplicates that work and adds maintenance.
   `response.getResponse().get("errors")` and throw explicitly. **This API shape needs
   integration-test verification before relying on it.**)
 
-`MultiUpdate` is **not atomic** — commands process sequentially server-side and a failure
-mid-batch leaves prior commands applied. The result type doesn't model this because the
-common case is whole-batch success or whole-batch failure on command #1 (the typical
-errors — already-exists, unknown-type-reference — fail fast at the first invalid command).
-Rare mid-batch failures surface as exceptions; caller can call `get-schema` to see what
-landed.
+`MultiUpdate` is **transactional** — per Solr's Schema API reference guide and SolrJ's
+`SchemaRequest.MultiUpdate` Javadoc, all commands in a single call either succeed or
+fail together. Solr returns HTTP 400 with an `errors` array on failure and rolls back
+any partially-applied state. SolrJ then throws (verified by the
+`addFields_duplicateField_throws` integration test, which passes without needing manual
+response-body inspection).
 
 ### Native image hints
 

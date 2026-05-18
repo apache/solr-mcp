@@ -286,4 +286,39 @@ class SchemaServiceTest {
 		assertThrows(SolrServerException.class,
 				() -> service.addFieldTypes("col", List.of(Map.of("name", "x", "class", "solr.StrField"))));
 	}
+
+	/**
+	 * Regression test for the single-class analyzer form
+	 * <code>{"analyzer":{"class":"solr.WhitespaceAnalyzer"}}</code>. SolrJ's
+	 * {@code AnalyzerDefinition} has no top-level setter for {@code class}, so a
+	 * naive {@code objectMapper.convertValue} silently drops it and Solr gets a
+	 * malformed analyzer. The helper must preserve unknown analyzer-level keys via
+	 * {@code setAttributes}. We verify by serializing the captured MultiUpdate's
+	 * wire body and asserting the analyzer class is present.
+	 */
+	@Test
+	void addFieldTypes_analyzerWithOnlyClassKey_preservesClassInWireFormat() throws Exception {
+		ObjectMapper realMapper = new ObjectMapper();
+		SchemaService service = new SchemaService(solrClient, realMapper);
+
+		List<Map<String, Object>> types = List.of(Map.of("name", "text_whitespace", "class", "solr.TextField",
+				"analyzer", Map.of("class", "solr.WhitespaceAnalyzer")));
+
+		when(solrClient.request(any(SolrRequest.class), eq("col"))).thenReturn(new NamedList<>());
+
+		service.addFieldTypes("col", types);
+
+		ArgumentCaptor<SolrRequest> captor = ArgumentCaptor.forClass(SolrRequest.class);
+		verify(solrClient).request(captor.capture(), eq("col"));
+		SolrRequest<?> req = captor.getValue();
+
+		java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+		req.getContentWriter("application/json").write(baos);
+		String body = baos.toString(java.nio.charset.StandardCharsets.UTF_8);
+
+		assertTrue(body.contains("solr.WhitespaceAnalyzer"),
+				"Wire body must preserve the analyzer-level 'class' key: " + body);
+		assertTrue(body.contains("solr.TextField"),
+				"Wire body must preserve the field-type-level 'class' key: " + body);
+	}
 }
