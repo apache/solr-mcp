@@ -92,10 +92,18 @@ public class SolrNativeHints {
 			hints.reflection().registerType(FacetField.Count.class, categories);
 
 			// SolrJ schema request types (needed for Jackson's convertValue in native
-			// image)
+			// image when add-field-types deserializes analyzer trees)
 			hints.reflection().registerType(org.apache.solr.client.solrj.request.schema.AnalyzerDefinition.class,
 					categories);
 			hints.reflection().registerType(org.apache.solr.client.solrj.request.schema.FieldTypeDefinition.class,
+					categories);
+
+			// SolrJ schema response type — returned by the get-schema MCP tool and
+			// serialized to JSON by Spring AI for MCP clients. Without reflection
+			// hints the JSON Spring AI produces in native image is missing the
+			// fields/fieldTypes/dynamicFields/copyFields arrays, which silently
+			// breaks any consumer that introspects the schema.
+			hints.reflection().registerType(org.apache.solr.client.solrj.response.schema.SchemaRepresentation.class,
 					categories);
 
 			// MCP tool response records (package-private, registered by name)
