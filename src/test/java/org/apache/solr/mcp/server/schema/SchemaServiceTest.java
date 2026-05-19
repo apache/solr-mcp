@@ -337,4 +337,20 @@ class SchemaServiceTest {
 
 		assertTrue(body.contains("\"title\":\"Widget\""), "Prompt should include the sample document body");
 	}
+
+	@Test
+	void viewSchemaPrompt_isReadOnlyAndReferencesGetSchema() {
+		String body = schemaService.viewSchemaPrompt("products");
+
+		assertNotNull(body);
+		assertTrue(body.contains("products"), "Prompt should mention the target collection name");
+		assertTrue(body.contains("get-schema"), "Prompt should reference get-schema tool");
+		assertTrue(body.contains("uniqueKey"), "Prompt should explain uniqueKey");
+		assertTrue(body.contains("dynamic"), "Prompt should explain dynamic fields");
+		assertTrue(body.contains("copyField") || body.contains("copy field") || body.contains("copyFields"),
+				"Prompt should explain copy fields");
+		assertFalse(body.contains("add-fields"), "View prompt is read-only; should not direct the LLM to add-fields");
+		assertTrue(body.contains("design-schema"),
+				"View prompt should cross-reference design-schema for follow-up modification");
+	}
 }

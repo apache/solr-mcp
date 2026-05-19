@@ -579,8 +579,8 @@ public abstract class McpClientIntegrationTestBase {
 				"Stats should report " + SHOWS_DOC_COUNT + " docs somewhere in the payload: " + text);
 	}
 
-	// ===== Prompt workflow (orders 28–32) =====
-	// Verifies the four @McpPrompt endpoints are discovered, listable, and return
+	// ===== Prompt workflow (orders 28–34) =====
+	// Verifies the six @McpPrompt endpoints are discovered, listable, and return
 	// non-empty guidance referencing the right tools when fetched. Prompts are
 	// LLM-facing instruction templates — the framework wraps the String returned by
 	// each @McpPrompt method as a single user-role PromptMessage.
@@ -592,27 +592,54 @@ public abstract class McpClientIntegrationTestBase {
 		assertNotNull(promptsResult);
 		List<String> promptNames = promptsResult.prompts().stream().map(p -> p.name()).toList();
 
-		assertTrue(promptNames.contains("explore-and-create-collections"),
-				"Should expose explore-and-create-collections prompt: " + promptNames);
-		assertTrue(promptNames.contains("design-schema"), "Should expose design-schema prompt: " + promptNames);
-		assertTrue(promptNames.contains("index-data"), "Should expose index-data prompt: " + promptNames);
-		assertTrue(promptNames.contains("search-collection"), "Should expose search-collection prompt: " + promptNames);
+		for (String expected : List.of(PromptNames.EXPLORE_COLLECTIONS, PromptNames.SETUP_COLLECTION,
+				PromptNames.VIEW_SCHEMA, PromptNames.DESIGN_SCHEMA, PromptNames.INDEX_DATA,
+				PromptNames.SEARCH_COLLECTION)) {
+			assertTrue(promptNames.contains(expected), "Should expose " + expected + " prompt: " + promptNames);
+		}
 	}
 
 	@Test
 	@Order(29)
-	void getExploreAndCreateCollectionsPromptReturnsGuidance() {
-		GetPromptResult result = mcpClient.getPrompt(new GetPromptRequest("explore-and-create-collections", Map.of()));
+	void getExploreCollectionsPromptReturnsGuidance() {
+		GetPromptResult result = mcpClient.getPrompt(new GetPromptRequest(PromptNames.EXPLORE_COLLECTIONS, Map.of()));
 
 		String text = extractFirstMessageText(result);
 		assertTrue(text.contains("list-collections"), "Prompt body should reference list-collections: " + text);
-		assertTrue(text.contains("create-collection"), "Prompt body should reference create-collection: " + text);
+		assertTrue(text.contains("get-collection-stats"), "Prompt body should reference get-collection-stats: " + text);
+		assertFalse(text.contains("create-collection"),
+				"Explore prompt is read-only; should not reference create-collection: " + text);
 	}
 
 	@Test
 	@Order(30)
+	void getSetupCollectionPromptReturnsGuidance() {
+		GetPromptResult result = mcpClient.getPrompt(new GetPromptRequest(PromptNames.SETUP_COLLECTION,
+				Map.of("name", "scratch_collection", "purpose", "Testing setup-collection prompt")));
+
+		String text = extractFirstMessageText(result);
+		assertTrue(text.contains("scratch_collection"), "Prompt body should embed the collection name: " + text);
+		assertTrue(text.contains("Testing setup-collection prompt"), "Prompt body should embed the purpose: " + text);
+		assertTrue(text.contains("create-collection"), "Prompt body should reference create-collection tool: " + text);
+		assertTrue(text.contains("_default"), "Prompt body should mention the default configset: " + text);
+	}
+
+	@Test
+	@Order(31)
+	void getViewSchemaPromptReturnsGuidance() {
+		GetPromptResult result = mcpClient
+				.getPrompt(new GetPromptRequest(PromptNames.VIEW_SCHEMA, Map.of("collection", SHOWS_COLLECTION)));
+
+		String text = extractFirstMessageText(result);
+		assertTrue(text.contains(SHOWS_COLLECTION), "Prompt body should embed the collection name: " + text);
+		assertTrue(text.contains("get-schema"), "Prompt body should reference get-schema: " + text);
+		assertFalse(text.contains("add-fields"), "View prompt is read-only; should not reference add-fields: " + text);
+	}
+
+	@Test
+	@Order(32)
 	void getDesignSchemaPromptReturnsGuidance() {
-		GetPromptResult result = mcpClient.getPrompt(new GetPromptRequest("design-schema",
+		GetPromptResult result = mcpClient.getPrompt(new GetPromptRequest(PromptNames.DESIGN_SCHEMA,
 				Map.of("collection", SHOWS_COLLECTION, "datasetDescription", "TV shows with title, platform, genres")));
 
 		String text = extractFirstMessageText(result);
@@ -622,10 +649,10 @@ public abstract class McpClientIntegrationTestBase {
 	}
 
 	@Test
-	@Order(31)
+	@Order(33)
 	void getIndexDataPromptReturnsGuidance() {
 		GetPromptResult result = mcpClient.getPrompt(
-				new GetPromptRequest("index-data", Map.of("collection", SHOWS_COLLECTION, "format", "json")));
+				new GetPromptRequest(PromptNames.INDEX_DATA, Map.of("collection", SHOWS_COLLECTION, "format", "json")));
 
 		String text = extractFirstMessageText(result);
 		assertTrue(text.contains("index-json-documents"),
@@ -634,9 +661,9 @@ public abstract class McpClientIntegrationTestBase {
 	}
 
 	@Test
-	@Order(32)
+	@Order(34)
 	void getSearchCollectionPromptReturnsGuidance() {
-		GetPromptResult result = mcpClient.getPrompt(new GetPromptRequest("search-collection",
+		GetPromptResult result = mcpClient.getPrompt(new GetPromptRequest(PromptNames.SEARCH_COLLECTION,
 				Map.of("collection", SHOWS_COLLECTION, "question", "What sci-fi shows are on Netflix?")));
 
 		String text = extractFirstMessageText(result);
@@ -651,7 +678,7 @@ public abstract class McpClientIntegrationTestBase {
 		List<PromptMessage> messages = result.messages();
 		assertNotNull(messages, "messages must not be null");
 		assertFalse(messages.isEmpty(), "messages must not be empty");
-		Content content = messages.get(0).content();
+		Content content = messages.getFirst().content();
 		assertInstanceOf(TextContent.class, content, "first prompt message content should be TextContent");
 		String text = ((TextContent) content).text();
 		assertNotNull(text);
@@ -669,15 +696,16 @@ public abstract class McpClientIntegrationTestBase {
 	protected static String extractText(CallToolResult result) {
 		assertNotNull(result.content(), "Result content should not be null");
 		assertFalse(result.content().isEmpty(), "Result content should not be empty");
-		assertInstanceOf(TextContent.class, result.content().get(0), "Content should be TextContent");
-		return ((TextContent) result.content().get(0)).text();
+		Content first = result.content().getFirst();
+		assertInstanceOf(TextContent.class, first, "Content should be TextContent");
+		return ((TextContent) first).text();
 	}
 
 	protected static void assertNotError(CallToolResult result) {
 		if (Boolean.TRUE.equals(result.isError())) {
 			String errorText = result.content().isEmpty()
 					? "unknown error"
-					: ((TextContent) result.content().get(0)).text();
+					: ((TextContent) result.content().getFirst()).text();
 			fail("MCP tool call returned error: " + errorText);
 		}
 	}

@@ -17,6 +17,7 @@
 package org.apache.solr.mcp.server.schema;
 
 import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
+import static org.apache.solr.mcp.server.util.PromptText.optionalCodeBlock;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.observation.annotation.Observed;
@@ -31,6 +32,7 @@ import org.apache.solr.client.solrj.request.schema.AnalyzerDefinition;
 import org.apache.solr.client.solrj.request.schema.FieldTypeDefinition;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
+import org.apache.solr.mcp.server.PromptNames;
 import org.springaicommunity.mcp.annotation.McpArg;
 import org.springaicommunity.mcp.annotation.McpPrompt;
 import org.springaicommunity.mcp.annotation.McpResource;
@@ -420,15 +422,51 @@ public class SchemaService {
 		}
 	}
 
-	@McpPrompt(name = "design-schema", title = "Design a Solr schema for a dataset", description = "Guides the assistant through inspecting an existing Solr schema, choosing appropriate field types, and applying additive schema changes via the Schema API.")
+	@McpPrompt(name = PromptNames.VIEW_SCHEMA, title = "View a Solr collection schema", description = "Read-only walkthrough: fetch the schema and summarize fields, types, dynamic fields, copy fields, and the unique key.")
+	public String viewSchemaPrompt(
+			@McpArg(name = "collection", description = "Target Solr collection name", required = true) String collection) {
+		return """
+				You are inspecting the schema of Solr collection `%s`. This prompt is read-only; do not
+				add or modify any fields.
+
+				1. Fetch the schema.
+				   - Call `get-schema` on `%s`. Capture the full response (fields, fieldTypes,
+				     dynamicFields, copyFields, uniqueKey).
+
+				2. Summarize fields.
+				   - Total field count.
+				   - Group fields by type (e.g. how many `text_general`, `string`, `strings`, `pint`,
+				     `pdouble`, `pdate`, etc.).
+				   - Flag which fields are `indexed=true` (searchable / filterable), `stored=true`
+				     (retrievable in responses), `docValues=true` (sortable / facetable / range-
+				     filterable), and `multiValued=true`.
+				   - Call out the `uniqueKey` field — this is the primary identifier.
+
+				3. Summarize dynamic fields and copy fields.
+				   - List dynamic-field patterns (e.g. `*_s`, `*_txt`) and their types — these accept
+				     fields whose names are not predeclared.
+				   - List copyField rules (source → destination) — these duplicate content into
+				     aggregator fields, often used for catch-all search fields.
+
+				4. Surface anything unusual.
+				   - Custom field types (analyzers, tokenizers, filters).
+				   - Required fields (`required=true`) the indexer must always populate.
+				   - Fields that are indexed but not stored (searchable but not returnable) or vice
+				     versa.
+
+				Next step suggestion: if the schema is missing fields the user needs, the `%s` prompt
+				drives the additive workflow.
+				""".formatted(collection, collection, PromptNames.DESIGN_SCHEMA);
+	}
+
+	@McpPrompt(name = PromptNames.DESIGN_SCHEMA, title = "Design a Solr schema for a dataset", description = "Guides the assistant through inspecting an existing Solr schema, choosing appropriate field types, and applying additive schema changes via the Schema API.")
 	public String designSchemaPrompt(
 			@McpArg(name = "collection", description = "Target Solr collection name", required = true) String collection,
 			@McpArg(name = "datasetDescription", description = "Free-text description of the data being indexed (entity, key attributes, expected query patterns)", required = true) String datasetDescription,
 			@McpArg(name = "sampleDocument", description = "Optional single document in JSON to ground field inference", required = false) String sampleDocument) {
-		String sampleSection = (sampleDocument == null || sampleDocument.isBlank())
-				? "   - No sample document was provided; ask the user for one if the dataset description leaves field types ambiguous."
-				: "   - A sample document was provided. Use it as ground truth for field names and value\n     shapes:\n\n     ```\n     "
-						+ sampleDocument.strip().replace("\n", "\n     ") + "\n     ```";
+		String sampleSection = optionalCodeBlock(sampleDocument,
+				"A sample document was provided. Use it as ground truth for field names and value\n     shapes:",
+				"No sample document was provided; ask the user for one if the dataset description leaves field types ambiguous.");
 		return """
 				You are designing a Solr schema for collection `%s`. Dataset:
 

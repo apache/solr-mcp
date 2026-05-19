@@ -30,6 +30,7 @@ import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.params.FacetParams;
+import org.apache.solr.mcp.server.PromptNames;
 import org.springaicommunity.mcp.annotation.McpArg;
 import org.springaicommunity.mcp.annotation.McpPrompt;
 import org.springaicommunity.mcp.annotation.McpTool;
@@ -301,7 +302,7 @@ public class SearchService {
 		return new SearchResponse(documents.getNumFound(), documents.getStart(), documents.getMaxScore(), docs, facets);
 	}
 
-	@McpPrompt(name = "search-collection", title = "Search a Solr collection from a natural-language question", description = "Guides the assistant through inspecting the schema, translating a user question into a Solr query, running the search, and refining the result.")
+	@McpPrompt(name = PromptNames.SEARCH_COLLECTION, title = "Search a Solr collection from a natural-language question", description = "Guides the assistant through inspecting the schema, translating a user question into a Solr query, running the search, and refining the result.")
 	public String searchCollectionPrompt(
 			@McpArg(name = "collection", description = "Target Solr collection name", required = true) String collection,
 			@McpArg(name = "question", description = "The user's natural-language search question or information need", required = true) String question) {

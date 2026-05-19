@@ -868,13 +868,35 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void exploreAndCreateCollectionsPrompt_includesKeyWorkflowSteps() {
-		String body = collectionService.exploreAndCreateCollectionsPrompt();
+	void exploreCollectionsPrompt_isReadOnlyAndReferencesKeyTools() {
+		String body = collectionService.exploreCollectionsPrompt();
 
 		assertNotNull(body);
 		assertTrue(body.contains("list-collections"), "Prompt should reference list-collections tool");
 		assertTrue(body.contains("get-collection-stats"), "Prompt should reference get-collection-stats tool");
 		assertTrue(body.contains("check-health"), "Prompt should reference check-health tool");
-		assertTrue(body.contains("create-collection"), "Prompt should reference create-collection tool");
+		assertFalse(body.contains("create-collection"),
+				"Explore prompt is read-only; should not direct the LLM to create-collection");
+		assertTrue(body.contains("setup-collection"),
+				"Explore prompt should cross-reference setup-collection for follow-up");
+	}
+
+	@Test
+	void setupCollectionPrompt_includesNameAndInterpolatedDefaults() {
+		String body = collectionService.setupCollectionPrompt("widgets", "Catalog of widgets");
+
+		assertNotNull(body);
+		assertTrue(body.contains("widgets"), "Prompt should embed the chosen collection name");
+		assertTrue(body.contains("Catalog of widgets"), "Prompt should embed the purpose when provided");
+		assertTrue(body.contains("create-collection"), "Setup prompt should reference create-collection tool");
+		assertTrue(body.contains("_default"), "Setup prompt should mention the default configset");
+		assertTrue(body.contains("design-schema"), "Setup prompt should cross-reference design-schema for follow-up");
+	}
+
+	@Test
+	void setupCollectionPrompt_omitsPurposeLineWhenBlank() {
+		String body = collectionService.setupCollectionPrompt("widgets", null);
+
+		assertFalse(body.contains("Purpose:"), "Purpose line should be omitted when no purpose is provided");
 	}
 }

@@ -351,4 +351,12 @@ class IndexingServiceTest {
 
 		assertTrue(body.contains("index-xml-documents"), "XML path should reference index-xml-documents tool");
 	}
+
+	@Test
+	void indexDataPrompt_unknownFormat_throwsIllegalArgumentException() {
+		IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+				() -> indexingService.indexDataPrompt("library", "yaml", null));
+		assertTrue(ex.getMessage().contains("json/csv/xml"),
+				"Exception message should list the supported formats: " + ex.getMessage());
+	}
 }
