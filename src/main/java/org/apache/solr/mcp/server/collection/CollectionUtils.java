@@ -17,6 +17,7 @@
 package org.apache.solr.mcp.server.collection;
 
 import org.apache.solr.common.util.NamedList;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Utility class providing type-safe helper methods for extracting values from
@@ -113,7 +114,7 @@ public class CollectionUtils {
 	 * @see Number#longValue()
 	 * @see Long#parseLong(String)
 	 */
-	public static Long getLong(NamedList<Object> response, String key) {
+	public static @Nullable Long getLong(NamedList<Object> response, String key) {
 		Object value = response.get(key);
 		if (value == null)
 			return null;
@@ -180,7 +181,7 @@ public class CollectionUtils {
 	 *         is null
 	 * @see Number#floatValue()
 	 */
-	public static Float getFloat(NamedList<Object> stats, String key) {
+	public static @Nullable Float getFloat(NamedList<Object> stats, String key) {
 		Object value = stats.get(key);
 		if (value == null)
 			return null;
@@ -260,7 +261,7 @@ public class CollectionUtils {
 	 * @see Integer#parseInt(String)
 	 * @see #getLong(NamedList, String)
 	 */
-	public static Integer getInteger(NamedList<Object> response, String key) {
+	public static @Nullable Integer getInteger(NamedList<Object> response, String key) {
 		Object value = response.get(key);
 		if (value == null)
 			return null;

@@ -31,6 +31,7 @@ import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.params.FacetParams;
 import org.apache.solr.mcp.server.util.PromptNames;
+import org.jspecify.annotations.Nullable;
 import org.springaicommunity.mcp.annotation.McpArg;
 import org.springaicommunity.mcp.annotation.McpPrompt;
 import org.springaicommunity.mcp.annotation.McpTool;
@@ -262,14 +263,16 @@ public class SearchService {
 			@McpToolParam(
 					description = "Solr q parameter. Lucene syntax; supports local params such as"
 							+ " {!edismax qf='name author'}. If none specified defaults to \"*:*\"",
-					required = false) String query,
+					required = false) @Nullable String query,
 			@McpToolParam(
 					description = "Solr fq parameter: list of filter queries, one filter per entry",
-					required = false) List<String> filterQueries,
-			@McpToolParam(description = "Solr facet fields", required = false) List<String> facetFields,
-			@McpToolParam(description = "Solr sort parameter", required = false) List<Map<String, String>> sortClauses,
-			@McpToolParam(description = "Starting offset for pagination", required = false) Integer start,
-			@McpToolParam(description = "Number of rows to return", required = false) Integer rows)
+					required = false) @Nullable List<String> filterQueries,
+			@McpToolParam(description = "Solr facet fields", required = false) @Nullable List<String> facetFields,
+			@McpToolParam(
+					description = "Solr sort parameter",
+					required = false) @Nullable List<Map<String, String>> sortClauses,
+			@McpToolParam(description = "Starting offset for pagination", required = false) @Nullable Integer start,
+			@McpToolParam(description = "Number of rows to return", required = false) @Nullable Integer rows)
 			throws SolrServerException, IOException {
 
 		// query

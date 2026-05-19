@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.Instant;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Data Transfer Objects (DTOs) for the Apache Solr MCP Server.
@@ -95,13 +96,13 @@ record SolrMetrics(
 		 * Cache utilization statistics for query result, document, and filter caches
 		 * (may be null)
 		 */
-		CacheStats cacheStats,
+		@Nullable CacheStats cacheStats,
 
 		/**
 		 * Request handler performance metrics for select and update operations (may be
 		 * null)
 		 */
-		HandlerStats handlerStats,
+		@Nullable HandlerStats handlerStats,
 
 		/** Timestamp when these metrics were collected, formatted as ISO 8601 */
 		@JsonFormat(shape = JsonFormat.Shape.STRING) Instant timestamp) {
@@ -139,13 +140,13 @@ record SolrMetrics(
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record IndexStats(
 		/** Total number of documents in the index (excluding deleted documents) */
-		Integer numDocs,
+		@Nullable Integer numDocs,
 
 		/**
 		 * Number of Lucene segments in the index (lower numbers generally indicate
 		 * better performance)
 		 */
-		Integer segmentCount) {
+		@Nullable Integer segmentCount) {
 }
 
 /**
@@ -223,13 +224,13 @@ record QueryStats(
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record CacheStats(
 		/** Performance metrics for the query result cache */
-		CacheInfo queryResultCache,
+		@Nullable CacheInfo queryResultCache,
 
 		/** Performance metrics for the document cache */
-		CacheInfo documentCache,
+		@Nullable CacheInfo documentCache,
 
 		/** Performance metrics for the filter cache */
-		CacheInfo filterCache) {
+		@Nullable CacheInfo filterCache) {
 }
 
 /**
@@ -262,28 +263,28 @@ record CacheStats(
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record CacheInfo(
 		/** Total number of cache lookup requests */
-		Long lookups,
+		@Nullable Long lookups,
 
 		/** Number of successful cache hits */
-		Long hits,
+		@Nullable Long hits,
 
 		/**
 		 * Cache hit ratio (hits/lookups) - higher values indicate better cache
 		 * performance
 		 */
-		Float hitratio,
+		@Nullable Float hitratio,
 
 		/** Number of new entries added to the cache */
-		Long inserts,
+		@Nullable Long inserts,
 
 		/**
 		 * Number of entries removed due to cache size limits (indicates memory
 		 * pressure)
 		 */
-		Long evictions,
+		@Nullable Long evictions,
 
 		/** Current number of entries stored in the cache */
-		Long size) {
+		@Nullable Long size) {
 }
 
 /**
@@ -317,10 +318,10 @@ record CacheInfo(
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record HandlerStats(
 		/** Performance metrics for the search/select request handler */
-		HandlerInfo selectHandler,
+		@Nullable HandlerInfo selectHandler,
 
 		/** Performance metrics for the document update request handler */
-		HandlerInfo updateHandler) {
+		@Nullable HandlerInfo updateHandler) {
 }
 
 /**
@@ -352,22 +353,22 @@ record HandlerStats(
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record HandlerInfo(
 		/** Total number of requests processed by this handler */
-		Long requests,
+		@Nullable Long requests,
 
 		/** Number of requests that resulted in errors */
-		Long errors,
+		@Nullable Long errors,
 
 		/** Number of requests that exceeded timeout limits */
-		Long timeouts,
+		@Nullable Long timeouts,
 
 		/** Cumulative time spent processing all requests (milliseconds) */
-		Long totalTime,
+		@Nullable Long totalTime,
 
 		/** Average time per request in milliseconds */
-		Float avgTimePerRequest,
+		@Nullable Float avgTimePerRequest,
 
 		/** Average throughput in requests per second */
-		Float avgRequestsPerSecond) {
+		@Nullable Float avgRequestsPerSecond) {
 }
 
 /**
@@ -412,13 +413,13 @@ record SolrHealthStatus(
 		boolean isHealthy,
 
 		/** Detailed error message when isHealthy is false, null when healthy */
-		String errorMessage,
+		@Nullable String errorMessage,
 
 		/** Response time in milliseconds for the health check ping request */
-		Long responseTime,
+		@Nullable Long responseTime,
 
 		/** Total number of documents currently indexed in the collection */
-		Long totalDocuments,
+		@Nullable Long totalDocuments,
 
 		/** Timestamp when this health check was performed, formatted as ISO 8601 */
 		@JsonFormat(shape = JsonFormat.Shape.STRING) Instant lastChecked,

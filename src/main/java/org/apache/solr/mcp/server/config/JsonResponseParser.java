@@ -29,6 +29,7 @@ import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.MediaType;
 
 /**
@@ -102,7 +103,7 @@ class JsonResponseParser extends ResponseParser {
 		return result;
 	}
 
-	private Object convertValue(JsonNode node) {
+	private @Nullable Object convertValue(JsonNode node) {
 		if (node.isNull())
 			return null;
 		if (node.isBoolean())
