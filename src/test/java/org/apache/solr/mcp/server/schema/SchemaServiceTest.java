@@ -332,10 +332,12 @@ class SchemaServiceTest {
 
 	@Test
 	void designSchemaPrompt_embedsSampleDocumentWhenProvided() {
-		String sample = "{\"id\":\"sku-1\",\"title\":\"Widget\",\"price\":9.99}";
+		String sample = """
+				{"id":"sku-1","title":"Widget","price":9.99}""";
+
 		String body = schemaService.designSchemaPrompt("products", "Catalog", sample);
 
-		assertTrue(body.contains("\"title\":\"Widget\""), "Prompt should include the sample document body");
+		assertTrue(body.contains(sample), "Prompt should include the sample document body");
 	}
 
 	@Test

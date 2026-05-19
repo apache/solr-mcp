@@ -40,7 +40,6 @@ import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
-import org.apache.solr.mcp.server.PromptNames;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
 import org.springaicommunity.mcp.annotation.McpArg;
 import org.springaicommunity.mcp.annotation.McpComplete;
@@ -1022,7 +1021,7 @@ public class CollectionService {
 		return new CollectionCreationResult(name, true, "Collection created successfully", new Date());
 	}
 
-	@McpPrompt(name = PromptNames.EXPLORE_COLLECTIONS, title = "Explore Solr collections", description = "Read-only walkthrough: list collections and characterise each by stats and health.")
+	@McpPrompt(name = "explore-collections", title = "Explore Solr collections", description = "Read-only walkthrough: list collections and characterise each by stats and health.")
 	public String exploreCollectionsPrompt() {
 		return """
 				You are exploring an Apache Solr cluster through MCP tools. Goal: produce a concise,
@@ -1044,11 +1043,11 @@ public class CollectionService {
 				   - Tell the user which collections exist, which look healthy, and which look empty or
 				     stale.
 				   - If the user's intent does not match any existing collection, suggest the
-				     `%s` prompt to create one.
-				""".formatted(PromptNames.SETUP_COLLECTION);
+				     `setup-collection` prompt to create one.
+				""";
 	}
 
-	@McpPrompt(name = PromptNames.SETUP_COLLECTION, title = "Set up a new Solr collection", description = "Guided workflow: validate a name, pick configset / shards / replication factor, create the collection, and verify it.")
+	@McpPrompt(name = "setup-collection", title = "Set up a new Solr collection", description = "Guided workflow: validate a name, pick configset / shards / replication factor, create the collection, and verify it.")
 	public String setupCollectionPrompt(
 			@McpArg(name = "name", description = "Desired collection name. Lowercase letters, digits, underscores, hyphens — no spaces.", required = true) String name,
 			@McpArg(name = "purpose", description = "Optional one-line description of what the collection is for (used only to ground the conversation).", required = false) String purpose) {
@@ -1075,9 +1074,9 @@ public class CollectionService {
 				   - Call `list-collections` again; `%s` should appear.
 				   - Call `check-health` on `%s`; it should respond to ping.
 
-				Next step suggestion: define the schema. Use the `%s` prompt to design fields for the
-				dataset the user wants to index.
+				Next step suggestion: define the schema. Use the `design-schema` prompt to design
+				fields for the dataset the user wants to index.
 				""".formatted(name, purposeLine, name, DEFAULT_CONFIGSET, DEFAULT_NUM_SHARDS,
-				DEFAULT_REPLICATION_FACTOR, name, name, name, PromptNames.DESIGN_SCHEMA);
+				DEFAULT_REPLICATION_FACTOR, name, name, name);
 	}
 }

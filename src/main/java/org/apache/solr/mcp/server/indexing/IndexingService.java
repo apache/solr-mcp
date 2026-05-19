@@ -23,7 +23,6 @@ import javax.xml.parsers.ParserConfigurationException;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrInputDocument;
-import org.apache.solr.mcp.server.PromptNames;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
 import org.apache.solr.mcp.server.util.PromptText;
 import org.springaicommunity.mcp.annotation.McpArg;
@@ -478,7 +477,7 @@ public class IndexingService {
 		};
 	}
 
-	@McpPrompt(name = PromptNames.INDEX_DATA, title = "Index documents into a Solr collection", description = "Guides the assistant through verifying the target schema, picking the right indexing tool for the input format, and confirming the result.")
+	@McpPrompt(name = "index-data", title = "Index documents into a Solr collection", description = "Guides the assistant through verifying the target schema, picking the right indexing tool for the input format, and confirming the result.")
 	public String indexDataPrompt(
 			@McpArg(name = "collection", description = "Target Solr collection name", required = true) String collection,
 			@McpArg(name = "format", description = "Document format: 'json', 'csv', or 'xml'", required = true) String format,
@@ -493,9 +492,9 @@ public class IndexingService {
 				1. Confirm the schema is ready.
 				   - Call `get-schema` on `%s`. Confirm the fields the input references exist with
 				     compatible types. If fields are missing or typed wrong, pause and run the
-				     `%s` prompt to add them — indexing into a collection without the right fields
-				     either fails or silently falls back to schemaless behavior, which can pollute the
-				     configset.
+				     `design-schema` prompt to add them — indexing into a collection without the right
+				     fields either fails or silently falls back to schemaless behavior, which can
+				     pollute the configset.
 
 				2. Inspect the input.
 				%s
@@ -505,17 +504,17 @@ public class IndexingService {
 				   - The tool batches internally and commits at the end. The return value is the count
 				     of successfully indexed documents.
 				   - On error, read the message carefully: an "unknown field" error means the schema is
-				     missing a field — go back to step 1 and run `%s`. A parse error means the input
-				     format does not match the chosen tool — fix the payload and retry.
+				     missing a field — go back to step 1 and run `design-schema`. A parse error means
+				     the input format does not match the chosen tool — fix the payload and retry.
 
 				4. Verify the count.
 				   - Call `check-health` on `%s` and confirm the reported doc count increased by the
 				     expected amount, OR call `search` with `query=*:*` and `rows=0` and read
 				     `numFound`.
 
-				Next step suggestion: once data is indexed, the `%s` prompt drives searching it.
-				""".formatted(indexTool.paramName(), collection, collection, PromptNames.DESIGN_SCHEMA, sampleSection,
-				indexTool.name(), collection, indexTool.paramName(), PromptNames.DESIGN_SCHEMA, collection,
-				PromptNames.SEARCH_COLLECTION);
+				Next step suggestion: once data is indexed, the `search-collection` prompt drives
+				searching it.
+				""".formatted(indexTool.paramName(), collection, collection, sampleSection, indexTool.name(),
+				collection, indexTool.paramName(), collection);
 	}
 }

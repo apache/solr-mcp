@@ -592,9 +592,8 @@ public abstract class McpClientIntegrationTestBase {
 		assertNotNull(promptsResult);
 		List<String> promptNames = promptsResult.prompts().stream().map(p -> p.name()).toList();
 
-		for (String expected : List.of(PromptNames.EXPLORE_COLLECTIONS, PromptNames.SETUP_COLLECTION,
-				PromptNames.VIEW_SCHEMA, PromptNames.DESIGN_SCHEMA, PromptNames.INDEX_DATA,
-				PromptNames.SEARCH_COLLECTION)) {
+		for (String expected : List.of("explore-collections", "setup-collection", "view-schema", "design-schema",
+				"index-data", "search-collection")) {
 			assertTrue(promptNames.contains(expected), "Should expose " + expected + " prompt: " + promptNames);
 		}
 	}
@@ -602,7 +601,7 @@ public abstract class McpClientIntegrationTestBase {
 	@Test
 	@Order(29)
 	void getExploreCollectionsPromptReturnsGuidance() {
-		GetPromptResult result = mcpClient.getPrompt(new GetPromptRequest(PromptNames.EXPLORE_COLLECTIONS, Map.of()));
+		GetPromptResult result = mcpClient.getPrompt(new GetPromptRequest("explore-collections", Map.of()));
 
 		String text = extractFirstMessageText(result);
 		assertTrue(text.contains("list-collections"), "Prompt body should reference list-collections: " + text);
@@ -614,7 +613,7 @@ public abstract class McpClientIntegrationTestBase {
 	@Test
 	@Order(30)
 	void getSetupCollectionPromptReturnsGuidance() {
-		GetPromptResult result = mcpClient.getPrompt(new GetPromptRequest(PromptNames.SETUP_COLLECTION,
+		GetPromptResult result = mcpClient.getPrompt(new GetPromptRequest("setup-collection",
 				Map.of("name", "scratch_collection", "purpose", "Testing setup-collection prompt")));
 
 		String text = extractFirstMessageText(result);
@@ -628,7 +627,7 @@ public abstract class McpClientIntegrationTestBase {
 	@Order(31)
 	void getViewSchemaPromptReturnsGuidance() {
 		GetPromptResult result = mcpClient
-				.getPrompt(new GetPromptRequest(PromptNames.VIEW_SCHEMA, Map.of("collection", SHOWS_COLLECTION)));
+				.getPrompt(new GetPromptRequest("view-schema", Map.of("collection", SHOWS_COLLECTION)));
 
 		String text = extractFirstMessageText(result);
 		assertTrue(text.contains(SHOWS_COLLECTION), "Prompt body should embed the collection name: " + text);
@@ -639,7 +638,7 @@ public abstract class McpClientIntegrationTestBase {
 	@Test
 	@Order(32)
 	void getDesignSchemaPromptReturnsGuidance() {
-		GetPromptResult result = mcpClient.getPrompt(new GetPromptRequest(PromptNames.DESIGN_SCHEMA,
+		GetPromptResult result = mcpClient.getPrompt(new GetPromptRequest("design-schema",
 				Map.of("collection", SHOWS_COLLECTION, "datasetDescription", "TV shows with title, platform, genres")));
 
 		String text = extractFirstMessageText(result);
@@ -652,7 +651,7 @@ public abstract class McpClientIntegrationTestBase {
 	@Order(33)
 	void getIndexDataPromptReturnsGuidance() {
 		GetPromptResult result = mcpClient.getPrompt(
-				new GetPromptRequest(PromptNames.INDEX_DATA, Map.of("collection", SHOWS_COLLECTION, "format", "json")));
+				new GetPromptRequest("index-data", Map.of("collection", SHOWS_COLLECTION, "format", "json")));
 
 		String text = extractFirstMessageText(result);
 		assertTrue(text.contains("index-json-documents"),
@@ -663,7 +662,7 @@ public abstract class McpClientIntegrationTestBase {
 	@Test
 	@Order(34)
 	void getSearchCollectionPromptReturnsGuidance() {
-		GetPromptResult result = mcpClient.getPrompt(new GetPromptRequest(PromptNames.SEARCH_COLLECTION,
+		GetPromptResult result = mcpClient.getPrompt(new GetPromptRequest("search-collection",
 				Map.of("collection", SHOWS_COLLECTION, "question", "What sci-fi shows are on Netflix?")));
 
 		String text = extractFirstMessageText(result);
@@ -674,14 +673,11 @@ public abstract class McpClientIntegrationTestBase {
 	}
 
 	private static String extractFirstMessageText(GetPromptResult result) {
-		assertNotNull(result, "GetPromptResult must not be null");
 		List<PromptMessage> messages = result.messages();
-		assertNotNull(messages, "messages must not be null");
 		assertFalse(messages.isEmpty(), "messages must not be empty");
 		Content content = messages.getFirst().content();
 		assertInstanceOf(TextContent.class, content, "first prompt message content should be TextContent");
 		String text = ((TextContent) content).text();
-		assertNotNull(text);
 		assertFalse(text.isBlank(), "prompt message text should not be blank");
 		return text;
 	}

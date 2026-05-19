@@ -32,7 +32,6 @@ import org.apache.solr.client.solrj.request.schema.AnalyzerDefinition;
 import org.apache.solr.client.solrj.request.schema.FieldTypeDefinition;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
-import org.apache.solr.mcp.server.PromptNames;
 import org.springaicommunity.mcp.annotation.McpArg;
 import org.springaicommunity.mcp.annotation.McpPrompt;
 import org.springaicommunity.mcp.annotation.McpResource;
@@ -422,7 +421,7 @@ public class SchemaService {
 		}
 	}
 
-	@McpPrompt(name = PromptNames.VIEW_SCHEMA, title = "View a Solr collection schema", description = "Read-only walkthrough: fetch the schema and summarize fields, types, dynamic fields, copy fields, and the unique key.")
+	@McpPrompt(name = "view-schema", title = "View a Solr collection schema", description = "Read-only walkthrough: fetch the schema and summarize fields, types, dynamic fields, copy fields, and the unique key.")
 	public String viewSchemaPrompt(
 			@McpArg(name = "collection", description = "Target Solr collection name", required = true) String collection) {
 		return """
@@ -454,12 +453,12 @@ public class SchemaService {
 				   - Fields that are indexed but not stored (searchable but not returnable) or vice
 				     versa.
 
-				Next step suggestion: if the schema is missing fields the user needs, the `%s` prompt
-				drives the additive workflow.
-				""".formatted(collection, collection, PromptNames.DESIGN_SCHEMA);
+				Next step suggestion: if the schema is missing fields the user needs, the
+				`design-schema` prompt drives the additive workflow.
+				""".formatted(collection, collection);
 	}
 
-	@McpPrompt(name = PromptNames.DESIGN_SCHEMA, title = "Design a Solr schema for a dataset", description = "Guides the assistant through inspecting an existing Solr schema, choosing appropriate field types, and applying additive schema changes via the Schema API.")
+	@McpPrompt(name = "design-schema", title = "Design a Solr schema for a dataset", description = "Guides the assistant through inspecting an existing Solr schema, choosing appropriate field types, and applying additive schema changes via the Schema API.")
 	public String designSchemaPrompt(
 			@McpArg(name = "collection", description = "Target Solr collection name", required = true) String collection,
 			@McpArg(name = "datasetDescription", description = "Free-text description of the data being indexed (entity, key attributes, expected query patterns)", required = true) String datasetDescription,
