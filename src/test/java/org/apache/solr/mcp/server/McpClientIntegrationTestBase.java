@@ -23,6 +23,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
+import io.modelcontextprotocol.spec.McpSchema.Content;
+import io.modelcontextprotocol.spec.McpSchema.GetPromptRequest;
+import io.modelcontextprotocol.spec.McpSchema.GetPromptResult;
+import io.modelcontextprotocol.spec.McpSchema.PromptMessage;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -573,6 +577,86 @@ public abstract class McpClientIntegrationTestBase {
 		// field carries the count.
 		assertTrue(text.contains(String.valueOf(SHOWS_DOC_COUNT)),
 				"Stats should report " + SHOWS_DOC_COUNT + " docs somewhere in the payload: " + text);
+	}
+
+	// ===== Prompt workflow (orders 28–32) =====
+	// Verifies the four @McpPrompt endpoints are discovered, listable, and return
+	// non-empty guidance referencing the right tools when fetched. Prompts are
+	// LLM-facing instruction templates — the framework wraps the String returned by
+	// each @McpPrompt method as a single user-role PromptMessage.
+
+	@Test
+	@Order(28)
+	void listPromptsReturnsExpectedPrompts() {
+		var promptsResult = mcpClient.listPrompts();
+		assertNotNull(promptsResult);
+		List<String> promptNames = promptsResult.prompts().stream().map(p -> p.name()).toList();
+
+		assertTrue(promptNames.contains("explore-and-create-collections"),
+				"Should expose explore-and-create-collections prompt: " + promptNames);
+		assertTrue(promptNames.contains("design-schema"), "Should expose design-schema prompt: " + promptNames);
+		assertTrue(promptNames.contains("index-data"), "Should expose index-data prompt: " + promptNames);
+		assertTrue(promptNames.contains("search-collection"), "Should expose search-collection prompt: " + promptNames);
+	}
+
+	@Test
+	@Order(29)
+	void getExploreAndCreateCollectionsPromptReturnsGuidance() {
+		GetPromptResult result = mcpClient.getPrompt(new GetPromptRequest("explore-and-create-collections", Map.of()));
+
+		String text = extractFirstMessageText(result);
+		assertTrue(text.contains("list-collections"), "Prompt body should reference list-collections: " + text);
+		assertTrue(text.contains("create-collection"), "Prompt body should reference create-collection: " + text);
+	}
+
+	@Test
+	@Order(30)
+	void getDesignSchemaPromptReturnsGuidance() {
+		GetPromptResult result = mcpClient.getPrompt(new GetPromptRequest("design-schema",
+				Map.of("collection", SHOWS_COLLECTION, "datasetDescription", "TV shows with title, platform, genres")));
+
+		String text = extractFirstMessageText(result);
+		assertTrue(text.contains(SHOWS_COLLECTION), "Prompt body should embed the collection name: " + text);
+		assertTrue(text.contains("add-fields"), "Prompt body should reference add-fields: " + text);
+		assertTrue(text.contains("add-field-types"), "Prompt body should reference add-field-types: " + text);
+	}
+
+	@Test
+	@Order(31)
+	void getIndexDataPromptReturnsGuidance() {
+		GetPromptResult result = mcpClient.getPrompt(
+				new GetPromptRequest("index-data", Map.of("collection", SHOWS_COLLECTION, "format", "json")));
+
+		String text = extractFirstMessageText(result);
+		assertTrue(text.contains("index-json-documents"),
+				"Prompt body should select index-json-documents for json format: " + text);
+		assertTrue(text.contains("get-schema"), "Prompt body should reference get-schema verification: " + text);
+	}
+
+	@Test
+	@Order(32)
+	void getSearchCollectionPromptReturnsGuidance() {
+		GetPromptResult result = mcpClient.getPrompt(new GetPromptRequest("search-collection",
+				Map.of("collection", SHOWS_COLLECTION, "question", "What sci-fi shows are on Netflix?")));
+
+		String text = extractFirstMessageText(result);
+		assertTrue(text.contains(SHOWS_COLLECTION), "Prompt body should embed the collection name: " + text);
+		assertTrue(text.contains("What sci-fi shows are on Netflix?"),
+				"Prompt body should embed the user question: " + text);
+		assertTrue(text.contains("filterQueries"), "Prompt body should explain filterQueries: " + text);
+	}
+
+	private static String extractFirstMessageText(GetPromptResult result) {
+		assertNotNull(result, "GetPromptResult must not be null");
+		List<PromptMessage> messages = result.messages();
+		assertNotNull(messages, "messages must not be null");
+		assertFalse(messages.isEmpty(), "messages must not be empty");
+		Content content = messages.get(0).content();
+		assertInstanceOf(TextContent.class, content, "first prompt message content should be TextContent");
+		String text = ((TextContent) content).text();
+		assertNotNull(text);
+		assertFalse(text.isBlank(), "prompt message text should not be blank");
+		return text;
 	}
 
 	private static String loadClasspathResource(String resourcePath) throws Exception {

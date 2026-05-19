@@ -42,6 +42,7 @@ import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
 import org.springaicommunity.mcp.annotation.McpComplete;
+import org.springaicommunity.mcp.annotation.McpPrompt;
 import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
@@ -1017,5 +1018,44 @@ public class CollectionService {
 				.process(solrClient);
 
 		return new CollectionCreationResult(name, true, "Collection created successfully", new Date());
+	}
+
+	@McpPrompt(name = "explore-and-create-collections", title = "Explore Solr collections and create one if needed", description = "Guides the assistant through discovering existing Solr collections, inspecting their health and stats, and creating a new collection when the desired one is missing.")
+	public String exploreAndCreateCollectionsPrompt() {
+		return """
+				You are working against an Apache Solr cluster through MCP tools. Follow this workflow to
+				explore the cluster and, if needed, create a new collection. Be incremental — run one tool
+				at a time and react to the actual output before moving on.
+
+				1. Discover what already exists.
+				   - Call `list-collections` to get the full set of collection names.
+				   - If the user mentioned a target collection by name, check whether it is in the list.
+
+				2. Characterize the interesting collections.
+				   - For each collection the user cares about (or a small representative sample if they
+				     did not name one), call `get-collection-stats` to read numDocs, segment counts, and
+				     cache/handler metrics, and `check-health` to confirm the collection responds to a
+				     ping and the doc count is non-zero where expected.
+				   - Briefly summarize what you learned: which collections exist, which look healthy,
+				     and which look empty or stale.
+
+				3. Decide whether a new collection is needed.
+				   - If the user's intent matches an existing collection, stop here and surface what you
+				     found.
+				   - Otherwise, pick a clear lowercase name (letters, digits, underscores, hyphens — no
+				     spaces). Default to the SolrCloud-friendly `_default` configset, 1 shard, and
+				     replicationFactor 1 unless the user asked for something else.
+
+				4. Create the collection.
+				   - Call `create-collection` with `name` and any non-default values for `configSet`,
+				     `numShards`, `replicationFactor`. Report the result (success flag + message).
+
+				5. Verify.
+				   - Call `list-collections` again to confirm the new collection appears, and
+				     `check-health` on the new name to confirm it responds.
+
+				Next step suggestion: once a collection exists, the user usually wants to design its
+				schema. The `design-schema` prompt drives that workflow.
+				""";
 	}
 }

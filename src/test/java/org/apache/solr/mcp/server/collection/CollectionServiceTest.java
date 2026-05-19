@@ -866,4 +866,15 @@ class CollectionServiceTest {
 		assertThrows(SolrServerException.class,
 				() -> collectionService.createCollection("fail_core", null, null, null));
 	}
+
+	@Test
+	void exploreAndCreateCollectionsPrompt_includesKeyWorkflowSteps() {
+		String body = collectionService.exploreAndCreateCollectionsPrompt();
+
+		assertNotNull(body);
+		assertTrue(body.contains("list-collections"), "Prompt should reference list-collections tool");
+		assertTrue(body.contains("get-collection-stats"), "Prompt should reference get-collection-stats tool");
+		assertTrue(body.contains("check-health"), "Prompt should reference check-health tool");
+		assertTrue(body.contains("create-collection"), "Prompt should reference create-collection tool");
+	}
 }

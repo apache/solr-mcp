@@ -31,6 +31,8 @@ import org.apache.solr.client.solrj.request.schema.AnalyzerDefinition;
 import org.apache.solr.client.solrj.request.schema.FieldTypeDefinition;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
+import org.springaicommunity.mcp.annotation.McpArg;
+import org.springaicommunity.mcp.annotation.McpPrompt;
 import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
@@ -416,5 +418,65 @@ public class SchemaService {
 		if (list == null || list.isEmpty()) {
 			throw new IllegalArgumentException(name + " must not be empty");
 		}
+	}
+
+	@McpPrompt(name = "design-schema", title = "Design a Solr schema for a dataset", description = "Guides the assistant through inspecting an existing Solr schema, choosing appropriate field types, and applying additive schema changes via the Schema API.")
+	public String designSchemaPrompt(
+			@McpArg(name = "collection", description = "Target Solr collection name", required = true) String collection,
+			@McpArg(name = "datasetDescription", description = "Free-text description of the data being indexed (entity, key attributes, expected query patterns)", required = true) String datasetDescription,
+			@McpArg(name = "sampleDocument", description = "Optional single document in JSON to ground field inference", required = false) String sampleDocument) {
+		String sampleSection = (sampleDocument == null || sampleDocument.isBlank())
+				? "   - No sample document was provided; ask the user for one if the dataset description leaves field types ambiguous."
+				: "   - A sample document was provided. Use it as ground truth for field names and value\n     shapes:\n\n     ```\n     "
+						+ sampleDocument.strip().replace("\n", "\n     ") + "\n     ```";
+		return """
+				You are designing a Solr schema for collection `%s`. Dataset:
+
+				    %s
+
+				Follow this workflow. The Solr Schema API is transactional per batch — if any command in
+				a batch fails, none are applied — so plan carefully before each `add-fields` or
+				`add-field-types` call.
+
+				1. Inspect the current schema.
+				   - Call `get-schema` on `%s`. Note which fields already exist and which field types
+				     (e.g. `text_general`, `string`, `strings`, `pint`, `pdouble`, `pdate`) are defined.
+				     Existing fields cannot be modified, only added to.
+
+				2. Anchor on the dataset.
+				%s
+
+				3. Map dataset attributes to Solr field types.
+				   - Free-text the user will search on: `text_general` (tokenized) for descriptions,
+				     titles, bodies.
+				   - Exact-match facets / filters: `string` for single-valued, `strings` for multi-valued
+				     (categories, tags, genres).
+				   - Numerics: `pint`, `plong`, `pfloat`, `pdouble`. Add `docValues=true` if you need to
+				     sort, facet, or range-filter on the field.
+				   - Dates: `pdate`.
+				   - Identifiers: `string` with `docValues=true`.
+				   - Semantic / vector search: a custom `DenseVectorField` type via `add-field-types`
+				     (specify `vectorDimension`, `similarityFunction`, `knnAlgorithm=hnsw`), then a field
+				     of that type via `add-fields`.
+				   - Case-insensitive exact match or autocomplete: a custom `solr.TextField` type with a
+				     `KeywordTokenizerFactory` + `LowerCaseFilterFactory` analyzer (or split
+				     index/query analyzers with `EdgeNGramFilterFactory` for autocomplete).
+
+				4. Add field types first, then fields.
+				   - If you need any custom field types, call `add-field-types` with the full batch in
+				     one call. On failure, inspect the error, fix the offending entry, and retry the
+				     entire batch.
+				   - Then call `add-fields` with the full batch of new fields. Each field map must
+				     include `name` and `type`; recommended extras are `stored`, `indexed`,
+				     `docValues`, `multiValued`, `required`.
+
+				5. Verify.
+				   - Call `get-schema` again and confirm every desired field and type is present. If the
+				     collection shares a configset with other collections, some fields may already
+				     exist from earlier work — that is fine; only add the gap.
+
+				Next step suggestion: once the schema is in place, the `index-data` prompt drives
+				indexing documents into the collection.
+				""".formatted(collection, datasetDescription, collection, sampleSection);
 	}
 }

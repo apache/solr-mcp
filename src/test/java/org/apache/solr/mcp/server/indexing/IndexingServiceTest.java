@@ -323,4 +323,32 @@ class IndexingServiceTest {
 		}
 		return docs;
 	}
+
+	@Test
+	void indexDataPrompt_jsonPath_referencesIndexJsonDocuments() {
+		String body = indexingService.indexDataPrompt("library", "json", "[{\"id\":\"1\",\"title\":\"Test\"}]");
+
+		assertNotNull(body);
+		assertTrue(body.contains("library"), "Prompt should mention the target collection name");
+		assertTrue(body.contains("index-json-documents"), "JSON path should reference index-json-documents tool");
+		assertTrue(body.contains("get-schema"), "Prompt should reference get-schema for verification");
+		assertTrue(body.contains("design-schema"),
+				"Prompt should reference design-schema as fallback when fields are missing");
+		assertTrue(body.contains("{\"id\":\"1\",\"title\":\"Test\"}"), "Prompt should embed the sample payload");
+	}
+
+	@Test
+	void indexDataPrompt_csvPath_referencesIndexCsvDocuments() {
+		String body = indexingService.indexDataPrompt("library", "csv", null);
+
+		assertTrue(body.contains("index-csv-documents"), "CSV path should reference index-csv-documents tool");
+		assertFalse(body.contains("index-json-documents"), "CSV path should not reference index-json-documents tool");
+	}
+
+	@Test
+	void indexDataPrompt_xmlPath_referencesIndexXmlDocuments() {
+		String body = indexingService.indexDataPrompt("library", "xml", null);
+
+		assertTrue(body.contains("index-xml-documents"), "XML path should reference index-xml-documents tool");
+	}
 }

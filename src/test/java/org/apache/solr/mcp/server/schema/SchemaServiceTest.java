@@ -316,4 +316,25 @@ class SchemaServiceTest {
 		assertTrue(body.contains("solr.TextField"),
 				"Wire body must preserve the field-type-level 'class' key: " + body);
 	}
+
+	@Test
+	void designSchemaPrompt_includesKeyWorkflowSteps() {
+		String body = schemaService.designSchemaPrompt("products", "A catalog of products with title and price", null);
+
+		assertNotNull(body);
+		assertTrue(body.contains("products"), "Prompt should mention the target collection name");
+		assertTrue(body.contains("get-schema"), "Prompt should reference get-schema tool");
+		assertTrue(body.contains("add-fields"), "Prompt should reference add-fields tool");
+		assertTrue(body.contains("add-field-types"), "Prompt should reference add-field-types tool");
+		assertTrue(body.contains("text_general"), "Prompt should mention common Solr field types");
+		assertTrue(body.contains("transactional"), "Prompt should warn about Schema API atomicity");
+	}
+
+	@Test
+	void designSchemaPrompt_embedsSampleDocumentWhenProvided() {
+		String sample = "{\"id\":\"sku-1\",\"title\":\"Widget\",\"price\":9.99}";
+		String body = schemaService.designSchemaPrompt("products", "Catalog", sample);
+
+		assertTrue(body.contains("\"title\":\"Widget\""), "Prompt should include the sample document body");
+	}
 }
