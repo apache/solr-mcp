@@ -38,10 +38,10 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 class HttpSecurityConfiguration {
 
 	@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri:}")
-	private String issuerUrl;
+	private String issuerUrl = "";
 
 	@Value("${mcp.cors.allowed-origins}")
-	private List<String> allowedOrigins;
+	private List<String> allowedOrigins = List.of();
 
 	@Bean
 	@ConditionalOnProperty(name = "http.security.enabled", havingValue = "true", matchIfMissing = true)
