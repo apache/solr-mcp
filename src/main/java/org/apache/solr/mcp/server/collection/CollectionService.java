@@ -712,7 +712,7 @@ public class CollectionService {
 	 *            the core metrics from the Solr Metrics API
 	 * @return CacheStats object containing parsed metrics for all cache types
 	 */
-	private @Nullable CacheStats extractCacheStats(NamedList<Object> coreMetrics) {
+	private CacheStats extractCacheStats(NamedList<Object> coreMetrics) {
 		return new CacheStats(extractSingleCacheInfo(coreMetrics, QUERY_RESULT_CACHE_KEY),
 				extractSingleCacheInfo(coreMetrics, DOCUMENT_CACHE_KEY),
 				extractSingleCacheInfo(coreMetrics, FILTER_CACHE_KEY));
