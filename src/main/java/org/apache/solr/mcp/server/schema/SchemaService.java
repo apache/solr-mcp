@@ -421,6 +421,8 @@ public class SchemaService {
 		}
 	}
 
+	@PreAuthorize("isAuthenticated()")
+
 	@McpPrompt(name = "view-schema", title = "View a Solr collection schema", description = "Read-only walkthrough: fetch the schema and summarize fields, types, dynamic fields, copy fields, and the unique key.")
 	public String viewSchemaPrompt(
 			@McpArg(name = "collection", description = "Target Solr collection name", required = true) String collection) {
@@ -457,6 +459,8 @@ public class SchemaService {
 				`design-schema` prompt drives the additive workflow.
 				""".formatted(collection, collection);
 	}
+
+	@PreAuthorize("isAuthenticated()")
 
 	@McpPrompt(name = "design-schema", title = "Design a Solr schema for a dataset", description = "Guides the assistant through inspecting an existing Solr schema, choosing appropriate field types, and applying additive schema changes via the Schema API.")
 	public String designSchemaPrompt(

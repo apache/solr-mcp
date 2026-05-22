@@ -1021,6 +1021,8 @@ public class CollectionService {
 		return new CollectionCreationResult(name, true, "Collection created successfully", new Date());
 	}
 
+	@PreAuthorize("isAuthenticated()")
+
 	@McpPrompt(name = "explore-collections", title = "Explore Solr collections", description = "Read-only walkthrough: list collections and characterise each by stats and health.")
 	public String exploreCollectionsPrompt() {
 		return """
@@ -1046,6 +1048,8 @@ public class CollectionService {
 				     `setup-collection` prompt to create one.
 				""";
 	}
+
+	@PreAuthorize("isAuthenticated()")
 
 	@McpPrompt(name = "setup-collection", title = "Set up a new Solr collection", description = "Guided workflow: validate a name, pick configset / shards / replication factor, create the collection, and verify it.")
 	public String setupCollectionPrompt(

@@ -301,6 +301,8 @@ public class SearchService {
 		return new SearchResponse(documents.getNumFound(), documents.getStart(), documents.getMaxScore(), docs, facets);
 	}
 
+	@PreAuthorize("isAuthenticated()")
+
 	@McpPrompt(name = "search-collection", title = "Search a Solr collection from a natural-language question", description = "Guides the assistant through inspecting the schema, translating a user question into a Solr query, running the search, and refining the result.")
 	public String searchCollectionPrompt(
 			@McpArg(name = "collection", description = "Target Solr collection name", required = true) String collection,

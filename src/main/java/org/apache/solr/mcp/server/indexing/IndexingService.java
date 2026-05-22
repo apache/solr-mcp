@@ -477,6 +477,8 @@ public class IndexingService {
 		};
 	}
 
+	@PreAuthorize("isAuthenticated()")
+
 	@McpPrompt(name = "index-data", title = "Index documents into a Solr collection", description = "Guides the assistant through verifying the target schema, picking the right indexing tool for the input format, and confirming the result.")
 	public String indexDataPrompt(
 			@McpArg(name = "collection", description = "Target Solr collection name", required = true) String collection,
