@@ -24,8 +24,11 @@ import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
+import io.modelcontextprotocol.spec.McpSchema.Tool;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
@@ -86,6 +89,47 @@ public abstract class McpClientIntegrationTestBase {
 		assertTrue(toolNames.contains("check-health"), "Should have check-health tool");
 		assertTrue(toolNames.contains("get-collection-stats"), "Should have get-collection-stats tool");
 		assertTrue(toolNames.contains("get-schema"), "Should have get-schema tool");
+	}
+
+	@Test
+	@Order(2)
+	void toolsExposeBehaviorHints() {
+		Map<String, Tool> tools = mcpClient.listTools().tools().stream()
+				.collect(Collectors.toMap(Tool::name, Function.identity()));
+
+		// Read-only tools — clients can call without approval prompts.
+		assertReadOnly(tools, "search");
+		assertReadOnly(tools, "list-collections");
+		assertReadOnly(tools, "get-collection-stats");
+		assertReadOnly(tools, "check-health");
+		assertReadOnly(tools, "get-schema");
+
+		// create-collection: additive write (provisions a new collection, not
+		// idempotent because a second call with the same name errors).
+		assertHint(tools, "create-collection", /* readOnly */ false, /* destructive */ false, /* idempotent */ false);
+
+		// Indexing: destructive (Solr overwrites by uniqueKey) but idempotent —
+		// posting the same JSON/CSV/XML twice leaves the index in the same state.
+		assertHint(tools, "index-json-documents", false, true, true);
+		assertHint(tools, "index-csv-documents", false, true, true);
+		assertHint(tools, "index-xml-documents", false, true, true);
+	}
+
+	private static void assertReadOnly(Map<String, Tool> tools, String name) {
+		Tool tool = tools.get(name);
+		assertNotNull(tool, name + " tool should be present");
+		assertNotNull(tool.annotations(), name + " should expose hints");
+		assertEquals(Boolean.TRUE, tool.annotations().readOnlyHint(), name + " should be readOnly");
+	}
+
+	private static void assertHint(Map<String, Tool> tools, String name, boolean readOnly, boolean destructive,
+			boolean idempotent) {
+		Tool tool = tools.get(name);
+		assertNotNull(tool, name + " tool should be present");
+		assertNotNull(tool.annotations(), name + " should expose hints");
+		assertEquals(readOnly, tool.annotations().readOnlyHint(), name + " readOnlyHint mismatch");
+		assertEquals(destructive, tool.annotations().destructiveHint(), name + " destructiveHint mismatch");
+		assertEquals(idempotent, tool.annotations().idempotentHint(), name + " idempotentHint mismatch");
 	}
 
 	@Test
