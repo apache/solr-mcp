@@ -195,7 +195,7 @@ public class IndexingService {
 	 * @see #indexDocuments(String, List)
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "index-json-documents", description = "Index documents from json String into Solr collection")
+	@McpTool(name = "index-json-documents", annotations = @McpTool.McpAnnotations(idempotentHint = true), description = "Index documents from json String into Solr collection")
 	public String indexJsonDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "JSON string containing documents to index") String json)
 			throws IOException, SolrServerException {
@@ -263,7 +263,7 @@ public class IndexingService {
 	 * @see #indexDocuments(String, List)
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "index-csv-documents", description = "Index documents from CSV string into Solr collection")
+	@McpTool(name = "index-csv-documents", annotations = @McpTool.McpAnnotations(idempotentHint = true), description = "Index documents from CSV string into Solr collection")
 	public String indexCsvDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "CSV string containing documents to index") String csv)
 			throws IOException, SolrServerException {
@@ -355,7 +355,7 @@ public class IndexingService {
 	 * @see #indexDocuments(String, List)
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "index-xml-documents", description = "Index documents from XML string into Solr collection")
+	@McpTool(name = "index-xml-documents", annotations = @McpTool.McpAnnotations(idempotentHint = true), description = "Index documents from XML string into Solr collection")
 	public String indexXmlDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "XML string containing documents to index") String xml)
 			throws ParserConfigurationException, SAXException, IOException, SolrServerException {

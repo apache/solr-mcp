@@ -355,7 +355,7 @@ public class CollectionService {
 	 * @see CollectionAdminRequest.List
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "list-collections", description = "List solr collections")
+	@McpTool(name = "list-collections", annotations = @McpTool.McpAnnotations(readOnlyHint = true), description = "List solr collections")
 	public List<String> listCollections() throws SolrServerException, IOException {
 		CollectionAdminRequest.List request = new CollectionAdminRequest.List();
 		CollectionAdminResponse response = request.process(solrClient);
@@ -426,7 +426,7 @@ public class CollectionService {
 	 * @see #extractCollectionName(String)
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "get-collection-stats", description = "Get stats/metrics on a Solr collection")
+	@McpTool(name = "get-collection-stats", annotations = @McpTool.McpAnnotations(readOnlyHint = true), description = "Get stats/metrics on a Solr collection")
 	public SolrMetrics getCollectionStats(
 			@McpToolParam(description = "Solr collection to get stats/metrics for") String collection)
 			throws SolrServerException, IOException {
@@ -968,7 +968,7 @@ public class CollectionService {
 	 * @see SolrPingResponse
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "check-health", description = "Check health of a Solr collection")
+	@McpTool(name = "check-health", annotations = @McpTool.McpAnnotations(readOnlyHint = true), description = "Check health of a Solr collection")
 	public SolrHealthStatus checkHealth(@McpToolParam(description = "Solr collection") String collection) {
 		String actualCollection = extractCollectionName(collection);
 		try {
@@ -1020,7 +1020,7 @@ public class CollectionService {
 	 *             if there are I/O errors during communication
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "create-collection", description = "Create a new Solr collection. "
+	@McpTool(name = "create-collection", annotations = @McpTool.McpAnnotations(destructiveHint = false), description = "Create a new Solr collection. "
 			+ "configSet defaults to _default, numShards and replicationFactor default to 1.")
 	public CollectionCreationResult createCollection(
 			@McpToolParam(description = "Name of the collection to create") String name,
