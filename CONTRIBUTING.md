@@ -28,6 +28,10 @@ We use Spotless for code formatting and style enforcement. CI enforces `spotless
 - Include unit tests for new features
 - Keep methods focused and concise
 
+### Null safety
+
+Every package is `@NullMarked` via `package-info.java`. Methods, parameters, and return types are non-null by default — mark legitimate null surfaces with `@Nullable` (`org.jspecify.annotations.Nullable`). [NullAway](https://github.com/uber/NullAway) enforces the contract on `compileJava`; new code that violates it fails the build. Reference: [JSpecify](https://jspecify.dev/).
+
 ## Testing
 
 To keep this document concise, please see the Development Guide for all testing workflows and tips:

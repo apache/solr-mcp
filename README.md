@@ -36,13 +36,30 @@ The Solr MCP Server implements the [Model Context Protocol (MCP)](https://spec.m
 | `check-health` | Health check with status, document count, and responsiveness |
 | `create-collection` | Create a collection with configurable shards, replicas, and configset |
 | `get-schema` | Retrieve field definitions, field types, dynamic fields, copy fields |
+| `add-fields` | Additively extend a collection's schema with new fields (Solr Schema API JSON shape) |
+| `add-field-types` | Additively extend a collection's schema with new field types — custom analyzers, dense vector fields for semantic search, autocomplete chains |
+
+Every tool advertises MCP behavior hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`) so clients can build sensible approval UX — `search` and the metadata tools are read-only, indexing is destructive but idempotent, schema modification is additive.
 
 ### MCP Resources
 
 | Resource URI | Description |
 |---|---|
 | `solr://collections` | List of all Solr collections in the cluster |
-| `solr://{collection}/schema` | Schema definition for a collection (supports autocompletion) |
+| `solr://{collection}/schema` | Schema definition for a collection. Supports prefix-filtered autocompletion (case-insensitive, capped at 100 suggestions) |
+
+### MCP Prompts
+
+Slash-command-style workflow templates. The framework wraps each prompt's return value as a single user-role `PromptMessage` directing the LLM through a canonical Solr workflow.
+
+| Prompt | Arguments | Purpose |
+|---|---|---|
+| `explore-collections` | — | Read-only walkthrough: list collections and characterise each by stats and health |
+| `setup-collection` | `name`, `purpose` (optional) | Validate a name, pick configset / shards / replication factor, create the collection, verify it |
+| `view-schema` | `collection` | Read-only schema walkthrough |
+| `design-schema` | `collection`, `datasetDescription`, `sampleDocument` (optional) | Inspect schema, choose field types, apply additive schema changes |
+| `index-data` | `collection`, `format` (`json` / `csv` / `xml`), `sample` (optional) | Verify the target schema, pick the right indexing tool, confirm the result |
+| `search-collection` | `collection`, `question` | Translate a natural-language question into a Solr query |
 
 ### Platform
 
