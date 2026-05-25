@@ -22,11 +22,13 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.modelcontextprotocol.spec.McpSchema.CompleteRequest;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.IntStream;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -898,5 +900,97 @@ class CollectionServiceTest {
 		String body = collectionService.setupCollectionPrompt("widgets", null);
 
 		assertFalse(body.contains("Purpose:"), "Purpose line should be omitted when no purpose is provided");
+	}
+
+	// completeCollection tests
+	@Test
+	void completeCollection_WithMatchingPrefix_ReturnsMatches() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		doReturn(Arrays.asList("products", "prod-logs", "users")).when(spyService).listCollections();
+
+		List<String> result = spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "prod"));
+
+		assertEquals(List.of("prod-logs", "products"), result);
+	}
+
+	@Test
+	void completeCollection_WithEmptyPrefix_ReturnsAllSorted() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		doReturn(Arrays.asList("zeta", "alpha", "mu")).when(spyService).listCollections();
+
+		List<String> result = spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", ""));
+
+		assertEquals(List.of("alpha", "mu", "zeta"), result);
+	}
+
+	@Test
+	void completeCollection_WithNullValue_ReturnsAllSorted() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		doReturn(Arrays.asList("zeta", "alpha")).when(spyService).listCollections();
+
+		List<String> result = spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", null));
+
+		assertEquals(List.of("alpha", "zeta"), result);
+	}
+
+	@Test
+	void completeCollection_IsCaseInsensitive() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		doReturn(Arrays.asList("Products", "PROD_LOGS", "users")).when(spyService).listCollections();
+
+		List<String> result = spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "prod"));
+
+		assertEquals(List.of("PROD_LOGS", "Products"), result);
+	}
+
+	@Test
+	void completeCollection_WithNoMatches_ReturnsEmpty() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		doReturn(Arrays.asList("alpha", "beta")).when(spyService).listCollections();
+
+		List<String> result = spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "zzz"));
+
+		assertTrue(result.isEmpty());
+	}
+
+	@Test
+	void completeCollection_WithWrongArgumentName_ReturnsEmpty() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		// Should not even attempt to list collections when the argument name does not
+		// match the template variable.
+		List<String> result = spyService.completeCollection(new CompleteRequest.CompleteArgument("field", "prod"));
+
+		assertTrue(result.isEmpty());
+		verify(spyService, never()).listCollections();
+	}
+
+	@Test
+	void completeCollection_WithNullArgument_ReturnsEmpty() {
+		List<String> result = collectionService.completeCollection(null);
+
+		assertTrue(result.isEmpty());
+	}
+
+	@Test
+	void completeCollection_CapsResultsAtMax() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		List<String> many = IntStream.range(0, CollectionService.MAX_COMPLETION_RESULTS + 25)
+				.mapToObj(i -> String.format("c%04d", i)).toList();
+		doReturn(many).when(spyService).listCollections();
+
+		List<String> result = spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "c"));
+
+		assertEquals(CollectionService.MAX_COMPLETION_RESULTS, result.size());
+		assertEquals("c0000", result.get(0));
+	}
+
+	@Test
+	void completeCollection_WhenListCollectionsFails_ReturnsEmpty() throws Exception {
+		when(solrClient.request(any(), any())).thenThrow(new SolrServerException("connection refused"));
+
+		List<String> result = collectionService
+				.completeCollection(new CompleteRequest.CompleteArgument("collection", "prod"));
+
+		assertTrue(result.isEmpty());
 	}
 }

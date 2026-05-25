@@ -174,6 +174,7 @@ public class SchemaService {
 	 *            the name of the collection to retrieve schema for
 	 * @return JSON string containing the schema representation
 	 */
+	@PreAuthorize("isAuthenticated()")
 	@McpResource(uri = "solr://{collection}/schema", name = "solr-collection-schema", description = "Schema definition for a Solr collection including fields, field types, and copy fields", mimeType = "application/json")
 	public String getSchemaResource(String collection) {
 		try {

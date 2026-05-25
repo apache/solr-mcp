@@ -23,10 +23,12 @@ import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.observation.annotation.Observed;
+import io.modelcontextprotocol.spec.McpSchema.CompleteRequest;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -284,24 +286,44 @@ public class CollectionService {
 	 *
 	 * @return JSON string containing the list of collections
 	 */
+	@PreAuthorize("isAuthenticated()")
 	@McpResource(uri = "solr://collections", name = "solr-collections", description = "List of all Solr collections available in the cluster", mimeType = "application/json")
 	public String getCollectionsResource() throws SolrServerException, IOException {
 		return toJson(objectMapper, listCollections());
 	}
 
+	/** Maximum number of completion suggestions returned per request. */
+	static final int MAX_COMPLETION_RESULTS = 100;
+
 	/**
-	 * MCP Completion endpoint for collection name autocompletion.
+	 * MCP Completion endpoint for the {@code {collection}} segment of the
+	 * {@code solr://{collection}/schema} resource template.
 	 *
 	 * <p>
-	 * Provides autocompletion support for the collection parameter in the schema
-	 * resource URI template. Returns all available collection names that MCP
-	 * clients can use to complete the {collection} placeholder.
+	 * Returns collection names that start with the user-supplied prefix
+	 * (case-insensitive). When the prefix is empty all collections are returned,
+	 * subject to {@link #MAX_COMPLETION_RESULTS}. The results are sorted so that
+	 * client UIs see a stable ordering.
 	 *
-	 * @return list of available collection names for autocompletion
+	 * @param argument
+	 *            the partial value the client is completing; its
+	 *            {@link CompleteRequest.CompleteArgument#name() name} must be
+	 *            {@code collection}
+	 * @return matching collection names, capped at {@link #MAX_COMPLETION_RESULTS}
 	 */
+	@PreAuthorize("isAuthenticated()")
 	@McpComplete(uri = "solr://{collection}/schema")
-	public List<String> completeCollectionForSchema() throws SolrServerException, IOException {
-		return listCollections();
+	public List<String> completeCollection(CompleteRequest.CompleteArgument argument) {
+		if (argument == null || !"collection".equals(argument.name())) {
+			return List.of();
+		}
+		String prefix = argument.value() == null ? "" : argument.value().toLowerCase(Locale.ROOT);
+		try {
+			return listCollections().stream().filter(c -> c != null && c.toLowerCase(Locale.ROOT).startsWith(prefix))
+					.sorted().limit(MAX_COMPLETION_RESULTS).toList();
+		} catch (SolrServerException | IOException _) {
+			return List.of();
+		}
 	}
 
 	/**

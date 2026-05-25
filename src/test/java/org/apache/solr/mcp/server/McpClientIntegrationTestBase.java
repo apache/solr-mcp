@@ -23,10 +23,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
+import io.modelcontextprotocol.spec.McpSchema.CompleteRequest;
+import io.modelcontextprotocol.spec.McpSchema.CompleteResult;
 import io.modelcontextprotocol.spec.McpSchema.Content;
 import io.modelcontextprotocol.spec.McpSchema.GetPromptRequest;
 import io.modelcontextprotocol.spec.McpSchema.GetPromptResult;
 import io.modelcontextprotocol.spec.McpSchema.PromptMessage;
+import io.modelcontextprotocol.spec.McpSchema.ResourceReference;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -670,6 +673,40 @@ public abstract class McpClientIntegrationTestBase {
 		assertTrue(text.contains("What sci-fi shows are on Netflix?"),
 				"Prompt body should embed the user question: " + text);
 		assertTrue(text.contains("filterQueries"), "Prompt body should explain filterQueries: " + text);
+	}
+
+	// ===== Collection-completion workflow (orders 35–36) =====
+
+	@Test
+	@Order(35)
+	void completeCollection_ReturnsCreatedCollection() {
+		ResourceReference ref = new ResourceReference("solr://{collection}/schema");
+		CompleteRequest request = new CompleteRequest(ref,
+				new CompleteRequest.CompleteArgument("collection", COLLECTION.substring(0, 3)));
+
+		CompleteResult result = mcpClient.completeCompletion(request);
+
+		assertNotNull(result);
+		assertNotNull(result.completion());
+		List<String> values = result.completion().values();
+		assertNotNull(values);
+		assertTrue(values.contains(COLLECTION),
+				"Completion should include the previously created collection: " + values);
+	}
+
+	@Test
+	@Order(36)
+	void completeCollection_NoMatchesReturnsEmptyValues() {
+		ResourceReference ref = new ResourceReference("solr://{collection}/schema");
+		CompleteRequest request = new CompleteRequest(ref,
+				new CompleteRequest.CompleteArgument("collection", "no-such-prefix-zzz"));
+
+		CompleteResult result = mcpClient.completeCompletion(request);
+
+		assertNotNull(result);
+		assertNotNull(result.completion());
+		assertTrue(result.completion().values().isEmpty(),
+				"No collections should match an unknown prefix: " + result.completion().values());
 	}
 
 	private static String extractFirstMessageText(GetPromptResult result) {
