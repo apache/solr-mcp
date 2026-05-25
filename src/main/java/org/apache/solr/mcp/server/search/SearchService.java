@@ -218,7 +218,11 @@ public class SearchService {
 	 *             If there's an I/O error
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "search", annotations = @McpTool.McpAnnotations(readOnlyHint = true), description = """
+	// @formatter:off — keep this @McpTool wrapped like the others; the text block disguises the real line length.
+	@McpTool(
+			name = "search",
+			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
+			description = """
 			Search specified Solr collection with query, optional filters, facets, sorting, and pagination.
 			Note that solr has dynamic fields where name of field in schema may end with suffixes
 			_s: Represents a string field, used for exact string matching.
@@ -244,8 +248,11 @@ public class SearchService {
 			      "_root_":"0553579908"
 			    }
 			""")
+	// @formatter:on
 	public SearchResponse search(@McpToolParam(description = "Solr collection to query") String collection,
-			@McpToolParam(description = "Solr q parameter. If none specified defaults to \"*:*\"", required = false) String query,
+			@McpToolParam(
+					description = "Solr q parameter. If none specified defaults to \"*:*\"",
+					required = false) String query,
 			@McpToolParam(description = "Solr fq parameter", required = false) List<String> filterQueries,
 			@McpToolParam(description = "Solr facet fields", required = false) List<String> facetFields,
 			@McpToolParam(description = "Solr sort parameter", required = false) List<Map<String, String>> sortClauses,
@@ -304,10 +311,19 @@ public class SearchService {
 
 	@PreAuthorize("isAuthenticated()")
 
-	@McpPrompt(name = PromptNames.SEARCH_COLLECTION, title = "Search a Solr collection from a natural-language question", description = "Guides the assistant through inspecting the schema, translating a user question into a Solr query, running the search, and refining the result.")
+	@McpPrompt(
+			name = PromptNames.SEARCH_COLLECTION,
+			title = "Search a Solr collection from a natural-language question",
+			description = "Guides the assistant through inspecting the schema, translating a user question into a Solr query, running the search, and refining the result.")
 	public String searchCollectionPrompt(
-			@McpArg(name = "collection", description = "Target Solr collection name", required = true) String collection,
-			@McpArg(name = "question", description = "The user's natural-language search question or information need", required = true) String question) {
+			@McpArg(
+					name = "collection",
+					description = "Target Solr collection name",
+					required = true) String collection,
+			@McpArg(
+					name = "question",
+					description = "The user's natural-language search question or information need",
+					required = true) String question) {
 		return """
 				You are searching collection `%s` to answer:
 

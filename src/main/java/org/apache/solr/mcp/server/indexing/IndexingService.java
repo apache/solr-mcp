@@ -196,7 +196,10 @@ public class IndexingService {
 	 * @see #indexDocuments(String, List)
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "index-json-documents", annotations = @McpTool.McpAnnotations(idempotentHint = true), description = "Index documents from json String into Solr collection")
+	@McpTool(
+			name = "index-json-documents",
+			annotations = @McpTool.McpAnnotations(idempotentHint = true),
+			description = "Index documents from json String into Solr collection")
 	public String indexJsonDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "JSON string containing documents to index") String json)
 			throws IOException, SolrServerException {
@@ -264,7 +267,10 @@ public class IndexingService {
 	 * @see #indexDocuments(String, List)
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "index-csv-documents", annotations = @McpTool.McpAnnotations(idempotentHint = true), description = "Index documents from CSV string into Solr collection")
+	@McpTool(
+			name = "index-csv-documents",
+			annotations = @McpTool.McpAnnotations(idempotentHint = true),
+			description = "Index documents from CSV string into Solr collection")
 	public String indexCsvDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "CSV string containing documents to index") String csv)
 			throws IOException, SolrServerException {
@@ -356,7 +362,10 @@ public class IndexingService {
 	 * @see #indexDocuments(String, List)
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "index-xml-documents", annotations = @McpTool.McpAnnotations(idempotentHint = true), description = "Index documents from XML string into Solr collection")
+	@McpTool(
+			name = "index-xml-documents",
+			annotations = @McpTool.McpAnnotations(idempotentHint = true),
+			description = "Index documents from XML string into Solr collection")
 	public String indexXmlDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "XML string containing documents to index") String xml)
 			throws ParserConfigurationException, SAXException, IOException, SolrServerException {
@@ -480,11 +489,23 @@ public class IndexingService {
 
 	@PreAuthorize("isAuthenticated()")
 
-	@McpPrompt(name = PromptNames.INDEX_DATA, title = "Index documents into a Solr collection", description = "Guides the assistant through verifying the target schema, picking the right indexing tool for the input format, and confirming the result.")
+	@McpPrompt(
+			name = PromptNames.INDEX_DATA,
+			title = "Index documents into a Solr collection",
+			description = "Guides the assistant through verifying the target schema, picking the right indexing tool for the input format, and confirming the result.")
 	public String indexDataPrompt(
-			@McpArg(name = "collection", description = "Target Solr collection name", required = true) String collection,
-			@McpArg(name = "format", description = "Document format: 'json', 'csv', or 'xml'", required = true) String format,
-			@McpArg(name = "sample", description = "Optional small sample of the input document(s) to ground field-shape decisions", required = false) String sample) {
+			@McpArg(
+					name = "collection",
+					description = "Target Solr collection name",
+					required = true) String collection,
+			@McpArg(
+					name = "format",
+					description = "Document format: 'json', 'csv', or 'xml'",
+					required = true) String format,
+			@McpArg(
+					name = "sample",
+					description = "Optional small sample of the input document(s) to ground field-shape decisions",
+					required = false) String sample) {
 		IndexTool indexTool = resolveIndexTool(format);
 		String sampleSection = PromptText.optionalCodeBlock(sample, "Sample input:",
 				"No sample was provided. If the user has not pasted the documents yet, ask for them (or a representative subset) before indexing.");

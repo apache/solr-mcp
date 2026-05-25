@@ -176,7 +176,11 @@ public class SchemaService {
 	 * @return JSON string containing the schema representation
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpResource(uri = "solr://{collection}/schema", name = "solr-collection-schema", description = "Schema definition for a Solr collection including fields, field types, and copy fields", mimeType = "application/json")
+	@McpResource(
+			uri = "solr://{collection}/schema",
+			name = "solr-collection-schema",
+			description = "Schema definition for a Solr collection including fields, field types, and copy fields",
+			mimeType = "application/json")
 	public String getSchemaResource(String collection) {
 		try {
 			return toJson(objectMapper, getSchema(collection));
@@ -265,25 +269,32 @@ public class SchemaService {
 	 * @see org.apache.solr.client.solrj.response.schema.SchemaResponse
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "get-schema", annotations = @McpTool.McpAnnotations(readOnlyHint = true), description = "Get schema for a Solr collection")
+	@McpTool(
+			name = "get-schema",
+			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
+			description = "Get schema for a Solr collection")
 	public SchemaRepresentation getSchema(String collection) throws Exception {
 		SchemaRequest schemaRequest = new SchemaRequest();
 		return schemaRequest.process(solrClient, collection).getSchemaRepresentation();
 	}
 
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "add-fields", description = "Add one or more fields to a Solr collection schema. "
-			+ "Call get-schema first to inspect existing field configuration before adding. "
-			+ "Each field map follows the Solr Schema API add-field shape: required keys "
-			+ "'name' and 'type', plus optional 'stored', 'indexed', 'docValues', "
-			+ "'multiValued', 'required', 'omitNorms', etc. "
-			+ "Example: {\"name\":\"platform\",\"type\":\"string\",\"stored\":true,\"indexed\":true,\"docValues\":true}. "
-			+ "Use 'strings' (not 'string') for multi-valued string fields. "
-			+ "Note: this only adds new fields; existing fields cannot be modified. "
-			+ "Solr's Schema API is transactional — if any command in the batch fails, "
-			+ "none are applied. On failure, fix the invalid field(s) and retry the whole batch.")
+	@McpTool(
+			name = "add-fields",
+			annotations = @McpTool.McpAnnotations(destructiveHint = false),
+			description = "Add one or more fields to a Solr collection schema. "
+					+ "Call get-schema first to inspect existing field configuration before adding. "
+					+ "Each field map follows the Solr Schema API add-field shape: required keys "
+					+ "'name' and 'type', plus optional 'stored', 'indexed', 'docValues', "
+					+ "'multiValued', 'required', 'omitNorms', etc. "
+					+ "Example: {\"name\":\"platform\",\"type\":\"string\",\"stored\":true,\"indexed\":true,\"docValues\":true}. "
+					+ "Use 'strings' (not 'string') for multi-valued string fields. "
+					+ "Note: this only adds new fields; existing fields cannot be modified. "
+					+ "Solr's Schema API is transactional — if any command in the batch fails, "
+					+ "none are applied. On failure, fix the invalid field(s) and retry the whole batch.")
 	public SchemaUpdateResult addFields(@McpToolParam(description = "Solr collection name") String collection,
-			@McpToolParam(description = "List of field definitions (Solr add-field JSON shape)") List<Map<String, Object>> fields)
+			@McpToolParam(
+					description = "List of field definitions (Solr add-field JSON shape)") List<Map<String, Object>> fields)
 			throws SolrServerException, IOException {
 		requireCollection(collection);
 		requireNonEmpty(fields, "fields");
@@ -300,20 +311,25 @@ public class SchemaService {
 	}
 
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "add-field-types", description = "Add one or more field types to a Solr collection schema. "
-			+ "Call get-schema first to inspect existing field types before adding. "
-			+ "Each map follows the Solr Schema API add-field-type shape: required keys "
-			+ "'name' and 'class', optional 'analyzer' (or 'indexAnalyzer'+'queryAnalyzer'), "
-			+ "and class-specific attributes. " + "Common recipes: "
-			+ "(1) case-insensitive exact match: class=solr.TextField with analyzer "
-			+ "{tokenizer:{class:solr.KeywordTokenizerFactory}, filters:[{class:solr.LowerCaseFilterFactory}]}; "
-			+ "(2) dense vector for semantic search: class=solr.DenseVectorField with "
-			+ "vectorDimension, similarityFunction (cosine/dot_product/euclidean), and knnAlgorithm=hnsw; "
-			+ "(3) autocomplete: class=solr.TextField with separate indexAnalyzer using EdgeNGramFilterFactory "
-			+ "and queryAnalyzer without it. " + "After adding a type, use add-fields to create fields of that type. "
-			+ "Solr's Schema API is transactional — if any command in the batch fails, none are applied.")
+	@McpTool(
+			name = "add-field-types",
+			annotations = @McpTool.McpAnnotations(destructiveHint = false),
+			description = "Add one or more field types to a Solr collection schema. "
+					+ "Call get-schema first to inspect existing field types before adding. "
+					+ "Each map follows the Solr Schema API add-field-type shape: required keys "
+					+ "'name' and 'class', optional 'analyzer' (or 'indexAnalyzer'+'queryAnalyzer'), "
+					+ "and class-specific attributes. " + "Common recipes: "
+					+ "(1) case-insensitive exact match: class=solr.TextField with analyzer "
+					+ "{tokenizer:{class:solr.KeywordTokenizerFactory}, filters:[{class:solr.LowerCaseFilterFactory}]}; "
+					+ "(2) dense vector for semantic search: class=solr.DenseVectorField with "
+					+ "vectorDimension, similarityFunction (cosine/dot_product/euclidean), and knnAlgorithm=hnsw; "
+					+ "(3) autocomplete: class=solr.TextField with separate indexAnalyzer using EdgeNGramFilterFactory "
+					+ "and queryAnalyzer without it. "
+					+ "After adding a type, use add-fields to create fields of that type. "
+					+ "Solr's Schema API is transactional — if any command in the batch fails, none are applied.")
 	public SchemaUpdateResult addFieldTypes(@McpToolParam(description = "Solr collection name") String collection,
-			@McpToolParam(description = "List of field type definitions (Solr add-field-type JSON shape)") List<Map<String, Object>> fieldTypes)
+			@McpToolParam(
+					description = "List of field type definitions (Solr add-field-type JSON shape)") List<Map<String, Object>> fieldTypes)
 			throws SolrServerException, IOException {
 		requireCollection(collection);
 		requireNonEmpty(fieldTypes, "fieldTypes");
@@ -425,9 +441,14 @@ public class SchemaService {
 
 	@PreAuthorize("isAuthenticated()")
 
-	@McpPrompt(name = PromptNames.VIEW_SCHEMA, title = "View a Solr collection schema", description = "Read-only walkthrough: fetch the schema and summarize fields, types, dynamic fields, copy fields, and the unique key.")
-	public String viewSchemaPrompt(
-			@McpArg(name = "collection", description = "Target Solr collection name", required = true) String collection) {
+	@McpPrompt(
+			name = PromptNames.VIEW_SCHEMA,
+			title = "View a Solr collection schema",
+			description = "Read-only walkthrough: fetch the schema and summarize fields, types, dynamic fields, copy fields, and the unique key.")
+	public String viewSchemaPrompt(@McpArg(
+			name = "collection",
+			description = "Target Solr collection name",
+			required = true) String collection) {
 		return """
 				You are inspecting the schema of Solr collection `%s`. This prompt is read-only; do not
 				add or modify any fields.
@@ -464,11 +485,23 @@ public class SchemaService {
 
 	@PreAuthorize("isAuthenticated()")
 
-	@McpPrompt(name = PromptNames.DESIGN_SCHEMA, title = "Design a Solr schema for a dataset", description = "Guides the assistant through inspecting an existing Solr schema, choosing appropriate field types, and applying additive schema changes via the Schema API.")
+	@McpPrompt(
+			name = PromptNames.DESIGN_SCHEMA,
+			title = "Design a Solr schema for a dataset",
+			description = "Guides the assistant through inspecting an existing Solr schema, choosing appropriate field types, and applying additive schema changes via the Schema API.")
 	public String designSchemaPrompt(
-			@McpArg(name = "collection", description = "Target Solr collection name", required = true) String collection,
-			@McpArg(name = "datasetDescription", description = "Free-text description of the data being indexed (entity, key attributes, expected query patterns)", required = true) String datasetDescription,
-			@McpArg(name = "sampleDocument", description = "Optional single document in JSON to ground field inference", required = false) String sampleDocument) {
+			@McpArg(
+					name = "collection",
+					description = "Target Solr collection name",
+					required = true) String collection,
+			@McpArg(
+					name = "datasetDescription",
+					description = "Free-text description of the data being indexed (entity, key attributes, expected query patterns)",
+					required = true) String datasetDescription,
+			@McpArg(
+					name = "sampleDocument",
+					description = "Optional single document in JSON to ground field inference",
+					required = false) String sampleDocument) {
 		String sampleSection = optionalCodeBlock(sampleDocument,
 				"A sample document was provided. Use it as ground truth for field names and value\n     shapes:",
 				"No sample document was provided; ask the user for one if the dataset description leaves field types ambiguous.");

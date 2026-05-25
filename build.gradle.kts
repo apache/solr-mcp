@@ -286,8 +286,9 @@ spotless {
         target("src/**/*.java")
         // Use Eclipse JDT formatter to avoid google-java-format's incompatibility
         // with cutting-edge JDKs (e.g., 25) which can trigger NoSuchMethodError
-        // against internal javac classes.
-        eclipse()
+        // against internal javac classes. Override only the annotation-argument
+        // alignment so multi-arg @Mcp* annotations render one-arg-per-line.
+        eclipse().configFile("config/spotless/eclipse-java-formatter.properties")
         removeUnusedImports()
         trimTrailingWhitespace()
         endWithNewline()

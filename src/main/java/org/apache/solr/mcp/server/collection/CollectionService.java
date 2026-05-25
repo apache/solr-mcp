@@ -288,7 +288,11 @@ public class CollectionService {
 	 * @return JSON string containing the list of collections
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpResource(uri = "solr://collections", name = "solr-collections", description = "List of all Solr collections available in the cluster", mimeType = "application/json")
+	@McpResource(
+			uri = "solr://collections",
+			name = "solr-collections",
+			description = "List of all Solr collections available in the cluster",
+			mimeType = "application/json")
 	public String getCollectionsResource() throws SolrServerException, IOException {
 		return toJson(objectMapper, listCollections());
 	}
@@ -403,7 +407,10 @@ public class CollectionService {
 	 * @see CollectionAdminRequest.List
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "list-collections", annotations = @McpTool.McpAnnotations(readOnlyHint = true), description = "List solr collections")
+	@McpTool(
+			name = "list-collections",
+			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
+			description = "List solr collections")
 	public List<String> listCollections() throws SolrServerException, IOException {
 		CollectionAdminRequest.List request = new CollectionAdminRequest.List();
 		CollectionAdminResponse response = request.process(solrClient);
@@ -474,7 +481,10 @@ public class CollectionService {
 	 * @see #extractCollectionName(String)
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "get-collection-stats", annotations = @McpTool.McpAnnotations(readOnlyHint = true), description = "Get stats/metrics on a Solr collection")
+	@McpTool(
+			name = "get-collection-stats",
+			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
+			description = "Get stats/metrics on a Solr collection")
 	public SolrMetrics getCollectionStats(
 			@McpToolParam(description = "Solr collection to get stats/metrics for") String collection)
 			throws SolrServerException, IOException {
@@ -1016,7 +1026,10 @@ public class CollectionService {
 	 * @see SolrPingResponse
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "check-health", annotations = @McpTool.McpAnnotations(readOnlyHint = true), description = "Check health of a Solr collection")
+	@McpTool(
+			name = "check-health",
+			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
+			description = "Check health of a Solr collection")
 	public SolrHealthStatus checkHealth(@McpToolParam(description = "Solr collection") String collection) {
 		String actualCollection = extractCollectionName(collection);
 		try {
@@ -1068,13 +1081,20 @@ public class CollectionService {
 	 *             if there are I/O errors during communication
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "create-collection", annotations = @McpTool.McpAnnotations(destructiveHint = false), description = "Create a new Solr collection. "
-			+ "configSet defaults to _default, numShards and replicationFactor default to 1.")
+	@McpTool(
+			name = "create-collection",
+			annotations = @McpTool.McpAnnotations(destructiveHint = false),
+			description = "Create a new Solr collection. "
+					+ "configSet defaults to _default, numShards and replicationFactor default to 1.")
 	public CollectionCreationResult createCollection(
 			@McpToolParam(description = "Name of the collection to create") String name,
 			@McpToolParam(description = "Configset name. Defaults to _default.", required = false) String configSet,
-			@McpToolParam(description = "Number of shards (SolrCloud only). Defaults to 1.", required = false) Integer numShards,
-			@McpToolParam(description = "Replication factor (SolrCloud only). Defaults to 1.", required = false) Integer replicationFactor)
+			@McpToolParam(
+					description = "Number of shards (SolrCloud only). Defaults to 1.",
+					required = false) Integer numShards,
+			@McpToolParam(
+					description = "Replication factor (SolrCloud only). Defaults to 1.",
+					required = false) Integer replicationFactor)
 			throws SolrServerException, IOException {
 
 		if (name == null || name.isBlank()) {
@@ -1093,7 +1113,10 @@ public class CollectionService {
 
 	@PreAuthorize("isAuthenticated()")
 
-	@McpPrompt(name = PromptNames.EXPLORE_COLLECTIONS, title = "Explore Solr collections", description = "Read-only walkthrough: list collections and characterise each by stats and health.")
+	@McpPrompt(
+			name = PromptNames.EXPLORE_COLLECTIONS,
+			title = "Explore Solr collections",
+			description = "Read-only walkthrough: list collections and characterise each by stats and health.")
 	public String exploreCollectionsPrompt() {
 		return """
 				You are exploring an Apache Solr cluster through MCP tools. Goal: produce a concise,
@@ -1121,10 +1144,18 @@ public class CollectionService {
 
 	@PreAuthorize("isAuthenticated()")
 
-	@McpPrompt(name = PromptNames.SETUP_COLLECTION, title = "Set up a new Solr collection", description = "Guided workflow: validate a name, pick configset / shards / replication factor, create the collection, and verify it.")
-	public String setupCollectionPrompt(
-			@McpArg(name = "name", description = "Desired collection name. Lowercase letters, digits, underscores, hyphens — no spaces.", required = true) String name,
-			@McpArg(name = "purpose", description = "Optional one-line description of what the collection is for (used only to ground the conversation).", required = false) String purpose) {
+	@McpPrompt(
+			name = PromptNames.SETUP_COLLECTION,
+			title = "Set up a new Solr collection",
+			description = "Guided workflow: validate a name, pick configset / shards / replication factor, create the collection, and verify it.")
+	public String setupCollectionPrompt(@McpArg(
+			name = "name",
+			description = "Desired collection name. Lowercase letters, digits, underscores, hyphens — no spaces.",
+			required = true) String name,
+			@McpArg(
+					name = "purpose",
+					description = "Optional one-line description of what the collection is for (used only to ground the conversation).",
+					required = false) String purpose) {
 		String purposeLine = (purpose == null || purpose.isBlank()) ? "" : "\nPurpose: %s\n".formatted(purpose.strip());
 		return """
 				You are setting up a new Solr collection named `%s` through MCP tools.%s
