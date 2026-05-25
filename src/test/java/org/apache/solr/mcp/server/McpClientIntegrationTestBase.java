@@ -29,6 +29,7 @@ import io.modelcontextprotocol.spec.McpSchema.Content;
 import io.modelcontextprotocol.spec.McpSchema.GetPromptRequest;
 import io.modelcontextprotocol.spec.McpSchema.GetPromptResult;
 import io.modelcontextprotocol.spec.McpSchema.PromptMessage;
+import io.modelcontextprotocol.spec.McpSchema.PromptReference;
 import io.modelcontextprotocol.spec.McpSchema.ResourceReference;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
@@ -751,6 +752,46 @@ public abstract class McpClientIntegrationTestBase {
 		assertNotNull(result.completion());
 		assertTrue(result.completion().values().isEmpty(),
 				"No collections should match an unknown prefix: " + result.completion().values());
+	}
+
+	// ===== Prompt-arg completion (orders 37–38) =====
+	//
+	// Regression coverage for the MCP Inspector bug where opening a prompt that
+	// takes a `collection` argument raised "-32602: AsyncCompletionSpecification
+	// not found: PromptReference[...]". The fix registers @McpComplete(prompt=...)
+	// handlers in addition to the existing resource-template handler; without
+	// them, completion/complete with a ref/prompt reference has no binding.
+
+	@Test
+	@Order(37)
+	void completePromptArg_SearchCollection_ReturnsCreatedCollection() {
+		PromptReference ref = new PromptReference("search-collection");
+		CompleteRequest request = new CompleteRequest(ref,
+				new CompleteRequest.CompleteArgument("collection", COLLECTION.substring(0, 3)));
+
+		CompleteResult result = mcpClient.completeCompletion(request);
+
+		assertNotNull(result);
+		assertNotNull(result.completion());
+		List<String> values = result.completion().values();
+		assertNotNull(values);
+		assertTrue(values.contains(COLLECTION),
+				"Prompt completion should include the previously created collection: " + values);
+	}
+
+	@Test
+	@Order(38)
+	void completePromptArg_ViewSchema_ReturnsCreatedCollection() {
+		PromptReference ref = new PromptReference("view-schema");
+		CompleteRequest request = new CompleteRequest(ref,
+				new CompleteRequest.CompleteArgument("collection", COLLECTION.substring(0, 3)));
+
+		CompleteResult result = mcpClient.completeCompletion(request);
+
+		assertNotNull(result);
+		assertNotNull(result.completion());
+		assertTrue(result.completion().values().contains(COLLECTION),
+				"view-schema prompt completion should resolve the created collection: " + result.completion().values());
 	}
 
 	private static String extractFirstMessageText(GetPromptResult result) {

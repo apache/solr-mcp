@@ -43,6 +43,7 @@ import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
+import org.apache.solr.mcp.server.util.PromptNames;
 import org.springaicommunity.mcp.annotation.McpArg;
 import org.springaicommunity.mcp.annotation.McpComplete;
 import org.springaicommunity.mcp.annotation.McpPrompt;
@@ -324,6 +325,53 @@ public class CollectionService {
 		} catch (SolrServerException | IOException _) {
 			return List.of();
 		}
+	}
+
+	/**
+	 * Completion for the {@code collection} argument of the
+	 * {@code search-collection} prompt (defined in {@code SearchService}).
+	 *
+	 * <p>
+	 * {@code @McpComplete} registers a handler per {@code (ref/prompt, name)} pair,
+	 * so a prompt that takes a collection argument needs its own handler — the
+	 * resource-template handler on {@link #completeCollection} only matches
+	 * {@code ref/resource}. Each wrapper delegates so all collection-name
+	 * completion shares one implementation and one cap.
+	 */
+	@PreAuthorize("isAuthenticated()")
+	@McpComplete(prompt = PromptNames.SEARCH_COLLECTION)
+	public List<String> completeSearchCollectionPromptArg(CompleteRequest.CompleteArgument argument) {
+		return completeCollection(argument);
+	}
+
+	/**
+	 * Completion for the {@code collection} argument of the {@code index-data}
+	 * prompt.
+	 */
+	@PreAuthorize("isAuthenticated()")
+	@McpComplete(prompt = PromptNames.INDEX_DATA)
+	public List<String> completeIndexDataPromptArg(CompleteRequest.CompleteArgument argument) {
+		return completeCollection(argument);
+	}
+
+	/**
+	 * Completion for the {@code collection} argument of the {@code view-schema}
+	 * prompt.
+	 */
+	@PreAuthorize("isAuthenticated()")
+	@McpComplete(prompt = PromptNames.VIEW_SCHEMA)
+	public List<String> completeViewSchemaPromptArg(CompleteRequest.CompleteArgument argument) {
+		return completeCollection(argument);
+	}
+
+	/**
+	 * Completion for the {@code collection} argument of the {@code design-schema}
+	 * prompt.
+	 */
+	@PreAuthorize("isAuthenticated()")
+	@McpComplete(prompt = PromptNames.DESIGN_SCHEMA)
+	public List<String> completeDesignSchemaPromptArg(CompleteRequest.CompleteArgument argument) {
+		return completeCollection(argument);
 	}
 
 	/**
@@ -1045,7 +1093,7 @@ public class CollectionService {
 
 	@PreAuthorize("isAuthenticated()")
 
-	@McpPrompt(name = "explore-collections", title = "Explore Solr collections", description = "Read-only walkthrough: list collections and characterise each by stats and health.")
+	@McpPrompt(name = PromptNames.EXPLORE_COLLECTIONS, title = "Explore Solr collections", description = "Read-only walkthrough: list collections and characterise each by stats and health.")
 	public String exploreCollectionsPrompt() {
 		return """
 				You are exploring an Apache Solr cluster through MCP tools. Goal: produce a concise,
@@ -1073,7 +1121,7 @@ public class CollectionService {
 
 	@PreAuthorize("isAuthenticated()")
 
-	@McpPrompt(name = "setup-collection", title = "Set up a new Solr collection", description = "Guided workflow: validate a name, pick configset / shards / replication factor, create the collection, and verify it.")
+	@McpPrompt(name = PromptNames.SETUP_COLLECTION, title = "Set up a new Solr collection", description = "Guided workflow: validate a name, pick configset / shards / replication factor, create the collection, and verify it.")
 	public String setupCollectionPrompt(
 			@McpArg(name = "name", description = "Desired collection name. Lowercase letters, digits, underscores, hyphens — no spaces.", required = true) String name,
 			@McpArg(name = "purpose", description = "Optional one-line description of what the collection is for (used only to ground the conversation).", required = false) String purpose) {

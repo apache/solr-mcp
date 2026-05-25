@@ -24,6 +24,7 @@ import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
+import org.apache.solr.mcp.server.util.PromptNames;
 import org.apache.solr.mcp.server.util.PromptText;
 import org.springaicommunity.mcp.annotation.McpArg;
 import org.springaicommunity.mcp.annotation.McpPrompt;
@@ -479,7 +480,7 @@ public class IndexingService {
 
 	@PreAuthorize("isAuthenticated()")
 
-	@McpPrompt(name = "index-data", title = "Index documents into a Solr collection", description = "Guides the assistant through verifying the target schema, picking the right indexing tool for the input format, and confirming the result.")
+	@McpPrompt(name = PromptNames.INDEX_DATA, title = "Index documents into a Solr collection", description = "Guides the assistant through verifying the target schema, picking the right indexing tool for the input format, and confirming the result.")
 	public String indexDataPrompt(
 			@McpArg(name = "collection", description = "Target Solr collection name", required = true) String collection,
 			@McpArg(name = "format", description = "Document format: 'json', 'csv', or 'xml'", required = true) String format,

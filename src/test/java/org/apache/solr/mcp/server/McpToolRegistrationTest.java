@@ -28,6 +28,7 @@ import org.apache.solr.mcp.server.collection.CollectionService;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.apache.solr.mcp.server.schema.SchemaService;
 import org.apache.solr.mcp.server.search.SearchService;
+import org.apache.solr.mcp.server.util.PromptNames;
 import org.junit.jupiter.api.Test;
 import org.springaicommunity.mcp.annotation.McpComplete;
 import org.springaicommunity.mcp.annotation.McpPrompt;
@@ -187,16 +188,37 @@ class McpToolRegistrationTest {
 	}
 
 	@Test
-	void testCollectionCompletionBindsToSchemaResourceTemplate() {
-		List<Method> completeMethods = Arrays.stream(CollectionService.class.getDeclaredMethods())
-				.filter(m -> m.isAnnotationPresent(McpComplete.class)).toList();
+	void testCollectionCompletionsCoverSchemaResourceAndCollectionTakingPrompts() {
+		// Each (ref/prompt name, ref/resource uri) pair is a separate completion
+		// binding in the MCP protocol, so every prompt that takes a `collection`
+		// argument needs its own @McpComplete handler. The resource-template handler
+		// alone does NOT cover prompt arguments — Spring AI registers them in
+		// disjoint maps keyed by reference type.
+		List<McpComplete> completions = Arrays.stream(CollectionService.class.getDeclaredMethods())
+				.filter(m -> m.isAnnotationPresent(McpComplete.class)).map(m -> m.getAnnotation(McpComplete.class))
+				.toList();
 
-		assertEquals(1, completeMethods.size(), "CollectionService should expose exactly one @McpComplete handler");
+		// Exactly one resource-template binding (the {collection}/schema URI).
+		List<String> uriBindings = completions.stream().map(McpComplete::uri).filter(s -> !s.isEmpty()).sorted()
+				.toList();
+		assertEquals(List.of("solr://{collection}/schema"), uriBindings,
+				"Exactly one resource-template completion expected (the schema URI)");
 
-		McpComplete annotation = completeMethods.get(0).getAnnotation(McpComplete.class);
-		assertEquals("solr://{collection}/schema", annotation.uri(),
-				"Completion should target the schema resource URI template");
-		assertTrue(annotation.prompt().isEmpty(), "uri and prompt are mutually exclusive on @McpComplete");
+		// One prompt binding per prompt that takes a `collection` argument.
+		// Referenced via PromptNames so a rename or deletion breaks compilation
+		// here, not silently at runtime.
+		List<String> promptBindings = completions.stream().map(McpComplete::prompt).filter(s -> !s.isEmpty()).sorted()
+				.toList();
+		assertEquals(
+				Stream.of(PromptNames.DESIGN_SCHEMA, PromptNames.INDEX_DATA, PromptNames.SEARCH_COLLECTION,
+						PromptNames.VIEW_SCHEMA).sorted().toList(),
+				promptBindings, "Every prompt with a `collection` arg needs its own @McpComplete(prompt=...) binding");
+
+		// `uri` and `prompt` are mutually exclusive per the @McpComplete contract.
+		for (McpComplete c : completions) {
+			assertTrue(c.uri().isEmpty() ^ c.prompt().isEmpty(),
+					"@McpComplete must set exactly one of uri/prompt, not both or neither");
+		}
 	}
 
 	/**
