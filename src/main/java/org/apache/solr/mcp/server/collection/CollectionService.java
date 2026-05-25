@@ -41,7 +41,9 @@ import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
+import org.springaicommunity.mcp.annotation.McpArg;
 import org.springaicommunity.mcp.annotation.McpComplete;
+import org.springaicommunity.mcp.annotation.McpPrompt;
 import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
@@ -1017,5 +1019,68 @@ public class CollectionService {
 				.process(solrClient);
 
 		return new CollectionCreationResult(name, true, "Collection created successfully", new Date());
+	}
+
+	@PreAuthorize("isAuthenticated()")
+
+	@McpPrompt(name = "explore-collections", title = "Explore Solr collections", description = "Read-only walkthrough: list collections and characterise each by stats and health.")
+	public String exploreCollectionsPrompt() {
+		return """
+				You are exploring an Apache Solr cluster through MCP tools. Goal: produce a concise,
+				accurate picture of what already exists. This prompt is read-only; do not create or
+				modify anything.
+
+				1. List collections.
+				   - Call `list-collections` to get the full set of collection names.
+				   - If the user mentioned a target collection by name, note whether it appears in the
+				     list.
+
+				2. Characterize each interesting collection.
+				   - For each collection the user cares about (or a small representative sample if they
+				     did not name one), call `get-collection-stats` to read numDocs, segment counts, and
+				     cache/handler metrics, and `check-health` to confirm the collection responds to a
+				     ping and the doc count is non-zero where expected.
+
+				3. Summarize.
+				   - Tell the user which collections exist, which look healthy, and which look empty or
+				     stale.
+				   - If the user's intent does not match any existing collection, suggest the
+				     `setup-collection` prompt to create one.
+				""";
+	}
+
+	@PreAuthorize("isAuthenticated()")
+
+	@McpPrompt(name = "setup-collection", title = "Set up a new Solr collection", description = "Guided workflow: validate a name, pick configset / shards / replication factor, create the collection, and verify it.")
+	public String setupCollectionPrompt(
+			@McpArg(name = "name", description = "Desired collection name. Lowercase letters, digits, underscores, hyphens — no spaces.", required = true) String name,
+			@McpArg(name = "purpose", description = "Optional one-line description of what the collection is for (used only to ground the conversation).", required = false) String purpose) {
+		String purposeLine = (purpose == null || purpose.isBlank()) ? "" : "\nPurpose: %s\n".formatted(purpose.strip());
+		return """
+				You are setting up a new Solr collection named `%s` through MCP tools.%s
+				1. Validate the name.
+				   - Lowercase letters, digits, underscores, hyphens only — no spaces or uppercase.
+				   - Call `list-collections` and confirm `%s` does not already exist. If it does, stop
+				     and tell the user.
+
+				2. Choose creation parameters.
+				   - Defaults: configset `%s`, %d shard(s), replicationFactor %d. These work for most
+				     single-node and small SolrCloud setups.
+				   - Only override if the user asked: a custom configset for a pre-built schema, more
+				     shards for a large dataset, or higher replicationFactor for redundancy.
+
+				3. Create.
+				   - Call `create-collection` with `name=%s` and any non-default `configSet`,
+				     `numShards`, `replicationFactor` values. Report the result (success flag +
+				     message).
+
+				4. Verify.
+				   - Call `list-collections` again; `%s` should appear.
+				   - Call `check-health` on `%s`; it should respond to ping.
+
+				Next step suggestion: define the schema. Use the `design-schema` prompt to design
+				fields for the dataset the user wants to index.
+				""".formatted(name, purposeLine, name, DEFAULT_CONFIGSET, DEFAULT_NUM_SHARDS,
+				DEFAULT_REPLICATION_FACTOR, name, name, name);
 	}
 }

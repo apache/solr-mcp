@@ -24,6 +24,9 @@ import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
+import org.apache.solr.mcp.server.util.PromptText;
+import org.springaicommunity.mcp.annotation.McpArg;
+import org.springaicommunity.mcp.annotation.McpPrompt;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -455,5 +458,65 @@ public class IndexingService {
 
 		solrClient.commit(collection);
 		return successCount;
+	}
+
+	/**
+	 * Maps an input-format keyword to the MCP tool and payload parameter for that
+	 * format.
+	 */
+	private record IndexTool(String name, String paramName) {
+	}
+
+	private static IndexTool resolveIndexTool(String format) {
+		String normalized = (format == null) ? "" : format.trim().toLowerCase();
+		return switch (normalized) {
+			case "json" -> new IndexTool("index-json-documents", "json");
+			case "csv" -> new IndexTool("index-csv-documents", "csv");
+			case "xml" -> new IndexTool("index-xml-documents", "xml");
+			default -> throw new IllegalArgumentException("format must be one of json/csv/xml, got: " + format);
+		};
+	}
+
+	@PreAuthorize("isAuthenticated()")
+
+	@McpPrompt(name = "index-data", title = "Index documents into a Solr collection", description = "Guides the assistant through verifying the target schema, picking the right indexing tool for the input format, and confirming the result.")
+	public String indexDataPrompt(
+			@McpArg(name = "collection", description = "Target Solr collection name", required = true) String collection,
+			@McpArg(name = "format", description = "Document format: 'json', 'csv', or 'xml'", required = true) String format,
+			@McpArg(name = "sample", description = "Optional small sample of the input document(s) to ground field-shape decisions", required = false) String sample) {
+		IndexTool indexTool = resolveIndexTool(format);
+		String sampleSection = PromptText.optionalCodeBlock(sample, "Sample input:",
+				"No sample was provided. If the user has not pasted the documents yet, ask for them (or a representative subset) before indexing.");
+		return """
+				You are indexing %s data into collection `%s` via MCP tools. Work incrementally and
+				verify after each step.
+
+				1. Confirm the schema is ready.
+				   - Call `get-schema` on `%s`. Confirm the fields the input references exist with
+				     compatible types. If fields are missing or typed wrong, pause and run the
+				     `design-schema` prompt to add them — indexing into a collection without the right
+				     fields either fails or silently falls back to schemaless behavior, which can
+				     pollute the configset.
+
+				2. Inspect the input.
+				%s
+
+				3. Index the documents.
+				   - Call `%s` with `collection=%s` and `%s=<the document payload>`.
+				   - The tool batches internally and commits at the end. The return value is the count
+				     of successfully indexed documents.
+				   - On error, read the message carefully: an "unknown field" error means the schema is
+				     missing a field — go back to step 1 and run `design-schema`. A parse error means
+				     the input format does not match the chosen tool — fix the payload and retry.
+
+				4. Verify the count.
+				   - Call `check-health` on `%s` and confirm the reported doc count increased by the
+				     expected amount, OR call `search` with `query=*:*` and `rows=0` and read
+				     `numFound`.
+
+				Next step suggestion: once data is indexed, the `search-collection` prompt drives
+				searching it.
+				""".formatted(indexTool.paramName(), collection, collection, sampleSection, indexTool.name(),
+				collection, indexTool.paramName(), collection);
 	}
 }

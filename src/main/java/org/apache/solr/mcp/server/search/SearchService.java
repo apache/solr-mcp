@@ -30,6 +30,8 @@ import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.params.FacetParams;
+import org.springaicommunity.mcp.annotation.McpArg;
+import org.springaicommunity.mcp.annotation.McpPrompt;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -297,5 +299,61 @@ public class SearchService {
 		final var facets = getFacets(queryResponse);
 
 		return new SearchResponse(documents.getNumFound(), documents.getStart(), documents.getMaxScore(), docs, facets);
+	}
+
+	@PreAuthorize("isAuthenticated()")
+
+	@McpPrompt(name = "search-collection", title = "Search a Solr collection from a natural-language question", description = "Guides the assistant through inspecting the schema, translating a user question into a Solr query, running the search, and refining the result.")
+	public String searchCollectionPrompt(
+			@McpArg(name = "collection", description = "Target Solr collection name", required = true) String collection,
+			@McpArg(name = "question", description = "The user's natural-language search question or information need", required = true) String question) {
+		return """
+				You are searching collection `%s` to answer:
+
+				    %s
+
+				Work incrementally — Solr query design is sensitive to the schema, so anchor on the
+				schema before constructing queries.
+
+				1. Learn the schema.
+				   - Call `get-schema` on `%s`. Identify which fields are searchable text
+				     (`text_general` or similar tokenized types), which are filterable exact-match
+				     (`string`/`strings`), which are numeric/date ranges, and which have `docValues`
+				     (needed for faceting and sorting).
+
+				2. Translate the question into Solr query parts.
+				   - Pick the most informative tokens from the question. Map them to fields:
+				     * Free-text concepts → `q` against tokenized fields, e.g.
+				       `description:apocalyptic` or `title:Solr` or a multi-field edismax-style
+				       construction `(title:foo OR description:foo)`.
+				     * Exact-match attributes → `filterQueries` against `string`/`strings`, e.g.
+				       `platform:Netflix`, `genres:Sci-Fi`. Quote multi-word values:
+				       `platform:"Amazon Prime Video"`.
+				     * Numeric/date constraints → range syntax in `filterQueries`, e.g.
+				       `release_year:[2010 TO 2020]`.
+				   - Start with `*:*` as `q` if the question is purely filter-driven; let
+				     `filterQueries` do the work.
+
+				3. Run the search.
+				   - Call `search` with `collection=%s` and the chosen `query` plus optional
+				     `filterQueries`, `facetFields`, `sortFields`, `start`, `rows`. Set `rows=10` for a
+				     focused look or `rows=0` if you only need counts / facets.
+
+				4. Interpret and refine.
+				   - Check `numFound` first.
+				                 * Zero results: relax filters one at a time, broaden the query (try a more
+				                   general term), or fall back to `q=*:*` with the strongest filter to confirm the
+				                   collection contains relevant data.
+				                 * Many results: add a `filterQueries` constraint to narrow, or pass
+				                   `facetFields` on a relevant `string`/`strings` field to surface the distribution
+				                   and pick a sharper filter.
+				   - Inspect `documents` for the actual content. The response includes `maxScore` when
+				     the query is not `*:*`; use it as a relative confidence signal across queries.
+
+				5. Summarize.
+				   - Answer the user's question grounded in the documents found, citing concrete field
+				     values (title, id, etc.). If the search did not produce a clear answer, surface
+				     that explicitly rather than guessing.
+				""".formatted(collection, question, collection, collection);
 	}
 }
