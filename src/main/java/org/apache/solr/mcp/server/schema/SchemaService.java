@@ -267,7 +267,7 @@ public class SchemaService {
 	}
 
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "add-fields", description = "Add one or more fields to a Solr collection schema. "
+	@McpTool(name = "add-fields", annotations = @McpTool.McpAnnotations(destructiveHint = false), description = "Add one or more fields to a Solr collection schema. "
 			+ "Call get-schema first to inspect existing field configuration before adding. "
 			+ "Each field map follows the Solr Schema API add-field shape: required keys "
 			+ "'name' and 'type', plus optional 'stored', 'indexed', 'docValues', "
@@ -295,7 +295,7 @@ public class SchemaService {
 	}
 
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "add-field-types", description = "Add one or more field types to a Solr collection schema. "
+	@McpTool(name = "add-field-types", annotations = @McpTool.McpAnnotations(destructiveHint = false), description = "Add one or more field types to a Solr collection schema. "
 			+ "Call get-schema first to inspect existing field types before adding. "
 			+ "Each map follows the Solr Schema API add-field-type shape: required keys "
 			+ "'name' and 'class', optional 'analyzer' (or 'indexAnalyzer'+'queryAnalyzer'), "
