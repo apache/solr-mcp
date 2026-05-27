@@ -1,6 +1,6 @@
 [versions]
 # Build plugins
-spring-boot = "3.5.13"
+spring-boot = "3.5.14"
 spring-dependency-management = "1.1.7"
 errorprone-plugin = "5.1.0"
 jib = "3.5.3"
@@ -8,7 +8,7 @@ spotless = "7.0.2"
 graalvm-native = "0.10.6"
 
 # Main dependencies
-spring-ai = "1.1.4"
+spring-ai = "1.1.7"
 solr = "10.0.0"
 commons-csv = "1.14.1"
 jspecify = "1.0.0"
