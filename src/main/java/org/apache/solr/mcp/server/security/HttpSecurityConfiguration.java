@@ -27,6 +27,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -45,7 +46,7 @@ class HttpSecurityConfiguration {
 	@Bean
 	@ConditionalOnProperty(name = "http.security.enabled", havingValue = "true", matchIfMissing = true)
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-		return http.authorizeHttpRequests(auth -> {
+		http.authorizeHttpRequests(auth -> {
 			// Liveness/readiness probes need anonymous access for load
 			// balancers and orchestrators. All other actuator endpoints
 			// (loggers, sbom, metrics, prometheus, info) require auth so
@@ -59,21 +60,33 @@ class HttpSecurityConfiguration {
 			// "secured tools" sample pattern.
 			auth.requestMatchers("/mcp").permitAll();
 			auth.anyRequest().authenticated();
-		})
-				// Configure OAuth2 on the MCP server.
-				//
-				// resourcePath: declares "/mcp" as the canonical resource indicator
-				// for OAuth 2.0 Protected Resource Metadata (RFC 9728), which is what
-				// MCP clients use to discover the authorization server.
-				//
-				// validateAudienceClaim: per the MCP Authorization specification, MCP
-				// servers MUST validate that tokens were specifically issued for them.
-				// The audience is matched against the resource indicator (RFC 8707)
-				// configured above. The IdP must populate the JWT "aud" claim
-				// accordingly — see docs/security/http.md for IdP configuration notes.
-				.with(McpServerOAuth2Configurer.mcpServerOAuth2(),
-						mcpAuthorization -> mcpAuthorization.authorizationServer(issuerUrl).resourcePath("/mcp")
-								.validateAudienceClaim(true))
+		});
+		// Configure OAuth2 on the MCP server.
+		//
+		// Only wired when an issuer URL is actually supplied —
+		// McpServerOAuth2Configurer
+		// builds a NimbusJwtDecoder eagerly during init() and that builder requires a
+		// non-blank issuer. In native (AOT) builds the secured filter-chain bean is
+		// baked in regardless of the runtime http.security.enabled value, so the only
+		// way to let an unconfigured native-http image start (e.g. CI smoke test) is to
+		// gate the OAuth2 wiring at runtime here. With no issuer set, every non-
+		// permitAll() endpoint still falls through to Spring Security's default 401/403
+		// — the chain is locked down, just without a bearer-token validator.
+		//
+		// resourcePath: declares "/mcp" as the canonical resource indicator
+		// for OAuth 2.0 Protected Resource Metadata (RFC 9728), which is what
+		// MCP clients use to discover the authorization server.
+		//
+		// validateAudienceClaim: per the MCP Authorization specification, MCP
+		// servers MUST validate that tokens were specifically issued for them.
+		// The audience is matched against the resource indicator (RFC 8707)
+		// configured above. The IdP must populate the JWT "aud" claim
+		// accordingly — see docs/security/http.md for IdP configuration notes.
+		if (StringUtils.hasText(issuerUrl)) {
+			http.with(McpServerOAuth2Configurer.mcpServerOAuth2(), mcpAuthorization -> mcpAuthorization
+					.authorizationServer(issuerUrl).resourcePath("/mcp").validateAudienceClaim(true));
+		}
+		return http
 				// MCP inspector
 				.cors(cors -> cors.configurationSource(corsConfigurationSource())).csrf(CsrfConfigurer::disable)
 				.build();
