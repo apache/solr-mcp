@@ -18,7 +18,7 @@ package org.apache.solr.mcp.server;
 
 import org.apache.solr.mcp.server.collection.CollectionService;
 import org.apache.solr.mcp.server.indexing.IndexingService;
-import org.apache.solr.mcp.server.metadata.SchemaService;
+import org.apache.solr.mcp.server.schema.SchemaService;
 import org.apache.solr.mcp.server.search.SearchService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;

@@ -14,17 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.solr.mcp.server.metadata;
+package org.apache.solr.mcp.server.schema;
 
 import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.observation.annotation.Observed;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.client.solrj.request.schema.AnalyzerDefinition;
+import org.apache.solr.client.solrj.request.schema.FieldTypeDefinition;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
 import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
+import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
@@ -251,9 +260,161 @@ public class SchemaService {
 	 * @see org.apache.solr.client.solrj.response.schema.SchemaResponse
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "get-schema", description = "Get schema for a Solr collection")
+	@McpTool(name = "get-schema", annotations = @McpTool.McpAnnotations(readOnlyHint = true), description = "Get schema for a Solr collection")
 	public SchemaRepresentation getSchema(String collection) throws Exception {
 		SchemaRequest schemaRequest = new SchemaRequest();
 		return schemaRequest.process(solrClient, collection).getSchemaRepresentation();
+	}
+
+	@PreAuthorize("isAuthenticated()")
+	@McpTool(name = "add-fields", annotations = @McpTool.McpAnnotations(destructiveHint = false), description = "Add one or more fields to a Solr collection schema. "
+			+ "Call get-schema first to inspect existing field configuration before adding. "
+			+ "Each field map follows the Solr Schema API add-field shape: required keys "
+			+ "'name' and 'type', plus optional 'stored', 'indexed', 'docValues', "
+			+ "'multiValued', 'required', 'omitNorms', etc. "
+			+ "Example: {\"name\":\"platform\",\"type\":\"string\",\"stored\":true,\"indexed\":true,\"docValues\":true}. "
+			+ "Use 'strings' (not 'string') for multi-valued string fields. "
+			+ "Note: this only adds new fields; existing fields cannot be modified. "
+			+ "Solr's Schema API is transactional — if any command in the batch fails, "
+			+ "none are applied. On failure, fix the invalid field(s) and retry the whole batch.")
+	public SchemaUpdateResult addFields(@McpToolParam(description = "Solr collection name") String collection,
+			@McpToolParam(description = "List of field definitions (Solr add-field JSON shape)") List<Map<String, Object>> fields)
+			throws SolrServerException, IOException {
+		requireCollection(collection);
+		requireNonEmpty(fields, "fields");
+
+		List<String> names = new ArrayList<>(fields.size());
+		List<SchemaRequest.Update> updates = new ArrayList<>(fields.size());
+		for (Map<String, Object> field : fields) {
+			names.add((String) field.get("name"));
+			updates.add(new SchemaRequest.AddField(field));
+		}
+
+		new SchemaRequest.MultiUpdate(updates).process(solrClient, collection);
+		return new SchemaUpdateResult(collection, names);
+	}
+
+	@PreAuthorize("isAuthenticated()")
+	@McpTool(name = "add-field-types", annotations = @McpTool.McpAnnotations(destructiveHint = false), description = "Add one or more field types to a Solr collection schema. "
+			+ "Call get-schema first to inspect existing field types before adding. "
+			+ "Each map follows the Solr Schema API add-field-type shape: required keys "
+			+ "'name' and 'class', optional 'analyzer' (or 'indexAnalyzer'+'queryAnalyzer'), "
+			+ "and class-specific attributes. " + "Common recipes: "
+			+ "(1) case-insensitive exact match: class=solr.TextField with analyzer "
+			+ "{tokenizer:{class:solr.KeywordTokenizerFactory}, filters:[{class:solr.LowerCaseFilterFactory}]}; "
+			+ "(2) dense vector for semantic search: class=solr.DenseVectorField with "
+			+ "vectorDimension, similarityFunction (cosine/dot_product/euclidean), and knnAlgorithm=hnsw; "
+			+ "(3) autocomplete: class=solr.TextField with separate indexAnalyzer using EdgeNGramFilterFactory "
+			+ "and queryAnalyzer without it. " + "After adding a type, use add-fields to create fields of that type. "
+			+ "Solr's Schema API is transactional — if any command in the batch fails, none are applied.")
+	public SchemaUpdateResult addFieldTypes(@McpToolParam(description = "Solr collection name") String collection,
+			@McpToolParam(description = "List of field type definitions (Solr add-field-type JSON shape)") List<Map<String, Object>> fieldTypes)
+			throws SolrServerException, IOException {
+		requireCollection(collection);
+		requireNonEmpty(fieldTypes, "fieldTypes");
+
+		List<String> names = new ArrayList<>(fieldTypes.size());
+		List<SchemaRequest.Update> updates = new ArrayList<>(fieldTypes.size());
+		for (Map<String, Object> fieldType : fieldTypes) {
+			names.add((String) fieldType.get("name"));
+			updates.add(new SchemaRequest.AddFieldType(toFieldTypeDefinition(fieldType)));
+		}
+
+		new SchemaRequest.MultiUpdate(updates).process(solrClient, collection);
+		return new SchemaUpdateResult(collection, names);
+	}
+
+	/**
+	 * Builds a {@link FieldTypeDefinition} from a flat input map matching the Solr
+	 * Schema API add-field-type JSON shape. SolrJ's {@code FieldTypeDefinition}
+	 * stores name/class and other scalar attributes inside an attributes map, with
+	 * analyzers pulled into typed sub-objects — so we can't deserialize the flat
+	 * input directly via Jackson.
+	 */
+	private FieldTypeDefinition toFieldTypeDefinition(Map<String, Object> input) {
+		FieldTypeDefinition def = new FieldTypeDefinition();
+		Map<String, Object> attributes = new LinkedHashMap<>(input);
+		Object analyzer = attributes.remove("analyzer");
+		Object indexAnalyzer = attributes.remove("indexAnalyzer");
+		Object queryAnalyzer = attributes.remove("queryAnalyzer");
+		def.setAttributes(attributes);
+		if (analyzer != null) {
+			def.setAnalyzer(toAnalyzerDefinition(analyzer));
+		}
+		if (indexAnalyzer != null) {
+			def.setIndexAnalyzer(toAnalyzerDefinition(indexAnalyzer));
+		}
+		if (queryAnalyzer != null) {
+			def.setQueryAnalyzer(toAnalyzerDefinition(queryAnalyzer));
+		}
+		return def;
+	}
+
+	/**
+	 * Builds an {@link AnalyzerDefinition} from a flat input map matching the Solr
+	 * Schema API analyzer shape. SolrJ's {@code AnalyzerDefinition} only exposes
+	 * typed setters for {@code charFilters}, {@code tokenizer}, and
+	 * {@code filters}; every other analyzer-level key (e.g.
+	 * {@code "class":"solr.WhitespaceAnalyzer"}, {@code "luceneMatchVersion"},
+	 * {@code "positionIncrementGap"}) must go through {@code setAttributes} or Solr
+	 * never sees them.
+	 *
+	 * <p>
+	 * A naive {@code objectMapper.convertValue(raw, AnalyzerDefinition.class)}
+	 * silently drops those unrecognized top-level keys, which breaks the valid
+	 * single-class analyzer form
+	 * {@code {"analyzer":{"class":"solr.WhitespaceAnalyzer"}}}. This helper does
+	 * the split manually so unknown keys are preserved as attributes.
+	 */
+	private AnalyzerDefinition toAnalyzerDefinition(Object raw) {
+		if (!(raw instanceof Map<?, ?> rawMap)) {
+			// Defensive: unexpected shape (e.g. analyzer specified as a bare class
+			// name string). Let Jackson try its default conversion.
+			return objectMapper.convertValue(raw, AnalyzerDefinition.class);
+		}
+		@SuppressWarnings("unchecked")
+		Map<String, Object> input = (Map<String, Object>) rawMap;
+
+		AnalyzerDefinition def = new AnalyzerDefinition();
+		Map<String, Object> attributes = new LinkedHashMap<>(input);
+
+		Object charFilters = attributes.remove("charFilters");
+		Object tokenizer = attributes.remove("tokenizer");
+		Object filters = attributes.remove("filters");
+
+		// Anything left (class, luceneMatchVersion, positionIncrementGap, ...)
+		// is an attribute and must be passed through; SolrJ emits these inside
+		// the analyzer JSON alongside the typed sub-objects.
+		if (!attributes.isEmpty()) {
+			def.setAttributes(attributes);
+		}
+		if (charFilters instanceof List<?> charFilterList) {
+			@SuppressWarnings("unchecked")
+			List<Map<String, Object>> typed = (List<Map<String, Object>>) charFilterList;
+			def.setCharFilters(typed);
+		}
+		if (tokenizer instanceof Map<?, ?> tokenizerMap) {
+			@SuppressWarnings("unchecked")
+			Map<String, Object> typed = (Map<String, Object>) tokenizerMap;
+			def.setTokenizer(typed);
+		}
+		if (filters instanceof List<?> filterList) {
+			@SuppressWarnings("unchecked")
+			List<Map<String, Object>> typed = (List<Map<String, Object>>) filterList;
+			def.setFilters(typed);
+		}
+		return def;
+	}
+
+	private static void requireCollection(String collection) {
+		if (collection == null || collection.isBlank()) {
+			throw new IllegalArgumentException("Collection name must not be blank");
+		}
+	}
+
+	private static void requireNonEmpty(List<?> list, String name) {
+		if (list == null || list.isEmpty()) {
+			throw new IllegalArgumentException(name + " must not be empty");
+		}
 	}
 }
