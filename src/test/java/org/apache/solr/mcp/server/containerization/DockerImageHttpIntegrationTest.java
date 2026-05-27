@@ -115,6 +115,13 @@ class DockerImageHttpIntegrationTest {
 
 	// MCP Server container (the image we're testing)
 	// Note: In HTTP mode, the application exposes a web server on port 8080
+	// No OAUTH2_ISSUER_URI is supplied because this smoke test has no IdP
+	// available. The image must still start: HttpSecurityConfiguration is
+	// expected to skip OAuth2 wiring when the issuer URL is unset, leaving
+	// /actuator/health on its permitAll() rule. AOT bakes in the secured
+	// SecurityFilterChain bean (because @ConditionalOnProperty is evaluated at
+	// build time with http.security.enabled defaulting to true), so the
+	// runtime null-issuer guard is what keeps native-http boot-stable.
 	@Container
 	private static final GenericContainer<?> mcpServerContainer = new GenericContainer<>(
 			DockerImageName.parse(DOCKER_IMAGE)).withNetwork(network).withEnv("SOLR_URL", "http://solr:8983/solr/")

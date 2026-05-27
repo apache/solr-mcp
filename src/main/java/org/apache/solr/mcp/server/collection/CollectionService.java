@@ -23,10 +23,12 @@ import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.observation.annotation.Observed;
+import io.modelcontextprotocol.spec.McpSchema.CompleteRequest;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -41,7 +43,10 @@ import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
+import org.apache.solr.mcp.server.util.PromptNames;
+import org.springaicommunity.mcp.annotation.McpArg;
 import org.springaicommunity.mcp.annotation.McpComplete;
+import org.springaicommunity.mcp.annotation.McpPrompt;
 import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
@@ -282,24 +287,95 @@ public class CollectionService {
 	 *
 	 * @return JSON string containing the list of collections
 	 */
-	@McpResource(uri = "solr://collections", name = "solr-collections", description = "List of all Solr collections available in the cluster", mimeType = "application/json")
+	@PreAuthorize("isAuthenticated()")
+	@McpResource(
+			uri = "solr://collections",
+			name = "solr-collections",
+			description = "List of all Solr collections available in the cluster",
+			mimeType = "application/json")
 	public String getCollectionsResource() throws SolrServerException, IOException {
 		return toJson(objectMapper, listCollections());
 	}
 
+	/** Maximum number of completion suggestions returned per request. */
+	static final int MAX_COMPLETION_RESULTS = 100;
+
 	/**
-	 * MCP Completion endpoint for collection name autocompletion.
+	 * MCP Completion endpoint for the {@code {collection}} segment of the
+	 * {@code solr://{collection}/schema} resource template.
 	 *
 	 * <p>
-	 * Provides autocompletion support for the collection parameter in the schema
-	 * resource URI template. Returns all available collection names that MCP
-	 * clients can use to complete the {collection} placeholder.
+	 * Returns collection names that start with the user-supplied prefix
+	 * (case-insensitive). When the prefix is empty all collections are returned,
+	 * subject to {@link #MAX_COMPLETION_RESULTS}. The results are sorted so that
+	 * client UIs see a stable ordering.
 	 *
-	 * @return list of available collection names for autocompletion
+	 * @param argument
+	 *            the partial value the client is completing; its
+	 *            {@link CompleteRequest.CompleteArgument#name() name} must be
+	 *            {@code collection}
+	 * @return matching collection names, capped at {@link #MAX_COMPLETION_RESULTS}
 	 */
+	@PreAuthorize("isAuthenticated()")
 	@McpComplete(uri = "solr://{collection}/schema")
-	public List<String> completeCollectionForSchema() throws SolrServerException, IOException {
-		return listCollections();
+	public List<String> completeCollection(CompleteRequest.CompleteArgument argument) {
+		if (argument == null || !"collection".equals(argument.name())) {
+			return List.of();
+		}
+		String prefix = argument.value() == null ? "" : argument.value().toLowerCase(Locale.ROOT);
+		try {
+			return listCollections().stream().filter(c -> c != null && c.toLowerCase(Locale.ROOT).startsWith(prefix))
+					.sorted().limit(MAX_COMPLETION_RESULTS).toList();
+		} catch (SolrServerException | IOException _) {
+			return List.of();
+		}
+	}
+
+	/**
+	 * Completion for the {@code collection} argument of the
+	 * {@code search-collection} prompt (defined in {@code SearchService}).
+	 *
+	 * <p>
+	 * {@code @McpComplete} registers a handler per {@code (ref/prompt, name)} pair,
+	 * so a prompt that takes a collection argument needs its own handler — the
+	 * resource-template handler on {@link #completeCollection} only matches
+	 * {@code ref/resource}. Each wrapper delegates so all collection-name
+	 * completion shares one implementation and one cap.
+	 */
+	@PreAuthorize("isAuthenticated()")
+	@McpComplete(prompt = PromptNames.SEARCH_COLLECTION)
+	public List<String> completeSearchCollectionPromptArg(CompleteRequest.CompleteArgument argument) {
+		return completeCollection(argument);
+	}
+
+	/**
+	 * Completion for the {@code collection} argument of the {@code index-data}
+	 * prompt.
+	 */
+	@PreAuthorize("isAuthenticated()")
+	@McpComplete(prompt = PromptNames.INDEX_DATA)
+	public List<String> completeIndexDataPromptArg(CompleteRequest.CompleteArgument argument) {
+		return completeCollection(argument);
+	}
+
+	/**
+	 * Completion for the {@code collection} argument of the {@code view-schema}
+	 * prompt.
+	 */
+	@PreAuthorize("isAuthenticated()")
+	@McpComplete(prompt = PromptNames.VIEW_SCHEMA)
+	public List<String> completeViewSchemaPromptArg(CompleteRequest.CompleteArgument argument) {
+		return completeCollection(argument);
+	}
+
+	/**
+	 * Completion for the {@code collection} argument of the {@code design-schema}
+	 * prompt.
+	 */
+	@PreAuthorize("isAuthenticated()")
+	@McpComplete(prompt = PromptNames.DESIGN_SCHEMA)
+	public List<String> completeDesignSchemaPromptArg(CompleteRequest.CompleteArgument argument) {
+		return completeCollection(argument);
 	}
 
 	/**
@@ -331,7 +407,10 @@ public class CollectionService {
 	 * @see CollectionAdminRequest.List
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "list-collections", annotations = @McpTool.McpAnnotations(readOnlyHint = true), description = "List solr collections")
+	@McpTool(
+			name = "list-collections",
+			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
+			description = "List solr collections")
 	public List<String> listCollections() throws SolrServerException, IOException {
 		CollectionAdminRequest.List request = new CollectionAdminRequest.List();
 		CollectionAdminResponse response = request.process(solrClient);
@@ -402,7 +481,10 @@ public class CollectionService {
 	 * @see #extractCollectionName(String)
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "get-collection-stats", annotations = @McpTool.McpAnnotations(readOnlyHint = true), description = "Get stats/metrics on a Solr collection")
+	@McpTool(
+			name = "get-collection-stats",
+			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
+			description = "Get stats/metrics on a Solr collection")
 	public SolrMetrics getCollectionStats(
 			@McpToolParam(description = "Solr collection to get stats/metrics for") String collection)
 			throws SolrServerException, IOException {
@@ -944,7 +1026,10 @@ public class CollectionService {
 	 * @see SolrPingResponse
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "check-health", annotations = @McpTool.McpAnnotations(readOnlyHint = true), description = "Check health of a Solr collection")
+	@McpTool(
+			name = "check-health",
+			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
+			description = "Check health of a Solr collection")
 	public SolrHealthStatus checkHealth(@McpToolParam(description = "Solr collection") String collection) {
 		String actualCollection = extractCollectionName(collection);
 		try {
@@ -996,13 +1081,20 @@ public class CollectionService {
 	 *             if there are I/O errors during communication
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "create-collection", annotations = @McpTool.McpAnnotations(destructiveHint = false), description = "Create a new Solr collection. "
-			+ "configSet defaults to _default, numShards and replicationFactor default to 1.")
+	@McpTool(
+			name = "create-collection",
+			annotations = @McpTool.McpAnnotations(destructiveHint = false),
+			description = "Create a new Solr collection. "
+					+ "configSet defaults to _default, numShards and replicationFactor default to 1.")
 	public CollectionCreationResult createCollection(
 			@McpToolParam(description = "Name of the collection to create") String name,
 			@McpToolParam(description = "Configset name. Defaults to _default.", required = false) String configSet,
-			@McpToolParam(description = "Number of shards (SolrCloud only). Defaults to 1.", required = false) Integer numShards,
-			@McpToolParam(description = "Replication factor (SolrCloud only). Defaults to 1.", required = false) Integer replicationFactor)
+			@McpToolParam(
+					description = "Number of shards (SolrCloud only). Defaults to 1.",
+					required = false) Integer numShards,
+			@McpToolParam(
+					description = "Replication factor (SolrCloud only). Defaults to 1.",
+					required = false) Integer replicationFactor)
 			throws SolrServerException, IOException {
 
 		if (name == null || name.isBlank()) {
@@ -1017,5 +1109,79 @@ public class CollectionService {
 				.process(solrClient);
 
 		return new CollectionCreationResult(name, true, "Collection created successfully", new Date());
+	}
+
+	@PreAuthorize("isAuthenticated()")
+
+	@McpPrompt(
+			name = PromptNames.EXPLORE_COLLECTIONS,
+			title = "Explore Solr collections",
+			description = "Read-only walkthrough: list collections and characterise each by stats and health.")
+	public String exploreCollectionsPrompt() {
+		return """
+				You are exploring an Apache Solr cluster through MCP tools. Goal: produce a concise,
+				accurate picture of what already exists. This prompt is read-only; do not create or
+				modify anything.
+
+				1. List collections.
+				   - Call `list-collections` to get the full set of collection names.
+				   - If the user mentioned a target collection by name, note whether it appears in the
+				     list.
+
+				2. Characterize each interesting collection.
+				   - For each collection the user cares about (or a small representative sample if they
+				     did not name one), call `get-collection-stats` to read numDocs, segment counts, and
+				     cache/handler metrics, and `check-health` to confirm the collection responds to a
+				     ping and the doc count is non-zero where expected.
+
+				3. Summarize.
+				   - Tell the user which collections exist, which look healthy, and which look empty or
+				     stale.
+				   - If the user's intent does not match any existing collection, suggest the
+				     `setup-collection` prompt to create one.
+				""";
+	}
+
+	@PreAuthorize("isAuthenticated()")
+
+	@McpPrompt(
+			name = PromptNames.SETUP_COLLECTION,
+			title = "Set up a new Solr collection",
+			description = "Guided workflow: validate a name, pick configset / shards / replication factor, create the collection, and verify it.")
+	public String setupCollectionPrompt(@McpArg(
+			name = "name",
+			description = "Desired collection name. Lowercase letters, digits, underscores, hyphens — no spaces.",
+			required = true) String name,
+			@McpArg(
+					name = "purpose",
+					description = "Optional one-line description of what the collection is for (used only to ground the conversation).",
+					required = false) String purpose) {
+		String purposeLine = (purpose == null || purpose.isBlank()) ? "" : "\nPurpose: %s\n".formatted(purpose.strip());
+		return """
+				You are setting up a new Solr collection named `%s` through MCP tools.%s
+				1. Validate the name.
+				   - Lowercase letters, digits, underscores, hyphens only — no spaces or uppercase.
+				   - Call `list-collections` and confirm `%s` does not already exist. If it does, stop
+				     and tell the user.
+
+				2. Choose creation parameters.
+				   - Defaults: configset `%s`, %d shard(s), replicationFactor %d. These work for most
+				     single-node and small SolrCloud setups.
+				   - Only override if the user asked: a custom configset for a pre-built schema, more
+				     shards for a large dataset, or higher replicationFactor for redundancy.
+
+				3. Create.
+				   - Call `create-collection` with `name=%s` and any non-default `configSet`,
+				     `numShards`, `replicationFactor` values. Report the result (success flag +
+				     message).
+
+				4. Verify.
+				   - Call `list-collections` again; `%s` should appear.
+				   - Call `check-health` on `%s`; it should respond to ping.
+
+				Next step suggestion: define the schema. Use the `design-schema` prompt to design
+				fields for the dataset the user wants to index.
+				""".formatted(name, purposeLine, name, DEFAULT_CONFIGSET, DEFAULT_NUM_SHARDS,
+				DEFAULT_REPLICATION_FACTOR, name, name, name);
 	}
 }

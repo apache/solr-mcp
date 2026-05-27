@@ -74,9 +74,11 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * SimpleTracer and passes all tests successfully.
  */
 @Disabled("Jetty HTTP client ClassNotFoundException with LgtmStackContainer - see class javadoc")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
-		// Ensure 100% sampling for tests
-		"management.tracing.sampling.probability=1.0"})
+@SpringBootTest(
+		webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+		properties = {
+				// Ensure 100% sampling for tests
+				"management.tracing.sampling.probability=1.0"})
 @Import(TestcontainersConfiguration.class)
 @Tag("integration")
 @Testcontainers(disabledWithoutDocker = true)

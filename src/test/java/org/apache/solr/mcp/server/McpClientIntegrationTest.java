@@ -31,8 +31,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * the full application with a real Solr container and exercises all MCP tools
  * via an HTTP transport.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {"http.security.enabled=false",
-		"spring.docker.compose.enabled=false"})
+@SpringBootTest(
+		webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+		properties = {"http.security.enabled=false", "spring.docker.compose.enabled=false"})
 @ActiveProfiles("http")
 @Import(TestcontainersConfiguration.class)
 @Tag("integration")

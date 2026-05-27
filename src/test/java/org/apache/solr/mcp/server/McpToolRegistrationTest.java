@@ -18,17 +18,24 @@ package org.apache.solr.mcp.server;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 import org.apache.solr.mcp.server.collection.CollectionService;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.apache.solr.mcp.server.schema.SchemaService;
 import org.apache.solr.mcp.server.search.SearchService;
+import org.apache.solr.mcp.server.util.PromptNames;
 import org.junit.jupiter.api.Test;
+import org.springaicommunity.mcp.annotation.McpComplete;
+import org.springaicommunity.mcp.annotation.McpPrompt;
+import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 /**
  * Tests for MCP tool registration and annotation validation. Ensures all
@@ -178,6 +185,68 @@ class McpToolRegistrationTest {
 			// Optional parameters should be marked as such in description or required flag
 			assertNotNull(param.description(), "Parameter should have description indicating if it's optional");
 		}
+	}
+
+	@Test
+	void testCollectionCompletionsCoverSchemaResourceAndCollectionTakingPrompts() {
+		// Each (ref/prompt name, ref/resource uri) pair is a separate completion
+		// binding in the MCP protocol, so every prompt that takes a `collection`
+		// argument needs its own @McpComplete handler. The resource-template handler
+		// alone does NOT cover prompt arguments — Spring AI registers them in
+		// disjoint maps keyed by reference type.
+		List<McpComplete> completions = Arrays.stream(CollectionService.class.getDeclaredMethods())
+				.filter(m -> m.isAnnotationPresent(McpComplete.class)).map(m -> m.getAnnotation(McpComplete.class))
+				.toList();
+
+		// Exactly one resource-template binding (the {collection}/schema URI).
+		List<String> uriBindings = completions.stream().map(McpComplete::uri).filter(s -> !s.isEmpty()).sorted()
+				.toList();
+		assertEquals(List.of("solr://{collection}/schema"), uriBindings,
+				"Exactly one resource-template completion expected (the schema URI)");
+
+		// One prompt binding per prompt that takes a `collection` argument.
+		// Referenced via PromptNames so a rename or deletion breaks compilation
+		// here, not silently at runtime.
+		List<String> promptBindings = completions.stream().map(McpComplete::prompt).filter(s -> !s.isEmpty()).sorted()
+				.toList();
+		assertEquals(
+				Stream.of(PromptNames.DESIGN_SCHEMA, PromptNames.INDEX_DATA, PromptNames.SEARCH_COLLECTION,
+						PromptNames.VIEW_SCHEMA).sorted().toList(),
+				promptBindings, "Every prompt with a `collection` arg needs its own @McpComplete(prompt=...) binding");
+
+		// `uri` and `prompt` are mutually exclusive per the @McpComplete contract.
+		for (McpComplete c : completions) {
+			assertTrue(c.uri().isEmpty() ^ c.prompt().isEmpty(),
+					"@McpComplete must set exactly one of uri/prompt, not both or neither");
+		}
+	}
+
+	/**
+	 * Invariant: every public MCP entry point — tool, resource, prompt, or
+	 * completion — must carry {@code @PreAuthorize}. Annotating a shared helper is
+	 * not sufficient because Spring's proxy-based method security is bypassed by
+	 * self-invocation, so each MCP-visible method must be gated independently.
+	 *
+	 * <p>
+	 * Adding a new {@code @Mcp*} method without {@code @PreAuthorize} fails this
+	 * test, surfacing the omission in CI rather than relying on reviewer memory.
+	 */
+	@Test
+	void everyMcpEndpointIsPreAuthorized() {
+		List<Class<? extends Annotation>> mcpAnnotations = List.of(McpTool.class, McpResource.class, McpPrompt.class,
+				McpComplete.class);
+
+		List<String> violations = Stream
+				.of(CollectionService.class, SchemaService.class, SearchService.class, IndexingService.class)
+				.flatMap(c -> Arrays.stream(c.getDeclaredMethods()))
+				.filter(m -> mcpAnnotations.stream().anyMatch(m::isAnnotationPresent))
+				.filter(m -> !m.isAnnotationPresent(PreAuthorize.class))
+				.map(m -> m.getDeclaringClass().getSimpleName() + "#" + m.getName()).sorted().toList();
+
+		assertTrue(violations.isEmpty(),
+				"Every @McpTool / @McpResource / @McpPrompt / @McpComplete method must declare @PreAuthorize. "
+						+ "Self-invocation bypasses the Spring Security proxy, so a shared helper's annotation does not "
+						+ "protect the public entry point. Missing on: " + violations);
 	}
 
 	// Helper method to extract tool names from a service class
