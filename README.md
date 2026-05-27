@@ -335,6 +335,8 @@ For complete setup instructions, see [security-docs/AUTH0_SETUP.md](security-doc
 
 | Tool | Description |
 |------|-------------|
+| `add-field-types` | Add one or more field types to a Solr collection schema (supports custom analyzers, DenseVectorField for semantic search, etc.) |
+| `add-fields` | Add one or more fields to a Solr collection schema (additive only; existing fields cannot be modified) |
 | `get-schema` | Retrieve schema information for a collection |
 
 ## Available MCP Resources
