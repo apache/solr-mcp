@@ -6,7 +6,7 @@ This file provides guidance to AI coding assistants when working with code in th
 
 Solr MCP Server is a Spring AI Model Context Protocol (MCP) server that enables AI assistants to interact with Apache Solr. It provides tools for searching, indexing, and managing Solr collections through the MCP protocol.
 
-- **Status:** Apache incubating project (v0.0.2-SNAPSHOT)
+- **Status:** Apache incubating project (v1.0.0)
 - **Java:** 25+ (centralized in build.gradle.kts)
 - **Framework:** Spring Boot 3.5.14, Spring AI 1.1.7
 - **License:** Apache 2.0
