@@ -75,6 +75,17 @@ java {
     withJavadocJar()
 }
 
+// ASF release policy requires every distributed artifact to carry the project's
+// LICENSE and NOTICE files. Bundle them into META-INF of every JAR produced by
+// this build (main jar, bootJar, sources, javadoc).
+// See https://www.apache.org/legal/release-policy.html#licensing-documentation
+tasks.withType<Jar>().configureEach {
+    metaInf {
+        from(rootProject.file("LICENSE"))
+        from(rootProject.file("NOTICE"))
+    }
+}
+
 // Maven Publishing Configuration
 // ==============================
 // This configuration enables publishing the project artifacts to Maven repositories.
