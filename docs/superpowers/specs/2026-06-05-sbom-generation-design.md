@@ -21,7 +21,7 @@ already; today the actuator returns 404 because no SBOM is generated.
 
 In scope:
 
-- Generate a CycloneDX 1.5 SBOM (`application.cdx.json`) on every `./gradlew build`.
+- Generate a CycloneDX 1.6 SBOM (`application.cdx.json`) on every `./gradlew build`.
 - Embed the SBOM in the bootable JAR at `META-INF/sbom/application.cdx.json` so
   it ships with every distribution (JAR, Jib JVM image, both Paketo native
   images).
@@ -62,7 +62,7 @@ CycloneDX (vs SPDX) is the de-facto Apache ecosystem standard, what Spring Boot
 natively integrates with, and what Trivy/Grype/Dependency-Track ingest natively.
 
 Plugin version: `1.10.0` (latest stable as of 2026-06; supports Gradle 8+ and
-CycloneDX 1.5).
+CycloneDX 1.6).
 
 ## Architecture
 
@@ -83,7 +83,8 @@ build.gradle.kts                      ← apply alias(libs.plugins.cyclonedx)
 - `includeConfigs = listOf("runtimeClasspath")` — only ship what's actually in
   the binary; exclude test/errorprone/build-time-only deps.
 - `skipConfigs = listOf("testRuntimeClasspath", "errorprone")` — defense in depth.
-- `schemaVersion = "1.5"` — current stable; matches Spring Boot's expectations.
+- `schemaVersion` — plugin default (CycloneDX 1.6, latest stable). Spring Boot
+  doesn't override this convention.
 - `projectType = "application"` — accurate for a Spring Boot service.
 
 `build` and `bootJar` automatically depend on `cyclonedxBom` once the Spring
@@ -133,11 +134,15 @@ the SBOM ships embedded; reference the spec.
 
 - `./gradlew build` produces `build/reports/application.cdx.json`. Verify
   manually post-merge.
-- Add a focused HTTP-profile test (or extend `McpClientIntegrationTest`, which
-  already boots the HTTP profile) with an assertion that
-  `GET /actuator/sbom` returns 200, `Content-Type: application/vnd.cyclonedx+json`,
-  and the JSON body contains `"bomFormat": "CycloneDX"`. One small assertion
-  — no separate test class.
+- No new integration test. `/actuator/sbom` is stock Spring Boot
+  functionality; the only project-specific configuration is two lines in
+  `application-http.properties`. A Spring Boot integration test that boots a
+  full context + Testcontainers Solr just to assert an actuator returns 200
+  tests Spring Boot, not us. The plugin wiring is already implicitly verified:
+  Spring Boot's bootJar task auto-depends on `cyclonedxBom`, so if the plugin
+  ever breaks, `./gradlew build` fails. The remaining question — "is the SBOM
+  actually inside the JAR?" — is handled by the build itself succeeding and is
+  re-verifiable any time via `unzip -l build/libs/*.jar | grep sbom`.
 - Existing Docker integration tests already verify image startup. The SBOM
   being present in the image is implicit via the bootJar packaging — no new
   Docker test added.
