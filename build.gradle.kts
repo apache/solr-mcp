@@ -197,7 +197,6 @@ springBoot {
     buildInfo()
 }
 
-
 tasks.withType<Test> {
     useJUnitPlatform {
         // Only exclude docker integration tests from regular test runs, not from dockerIntegrationTest
