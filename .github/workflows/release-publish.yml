@@ -244,10 +244,42 @@ jobs:
             -Djib.to.tags=${{ inputs.release_version }},latest
 
       - name: Generate SBOM (Software Bill of Materials)
+        # The CycloneDX plugin is wired in build.gradle.kts; bootJar already
+        # depends on cyclonedxBom transitively. Running it explicitly here
+        # ensures build/reports/application.cdx.json exists for the upload
+        # steps below even if the `Build project` step above used a cached
+        # bootJar output.
+        run: ./gradlew cyclonedxBom
+
+      - name: Upload SBOM as workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          # The release_version input is constrained by validate-release; safe to
+          # interpolate into the artifact name.
+          name: solr-mcp-sbom-${{ inputs.release_version }}
+          path: build/reports/application.cdx.json
+          retention-days: 90
+
+      - name: Attach SBOM to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Pass the release_version through env so the shell sees a quoted
+          # variable instead of an inline ${{ }} expansion (defence-in-depth
+          # against actions-injection, even though release_version is already
+          # validated by validate-release).
+          RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
-          # Generate SBOM for the release
-          # This helps with supply chain security
-          ./gradlew cyclonedxBom || echo "SBOM generation not configured"
+          # Rename to include the version so the asset is unambiguous on the release page.
+          cp build/reports/application.cdx.json "solr-mcp-${RELEASE_VERSION}.cdx.json"
+          # --clobber lets re-runs of this workflow replace a previously uploaded SBOM.
+          # If the v<version> GitHub Release does not exist yet, log and continue —
+          # the workflow artifact above is still captured.
+          if gh release view "v${RELEASE_VERSION}" >/dev/null 2>&1; then
+            gh release upload "v${RELEASE_VERSION}" "solr-mcp-${RELEASE_VERSION}.cdx.json" --clobber
+          else
+            echo "GitHub Release v${RELEASE_VERSION} does not exist yet; SBOM available as workflow artifact only."
+          fi
 
       - name: Create release announcement
         run: |
