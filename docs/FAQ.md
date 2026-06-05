@@ -2,11 +2,21 @@
 
 ## LLMs already know Solr. Could a Solr skill replace this MCP server?
 
-**No — they're complementary.** Anthropic frames it directly:
-[Skills "complement Model Context Protocol (MCP) servers by teaching agents
-more complex workflows that involve external tools and software."][skills-blog]
-A skill teaches an agent *how to use Solr well*; this server makes the
-operations *safe, deterministic, and auditable*.
+**No — they're complementary.** Anthropic teaches the agent stack as five
+distinct layers:[skilljar]
+
+- **CLAUDE.md** — always-on project standards
+- **Skills** — task-specific expertise that loads on demand
+- **Hooks** — automated operations triggered by events
+- **Subagents** — isolated execution contexts for delegated work
+- **MCP servers** — external tools and integrations
+
+A Solr skill and this server sit on different layers and do different jobs:
+the skill teaches an agent *how to use Solr well*; this server is the live
+integration that makes the operations *safe, deterministic, and auditable*.
+Anthropic's engineering blog reinforces the split — Skills "complement
+Model Context Protocol (MCP) servers by teaching agents more complex
+workflows that involve external tools and software."[skills-blog]
 
 ### What a skill could do
 
@@ -53,8 +63,10 @@ makes the agent better at *using* Solr; the server makes the dangerous parts
 
 ## Sources
 
+- Anthropic — [Introduction to Agent Skills][skilljar] (course)
 - Anthropic — [Equipping agents for the real world with Agent Skills][skills-blog]
 - Anthropic — [Agent Skills overview](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview)
 - Anthropic — [Code execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp)
 
+[skilljar]: https://anthropic.skilljar.com/introduction-to-agent-skills/434528
 [skills-blog]: https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills
