@@ -61,12 +61,48 @@ client). Add a thin Solr skill for query and faceting know-how. The skill
 makes the agent better at *using* Solr; the server makes the dangerous parts
 *safe and repeatable*.
 
+## Doesn't an MCP server cost more context than a skill?
+
+**At rest, yes; at runtime, often no.** A skill places only its metadata
+(~100 tokens of `name` + `description`) in the system prompt; its
+`SKILL.md` body and bundled files load via progressive disclosure only
+when triggered.[skills-overview] An MCP server's tool definitions sit in
+context for the whole session whether the agent uses them or not. As
+Anthropic puts it, *"tool descriptions occupy more context window
+space"*, and at scale agents *"need to process hundreds of thousands of
+tokens before reading a request."*[code-execution]
+
+For this server (27 tools across search, indexing, schema, and
+collections), the upfront overhead is a few thousand tokens — real but
+bounded.
+
+Two factors close the gap at runtime:
+
+- **Typed, compact returns.** Every tool returns the same typed record
+  (e.g. `SearchResponse`, `SolrHealthStatus`), not raw Solr JSON the
+  model must reparse. Over a multi-turn agent run, leaner tool output
+  offsets the upfront schema cost.
+- **Code execution with MCP.** Anthropic's pattern of discovering tool
+  definitions on demand inside a code-execution loop cut a reference
+  workload from **150,000 to 2,000 tokens — a 98.7%
+  reduction.**[code-execution]
+
+The strong move is **both**: a thin skill for query/faceting know-how
+(progressive disclosure keeps upfront cost near-zero), plus this server
+for the live operations (typed records keep per-call cost low). For
+indexing or schema-introspection turns that fan out across many calls,
+delegate to a subagent — Anthropic's stack lists subagents as their own
+layer specifically for isolating heavy work from the main
+thread.[skilljar]
+
 ## Sources
 
 - Anthropic — [Introduction to Agent Skills][skilljar] (course)
 - Anthropic — [Equipping agents for the real world with Agent Skills][skills-blog]
-- Anthropic — [Agent Skills overview](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview)
-- Anthropic — [Code execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp)
+- Anthropic — [Agent Skills overview][skills-overview]
+- Anthropic — [Code execution with MCP][code-execution]
 
 [skilljar]: https://anthropic.skilljar.com/introduction-to-agent-skills/434528
 [skills-blog]: https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills
+[skills-overview]: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview
+[code-execution]: https://www.anthropic.com/engineering/code-execution-with-mcp
