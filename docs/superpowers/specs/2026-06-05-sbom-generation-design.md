@@ -61,8 +61,8 @@ integration since 3.3.0:
 CycloneDX (vs SPDX) is the de-facto Apache ecosystem standard, what Spring Boot
 natively integrates with, and what Trivy/Grype/Dependency-Track ingest natively.
 
-Plugin version: `1.10.0` (latest stable as of 2026-06; supports Gradle 8+ and
-CycloneDX 1.6).
+(See the **Plugin version constraints** subsection below for the version
+trade-off — neither 1.x nor 3.x is usable today, so we pin to 2.4.1.)
 
 ## Architecture
 
