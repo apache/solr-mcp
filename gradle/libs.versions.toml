@@ -6,7 +6,7 @@ errorprone-plugin = "5.1.0"
 jib = "3.5.3"
 spotless = "7.0.2"
 graalvm-native = "0.10.6"
-cyclonedx-plugin = "1.10.0"
+cyclonedx-plugin = "2.4.1"
 
 # Main dependencies
 spring-ai = "1.1.7"
