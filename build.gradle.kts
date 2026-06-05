@@ -16,7 +16,6 @@
  */
 
 import net.ltgt.gradle.errorprone.errorprone
-import org.cyclonedx.model.Component
 
 plugins {
     java
@@ -198,31 +197,6 @@ springBoot {
     buildInfo()
 }
 
-// CycloneDX SBOM (Software Bill of Materials)
-// ==========================================
-// Spring Boot 3.5's CycloneDxPluginAction auto-configures this task with
-// `outputName=application.cdx`, `outputFormat=json`, and arranges for the
-// generated SBOM to be embedded in the bootable JAR at
-// META-INF/sbom/application.cdx.json. The actuator then serves it at
-// /actuator/sbom (HTTP profile only — see application-http.properties).
-//
-// One SBOM, three distribution channels:
-//   1. Embedded in the bootable JAR (META-INF/sbom/application.cdx.json)
-//   2. Embedded in every Docker image (Jib + Paketo both package bootJar contents)
-//   3. Surfaced at /actuator/sbom for live introspection (HTTP profile)
-//
-// Why projectType is set explicitly:
-//   Spring Boot 3.5.14 was written against cyclonedx-plugin 1.x, where
-//   projectType was a Property<String>. In v2.4.1 it became a
-//   Property<Component.Type>. Spring Boot's `.convention("application")` would
-//   store a raw String at runtime (Gradle Property is type-erased) and break
-//   the task when it later expects a Component.Type. We override with the
-//   correct enum value before any auto-config code path can matter.
-tasks.cyclonedxBom {
-    projectType.set(Component.Type.APPLICATION)
-    includeConfigs.set(listOf("runtimeClasspath"))
-    skipConfigs.set(listOf("testRuntimeClasspath", "errorprone", "annotationProcessor"))
-}
 
 tasks.withType<Test> {
     useJUnitPlatform {

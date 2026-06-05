@@ -61,24 +61,8 @@ integration since 3.3.0:
 CycloneDX (vs SPDX) is the de-facto Apache ecosystem standard, what Spring Boot
 natively integrates with, and what Trivy/Grype/Dependency-Track ingest natively.
 
-**Plugin version: 2.4.1.** Neither the 1.x nor the 3.x line is usable today:
-
-- **1.10.0 (latest 1.x):** breaks against Gradle 9.4 with an
-  `UnsupportedOperationException` from `ImmutableCollection.removeAll` inside
-  `CycloneDxTask.createBom`. Verified locally.
-- **3.x:** renamed the plugin/task classes (`CyclonedxPlugin`,
-  `CyclonedxBomTask`) and Spring Boot 3.5.14's `CycloneDxPluginAction`
-  auto-integration explicitly looks up the old PascalCase class
-  `org.cyclonedx.gradle.CycloneDxPlugin` — so applying v3 silently skips the
-  Spring Boot integration, breaking automatic bootJar embedding.
-- **2.4.1:** last release with the v1-compatible class layout
-  (`CycloneDxPlugin` / `CycloneDxTask`) AND with the Gradle 9.4 bug fixed.
-  Deprecated `outputName`/`outputFormat`/`projectType` as Strings in favor of
-  type-safe alternatives; Spring Boot's auto-config still drives `outputName`
-  and `outputFormat` (still `Property<String>`, just deprecated), but we
-  must override `projectType` explicitly with `Component.Type.APPLICATION`
-  because Spring Boot's `.convention("application")` would store a raw
-  String into `Property<Component.Type>` and break execution.
+**Plugin version: 2.4.1** — the version Spring Initializr ships for Spring
+Boot 3.5.14 when you select the `sbom-cyclone-dx` dependency.
 
 ## Architecture
 
@@ -90,21 +74,12 @@ build.gradle.kts                      ← apply alias(libs.plugins.cyclonedx)
                                       ← cyclonedxBom { … } configuration block
 ```
 
-`cyclonedxBom` configuration:
-
-- `outputFormat = "json"` — Spring Boot's actuator only consumes JSON; XML adds
-  build cost and disk for no consumer.
-- `outputName = "application.cdx"` — Spring Boot expects exactly this name to
-  embed it. (Default is `bom`, which Spring Boot would not detect.)
-- `includeConfigs = listOf("runtimeClasspath")` — only ship what's actually in
-  the binary; exclude test/errorprone/build-time-only deps.
-- `skipConfigs = listOf("testRuntimeClasspath", "errorprone")` — defense in depth.
-- `schemaVersion` — plugin default (CycloneDX 1.6, latest stable). Spring Boot
-  doesn't override this convention.
-- `projectType = "application"` — accurate for a Spring Boot service.
-
-`build` and `bootJar` automatically depend on `cyclonedxBom` once the Spring
-Boot plugin sees it on the classpath; no manual `dependsOn` needed.
+No custom `cyclonedxBom { ... }` block is needed. Spring Boot's
+`CycloneDxPluginAction` auto-configures `outputName = "application.cdx"`,
+`outputFormat = "json"`, and `projectType = "application"` via Property
+conventions, and `bootJar` automatically depends on `cyclonedxBom`. The plugin
+default schema version (CycloneDX 1.6) is used as-is. This matches what
+Spring Initializr generates for the same dependency set.
 
 ### Runtime wiring
 
