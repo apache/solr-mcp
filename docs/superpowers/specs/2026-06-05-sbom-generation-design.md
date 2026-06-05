@@ -61,8 +61,24 @@ integration since 3.3.0:
 CycloneDX (vs SPDX) is the de-facto Apache ecosystem standard, what Spring Boot
 natively integrates with, and what Trivy/Grype/Dependency-Track ingest natively.
 
-(See the **Plugin version constraints** subsection below for the version
-trade-off — neither 1.x nor 3.x is usable today, so we pin to 2.4.1.)
+**Plugin version: 2.4.1.** Neither the 1.x nor the 3.x line is usable today:
+
+- **1.10.0 (latest 1.x):** breaks against Gradle 9.4 with an
+  `UnsupportedOperationException` from `ImmutableCollection.removeAll` inside
+  `CycloneDxTask.createBom`. Verified locally.
+- **3.x:** renamed the plugin/task classes (`CyclonedxPlugin`,
+  `CyclonedxBomTask`) and Spring Boot 3.5.14's `CycloneDxPluginAction`
+  auto-integration explicitly looks up the old PascalCase class
+  `org.cyclonedx.gradle.CycloneDxPlugin` — so applying v3 silently skips the
+  Spring Boot integration, breaking automatic bootJar embedding.
+- **2.4.1:** last release with the v1-compatible class layout
+  (`CycloneDxPlugin` / `CycloneDxTask`) AND with the Gradle 9.4 bug fixed.
+  Deprecated `outputName`/`outputFormat`/`projectType` as Strings in favor of
+  type-safe alternatives; Spring Boot's auto-config still drives `outputName`
+  and `outputFormat` (still `Property<String>`, just deprecated), but we
+  must override `projectType` explicitly with `Component.Type.APPLICATION`
+  because Spring Boot's `.convention("application")` would store a raw
+  String into `Property<Component.Type>` and break execution.
 
 ## Architecture
 
