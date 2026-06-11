@@ -42,26 +42,52 @@ import org.gradle.api.tasks.TaskAction
  * upstream POMs report imprecise but still-permissive identifiers). The task's only gate
  * is completeness: it fails if a bundled coordinate is absent from the SBOM, so a
  * dependency can never be silently omitted from the LICENSE.
+ *
+ * For readers new to Gradle: this is a custom build *task* (a unit of build work). It is
+ * created and configured by the `org.apache.solr.mcp.license-notice` convention plugin,
+ * and runs as part of `./gradlew build` / `bootJar`. The annotated `abstract val`
+ * properties below are its declared inputs and output — Gradle reads those annotations
+ * to skip the task when nothing changed and to run it before whatever consumes its
+ * output (here, the `bootJar`). See `buildSrc/README.md` for a fuller primer.
  */
 abstract class GenerateBinaryLicense : DefaultTask() {
 
+    /**
+     * The repo-root Apache-2.0 `LICENSE` that the third-party appendix is appended to.
+     * `@InputFile` marks it a file input, so the task re-runs if it changes. The path is
+     * not part of the cache key (`PathSensitivity.NONE`) — only the contents matter.
+     */
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val baseLicense: RegularFileProperty
 
+    /**
+     * The generated CycloneDX SBOM (`application.cdx.json`), read to find each bundled
+     * dependency's license. `@InputFile`, so the task re-runs when the SBOM changes.
+     */
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val sbom: RegularFileProperty
 
-    /** Shipped dependencies as "group:name:version", the source of truth for what to list. */
+    /**
+     * The dependencies that actually ship, as `"group:name:version"` strings — the source
+     * of truth for what to list. `@Input` marks it a plain *value* input (not a file), so
+     * the task re-runs whenever the shipped dependency set changes.
+     */
     @get:Input
     abstract val bundledCoordinates: ListProperty<String>
 
+    /**
+     * Where the assembled binary `LICENSE` is written. `@OutputFile` lets Gradle skip the
+     * task when the output is already up to date, and lets the `bootJar` task depend on it.
+     */
     @get:OutputFile
     abstract val outputFile: RegularFileProperty
 
+    /** One license entry in the appendix: a display label and an optional link to its text. */
     private data class License(val label: String, val url: String?)
 
+    /** Gradle runs this method when the task executes (`@TaskAction`). */
     @TaskAction
     fun generate() {
         val slurper = JsonSlurper()

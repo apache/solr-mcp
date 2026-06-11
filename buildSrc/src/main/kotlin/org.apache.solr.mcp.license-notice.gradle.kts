@@ -17,6 +17,14 @@
 
 // Convention plugin: ASF-compliant LICENSE / NOTICE for the source and binary forms.
 //
+// For readers new to Gradle: this `.gradle.kts` file under buildSrc is a "precompiled
+// script plugin". Gradle compiles it into a plugin whose id is the file name
+// (`org.apache.solr.mcp.license-notice`); the root build applies it with one line,
+// `id("org.apache.solr.mcp.license-notice")`. The body below runs at *configuration*
+// time: it creates the two generator tasks (defined in this same buildSrc as
+// GenerateBinaryLicense / GenerateBinaryNotice), wires their inputs, and connects their
+// outputs to the `bootJar` and `check` tasks. See buildSrc/README.md for the primer.
+//
 // ASF policy requires distinct LICENSE/NOTICE for the source form and the binary form,
 // because the binary (the Spring Boot fat `bootJar`) bundles third-party bytecode. See
 // https://infra.apache.org/licensing-howto.html. This plugin:

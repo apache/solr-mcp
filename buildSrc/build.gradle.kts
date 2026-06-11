@@ -15,7 +15,10 @@
  * limitations under the License.
  */
 
+// This file builds buildSrc itself (not the main project). See buildSrc/README.md.
 plugins {
+    // Lets us write Gradle build logic — tasks and the convention plugin — in Kotlin,
+    // and turns the `*.gradle.kts` files under src/main/kotlin into apply-by-id plugins.
     `kotlin-dsl`
 }
 
@@ -24,6 +27,8 @@ repositories {
 }
 
 dependencies {
+    // Only used by the task unit tests under src/test (the main code needs no extra deps;
+    // the Gradle API is provided by the kotlin-dsl plugin).
     testImplementation("org.junit.jupiter:junit-jupiter:5.12.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

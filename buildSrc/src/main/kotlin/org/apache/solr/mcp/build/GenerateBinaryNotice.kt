@@ -34,23 +34,43 @@ import java.util.zip.ZipFile
  * `META-INF/NOTICE` files lifted verbatim (and de-duplicated) from the bundled jars —
  * the same approach as Maven Shade's `ApacheNoticeResourceTransformer`, so notices
  * required by bundled (notably ASF) dependencies are carried and stay current.
+ *
+ * For readers new to Gradle: this is a custom build *task*, created and configured by the
+ * `org.apache.solr.mcp.license-notice` convention plugin and run as part of
+ * `./gradlew build` / `bootJar`. The annotated `abstract val` properties are its declared
+ * inputs and output (used for up-to-date checking and task ordering). See
+ * `buildSrc/README.md` for a primer.
  */
 abstract class GenerateBinaryNotice : DefaultTask() {
 
+    /**
+     * The bundled dependency jars to scan for `META-INF/NOTICE` entries. `@InputFiles`
+     * marks the whole collection a file input, so the task re-runs when the set of jars
+     * (or their contents) changes.
+     */
     @get:InputFiles
     abstract val jars: ConfigurableFileCollection
 
-    /** Jar file name -> "group:name:version", used to label each lifted notice. */
+    /**
+     * Maps a jar's file name to its `"group:name:version"`, used to attribute each lifted
+     * notice to the dependency it came from. `@Input` — a plain value input (string map).
+     */
     @get:Input
     abstract val coordinateByJarName: MapProperty<String, String>
 
+    /** This project's own repo-root `NOTICE`, written first. `@InputFile` (contents only). */
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val baseNotice: RegularFileProperty
 
+    /**
+     * Where the assembled binary `NOTICE` is written. `@OutputFile` enables up-to-date
+     * skipping and lets the `bootJar` task depend on it.
+     */
     @get:OutputFile
     abstract val outputFile: RegularFileProperty
 
+    /** Gradle runs this method when the task executes (`@TaskAction`). */
     @TaskAction
     fun generate() {
         val coordinates = coordinateByJarName.get()
