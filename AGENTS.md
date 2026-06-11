@@ -243,6 +243,16 @@ See [infra.apache.org/licensing-howto](https://infra.apache.org/licensing-howto.
   - `generateBinaryNotice` → `NOTICE` = base NOTICE + the `META-INF/NOTICE` files lifted
     verbatim (de-duplicated) from the bundled jars (Maven-Shade
     `ApacheNoticeResourceTransformer` approach).
+- **Where / when they appear:** both binary files are regenerated on every build — the
+  two tasks run ahead of `bootJar` (and in `check`), so any `./gradlew build` / `bootJar`
+  produces them. They live at `META-INF/LICENSE` and `META-INF/NOTICE` inside the fat jar
+  (`build/libs/solr-mcp-<v>.jar`), and therefore inside every published **Docker image**
+  too, since the Jib JVM image and the Paketo native images both package the bootJar
+  contents. Inspect a built artifact with
+  `unzip -p build/libs/solr-mcp-<v>.jar META-INF/LICENSE` (or `META-INF/NOTICE`); the
+  generator also writes them to `build/generated/license/` for local viewing. The
+  source-form jars (thin `jar`, `-sources`, `-javadoc`) instead carry the repo-root base
+  files unchanged.
 - **Licenses are disclosed as the SBOM reports them** (SPDX ids where available). The
   appendix is a disclosure, not a license policy: there is **no allow-list and no
   corrections**, so a few imprecise-but-permissive upstream labels appear as-is (e.g.
