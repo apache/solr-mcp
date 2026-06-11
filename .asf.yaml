@@ -28,9 +28,6 @@ github:
   protected_tags:
     - "releases/*"
 
-  autolink_jira:
-    - SOLR
-
   collaborators:
     - solrbot
 
