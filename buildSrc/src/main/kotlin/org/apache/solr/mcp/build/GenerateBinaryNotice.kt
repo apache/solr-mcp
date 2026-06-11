@@ -54,10 +54,16 @@ abstract class GenerateBinaryNotice : DefaultTask() {
     @TaskAction
     fun generate() {
         val coordinates = coordinateByJarName.get()
+        // Match the conventional notice file names (NOTICE, NOTICE.txt, NOTICE.md) at the
+        // root of META-INF, case-insensitively.
         val noticeEntry = Regex("(^|/)META-INF/NOTICE(\\.txt|\\.md)?$", RegexOption.IGNORE_CASE)
+        // Tracks notice bodies already emitted so identical notices (common across related
+        // modules, e.g. a multi-module library) appear once.
         val seen = LinkedHashSet<String>()
         val sections = StringBuilder()
 
+        // Walk the bundled jars in a stable order (by module coordinate) so the output is
+        // reproducible, and lift each jar's NOTICE entry verbatim.
         jars.files
             .filter { it.name.endsWith(".jar") }
             .sortedBy { coordinates[it.name] ?: it.name }
@@ -69,6 +75,8 @@ abstract class GenerateBinaryNotice : DefaultTask() {
                         .forEach { entry ->
                             val text =
                                 zip.getInputStream(entry).bufferedReader(Charsets.UTF_8).readText().trim()
+                            // Only the first occurrence of a given notice body is kept,
+                            // attributed to the module it came from.
                             if (text.isNotEmpty() && seen.add(text)) {
                                 sections.append('\n').append("-".repeat(78)).append('\n')
                                 sections.append("From ").append(label).append(":\n\n")
@@ -78,6 +86,8 @@ abstract class GenerateBinaryNotice : DefaultTask() {
                 }
             }
 
+        // Write the binary NOTICE: this project's NOTICE, then the aggregated dependency
+        // notices under a header (omitted entirely if no dependency ships a NOTICE).
         val out = outputFile.get().asFile
         out.parentFile.mkdirs()
         out.writeText(buildString {

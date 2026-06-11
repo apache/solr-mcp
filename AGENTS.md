@@ -254,7 +254,14 @@ See [infra.apache.org/licensing-howto](https://infra.apache.org/licensing-howto.
 - **Implementation:** the `org.apache.solr.mcp.license-notice` convention plugin in
   `buildSrc/` (typed `GenerateBinaryLicense` / `GenerateBinaryNotice` tasks). The root
   `build.gradle.kts` only applies the plugin; the policy lives in
-  `config/license-policy.json`.
+  `config/license-policy.json`. The tasks are unit-tested in
+  `buildSrc/src/test/kotlin/.../LicenseNoticeTasksTest.kt` (the appendix/override logic,
+  both gate failures, and NOTICE de-duplication); `buildSrc`'s `test` runs as part of
+  `./gradlew build`.
+- **When a build fails on the license gate:** read the error — it lists the offending
+  `group:name:version`. If the SBOM mislabels a license, add a
+  `group:name → SPDX-id` entry to `overrides`; if it's a genuinely new license that is
+  ASF-redistributable, add it to `allowedLicenses` after review. Do not silence the gate.
 
 ## Testing Structure
 

@@ -69,6 +69,8 @@ abstract class GenerateBinaryLicense : DefaultTask() {
     fun generate() {
         val slurper = JsonSlurper()
 
+        // 1. Load the policy: the set of licenses allowed in a binary release, plus
+        //    group:name -> SPDX-id corrections for components CycloneDX mislabels.
         @Suppress("UNCHECKED_CAST")
         val policy = slurper.parse(policyFile.get().asFile) as Map<String, Any?>
         val allowed =
@@ -77,6 +79,9 @@ abstract class GenerateBinaryLicense : DefaultTask() {
         @Suppress("UNCHECKED_CAST")
         val overrides = (policy["overrides"] as? Map<String, String>).orEmpty()
 
+        // 2. Index every SBOM component's licenses by "group:name" and "group:name:version".
+        //    The version-keyed map is preferred so the exact shipped version wins; the
+        //    coarser key is the fallback when versions differ between SBOM and classpath.
         @Suppress("UNCHECKED_CAST")
         val sbomJson = slurper.parse(sbom.get().asFile) as Map<String, Any?>
 
@@ -92,6 +97,9 @@ abstract class GenerateBinaryLicense : DefaultTask() {
             (component["version"] as? String)?.let { byGroupArtifactVersion["$group:$name:$it"] = licenses }
         }
 
+        // 3. For each dependency that actually ships, resolve its license(s) — an override
+        //    wins, else the SBOM lookup — and accumulate both the appendix text and two
+        //    failure lists: deps the SBOM doesn't cover, and deps whose license isn't allowed.
         val notInSbom = mutableListOf<String>()
         val disallowed = mutableListOf<String>()
         val rows = StringBuilder()
@@ -116,6 +124,11 @@ abstract class GenerateBinaryLicense : DefaultTask() {
                 rows.append('\n')
             }
         }
+
+        // 4. Gate the build: an uncovered or disallowed dependency must never ship silently
+        //    in the binary LICENSE — fail loudly with the offending coordinates so the
+        //    policy/SBOM is corrected before release. This is the "verify new deps are
+        //    accounted for" check.
         if (notInSbom.isNotEmpty()) {
             throw GradleException(
                 "Bundled dependencies absent from the CycloneDX SBOM:\n" +
@@ -132,6 +145,8 @@ abstract class GenerateBinaryLicense : DefaultTask() {
             )
         }
 
+        // 5. Write the binary LICENSE: the base Apache-2.0 text, then the generated
+        //    third-party appendix.
         val out = outputFile.get().asFile
         out.parentFile.mkdirs()
         out.writeText(buildString {
