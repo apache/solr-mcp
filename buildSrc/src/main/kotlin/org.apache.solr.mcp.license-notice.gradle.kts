@@ -42,14 +42,28 @@ import org.apache.solr.mcp.build.GenerateBinaryLicense
 import org.apache.solr.mcp.build.GenerateBinaryNotice
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 
+// The project's source-form LICENSE/NOTICE at the repo root (the plain Apache-2.0 text
+// and the base NOTICE). They are bundled as-is into the non-fat jars, and are also the
+// base that the generated binary files are built on top of.
 val licenseFile = layout.projectDirectory.file("LICENSE")
 val noticeFile = layout.projectDirectory.file("NOTICE")
 
-// What actually ships inside the fat jar: productionRuntimeClasspath excludes
-// test/compile-only and developmentOnly deps that the bootJar does not bundle.
+// A Gradle "configuration" is a named set of dependencies. `productionRuntimeClasspath`
+// is the one that actually ends up inside the fat jar — it excludes test/compile-only and
+// developmentOnly deps. So this is exactly "what ships", which is what the binary
+// LICENSE/NOTICE must describe.
 val shippedClasspath = configurations.named("productionRuntimeClasspath")
+
+// Resolve that configuration to its actual artifacts — each is a jar file plus the module
+// identity it came from. `flatMap` keeps everything lazy: nothing is resolved here while
+// the build is being configured; it is computed later, when a task that needs it runs.
+// The result is a Provider<Set<ResolvedArtifactResult>>.
 val shippedArtifacts = shippedClasspath.flatMap { it.incoming.artifacts.resolvedArtifacts }
 
+// Derive the shipped dependencies as sorted, de-duplicated "group:name:version" strings.
+// `mapNotNull { it... as? ModuleComponentIdentifier }` keeps only normal external modules
+// and drops anything that isn't one (e.g. file dependencies). This feeds the LICENSE
+// task's `bundledCoordinates` input.
 val shippedCoordinates =
     shippedArtifacts.map { set ->
         set.mapNotNull { it.id.componentIdentifier as? ModuleComponentIdentifier }
@@ -58,6 +72,9 @@ val shippedCoordinates =
             .sorted()
     }
 
+// Map each shipped jar's *file name* to its "group:name:version". The NOTICE task opens
+// the jar files and uses this map to label each lifted notice with the module it came
+// from (at that point the file is all it has to go on).
 val jarNameToCoordinate =
     shippedArtifacts.map { set ->
         set.mapNotNull { artifact ->
@@ -67,6 +84,9 @@ val jarNameToCoordinate =
         }.toMap()
     }
 
+// Create (register) the LICENSE task and wire its inputs/output. `register` is lazy — the
+// task is configured/run only if the build needs it. `dependsOn("cyclonedxBom")` ensures
+// the SBOM exists before this runs; each `.set(...)` connects one declared input.
 val generateBinaryLicense =
     tasks.register<GenerateBinaryLicense>("generateBinaryLicense") {
         description = "Assembles the binary-release LICENSE (Apache-2.0 + SBOM-derived appendix)."
@@ -78,6 +98,8 @@ val generateBinaryLicense =
         outputFile.set(layout.buildDirectory.file("generated/license/LICENSE"))
     }
 
+// Same for the NOTICE task. `jars.from(shippedClasspath)` hands it the shipped jar files
+// to scan for their `META-INF/NOTICE` entries.
 val generateBinaryNotice =
     tasks.register<GenerateBinaryNotice>("generateBinaryNotice") {
         description = "Assembles the binary-release NOTICE (project NOTICE + bundled dependency notices)."
@@ -88,7 +110,10 @@ val generateBinaryNotice =
         outputFile.set(layout.buildDirectory.file("generated/license/NOTICE"))
     }
 
-// Source-form artifacts (thin jar, -sources, -javadoc): base LICENSE + NOTICE as-is.
+// `metaInf { from(file) }` adds files to a jar's `META-INF/` directory. The source-form
+// artifacts — the thin `jar`, `-sources`, `-javadoc` (everything except `bootJar`) — get
+// the base LICENSE/NOTICE unchanged. `configureEach` applies this to each matching jar
+// task lazily.
 tasks.withType<Jar>().matching { it.name != "bootJar" }.configureEach {
     metaInf {
         from(licenseFile)
@@ -96,7 +121,10 @@ tasks.withType<Jar>().matching { it.name != "bootJar" }.configureEach {
     }
 }
 
-// Binary artifact (Spring Boot fat jar): generated LICENSE + NOTICE.
+// The binary artifact (the Spring Boot fat `bootJar`) instead gets the *generated* files.
+// `dependsOn(...)` makes the generators run first; `from(task.flatMap { it.outputFile })`
+// bundles each task's output into `META-INF/` (the lazy flatMap also wires the task
+// dependency automatically).
 tasks.named<Jar>("bootJar") {
     dependsOn(generateBinaryLicense, generateBinaryNotice)
     metaInf {
@@ -105,5 +133,6 @@ tasks.named<Jar>("bootJar") {
     }
 }
 
-// Completeness gate: a bundled dependency missing from the SBOM fails the build.
+// Run the LICENSE task — and therefore its completeness gate — as part of `check`, so a
+// plain `./gradlew build` fails if a bundled dependency is missing from the SBOM.
 tasks.named("check") { dependsOn(generateBinaryLicense) }
