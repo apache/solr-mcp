@@ -321,6 +321,7 @@ For complete setup instructions, see [security-docs/AUTH0_SETUP.md](security-doc
 | `index-json-documents` | Index documents from a JSON string into a Solr collection |
 | `index-csv-documents` | Index documents from a CSV string into a Solr collection |
 | `index-xml-documents` | Index documents from an XML string into a Solr collection |
+| `index-markdown-documents` | Index a markdown document into a Solr collection, extracting front matter, title, headings, and body text |
 
 ### Collections
 

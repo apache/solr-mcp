@@ -44,6 +44,8 @@ import org.springframework.stereotype.Service;
  * with headers
  * <li><strong>XML Processing</strong>: Support for XML documents with element
  * flattening and attribute handling
+ * <li><strong>Markdown Processing</strong>: Support for markdown documents with
+ * front matter, title, and heading extraction
  * <li><strong>Field Sanitization</strong>: Automatic cleanup of field names for
  * Solr compatibility
  * </ul>
@@ -62,11 +64,14 @@ public class IndexingDocumentCreator {
 
 	private final JsonDocumentCreator jsonDocumentCreator;
 
+	private final MarkdownDocumentCreator markdownDocumentCreator;
+
 	public IndexingDocumentCreator(XmlDocumentCreator xmlDocumentCreator, CsvDocumentCreator csvDocumentCreator,
-			JsonDocumentCreator jsonDocumentCreator) {
+			JsonDocumentCreator jsonDocumentCreator, MarkdownDocumentCreator markdownDocumentCreator) {
 		this.xmlDocumentCreator = xmlDocumentCreator;
 		this.csvDocumentCreator = csvDocumentCreator;
 		this.jsonDocumentCreator = jsonDocumentCreator;
+		this.markdownDocumentCreator = markdownDocumentCreator;
 	}
 
 	/**
@@ -133,5 +138,32 @@ public class IndexingDocumentCreator {
 		}
 
 		return xmlDocumentCreator.create(xml);
+	}
+
+	/**
+	 * Creates a list of schema-less SolrInputDocument objects from a markdown
+	 * string.
+	 *
+	 * <p>
+	 * This method delegates markdown processing to the MarkdownDocumentCreator
+	 * utility class.
+	 *
+	 * @param markdown
+	 *            markdown string containing document content, optionally starting
+	 *            with YAML front matter
+	 * @return list of SolrInputDocument objects ready for indexing
+	 * @throws DocumentProcessingException
+	 *             if markdown parsing fails or input validation fails
+	 * @see MarkdownDocumentCreator
+	 */
+	public List<SolrInputDocument> createSchemalessDocumentsFromMarkdown(String markdown)
+			throws DocumentProcessingException {
+
+		// Input validation
+		if (markdown == null || markdown.trim().isEmpty()) {
+			throw new DocumentProcessingException("Markdown input cannot be null or empty");
+		}
+
+		return markdownDocumentCreator.create(markdown);
 	}
 }
