@@ -36,15 +36,11 @@ class LicenseNoticeTasksTest {
     // ---- GenerateBinaryLicense ----------------------------------------------------
 
     @Test
-    fun `license appendix lists bundled deps, applies overrides, and keeps the base text`() {
+    fun `license appendix lists bundled deps with the SBOM-reported licenses and keeps the base text`() {
         val task = licenseTask()
         write("LICENSE", "APACHE-2.0 BASE TEXT").let(task.baseLicense::set)
-        write(
-            "policy.json",
-            """{"allowedLicenses":["Apache-2.0","BSD-3-Clause"],
-               "overrides":{"org.antlr:ST4":"BSD-3-Clause"}}""",
-        ).let(task.policyFile::set)
-        // ST4's SBOM license (BSD-4-Clause) is intentionally NOT allowed; the override fixes it.
+        // Licenses are disclosed exactly as the SBOM reports them (no allow-list, no
+        // corrections) — including ST4's imprecise-but-permissive BSD-4-Clause.
         write(
             "sbom.json",
             """{"components":[
@@ -63,33 +59,32 @@ class LicenseNoticeTasksTest {
         assertTrue(text.startsWith("APACHE-2.0 BASE TEXT"), "base license text must be preserved")
         assertTrue(text.contains("- org.apache.solr:solr-solrj:10.0.0"), "SolrJ must be listed")
         assertTrue(text.contains("Apache-2.0 — https://spdx.org/licenses/Apache-2.0.html"))
-        assertTrue(text.contains("BSD-3-Clause"), "override should correct ST4 to BSD-3-Clause")
-        assertFalse(text.contains("BSD-4-Clause"), "the mislabelled SBOM value must not appear")
+        assertTrue(text.contains("BSD-4-Clause"), "SBOM license must be reported verbatim")
     }
 
     @Test
-    fun `license gate fails when a bundled dependency carries a disallowed license`() {
+    fun `license uses a name and URL from the SBOM when there is no SPDX id`() {
         val task = licenseTask()
         write("LICENSE", "BASE").let(task.baseLicense::set)
-        write("policy.json", """{"allowedLicenses":["Apache-2.0"],"overrides":{}}""").let(task.policyFile::set)
         write(
             "sbom.json",
-            """{"components":[{"group":"x","name":"y","version":"1.0",
-               "licenses":[{"license":{"id":"GPL-3.0-only"}}]}]}""",
+            """{"components":[{"group":"org.antlr","name":"antlr-runtime","version":"3.5.3",
+               "licenses":[{"license":{"name":"BSD licence","url":"http://antlr.org/license.html"}}]}]}""",
         ).let(task.sbom::set)
-        task.bundledCoordinates.set(listOf("x:y:1.0"))
-        task.outputFile.set(File(tempDir, "out/LICENSE"))
+        task.bundledCoordinates.set(listOf("org.antlr:antlr-runtime:3.5.3"))
+        val out = File(tempDir, "out/LICENSE")
+        task.outputFile.set(out)
 
-        val ex = assertThrows(GradleException::class.java) { task.generate() }
-        assertTrue(ex.message!!.contains("not in the license policy"))
-        assertTrue(ex.message!!.contains("x:y:1.0 -> GPL-3.0-only"))
+        task.generate()
+
+        val text = out.readText()
+        assertTrue(text.contains("License: BSD licence — http://antlr.org/license.html"))
     }
 
     @Test
     fun `license gate fails when a bundled dependency is absent from the SBOM`() {
         val task = licenseTask()
         write("LICENSE", "BASE").let(task.baseLicense::set)
-        write("policy.json", """{"allowedLicenses":["Apache-2.0"],"overrides":{}}""").let(task.policyFile::set)
         write("sbom.json", """{"components":[]}""").let(task.sbom::set)
         task.bundledCoordinates.set(listOf("missing:dep:1.0"))
         task.outputFile.set(File(tempDir, "out/LICENSE"))

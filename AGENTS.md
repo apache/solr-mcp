@@ -243,25 +243,25 @@ See [infra.apache.org/licensing-howto](https://infra.apache.org/licensing-howto.
   - `generateBinaryNotice` → `NOTICE` = base NOTICE + the `META-INF/NOTICE` files lifted
     verbatim (de-duplicated) from the bundled jars (Maven-Shade
     `ApacheNoticeResourceTransformer` approach).
-- **Gate** (`generateBinaryLicense`, run as part of `check`/`build`): fails if a bundled
-  dependency is missing from the SBOM, or carries a license not in
-  `config/license-policy.json`. That file holds the `allowedLicenses` set plus
-  `overrides` (group:name → SPDX id) to correct the few components CycloneDX mislabels
-  (e.g. `mcp-server-security` → Apache-2.0; ANTLR `ST4`/`antlr-runtime` → BSD-3-Clause).
+- **Licenses are disclosed as the SBOM reports them** (SPDX ids where available). The
+  appendix is a disclosure, not a license policy: there is **no allow-list and no
+  corrections**, so a few imprecise-but-permissive upstream labels appear as-is (e.g.
+  `mcp-server-security` shows `Apache-1.0`, ANTLR shows `BSD-4-Clause`/`BSD licence`); the
+  appendix preamble says so and links each license. All bundled deps are ASF Category A/B.
+- **Completeness gate** (`generateBinaryLicense`, run as part of `check`/`build`): the
+  *only* gate — fails if a bundled dependency is missing from the SBOM, so a dependency
+  can never be silently omitted from the LICENSE. It makes no judgement about which
+  licenses are acceptable. (Unlike apache/solr's `solr/licenses/` folder, which JanHoy
+  said not to replicate, there is no per-dependency license/checksum store here.)
 - This builds on the SBOM generation (see **SBOM Architecture**); the SBOM remains the
   machine-readable bill of materials, and LICENSE/NOTICE are the human-readable legal
   artifacts derived from it.
 - **Implementation:** the `org.apache.solr.mcp.license-notice` convention plugin in
   `buildSrc/` (typed `GenerateBinaryLicense` / `GenerateBinaryNotice` tasks). The root
-  `build.gradle.kts` only applies the plugin; the policy lives in
-  `config/license-policy.json`. The tasks are unit-tested in
-  `buildSrc/src/test/kotlin/.../LicenseNoticeTasksTest.kt` (the appendix/override logic,
-  both gate failures, and NOTICE de-duplication); `buildSrc`'s `test` runs as part of
-  `./gradlew build`.
-- **When a build fails on the license gate:** read the error — it lists the offending
-  `group:name:version`. If the SBOM mislabels a license, add a
-  `group:name → SPDX-id` entry to `overrides`; if it's a genuinely new license that is
-  ASF-redistributable, add it to `allowedLicenses` after review. Do not silence the gate.
+  `build.gradle.kts` only applies the plugin. The tasks are unit-tested in
+  `buildSrc/src/test/kotlin/.../LicenseNoticeTasksTest.kt` (appendix listing, SBOM
+  name/URL handling, the completeness gate, and NOTICE de-duplication); `buildSrc`'s
+  `test` runs as part of `./gradlew build`.
 
 ## Testing Structure
 

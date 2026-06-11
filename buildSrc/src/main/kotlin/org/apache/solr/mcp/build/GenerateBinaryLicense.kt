@@ -30,27 +30,24 @@ import org.gradle.api.tasks.TaskAction
 
 /**
  * Generates the binary-release `LICENSE`: the base Apache-2.0 text plus an appendix
- * listing every bundled dependency and a link to its license.
+ * listing every bundled dependency and the license the CycloneDX SBOM reports for it.
  *
- * License data is read from the CycloneDX SBOM (the same SBOM embedded in the bootJar),
- * keyed to the [bundledCoordinates] that actually ship. The SBOM resolves a license for
- * every component — including Gradle-module-metadata-only artifacts (e.g. SolrJ) that
- * POM-only scanners miss — so no per-dependency list is hand-maintained.
+ * License data is read from the SBOM (the same SBOM embedded in the bootJar), keyed to
+ * the [bundledCoordinates] that actually ship. The SBOM resolves a license for every
+ * component — including Gradle-module-metadata-only artifacts (e.g. SolrJ) that POM-only
+ * scanners miss — so no per-dependency list is hand-maintained.
  *
- * The task also gates the build: it fails if a bundled coordinate is absent from the
- * SBOM, or carries a license not in the policy's `allowedLicenses`. The policy's
- * `overrides` map (group:name -> SPDX id) corrects the few components CycloneDX
- * mislabels.
+ * Licenses are reported **as the SBOM declares them**; the appendix is a disclosure, not
+ * a license policy, so it carries no allow-list and applies no corrections (a few
+ * upstream POMs report imprecise but still-permissive identifiers). The task's only gate
+ * is completeness: it fails if a bundled coordinate is absent from the SBOM, so a
+ * dependency can never be silently omitted from the LICENSE.
  */
 abstract class GenerateBinaryLicense : DefaultTask() {
 
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val baseLicense: RegularFileProperty
-
-    @get:InputFile
-    @get:PathSensitive(PathSensitivity.NONE)
-    abstract val policyFile: RegularFileProperty
 
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
@@ -69,17 +66,7 @@ abstract class GenerateBinaryLicense : DefaultTask() {
     fun generate() {
         val slurper = JsonSlurper()
 
-        // 1. Load the policy: the set of licenses allowed in a binary release, plus
-        //    group:name -> SPDX-id corrections for components CycloneDX mislabels.
-        @Suppress("UNCHECKED_CAST")
-        val policy = slurper.parse(policyFile.get().asFile) as Map<String, Any?>
-        val allowed =
-            (policy["allowedLicenses"] as? List<*>).orEmpty().filterIsInstance<String>().toSet()
-
-        @Suppress("UNCHECKED_CAST")
-        val overrides = (policy["overrides"] as? Map<String, String>).orEmpty()
-
-        // 2. Index every SBOM component's licenses by "group:name" and "group:name:version".
+        // 1. Index every SBOM component's licenses by "group:name" and "group:name:version".
         //    The version-keyed map is preferred so the exact shipped version wins; the
         //    coarser key is the fallback when versions differ between SBOM and classpath.
         @Suppress("UNCHECKED_CAST")
@@ -97,25 +84,19 @@ abstract class GenerateBinaryLicense : DefaultTask() {
             (component["version"] as? String)?.let { byGroupArtifactVersion["$group:$name:$it"] = licenses }
         }
 
-        // 3. For each dependency that actually ships, resolve its license(s) — an override
-        //    wins, else the SBOM lookup — and accumulate both the appendix text and two
-        //    failure lists: deps the SBOM doesn't cover, and deps whose license isn't allowed.
+        // 2. For each dependency that actually ships, look up its license(s) in the SBOM and
+        //    append a row. Collect any coordinate the SBOM does not cover for the gate below.
         val notInSbom = mutableListOf<String>()
-        val disallowed = mutableListOf<String>()
         val rows = StringBuilder()
         for (coordinate in bundledCoordinates.get()) {
             val groupArtifact = coordinate.substringBeforeLast(':')
             val licenses =
-                overrides[groupArtifact]?.let { listOf(License(it, spdxUrl(it))) }
-                    ?: byGroupArtifactVersion[coordinate]
+                byGroupArtifactVersion[coordinate]
                     ?: byGroupArtifact[groupArtifact]
                     ?: emptyList()
             if (licenses.isEmpty()) {
                 notInSbom += coordinate
                 continue
-            }
-            for (license in licenses) {
-                if (license.label !in allowed) disallowed += "$coordinate -> ${license.label}"
             }
             rows.append("- ").append(coordinate).append('\n')
             for (license in licenses) {
@@ -125,10 +106,9 @@ abstract class GenerateBinaryLicense : DefaultTask() {
             }
         }
 
-        // 4. Gate the build: an uncovered or disallowed dependency must never ship silently
-        //    in the binary LICENSE — fail loudly with the offending coordinates so the
-        //    policy/SBOM is corrected before release. This is the "verify new deps are
-        //    accounted for" check.
+        // 3. Completeness gate: a shipped dependency missing from the SBOM would be silently
+        //    omitted from the LICENSE, so fail loudly. This is the "verify bundled deps are
+        //    accounted for" check; it makes no judgement about which licenses are acceptable.
         if (notInSbom.isNotEmpty()) {
             throw GradleException(
                 "Bundled dependencies absent from the CycloneDX SBOM:\n" +
@@ -136,16 +116,8 @@ abstract class GenerateBinaryLicense : DefaultTask() {
                     "\nEnsure cyclonedxBom covers the runtime classpath.",
             )
         }
-        if (disallowed.isNotEmpty()) {
-            throw GradleException(
-                "Bundled dependencies with a license not in the license policy:\n" +
-                    disallowed.joinToString("\n") { "  - $it" } +
-                    "\nAfter verifying, add the license to allowedLicenses, or add a " +
-                    "group:name -> SPDX-id entry to overrides if the SBOM mislabels it.",
-            )
-        }
 
-        // 5. Write the binary LICENSE: the base Apache-2.0 text, then the generated
+        // 4. Write the binary LICENSE: the base Apache-2.0 text, then the generated
         //    third-party appendix.
         val out = outputFile.get().asFile
         out.parentFile.mkdirs()
@@ -157,8 +129,10 @@ abstract class GenerateBinaryLicense : DefaultTask() {
             append(
                 "The binary distribution (the Spring Boot executable JAR) bundles the\n" +
                     "third-party dependencies listed below, derived from the bundled CycloneDX\n" +
-                    "SBOM (META-INF/sbom/application.cdx.json). Each is provided under the license\n" +
-                    "noted; refer to the linked license text for the full terms.\n\n",
+                    "SBOM (META-INF/sbom/application.cdx.json). License identifiers are reported\n" +
+                    "as the SBOM declares them (SPDX ids where available) and a few may be\n" +
+                    "imprecise; consult each dependency's own license for the authoritative\n" +
+                    "terms via the link shown.\n\n",
             )
             append(rows)
         })

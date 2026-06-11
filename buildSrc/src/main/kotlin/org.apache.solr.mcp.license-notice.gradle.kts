@@ -23,8 +23,9 @@
 //
 //   - bundles the base Apache-2.0 LICENSE + NOTICE into the source-form jars as-is;
 //   - generates, for the bootJar, a LICENSE with a third-party appendix derived from the
-//     CycloneDX SBOM and a NOTICE that lifts bundled dependencies' notices, and a gate
-//     that fails the build for an unaccounted-for or disallowed dependency.
+//     CycloneDX SBOM and a NOTICE that lifts bundled dependencies' notices, with a
+//     completeness gate that fails the build if a bundled dependency is missing from the
+//     SBOM. Licenses are disclosed as the SBOM reports them; there is no license policy.
 //
 // Apply this AFTER the Spring Boot and CycloneDX plugins so `productionRuntimeClasspath`
 // and the `cyclonedxBom` task exist.
@@ -64,7 +65,6 @@ val generateBinaryLicense =
         group = "documentation"
         dependsOn("cyclonedxBom")
         baseLicense.set(licenseFile)
-        policyFile.set(layout.projectDirectory.file("config/license-policy.json"))
         sbom.set(layout.buildDirectory.file("reports/application.cdx.json"))
         bundledCoordinates.set(shippedCoordinates)
         outputFile.set(layout.buildDirectory.file("generated/license/LICENSE"))
@@ -97,5 +97,5 @@ tasks.named<Jar>("bootJar") {
     }
 }
 
-// Gate: a bundled dependency that is unaccounted-for or disallowed fails the build.
+// Completeness gate: a bundled dependency missing from the SBOM fails the build.
 tasks.named("check") { dependsOn(generateBinaryLicense) }
