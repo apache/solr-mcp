@@ -16,6 +16,9 @@
  */
 
 import net.ltgt.gradle.errorprone.errorprone
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.springframework.boot.gradle.tasks.bundling.BootJar
+import java.util.zip.ZipFile
 
 plugins {
     java
@@ -76,16 +79,252 @@ java {
     withJavadocJar()
 }
 
-// ASF release policy requires every distributed artifact to carry the project's
-// LICENSE and NOTICE files. Bundle them into META-INF of every JAR produced by
-// this build (main jar, bootJar, sources, javadoc).
+// LICENSE / NOTICE bundling (ASF release policy)
+// ==============================================
+// ASF policy requires every distributed artifact to carry LICENSE and NOTICE, and the
+// correct contents differ between the *source* form and the *binary* form:
+//
+//   - Source-form artifacts (thin `jar`, `-sources`, `-javadoc`) contain only
+//     ASF-authored code, so the base Apache-2.0 LICENSE + NOTICE are sufficient.
+//   - The *binary* artifact (the Spring Boot fat `bootJar`) bundles third-party
+//     bytecode. Per https://infra.apache.org/licensing-howto.html its LICENSE must
+//     additionally enumerate each bundled dependency and link its license, and its
+//     NOTICE must lift the NOTICE snippets of bundled Apache-licensed dependencies.
+//
+// Tooling:
+//   - `generateBinaryLicense` builds the binary LICENSE = base Apache-2.0 + an
+//     appendix derived from the CycloneDX SBOM (`cyclonedxBom`), filtered to the
+//     shipped runtime classpath. The SBOM already resolves a license for every
+//     bundled component — including Gradle-module-metadata-only ASF artifacts such
+//     as SolrJ that POM-only scanners miss — so no per-dependency list is hand-kept.
+//     It doubles as a gate: a shipped module missing from the SBOM, or carrying a
+//     license not in config/license-policy.json, fails the build.
+//   - `generateBinaryNotice` builds the binary NOTICE by aggregating the actual
+//     META-INF/NOTICE files embedded in the bundled jars (the Maven-Shade
+//     ApacheNoticeResourceTransformer approach), verbatim and de-duplicated.
 // See https://www.apache.org/legal/release-policy.html#licensing-documentation
-tasks.withType<Jar>().configureEach {
+
+val binaryLicenseFile = layout.buildDirectory.file("generated/license/LICENSE")
+val binaryNoticeFile = layout.buildDirectory.file("generated/license/NOTICE")
+
+// What actually ships inside the fat jar is `productionRuntimeClasspath` — it excludes
+// test/compile-only AND `developmentOnly` deps (which the bootJar does not bundle).
+val shippedClasspath = configurations.named("productionRuntimeClasspath")
+val runtimeArtifacts = shippedClasspath.flatMap { it.incoming.artifacts.resolvedArtifacts }
+
+// Assemble the binary-release LICENSE: base Apache-2.0 + an appendix of every bundled
+// dependency and a link to its license, sourced from the CycloneDX SBOM.
+val generateBinaryLicense by
+    tasks.registering {
+        description =
+            "Assembles the binary-release LICENSE (Apache-2.0 + third-party appendix from the SBOM)."
+        group = "documentation"
+        dependsOn(tasks.named("cyclonedxBom"))
+        val baseLicense = rootProject.file("LICENSE")
+        val policyFile = rootProject.file("config/license-policy.json")
+        val sbomFile = layout.buildDirectory.file("reports/application.cdx.json")
+        val artifacts = runtimeArtifacts
+        inputs.file(baseLicense)
+        inputs.file(policyFile)
+        inputs.file(sbomFile)
+        inputs.files(shippedClasspath)
+        outputs.file(binaryLicenseFile)
+        doLast {
+            val slurper = groovy.json.JsonSlurper()
+
+            @Suppress("UNCHECKED_CAST")
+            val policy = slurper.parse(policyFile) as Map<String, Any?>
+
+            @Suppress("UNCHECKED_CAST")
+            val allowed = ((policy["allowedLicenses"] as? List<String>) ?: emptyList()).toSet()
+
+            @Suppress("UNCHECKED_CAST")
+            val overrides = (policy["overrides"] as? Map<String, String>) ?: emptyMap()
+
+            // Licenses of an SBOM component as (label, url?) pairs, de-duped by label.
+            // (Local lambda, not a local fun/data class — those choke the kts compiler.)
+            val licsOf = fun(component: Map<String, Any?>): List<Pair<String, String?>> {
+                val out = LinkedHashMap<String, String?>()
+
+                @Suppress("UNCHECKED_CAST")
+                (component["licenses"] as? List<Map<String, Any?>>)?.forEach { node ->
+                    @Suppress("UNCHECKED_CAST")
+                    val lo = node["license"] as? Map<String, Any?>
+                    if (lo != null) {
+                        val id = lo["id"] as? String
+                        val label = id ?: (lo["name"] as? String) ?: "Unspecified"
+                        val url =
+                            (lo["url"] as? String)
+                                ?: id?.let { "https://spdx.org/licenses/$it.html" }
+                        if (!out.containsKey(label)) out[label] = url
+                    } else {
+                        (node["expression"] as? String)?.let { if (!out.containsKey(it)) out[it] = null }
+                    }
+                }
+                return out.map { it.key to it.value }
+            }
+
+            @Suppress("UNCHECKED_CAST")
+            val sbom = slurper.parse(sbomFile.get().asFile) as Map<String, Any?>
+
+            @Suppress("UNCHECKED_CAST")
+            val components = (sbom["components"] as? List<Map<String, Any?>>) ?: emptyList()
+            val byGa = HashMap<String, List<Pair<String, String?>>>()
+            val byGav = HashMap<String, List<Pair<String, String?>>>()
+            components.forEach { c ->
+                val g = c["group"] as? String
+                val n = c["name"] as? String
+                if (g != null && n != null) {
+                    val ls = licsOf(c)
+                    byGa["$g:$n"] = ls
+                    (c["version"] as? String)?.let { byGav["$g:$n:$it"] = ls }
+                }
+            }
+
+            // Source of truth for what ships: the resolved runtime artifacts, as
+            // (group:name, version) pairs, deduped by coordinate and sorted.
+            val bundled =
+                artifacts
+                    .get()
+                    .mapNotNull { it.id.componentIdentifier as? ModuleComponentIdentifier }
+                    .map { "${it.group}:${it.module}" to it.version }
+                    .distinctBy { it.first }
+                    .sortedBy { it.first.lowercase() }
+
+            val notInSbom = mutableListOf<String>()
+            val disallowed = mutableListOf<String>()
+            val rows = StringBuilder()
+            bundled.forEach { (ga, version) ->
+                val lics: List<Pair<String, String?>> =
+                    overrides[ga]?.let { listOf(it to ("https://spdx.org/licenses/$it.html" as String?)) }
+                        ?: byGav["$ga:$version"] ?: byGa[ga] ?: emptyList()
+                if (lics.isEmpty()) {
+                    notInSbom.add("$ga:$version")
+                    return@forEach
+                }
+                lics.forEach { (label, _) -> if (label !in allowed) disallowed.add("$ga:$version -> $label") }
+                rows
+                    .append("- ")
+                    .append(ga)
+                    .append(':')
+                    .append(version)
+                    .append('\n')
+                lics.forEach { (label, url) ->
+                    rows.append("    License: ").append(label)
+                    if (!url.isNullOrBlank()) rows.append(" — ").append(url)
+                    rows.append('\n')
+                }
+            }
+            if (notInSbom.isNotEmpty()) {
+                throw GradleException(
+                    "Bundled dependencies absent from the CycloneDX SBOM:\n" +
+                        notInSbom.joinToString("\n") { "  - $it" } +
+                        "\nEnsure cyclonedxBom covers the runtime classpath.",
+                )
+            }
+            if (disallowed.isNotEmpty()) {
+                throw GradleException(
+                    "Bundled dependencies with a license not in config/license-policy.json:\n" +
+                        disallowed.joinToString("\n") { "  - $it" } +
+                        "\nAfter verifying, add the license to allowedLicenses, or add a " +
+                        "group:name -> SPDX-id entry to overrides if the SBOM mislabels it.",
+                )
+            }
+
+            val sb = StringBuilder()
+            sb.append(baseLicense.readText().trimEnd()).append("\n\n\n")
+            sb.append("=".repeat(78)).append('\n')
+            sb.append("APACHE SOLR MCP SERVER — THIRD-PARTY DEPENDENCY LICENSES\n")
+            sb.append("=".repeat(78)).append("\n\n")
+            sb.append(
+                "The binary distribution (the Spring Boot executable JAR) bundles the\n" +
+                    "third-party dependencies listed below, derived from the bundled CycloneDX\n" +
+                    "SBOM (META-INF/sbom/application.cdx.json). Each is provided under the license\n" +
+                    "noted; refer to the linked license text for the full terms.\n\n",
+            )
+            sb.append(rows)
+            val target = binaryLicenseFile.get().asFile
+            target.parentFile.mkdirs()
+            target.writeText(sb.toString())
+        }
+    }
+
+// Assemble the binary-release NOTICE by lifting the META-INF/NOTICE files embedded in
+// the bundled jars (verbatim, de-duplicated) on top of this project's own NOTICE.
+val generateBinaryNotice by
+    tasks.registering {
+        description = "Assembles the binary-release NOTICE (project NOTICE + bundled dependency notices)."
+        group = "documentation"
+        val baseNotice = rootProject.file("NOTICE")
+        val artifacts = runtimeArtifacts
+        inputs.file(baseNotice)
+        inputs.files(shippedClasspath)
+        outputs.file(binaryNoticeFile)
+        doLast {
+            val noticeEntry = Regex("(^|/)META-INF/NOTICE(\\.txt|\\.md)?$", RegexOption.IGNORE_CASE)
+            val seen = LinkedHashSet<String>()
+            val sections = StringBuilder()
+            artifacts
+                .get()
+                .mapNotNull { art ->
+                    (art.id.componentIdentifier as? ModuleComponentIdentifier)?.let { it to art.file }
+                }.sortedBy { "${it.first.group}:${it.first.module}".lowercase() }
+                .forEach { (id, jar) ->
+                    if (!jar.name.endsWith(".jar")) return@forEach
+                    ZipFile(jar).use { zip ->
+                        zip
+                            .entries()
+                            .asSequence()
+                            .filter { noticeEntry.containsMatchIn(it.name) && !it.isDirectory }
+                            .forEach { entry ->
+                                val text =
+                                    zip
+                                        .getInputStream(entry)
+                                        .bufferedReader()
+                                        .readText()
+                                        .trim()
+                                if (text.isNotEmpty() && seen.add(text)) {
+                                    sections.append("\n").append("-".repeat(78)).append('\n')
+                                    sections.append("From ${id.group}:${id.module}:${id.version}:\n\n")
+                                    sections.append(text).append('\n')
+                                }
+                            }
+                    }
+                }
+            val sb = StringBuilder()
+            sb.append(baseNotice.readText().trimEnd()).append('\n')
+            if (sections.isNotEmpty()) {
+                sb.append("\n\n").append("=".repeat(78)).append('\n')
+                sb.append("NOTICES FROM BUNDLED THIRD-PARTY DEPENDENCIES (binary distribution)\n")
+                sb.append("=".repeat(78)).append('\n')
+                sb.append(sections)
+            }
+            val target = binaryNoticeFile.get().asFile
+            target.parentFile.mkdirs()
+            target.writeText(sb.toString())
+        }
+    }
+
+// Source-form artifacts: base LICENSE + NOTICE.
+tasks.withType<Jar>().matching { it.name != "bootJar" }.configureEach {
     metaInf {
         from(rootProject.file("LICENSE"))
         from(rootProject.file("NOTICE"))
     }
 }
+
+// Binary artifact (Spring Boot fat jar): generated LICENSE (with SBOM-derived appendix)
+// + generated NOTICE (with lifted dependency notices).
+tasks.named<BootJar>("bootJar") {
+    dependsOn(generateBinaryLicense, generateBinaryNotice)
+    metaInf {
+        from(binaryLicenseFile)
+        from(binaryNoticeFile)
+    }
+}
+
+// Fail the build when a bundled dependency is unaccounted for (generateBinaryLicense gate).
+tasks.named("check") { dependsOn(generateBinaryLicense) }
 
 // Maven Publishing Configuration
 // ==============================

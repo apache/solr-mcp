@@ -224,6 +224,34 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
 - **CI:** Separate `native.yml` workflow; native failures do not block JVM-path merges.
 - **Spec:** [docs/specs/graalvm-native-image.md](docs/specs/graalvm-native-image.md)
 
+## Release LICENSE / NOTICE
+
+ASF policy requires distinct LICENSE/NOTICE for the *source* form and the *binary*
+form, because the binary (Spring Boot fat `bootJar`) bundles third-party bytecode.
+See [infra.apache.org/licensing-howto](https://infra.apache.org/licensing-howto.html).
+
+- **Source form** (thin `jar`, `-sources`, `-javadoc`): the base `LICENSE` (Apache-2.0)
+  and `NOTICE` at the repo root, bundled into `META-INF/` as-is.
+- **Binary form** (`bootJar`): generated at build time and bundled into its `META-INF/`:
+  - `generateBinaryLicense` → `LICENSE` = base Apache-2.0 + an appendix listing every
+    bundled `productionRuntimeClasspath` dependency and a link to its license. Licenses
+    are read from the **CycloneDX SBOM** (`cyclonedxBom`, the same SBOM embedded at
+    `META-INF/sbom/application.cdx.json`), filtered to the shipped classpath. The SBOM
+    resolves a license for every bundled component — including Gradle-module-metadata
+    -only ASF artifacts such as `solr-solrj`/`solr-api` that POM-only scanners miss — so
+    no per-dependency list is hand-maintained.
+  - `generateBinaryNotice` → `NOTICE` = base NOTICE + the `META-INF/NOTICE` files lifted
+    verbatim (de-duplicated) from the bundled jars (Maven-Shade
+    `ApacheNoticeResourceTransformer` approach).
+- **Gate** (`generateBinaryLicense`, run as part of `check`/`build`): fails if a bundled
+  dependency is missing from the SBOM, or carries a license not in
+  `config/license-policy.json`. That file holds the `allowedLicenses` set plus
+  `overrides` (group:name → SPDX id) to correct the few components CycloneDX mislabels
+  (e.g. `mcp-server-security` → Apache-2.0; ANTLR `ST4`/`antlr-runtime` → BSD-3-Clause).
+- This builds on the SBOM generation (see **SBOM Architecture**); the SBOM remains the
+  machine-readable bill of materials, and LICENSE/NOTICE are the human-readable legal
+  artifacts derived from it.
+
 ## Testing Structure
 
 - **Unit tests** (`*Test.java`): Mocked dependencies, fast execution. Mockito-based
