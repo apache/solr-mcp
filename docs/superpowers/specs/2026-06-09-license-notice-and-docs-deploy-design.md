@@ -31,49 +31,61 @@ runtime dependency. There is no tgz/`distZip`/`installDist` packaging, so "binar
 release" == the `bootJar`. (An SBOM was added on a separate branch; per JanHoy it is
 complementary, not a substitute for LICENSE/NOTICE.)
 
-### Approach — plugin-generated appendix
+### Approach — SBOM-driven, in a buildSrc convention plugin
 
-Use the `com.github.jk1.dependency-license-report` Gradle plugin to generate the
-third-party dependency appendix automatically, and gate the build so newly added
-dependencies cannot slip in un-reviewed.
+> **As shipped (PR #138).** An earlier draft generated the appendix with the
+> `com.github.jk1.dependency-license-report` plugin plus a hand-kept supplement for the
+> Gradle-module-metadata-only ASF artifacts (SolrJ) that the POM-only plugin silently
+> drops. We instead **derive the appendix from the CycloneDX SBOM** (PR #142), which
+> already resolves a license for every component including SolrJ — so no supplement is
+> needed and there is a single source of dependency data. PR #138 is therefore stacked
+> on #142.
 
-1. **Version catalog + plugin.** Add `licensereport` to `[plugins]` in
-   `gradle/libs.versions.toml` and apply it in `build.gradle.kts`.
-2. **Appendix renderer.** Configure `licenseReport` with a text renderer that emits an
-   ASF-style appendix — one line per runtime dependency: `group:artifact:version —
-   <license name> — <license url>`. Restrict the configuration to the runtime classpath
-   (what actually ships in the fat jar), excluding test/compile-only deps.
-3. **Binary `LICENSE`.** Define a build step that concatenates the base Apache-2.0
-   `LICENSE` + a separator + the generated appendix into
-   `build/generated/license/LICENSE` (the *binary* LICENSE). Bundle this file into the
-   **`bootJar`** `META-INF/` only. The plain `jar`, sources jar, and javadoc jar keep
-   the source-form base `LICENSE` (they are not fat).
-4. **Binary `NOTICE`.** Maintain a checked-in `src/dist/NOTICE-binary` (base NOTICE +
-   lifted snippets for the handful of bundled ASF deps). Bundle it into the `bootJar`
-   `META-INF/`. The license-report output is the authoritative list of which ASF deps
-   are present, so the snippet set is kept honest against it.
-5. **Build gate.** Wire `checkLicense` (jk1) with an `config/allowed-licenses.json`
-   into `check`/`build`. A dependency whose license is not in the allow-list fails the
-   build — this is JanHoy's "check task that verifies newly added deps are mentioned".
+Implemented as the `org.apache.solr.mcp.license-notice` convention plugin under
+`buildSrc/`, with two typed tasks. The root `build.gradle.kts` only applies the plugin.
+
+1. **`GenerateBinaryLicense`.** Reads the CycloneDX SBOM
+   (`build/reports/application.cdx.json`, the same SBOM embedded in the bootJar at
+   `META-INF/sbom/application.cdx.json`), indexes each component's licenses by
+   `group:name(:version)`, and emits the binary `LICENSE` = base Apache-2.0 + an appendix
+   of every shipped dependency and a link to its license. "Shipped" = the resolved
+   `productionRuntimeClasspath` (excludes test/compile-only and `developmentOnly` deps).
+2. **`GenerateBinaryNotice`.** Builds the binary `NOTICE` = base NOTICE + the
+   `META-INF/NOTICE` files lifted verbatim and de-duplicated from the bundled jars (the
+   Maven-Shade `ApacheNoticeResourceTransformer` approach), so ASF dependency notices are
+   carried and stay current with no hand-maintained snippets.
+3. **`metaInf` wiring.** The `bootJar` bundles the generated LICENSE/NOTICE; the plain
+   `jar`, sources, and javadoc jars keep the source-form base files.
+4. **Build gate.** `generateBinaryLicense` runs as part of `check`/`build` and **fails**
+   if a shipped dependency is absent from the SBOM, or carries a license not in
+   `config/license-policy.json`. That single file holds the `allowedLicenses` set plus
+   `overrides` (`group:name → SPDX id`) that correct the handful of components CycloneDX
+   mislabels (e.g. `mcp-server-security` → Apache-2.0; ANTLR `ST4`/`antlr-runtime` →
+   BSD-3-Clause). This is JanHoy's "check that newly added deps are accounted for".
+5. **Tests.** The two tasks are unit-tested with `ProjectBuilder`
+   (`buildSrc/src/test/kotlin/.../LicenseNoticeTasksTest.kt`): appendix/override logic,
+   both gate failures, and NOTICE de-duplication. `buildSrc`'s `test` runs in
+   `./gradlew build`.
 6. **Verify.** `./gradlew build`, then
-   `unzip -p build/libs/solr-mcp-*.jar META-INF/LICENSE | tail` and `... META-INF/NOTICE`
-   to confirm the appendix and snippets are present in the fat jar.
+   `unzip -p build/libs/solr-mcp-<v>.jar META-INF/LICENSE` / `... META-INF/NOTICE`
+   to confirm the appendix and lifted notices are present in the fat jar.
 
 ### Out of scope (YAGNI)
 
 - No Solr-style per-dependency `licenses/` folder — JanHoy explicitly said the rigid
   version is unnecessary.
-- No tgz packaging — the project does not ship one.
-- The source-form `LICENSE`/`NOTICE` from PR #138 are already correct and unchanged.
+- No tgz packaging — the project does not ship one; "binary release" == the `bootJar`.
+- The source-form `LICENSE`/`NOTICE` are already correct and unchanged.
 
 ### Files touched
 
-- `gradle/libs.versions.toml` — add plugin coordinate.
-- `build.gradle.kts` — apply plugin, configure renderer, generate binary LICENSE,
-  per-jar `metaInf` wiring, `checkLicense` config + hook into `check`.
-- `config/allowed-licenses.json` — allow-list (new).
-- `src/dist/NOTICE-binary` — binary NOTICE with ASF snippets (new).
-- `CLAUDE.md` — short note on the LICENSE/NOTICE strategy.
+- `buildSrc/` — the `org.apache.solr.mcp.license-notice` convention plugin and the
+  `GenerateBinaryLicense` / `GenerateBinaryNotice` typed tasks (+ their unit tests).
+- `build.gradle.kts` — applies `id("org.apache.solr.mcp.license-notice")` (after the
+  Spring Boot + CycloneDX plugins).
+- `config/license-policy.json` — `allowedLicenses` + `overrides` (new).
+- `AGENTS.md` — "Release LICENSE / NOTICE" section.
+- Depends on PR #142 (CycloneDX SBOM) for the `cyclonedxBom` task and plugin.
 
 ---
 
