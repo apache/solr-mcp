@@ -129,10 +129,11 @@ abstract class GenerateBinaryLicense : DefaultTask() {
             append(
                 "The binary distribution (the Spring Boot executable JAR) bundles the\n" +
                     "third-party dependencies listed below, derived from the bundled CycloneDX\n" +
-                    "SBOM (META-INF/sbom/application.cdx.json). License identifiers are reported\n" +
-                    "as the SBOM declares them (SPDX ids where available) and a few may be\n" +
-                    "imprecise; consult each dependency's own license for the authoritative\n" +
-                    "terms via the link shown.\n\n",
+                    "SBOM. License identifiers are reported as the SBOM declares them (SPDX ids\n" +
+                    "where available) and a few may be imprecise; consult each dependency's own\n" +
+                    "license for the authoritative terms via the link shown. A machine-readable\n" +
+                    "bill of materials (component versions, hashes, and licenses) is also bundled\n" +
+                    "at META-INF/sbom/application.cdx.json.\n\n",
             )
             append(rows)
         })
