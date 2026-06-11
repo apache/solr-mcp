@@ -251,6 +251,10 @@ See [infra.apache.org/licensing-howto](https://infra.apache.org/licensing-howto.
 - This builds on the SBOM generation (see **SBOM Architecture**); the SBOM remains the
   machine-readable bill of materials, and LICENSE/NOTICE are the human-readable legal
   artifacts derived from it.
+- **Implementation:** the `org.apache.solr.mcp.license-notice` convention plugin in
+  `buildSrc/` (typed `GenerateBinaryLicense` / `GenerateBinaryNotice` tasks). The root
+  `build.gradle.kts` only applies the plugin; the policy lives in
+  `config/license-policy.json`.
 
 ## Testing Structure
 
