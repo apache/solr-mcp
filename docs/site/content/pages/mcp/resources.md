@@ -8,6 +8,7 @@ template: mcp/resources
 * **[Quick Start](/mcp/quick-start.html)** &mdash; get from zero to a working AI + Solr integration in under 2 minutes
 * **[Security (OAuth2)](/mcp/security.html)** &mdash; Auth0 and Keycloak setup for HTTP mode
 * **[Observability](/mcp/observability.html)** &mdash; traces, metrics, and logs via the LGTM stack
+* **[Licensing & Notices](/mcp/licensing.html)** &mdash; where the binary LICENSE/NOTICE live, how they are built, and the role of the SBOM
 
 ## Documentation ##
 
