@@ -56,16 +56,21 @@ Implemented as the `org.apache.solr.mcp.license-notice` convention plugin under
    carried and stay current with no hand-maintained snippets.
 3. **`metaInf` wiring.** The `bootJar` bundles the generated LICENSE/NOTICE; the plain
    `jar`, sources, and javadoc jars keep the source-form base files.
-4. **Build gate.** `generateBinaryLicense` runs as part of `check`/`build` and **fails**
-   if a shipped dependency is absent from the SBOM, or carries a license not in
-   `config/license-policy.json`. That single file holds the `allowedLicenses` set plus
-   `overrides` (`group:name → SPDX id`) that correct the handful of components CycloneDX
-   mislabels (e.g. `mcp-server-security` → Apache-2.0; ANTLR `ST4`/`antlr-runtime` →
-   BSD-3-Clause). This is JanHoy's "check that newly added deps are accounted for".
-5. **Tests.** The two tasks are unit-tested with `ProjectBuilder`
-   (`buildSrc/src/test/kotlin/.../LicenseNoticeTasksTest.kt`): appendix/override logic,
-   both gate failures, and NOTICE de-duplication. `buildSrc`'s `test` runs in
-   `./gradlew build`.
+4. **Licenses are disclosed as-reported.** The appendix is a disclosure, not a license
+   policy. Licenses are listed exactly as the SBOM declares them — **no allow-list and no
+   corrections** — so a few imprecise-but-permissive upstream labels appear as-is
+   (`mcp-server-security` → `Apache-1.0`; ANTLR `ST4`/`antlr-runtime` →
+   `BSD-4-Clause`/`BSD licence`); the preamble notes this and links each license. apache/solr
+   itself keeps no allow-list (it uses a per-dependency `solr/licenses/` folder, which
+   JanHoy said not to replicate), so neither do we.
+5. **Completeness gate.** The only gate: `generateBinaryLicense` runs as part of
+   `check`/`build` and **fails if a shipped dependency is absent from the SBOM**, so a
+   dependency can never be silently omitted from the LICENSE. This is JanHoy's "check that
+   newly added deps are accounted for"; it makes no judgement about license acceptability.
+6. **Tests.** The two tasks are unit-tested with `ProjectBuilder`
+   (`buildSrc/src/test/kotlin/.../LicenseNoticeTasksTest.kt`): appendix listing, SBOM
+   name/URL handling, the completeness gate, and NOTICE de-duplication. `buildSrc`'s
+   `test` runs in `./gradlew build`.
 6. **Verify.** `./gradlew build`, then
    `unzip -p build/libs/solr-mcp-<v>.jar META-INF/LICENSE` / `... META-INF/NOTICE`
    to confirm the appendix and lifted notices are present in the fat jar.
@@ -83,7 +88,6 @@ Implemented as the `org.apache.solr.mcp.license-notice` convention plugin under
   `GenerateBinaryLicense` / `GenerateBinaryNotice` typed tasks (+ their unit tests).
 - `build.gradle.kts` — applies `id("org.apache.solr.mcp.license-notice")` (after the
   Spring Boot + CycloneDX plugins).
-- `config/license-policy.json` — `allowedLicenses` + `overrides` (new).
 - `AGENTS.md` — "Release LICENSE / NOTICE" section.
 - Depends on PR #142 (CycloneDX SBOM) for the `cyclonedxBom` task and plugin.
 
