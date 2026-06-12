@@ -371,10 +371,11 @@ jobs:
           sed -i "s/version = \".*\"/version = \"${RELEASE_VERSION}\"/" build.gradle.kts
 
       - name: Log in to GHCR
-        env:
-          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REGISTRY_USER: ${{ github.actor }}
-        run: echo "$REGISTRY_TOKEN" | docker login ghcr.io -u "$REGISTRY_USER" --password-stdin
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0 (ASF-allow-listed, no expiry)
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       # Refuse to overwrite an already-published version tag. Moving tags
       # (latest-*) are mutable and assembled later; per-version tags are not.
@@ -419,10 +420,11 @@ jobs:
       packages: write
     steps:
       - name: Log in to GHCR
-        env:
-          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REGISTRY_USER: ${{ github.actor }}
-        run: echo "$REGISTRY_TOKEN" | docker login ghcr.io -u "$REGISTRY_USER" --password-stdin
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0 (ASF-allow-listed, no expiry)
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create version manifest lists
         env:

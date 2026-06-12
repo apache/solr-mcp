@@ -274,10 +274,11 @@ jobs:
             # Authenticate to GitHub Container Registry
             # Uses built-in GITHUB_TOKEN (no configuration needed)
             -   name: Log in to GitHub Container Registry
-                env:
-                    REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                    REGISTRY_USER: ${{ github.actor }}
-                run: echo "$REGISTRY_TOKEN" | docker login ghcr.io -u "$REGISTRY_USER" --password-stdin
+                uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0 (ASF-allow-listed, no expiry)
+                with:
+                    registry: ghcr.io
+                    username: ${{ github.actor }}
+                    password: ${{ secrets.GITHUB_TOKEN }}
 
             # Authenticate to Docker Hub
             # Requires DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets
@@ -306,7 +307,10 @@ jobs:
             #
             #      Note: `GITHUB_TOKEN` is provided automatically for GHCR; do not store it manually.
             #      - name: Log in to Docker Hub
-            #        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            #        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0 (ASF-allow-listed, no expiry)
+            #        with:
+            #          username: ${{ secrets.DOCKERHUB_USERNAME }}
+            #          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
             # Convert repository owner to lowercase
             # Required because container registry names must be lowercase
