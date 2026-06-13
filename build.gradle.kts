@@ -32,6 +32,9 @@ plugins {
     // Listed after spring-boot + cyclonedx so productionRuntimeClasspath and
     // cyclonedxBom exist when it wires its tasks. See buildSrc/.
     id("org.apache.solr.mcp.license-notice")
+    // Enforces Apache license headers via Apache RAT (buildSrc convention plugin).
+    // Wires `rat` into `check`, so `./gradlew build` audits headers. See buildSrc/.
+    id("org.apache.solr.mcp.rat")
 }
 
 // GraalVM Native Image (Opt-In)
