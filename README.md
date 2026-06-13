@@ -280,7 +280,7 @@ MCP tools.
 
 ### Quick Setup
 
-1. **Configure Auth0** (see detailed guide: [security-docs/AUTH0_SETUP.md](security-docs/AUTH0_SETUP.md))
+1. **Configure Auth0** (see detailed guide: [docs/security/auth0.md](docs/security/auth0.md))
     - Create an Auth0 Application (Machine to Machine)
     - Create an Auth0 API with your audience identifier
     - Note your Domain, Client ID, Client Secret, and Audience
@@ -310,7 +310,7 @@ MCP tools.
      http://localhost:8080/mcp
    ```
 
-For complete setup instructions, see [security-docs/AUTH0_SETUP.md](security-docs/AUTH0_SETUP.md)
+For complete setup instructions, see [docs/security/auth0.md](docs/security/auth0.md)
 
 ## Available MCP tools
 
@@ -494,7 +494,8 @@ Both tools natively consume CycloneDX 1.6 and report CVEs against the listed com
 
 ## Documentation
 
-- [Auth0 Setup (OAuth2 configuration)](security-docs/AUTH0_SETUP.md)
+- Security model: [STDIO transport](docs/security/stdio.md) · [HTTP transport](docs/security/http.md)
+- OAuth2 provider setup: [Auth0](docs/security/auth0.md) · [Keycloak](docs/security/keycloak.md)
 - [GraalVM native image spec](docs/specs/graalvm-native-image.md)
 
 ## Contributing
