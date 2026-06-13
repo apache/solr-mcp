@@ -28,6 +28,10 @@ We use Spotless for code formatting and style enforcement. CI enforces `spotless
 - Include unit tests for new features
 - Keep methods focused and concise
 
+### Null safety
+
+Every package is `@NullMarked` via `package-info.java`. Methods, parameters, and return types are non-null by default — mark legitimate null surfaces with `@Nullable` (`org.jspecify.annotations.Nullable`). [NullAway](https://github.com/uber/NullAway) enforces the contract on `compileJava`; new code that violates it fails the build. Reference: [JSpecify](https://jspecify.dev/).
+
 ## Testing
 
 To keep this document concise, please see the Development Guide for all testing workflows and tips:
@@ -37,6 +41,26 @@ To keep this document concise, please see the Development Guide for all testing 
 - Integration tests: dev-docs/DEVELOPMENT.md#integration-tests
 - Docker image tests: dev-docs/DEVELOPMENT.md#docker-integration-tests
 - Coverage reports: dev-docs/DEVELOPMENT.md#testing
+
+## Publishing to Maven Local
+
+To install the project artifacts to your local Maven repository for testing or local development:
+
+```bash
+./gradlew publishToMavenLocal
+```
+
+This publishes the following artifacts to `~/.m2/repository/org/apache/solr/solr-mcp/{version}/`:
+
+- `solr-mcp-{version}.jar` - Main application JAR
+- `solr-mcp-{version}-sources.jar` - Source code for IDE navigation
+- `solr-mcp-{version}-javadoc.jar` - API documentation
+- `solr-mcp-{version}.pom` - Maven POM with dependencies
+
+This is useful when:
+- Testing the library locally before publishing to a remote repository
+- Sharing artifacts between local projects during development
+- Verifying the published POM and artifact structure
 
 ## Submitting Changes
 
@@ -117,15 +141,23 @@ For implementation details and examples, see the Development Guide:
 - Dependencies and version catalogs: dev-docs/DEVELOPMENT.md#build-system
 - Documentation practices: dev-docs/DEVELOPMENT.md#modifying-configuration
 
+## Security Setup (HTTP Mode)
+
+For OAuth2 configuration with supported providers:
+
+- [Auth0 Setup Guide](docs/security/auth0.md)
+- [Keycloak Setup Guide](docs/security/keycloak.md)
+
 ## Questions or Need Help?
 
-- Open an issue for bugs or feature requests
-- Start a discussion for questions or ideas
-- Check existing issues and discussions first
+- **Slack:** [`#solr-mcp`](https://the-asf.slack.com/archives/C09TVG3BM1P) in the `the-asf` workspace
+- **Issues:** [GitHub Issues](https://github.com/apache/solr-mcp/issues) for bugs or feature requests
+- **Discussions:** [GitHub Discussions](https://github.com/apache/solr-mcp/discussions) for questions or ideas
+- **Mailing lists:** Shared with Apache Solr — see [mailing lists](https://solr.apache.org/community.html#mailing-lists-chat)
 
 ## Code of Conduct
 
-Be respectful, inclusive, and professional. We're all here to build something great together.
+As an Apache project, we follow the [Apache Code of Conduct](https://www.apache.org/foundation/policies/conduct).
 
 ## License
 

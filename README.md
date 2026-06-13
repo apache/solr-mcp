@@ -2,7 +2,24 @@
 
 # Solr MCP Server
 
-A Spring AI Model Context Protocol (MCP) server that provides tools for interacting with Apache Solr. Enables AI assistants like Claude to search, index, and manage Solr collections through the MCP protocol.
+Search, index, and manage [Apache Solr](https://solr.apache.org/) collections using **natural language** — no need to hand-craft Solr queries, build filter expressions, or memorize the admin API.
+
+Instead of writing:
+
+```
+q=title:"star wars" AND genre_s:"sci-fi"&fq=year_i:[2000 TO *]&facet=true&facet.field=genre_s&sort=score desc&rows=10
+```
+
+Just ask your AI assistant:
+
+> *"Find sci-fi movies with 'star wars' in the title released after 2000, show me the genre breakdown, and sort by relevance."*
+
+This Spring AI [Model Context Protocol (MCP)](https://spec.modelcontextprotocol.io/) server exposes Solr operations as tools that any MCP-compatible AI client (Claude Desktop, Claude Code, VS Code/Copilot, Cursor, JetBrains) can invoke.
+
+**[Website](https://solr.apache.org/mcp)** ·
+**[Quick Start](https://solr.apache.org/mcp/quick-start.html)** ·
+**[Client Setup](https://solr.apache.org/mcp/clients/claude-desktop.html)** ·
+**[Features](https://solr.apache.org/mcp/features.html)**
 
 ## What's inside
 
@@ -57,7 +74,7 @@ A Spring AI Model Context Protocol (MCP) server that provides tools for interact
           docker run -p 8080:8080 --rm -e PROFILES=http solr-mcp:latest
           ```
 
-For more options (custom SOLR_URL, Linux host networking) see the Deployment Guide: docs/DEPLOYMENT.md
+For more options (custom SOLR_URL, Linux host networking) see the [Deployment Guide](dev-docs/DEPLOYMENT.md).
 
 ### Claude Desktop
 
@@ -266,6 +283,139 @@ Or add to `.mcp.json`:
 }
 ```
 
+### Other clients
+
+<details>
+<summary><strong>VS Code / GitHub Copilot</strong></summary>
+
+Create `.vscode/mcp.json` in your project root:
+
+**STDIO mode** (JAR):
+
+```json
+{
+  "servers": {
+    "solr-mcp": {
+      "type": "stdio",
+      "command": "java",
+      "args": ["-jar", "/absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar"],
+      "env": { "SOLR_URL": "http://localhost:8983/solr/" }
+    }
+  }
+}
+```
+
+**HTTP mode:**
+
+```json
+{
+  "servers": {
+    "solr-mcp": {
+      "type": "sse",
+      "url": "http://localhost:8080/mcp"
+    }
+  }
+}
+```
+
+After adding the configuration, Solr MCP tools are available in GitHub Copilot Chat (Agent mode).
+
+</details>
+
+<details>
+<summary><strong>Cursor</strong></summary>
+
+Create `.cursor/mcp.json` in your project root:
+
+**STDIO mode** (JAR):
+
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "command": "java",
+      "args": ["-jar", "/absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar"],
+      "env": { "SOLR_URL": "http://localhost:8983/solr/" }
+    }
+  }
+}
+```
+
+**HTTP mode:**
+
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "url": "http://localhost:8080/mcp"
+    }
+  }
+}
+```
+
+Or use **Cursor Settings > Features > MCP Servers > Add New MCP Server**.
+
+</details>
+
+<details>
+<summary><strong>JetBrains IDEs</strong></summary>
+
+Create `.junie/mcp.json` in your project root:
+
+**STDIO mode** (JAR):
+
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "command": "java",
+      "args": ["-jar", "/absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar"],
+      "env": { "SOLR_URL": "http://localhost:8983/solr/" }
+    }
+  }
+}
+```
+
+**HTTP mode:**
+
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "url": "http://localhost:8080/mcp"
+    }
+  }
+}
+```
+
+Or use **Settings > Tools > AI Assistant > MCP Servers > Add**.
+
+</details>
+
+<details>
+<summary><strong>MCP Inspector</strong></summary>
+
+```bash
+npx @modelcontextprotocol/inspector
+```
+
+**HTTP:** connect to `http://localhost:8080/mcp`
+
+**STDIO:** command `java`, arguments `-jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar`
+
+</details>
+
+## Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SOLR_URL` | Solr base URL | `http://localhost:8983/solr/` |
+| `PROFILES` | Transport mode: `stdio` or `http` | `stdio` |
+| `SECURITY_ENABLED` | Enable OAuth2 authentication (HTTP only) | `false` |
+| `OAUTH2_ISSUER_URI` | OAuth2 issuer URL (Auth0, Keycloak, Okta) | — |
+| `OTEL_SAMPLING_PROBABILITY` | Tracing sampling rate (0.0–1.0) | `1.0` |
+| `OTEL_TRACES_URL` | OTLP collector endpoint | `http://localhost:4317` |
+
 ## Security (OAuth2)
 
 The Solr MCP server supports OAuth2 authentication when running in HTTP mode, providing secure access control for your
@@ -345,6 +495,8 @@ For complete setup instructions, see [docs/security/auth0.md](docs/security/auth
 | `add-fields` | Add one or more fields to a Solr collection schema (additive only; existing fields cannot be modified) |
 | `get-schema` | Retrieve schema information for a collection |
 
+Every tool advertises MCP behavior hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`) so clients can build sensible approval UX — `search` and the metadata tools are read-only, indexing is destructive but idempotent, schema modification is additive.
+
 ## Available MCP Resources
 
 MCP Resources provide a way to expose data that can be read by MCP clients. The Solr MCP Server provides the following resources:
@@ -361,6 +513,19 @@ The `solr://{collection}/schema` resource supports autocompletion for the `{coll
 ![MCP Inspector Resources](images/mcp-inspector-list-resources.png)
 
 ![MCP Inspector Resource Completion](images/mcp-inspector-resource-completion.png)
+
+## Available MCP Prompts
+
+Slash-command-style workflow templates. The framework wraps each prompt's return value as a single user-role `PromptMessage` directing the LLM through a canonical Solr workflow.
+
+| Prompt | Arguments | Purpose |
+|---|---|---|
+| `explore-collections` | — | Read-only walkthrough: list collections and characterise each by stats and health |
+| `setup-collection` | `name`, `purpose` (optional) | Validate a name, pick configset / shards / replication factor, create the collection, verify it |
+| `view-schema` | `collection` | Read-only schema walkthrough |
+| `design-schema` | `collection`, `datasetDescription`, `sampleDocument` (optional) | Inspect schema, choose field types, apply additive schema changes |
+| `index-data` | `collection`, `format` (`json` / `csv` / `xml`), `sample` (optional) | Verify the target schema, pick the right indexing tool, confirm the result |
+| `search-collection` | `collection`, `question` | Translate a natural-language question into a Solr query |
 
 ## Screenshots
 
@@ -504,10 +669,13 @@ We welcome contributions!
 
 - Start here: [CONTRIBUTING.md](CONTRIBUTING.md)
 
-## Support
+## Community
 
-- Issues: https://github.com/apache/solr-mcp/issues
-- Discussions: https://github.com/apache/solr-mcp/discussions
+- **Website:** https://solr.apache.org/mcp
+- **Slack:** [`#solr-mcp`](https://the-asf.slack.com/archives/C09TVG3BM1P) in the `the-asf` workspace
+- **Mailing lists:** Shared with Apache Solr — see [mailing lists](https://solr.apache.org/community.html#mailing-lists-chat)
+- **Issues:** https://github.com/apache/solr-mcp/issues
+- **Discussions:** https://github.com/apache/solr-mcp/discussions
 
 ## License
 
