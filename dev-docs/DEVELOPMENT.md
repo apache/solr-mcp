@@ -37,6 +37,26 @@ The build produces an executable JAR in `build/libs/`:
 
 - `solr-mcp-1.0.0-SNAPSHOT.jar` — Spring Boot executable (fat) JAR
 
+### Publishing to Maven Local
+
+To install the project artifacts to your local Maven repository for testing or local development:
+
+```bash
+./gradlew publishToMavenLocal
+```
+
+This publishes the following artifacts to `~/.m2/repository/org/apache/solr/solr-mcp/{version}/`:
+
+- `solr-mcp-{version}.jar` - Main application JAR
+- `solr-mcp-{version}-sources.jar` - Source code for IDE navigation
+- `solr-mcp-{version}-javadoc.jar` - API documentation
+- `solr-mcp-{version}.pom` - Maven POM with dependencies
+
+This is useful when:
+- Testing the library locally before publishing to a remote repository
+- Sharing artifacts between local projects during development
+- Verifying the published POM and artifact structure
+
 ## Running Locally
 
 ### Start Solr
