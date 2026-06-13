@@ -13,9 +13,11 @@ A Spring AI Model Context Protocol (MCP) server that provides tools for interact
 - 🔧 Inspect schema
 - 🔌 Transports: STDIO (Claude Desktop) and HTTP (MCP Inspector)
 - 🔐 OAuth2 security with Auth0 (HTTP mode only)
-- 🐳 Docker images built with Jib
+- 🐳 Docker images built locally with Jib (JVM) and Paketo (native)
 
 ## Get started (users)
+
+> **Note:** Published container images are not yet available on a public registry. The `docker run` examples below use a **locally built** image — build it first with `./gradlew jibDockerBuild` (produces `solr-mcp:latest`), or use the JAR path instead. See [Building Docker images](#building-docker-images).
 
 - Prerequisites: Java 25+, Docker (and Docker Compose), Git
 - Clone the repo:
@@ -39,7 +41,7 @@ A Spring AI Model Context Protocol (MCP) server that provides tools for interact
           ```
         - Docker:
           ```bash
-          docker run -i --rm ghcr.io/apache/solr-mcp:latest
+          docker run -i --rm solr-mcp:latest
           ```
     - **HTTP mode**:
         - Gradle:
@@ -52,7 +54,7 @@ A Spring AI Model Context Protocol (MCP) server that provides tools for interact
           ```
         - Docker:
           ```bash
-          docker run -p 8080:8080 --rm -e PROFILES=http ghcr.io/apache/solr-mcp:latest
+          docker run -p 8080:8080 --rm -e PROFILES=http solr-mcp:latest
           ```
 
 For more options (custom SOLR_URL, Linux host networking) see the Deployment Guide: docs/DEPLOYMENT.md
@@ -69,7 +71,7 @@ Using Docker:
   "mcpServers": {
     "solr-mcp": {
       "command": "docker",
-      "args": ["run", "-i", "--rm", "ghcr.io/apache/solr-mcp:latest"],
+      "args": ["run", "-i", "--rm", "solr-mcp:latest"],
         "env": {
             "SOLR_URL": "http://localhost:8983/solr/"
         }
@@ -111,7 +113,7 @@ Using Docker:
                 "-p",
                 "8080:8080",
                 "--rm",
-                "ghcr.io/apache/solr-mcp:latest"
+                "solr-mcp:latest"
             ],
             "env": {
                 "PROFILES": "http",
@@ -162,7 +164,7 @@ PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
 Running via Docker:
 
 ```bash
-docker run -p 8080:8080 --rm -e PROFILES=http ghcr.io/apache/solr-mcp:latest
+docker run -p 8080:8080 --rm -e PROFILES=http solr-mcp:latest
 ```
 
 Then add to your `claude_desktop_config.json`:
@@ -191,7 +193,7 @@ Add Solr MCP to [Claude Code](https://docs.anthropic.com/en/docs/claude-code) us
 
 Using Docker (CLI):
 ```bash
-claude mcp add --transport stdio solr-mcp -- docker run -i --rm ghcr.io/apache/solr-mcp:latest
+claude mcp add --transport stdio solr-mcp -- docker run -i --rm solr-mcp:latest
 ```
 
 Using JAR (CLI):
@@ -208,7 +210,7 @@ Using Docker:
     "solr-mcp": {
       "type": "stdio",
       "command": "docker",
-      "args": ["run", "-i", "--rm", "ghcr.io/apache/solr-mcp:latest"],
+      "args": ["run", "-i", "--rm", "solr-mcp:latest"],
       "env": {
         "SOLR_URL": "http://localhost:8983/solr/"
       }
@@ -244,7 +246,7 @@ PROFILES=http ./gradlew bootRun
 PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
 
 # Docker
-docker run -p 8080:8080 --rm -e PROFILES=http ghcr.io/apache/solr-mcp:latest
+docker run -p 8080:8080 --rm -e PROFILES=http solr-mcp:latest
 ```
 
 Then add to Claude Code:
