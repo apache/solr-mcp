@@ -173,31 +173,36 @@ jobs:
           ls -la build/distributions/
 
       - name: Create GitHub pre-release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: nightly-${{ steps.version.outputs.date }}
-          name: Nightly Build ${{ steps.version.outputs.date }}
-          prerelease: true
-          draft: false
-          files: |
-            build/distributions/solr-mcp-*.tar.gz
-            build/distributions/solr-mcp-*.sha512
+        # ASF policy disallows non-allow-listed third-party actions; use the gh
+        # CLI (already used below to prune old nightlies) instead of
+        # softprops/action-gh-release.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NIGHTLY_DATE: ${{ steps.version.outputs.date }}
+        run: |
+          cat > "${RUNNER_TEMP}/nightly-notes.md" <<'NOTES'
+          ## Nightly Build
+
+          **Date**: ${{ steps.version.outputs.date }}
+          **Commit**: ${{ github.sha }}
+
+          ### Docker Image
+          ```bash
+          docker pull apache/solr-mcp-nightly:${{ steps.version.outputs.version }}
+          ```
+
+          ### Source Distribution
+          - [solr-mcp-${{ steps.version.outputs.version }}-src.tar.gz](https://github.com/${{ github.repository }}/releases/download/nightly-${{ steps.version.outputs.date }}/solr-mcp-${{ steps.version.outputs.version }}-src.tar.gz)
+
+          **Note**: This is a nightly build and not an official Apache release.
+          NOTES
+          gh release create "nightly-${NIGHTLY_DATE}" \
+            --title "Nightly Build ${NIGHTLY_DATE}" \
+            --prerelease \
+            --notes-file "${RUNNER_TEMP}/nightly-notes.md" \
+            build/distributions/solr-mcp-*.tar.gz \
+            build/distributions/solr-mcp-*.sha512 \
             build/libs/solr-mcp-*.jar
-          body: |
-            ## Nightly Build
-
-            **Date**: ${{ steps.version.outputs.date }}
-            **Commit**: ${{ github.sha }}
-
-            ### Docker Image
-            ```bash
-            docker pull apache/solr-mcp-nightly:${{ steps.version.outputs.version }}
-            ```
-
-            ### Source Distribution
-            - [solr-mcp-${{ steps.version.outputs.version }}-src.tar.gz](https://github.com/${{ github.repository }}/releases/download/nightly-${{ steps.version.outputs.date }}/solr-mcp-${{ steps.version.outputs.version }}-src.tar.gz)
-
-            **Note**: This is a nightly build and not an official Apache release.
 
       - name: Clean up old nightly releases
         run: |
