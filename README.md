@@ -476,12 +476,7 @@ From a running HTTP-mode server:
 curl -s http://localhost:8080/actuator/sbom/application > application.cdx.json
 ```
 
-From the local build (no server required):
-
-```bash
-./gradlew cyclonedxBom
-cat build/reports/application.cdx.json
-```
+To generate the SBOM locally from source, see [dev-docs/DEVELOPMENT.md#generating-the-sbom-locally](dev-docs/DEVELOPMENT.md#generating-the-sbom-locally).
 
 ### Scan the SBOM
 

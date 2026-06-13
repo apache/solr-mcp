@@ -57,6 +57,17 @@ This is useful when:
 - Sharing artifacts between local projects during development
 - Verifying the published POM and artifact structure
 
+### Generating the SBOM locally
+
+The build produces a [CycloneDX](https://cyclonedx.org/) 1.6 Software Bill of Materials. The Spring Boot Gradle plugin also embeds it in the bootJar (and therefore every Docker image) at `META-INF/sbom/application.cdx.json`. To generate it from source without running the server:
+
+```bash
+./gradlew cyclonedxBom
+cat build/reports/application.cdx.json
+```
+
+For consuming and scanning the SBOM (HTTP endpoint, GitHub Release attachment, Trivy/Grype), see the [Supply chain & SBOM](../README.md#supply-chain--sbom) section of the README.
+
 ## Running Locally
 
 ### Start Solr
