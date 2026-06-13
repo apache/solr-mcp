@@ -173,6 +173,43 @@ npx @modelcontextprotocol/inspector
 
 Then open the browser URL provided (typically http://localhost:6274) and connect to http://localhost:8080/mcp
 
+### Distributed Tracing Tests
+
+`DistributedTracingTest` verifies that spans are produced for `@Observed` methods (e.g.
+`SearchService#search`) without requiring any external tracing infrastructure.
+
+```bash
+./gradlew test --tests "org.apache.solr.mcp.server.observability.DistributedTracingTest"
+```
+
+**How it works.** Spring Boot 3.5's observability stack is
+`@Observed annotation → Micrometer Observation API → Micrometer Tracing → tracer`. The test
+swaps in a `SimpleTracer` (from `micrometer-tracing-test`) as a `@Primary` bean via
+`OpenTelemetryTestConfiguration`, so spans are captured in-memory. Spans are retrieved with
+`tracer.getSpans()` (returns `Deque<SimpleSpan>`) and named in kebab-case as
+`class-name#method-name` (e.g. `search-service#search`). Test properties disable OTLP export,
+force `management.tracing.sampling.probability=1.0`, and set
+`management.observations.annotations.enabled=true`.
+
+**Known issue — `OtlpExportIntegrationTest` is disabled.** The end-to-end OTLP export test
+(via `LgtmStackContainer`/`testcontainers-grafana`) fails with a Jetty
+`ClassNotFoundException` for `org.eclipse.jetty.client.transport.HttpClientTransportOverHTTP`
+under the current Jetty BOM. Core tracing is fully covered by `DistributedTracingTest`, so the
+impact is low; fixing it would mean swapping the HTTP client (Apache HttpClient/OkHttp) or
+upgrading `testcontainers-grafana`.
+
+**Spring Boot 3.5 vs 4 differences** (relevant if/when we upgrade — SB4 drops the Micrometer
+bridge for direct OpenTelemetry):
+
+| Aspect | Spring Boot 3.5 | Spring Boot 4 |
+|--------|-----------------|---------------|
+| Tracing API | Micrometer Observation → Micrometer Tracing → OpenTelemetry | Direct OpenTelemetry integration |
+| Test approach | `SimpleTracer` (`micrometer-tracing-test`) | `InMemorySpanExporter` (`opentelemetry-sdk-testing`) |
+| Span retrieval | `tracer.getSpans()` | `spanExporter.getFinishedSpanItems()` |
+| Span type | `SimpleSpan` (Micrometer) | `SpanData` (OpenTelemetry) |
+| Bridge dependency | `micrometer-tracing-bridge-otel` required | not required |
+| AspectJ starter | `spring-boot-starter-aop` | `spring-boot-starter-aspectj` |
+
 ## Code Quality
 
 ### Spotless Formatting
