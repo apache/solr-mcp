@@ -18,6 +18,10 @@ A Spring AI Model Context Protocol (MCP) server that provides tools for interact
 ## Get started (users)
 
 - Prerequisites: Java 25+, Docker (and Docker Compose), Git
+- Clone the repo:
+  ```bash
+  git clone https://github.com/apache/solr-mcp.git && cd solr-mcp
+  ```
 - Start Solr with sample data:
   ```bash
   docker compose up -d
