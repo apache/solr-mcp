@@ -274,6 +274,69 @@ export DOCKER_EXECUTABLE=/custom/path/to/docker
 ./gradlew jibDockerBuild
 ```
 
+### Native Image (GraalVM)
+
+Native compilation is opt-in behind the `-Pnative` Gradle property. It trades a
+slower, RAM-hungry build for sub-second startup, much lower RSS, and a smaller,
+JRE-free image — most valuable for the local STDIO use case where Claude Desktop
+launches a fresh container per session. See the [Image × Mode matrix](../AGENTS.md)
+for which image serves which transport.
+
+**Prerequisites.** `nativeCompile`/`nativeTest` need a GraalVM JDK on `PATH` or
+`JAVA_HOME` (the plugin does not auto-provision a toolchain). Install locally via
+SDKMAN:
+
+```bash
+sdk install java 25.0.2-graalce
+```
+
+or download from <https://www.graalvm.org>. CI provisions it with
+`graalvm/setup-graalvm`.
+
+**Build and test.**
+
+```bash
+# Compile a host-OS native binary
+./gradlew nativeCompile -Pnative
+
+# Run the test suite as a native image (slow — not part of ./gradlew build)
+./gradlew nativeTest -Pnative
+
+# Build a native Docker image via Paketo buildpacks (compiles inside a Linux
+# builder container, so it works on any host OS — no cross-compilation)
+./gradlew bootBuildImage -Pnative                    # stdio binary
+./gradlew bootBuildImage -Pnative -Pprofile=http     # http binary
+```
+
+`nativeTest` is intentionally excluded from `./gradlew build` (an image compile
+per run is slow); it runs in the dedicated `native.yml` CI job instead.
+
+**Adding a reflection hint.** GraalVM's closed-world analysis can't see
+reflective access, so when `nativeTest` fails with a missing-class/method or
+resource error:
+
+1. Add a targeted hint to a `RuntimeHintsRegistrar` (we centralize these in
+   `SolrNativeHints.java`, registered via `@ImportRuntimeHints`) rather than
+   scattering `@Reflective` annotations — the rules stay reviewable in one place.
+2. Only if static analysis of the failures is too noisy, fall back to the
+   tracing agent (`-agentlib:native-image-agent`); commit its output under
+   `src/main/resources/META-INF/native-image/`.
+
+**Known gotchas.**
+
+- **Memory:** `nativeCompile` commonly needs 4–8 GB RAM. Ensure local/CI runners
+  have headroom.
+- **First Paketo build is large:** `bootBuildImage` downloads a ~1 GB builder on
+  first run; CI caching mitigates this.
+- **OpenTelemetry build-time init:** the pinned OTel instrumentation BOM lacks
+  native metadata, so the build adds `--initialize-at-build-time` for four OTel
+  packages (see `SolrNativeHints`/`build.gradle.kts`). Do **not** add
+  `io.opentelemetry.instrumentation.spring` — it contains CGLIB proxies that
+  cannot be build-time initialized. Bumping the OTel BOM to 2.26.1 currently
+  fails at AOT time (`io.opentelemetry.common.ComponentLoader` not found) because
+  it outpaces the OTel SDK that Spring Boot 3.5.x manages; revisit when Spring
+  Boot aligns its managed OTel version.
+
 ## IDE Setup
 
 ### IntelliJ IDEA
