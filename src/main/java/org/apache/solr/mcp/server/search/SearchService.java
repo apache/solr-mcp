@@ -105,7 +105,12 @@ import org.springframework.util.StringUtils;
 @Observed
 public class SearchService {
 
+	/** Key for the field name within a sort clause map. */
 	public static final String SORT_ITEM = "item";
+	/**
+	 * Key for the sort direction ({@code asc} / {@code desc}) within a sort clause
+	 * map.
+	 */
 	public static final String SORT_ORDER = "order";
 	private final SolrClient solrClient;
 
@@ -309,6 +314,17 @@ public class SearchService {
 		return new SearchResponse(documents.getNumFound(), documents.getStart(), documents.getMaxScore(), docs, facets);
 	}
 
+	/**
+	 * MCP prompt that guides the client through translating a natural-language
+	 * question into a Solr query: inspect the schema, build the query, run the
+	 * search, and refine the result.
+	 *
+	 * @param collection
+	 *            target Solr collection name
+	 * @param question
+	 *            the user's natural-language search question or information need
+	 * @return the prompt text instructing the model how to run the search
+	 */
 	@PreAuthorize("isAuthenticated()")
 
 	@McpPrompt(

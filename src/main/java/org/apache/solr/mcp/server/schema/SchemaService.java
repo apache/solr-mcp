@@ -278,6 +278,20 @@ public class SchemaService {
 		return schemaRequest.process(solrClient, collection).getSchemaRepresentation();
 	}
 
+	/**
+	 * Adds one or more fields to a Solr collection schema as a single transactional
+	 * batch.
+	 *
+	 * @param collection
+	 *            target Solr collection name
+	 * @param fields
+	 *            field definitions in the Solr Schema API {@code add-field} shape
+	 * @return summary listing the collection and the names of the fields added
+	 * @throws SolrServerException
+	 *             if there are if there are errors communicating with Solr
+	 * @throws IOException
+	 *             if there are I/O errors during communication
+	 */
 	@PreAuthorize("isAuthenticated()")
 	@McpTool(
 			name = "add-fields",
@@ -310,6 +324,21 @@ public class SchemaService {
 		return new SchemaUpdateResult(collection, names);
 	}
 
+	/**
+	 * Adds one or more field types to a Solr collection schema as a single
+	 * transactional batch.
+	 *
+	 * @param collection
+	 *            target Solr collection name
+	 * @param fieldTypes
+	 *            field-type definitions in the Solr Schema API
+	 *            {@code add-field-type} shape
+	 * @return summary listing the collection and the names of the field types added
+	 * @throws SolrServerException
+	 *             if there are if there are errors communicating with Solr
+	 * @throws IOException
+	 *             if there are I/O errors during communication
+	 */
 	@PreAuthorize("isAuthenticated()")
 	@McpTool(
 			name = "add-field-types",
@@ -439,6 +468,15 @@ public class SchemaService {
 		}
 	}
 
+	/**
+	 * MCP prompt that drives a read-only walkthrough of a collection's schema:
+	 * fetch it and summarize fields, types, dynamic fields, copy fields, and the
+	 * unique key.
+	 *
+	 * @param collection
+	 *            target Solr collection name
+	 * @return the prompt text instructing the model how to inspect the schema
+	 */
 	@PreAuthorize("isAuthenticated()")
 
 	@McpPrompt(
@@ -483,6 +521,21 @@ public class SchemaService {
 				""".formatted(collection, collection);
 	}
 
+	/**
+	 * MCP prompt that guides the client through designing a schema: inspect the
+	 * existing schema, choose appropriate field types, and apply additive schema
+	 * changes via the Schema API.
+	 *
+	 * @param collection
+	 *            target Solr collection name
+	 * @param datasetDescription
+	 *            free-text description of the data being indexed (entity, key
+	 *            attributes, expected query patterns)
+	 * @param sampleDocument
+	 *            optional single document in JSON to ground field inference; may be
+	 *            {@code null} or blank
+	 * @return the prompt text instructing the model how to design the schema
+	 */
 	@PreAuthorize("isAuthenticated()")
 
 	@McpPrompt(

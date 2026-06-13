@@ -43,6 +43,13 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
 
 	private final ObjectMapper objectMapper;
 
+	/**
+	 * Constructs the creator with the Jackson {@link ObjectMapper} used to parse
+	 * incoming JSON.
+	 *
+	 * @param objectMapper
+	 *            the JSON parser injected by Spring
+	 */
 	public JsonDocumentCreator(ObjectMapper objectMapper) {
 		this.objectMapper = objectMapper;
 	}
