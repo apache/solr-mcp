@@ -27,6 +27,7 @@ plugins {
     alias(libs.plugins.spotless)
     alias(libs.plugins.jib)
     alias(libs.plugins.graalvm.native) apply false
+    alias(libs.plugins.cyclonedx)
 }
 
 // GraalVM Native Image (Opt-In)
@@ -73,6 +74,17 @@ java {
     }
     withSourcesJar()
     withJavadocJar()
+}
+
+// ASF release policy requires every distributed artifact to carry the project's
+// LICENSE and NOTICE files. Bundle them into META-INF of every JAR produced by
+// this build (main jar, bootJar, sources, javadoc).
+// See https://www.apache.org/legal/release-policy.html#licensing-documentation
+tasks.withType<Jar>().configureEach {
+    metaInf {
+        from(rootProject.file("LICENSE"))
+        from(rootProject.file("NOTICE"))
+    }
 }
 
 // Maven Publishing Configuration

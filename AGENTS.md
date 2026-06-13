@@ -24,6 +24,9 @@ Solr MCP Server is a Spring AI Model Context Protocol (MCP) server that enables 
 ./gradlew test --tests "*IntegrationTest"    # Run integration tests
 ./gradlew test jacocoTestReport              # Tests with coverage report
 
+# SBOM (Software Bill of Materials)
+./gradlew cyclonedxBom                       # Generate build/reports/application.cdx.json
+
 # Code formatting (REQUIRED before commit)
 ./gradlew spotlessApply            # Apply formatting
 ./gradlew spotlessCheck            # Check formatting
@@ -114,6 +117,19 @@ Four service classes expose MCP tools via `@McpTool` annotations:
 - **HTTP**: For MCP Inspector and remote access. Servlet-based with optional OAuth2 security.
 
 Configuration files: `application-stdio.properties`, `application-http.properties`
+
+### SBOM Architecture
+
+CycloneDX SBOM generation is wired by applying the `org.cyclonedx.bom` plugin
+(version 2.4.1, matching what Spring Initializr ships for Spring Boot 3.5.14).
+Spring Boot's `CycloneDxPluginAction` auto-configures `cyclonedxBom` and makes
+the bootJar embed the result at `META-INF/sbom/application.cdx.json`; the
+actuator serves it at `/actuator/sbom/application` in the `http` profile
+(enabled via `application-http.properties`). Both the Jib JVM image and the
+Paketo native images package the bootJar contents, so every distribution
+artifact ships the SBOM without per-image wiring.
+
+Spec: [docs/superpowers/specs/2026-06-05-sbom-generation-design.md](docs/superpowers/specs/2026-06-05-sbom-generation-design.md)
 
 ### Logging Architecture
 
