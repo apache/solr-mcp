@@ -28,6 +28,7 @@ plugins {
     alias(libs.plugins.jib)
     alias(libs.plugins.graalvm.native) apply false
     alias(libs.plugins.cyclonedx)
+    alias(libs.plugins.rat)
 }
 
 // GraalVM Native Image (Opt-In)
@@ -311,6 +312,76 @@ spotless {
         target("*.gradle.kts")
         ktlint()
     }
+}
+
+// Apache RAT (Release Audit Tool) — enforces Apache license headers.
+// `rat` is wired into `check` by the plugin, so `./gradlew build` runs it.
+// Report: build/reports/rat/index.html.
+//
+// Exclusions come from two sources so we don't duplicate patterns:
+//   1. .gitignore — reused as the single source of truth for everything git
+//      already ignores (build output, .gradle, IDE dirs, *.iml, out/, bin/,
+//      .vscode, etc.). The plugin's own excludeFile does NOT apply .gitignore
+//      path semantics, so we translate each entry to a Gradle (Ant) glob:
+//      non-anchored entries match at any depth ("**/" prefix) and each is also
+//      emitted in directory-contents form ("/**") so ignored folders are pruned.
+//   2. The explicit list below — only *tracked* files that RAT would scan but
+//      that legitimately carry no Apache header (binaries, data without a
+//      comment syntax, docs, tool/infra config, and LICENSE/NOTICE themselves).
+tasks.rat {
+    val gitignoreExcludes =
+        rootProject
+            .file(".gitignore")
+            .readLines()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && !it.startsWith("#") && !it.startsWith("!") }
+            .map { it.removeSuffix("/") }
+            .map {
+                if (it.startsWith("/")) {
+                    it.removePrefix("/")
+                } else if (it.startsWith("**/")) {
+                    it
+                } else {
+                    "**/$it"
+                }
+            }.flatMap { listOf(it, "$it/**") }
+    excludes.addAll(gitignoreExcludes)
+
+    excludes.addAll(
+        listOf(
+            // Gradle wrapper (ships under its own license) + on-disk OS cruft
+            "gradlew",
+            "gradlew.bat",
+            "gradle/wrapper/**",
+            "**/.DS_Store",
+            // Tracked dotfiles that take no header
+            ".run/**",
+            ".gitignore",
+            ".gitattributes",
+            ".editorconfig",
+            ".tool-versions",
+            ".env.example",
+            // License/notice files themselves (no header by definition)
+            "LICENSE",
+            "NOTICE",
+            // ASF infra metadata and tool config (no header by convention)
+            ".asf.yaml",
+            "config/**",
+            // Tabular data — no comment syntax to hold a header
+            "**/*.csv",
+            // Documentation (markdown carries no license header)
+            "**/*.md",
+            "docs/**",
+            "dev-docs/**",
+            "security-docs/**",
+            // Binary assets
+            "images/**",
+            "**/*.png",
+            // Data / generated content (JSON cannot hold comments)
+            "mydata/**",
+            "**/*.json",
+        ),
+    )
 }
 
 // Docker Integration Test Task
