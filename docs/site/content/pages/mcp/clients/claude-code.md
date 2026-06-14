@@ -12,10 +12,20 @@ template: mcp/client
 The general form of `claude mcp add` is (see [Claude Code MCP docs](https://code.claude.com/docs/en/mcp)):
 
 ```bash
-claude mcp add [options] -- <name> <command> [args...]
+claude mcp add [options] <name> <commandOrUrl> [args...]
 ```
 
-The `--` separates Claude Code's own options from the positional arguments (`<name>`, `<command>`, and the server's `[args...]`). Putting `--` before `<name>` matters when `-e KEY=value` is used: `-e` is a variadic flag, so without `--` it greedily reads the next token as another env entry and the CLI rejects the name (`Invalid environment variable format: solr-mcp`). Everything after `--` is treated as plain positional input, so server flags aren't reparsed by Claude Code either.
+The server `<name>` comes first. For a **STDIO** server, pass any `-e KEY=value` options (repeatable) after the name, then `--`, then the launch command. The `--` stops Claude Code from reparsing the server's own flags as its own options, and `-e` stops consuming tokens at the `--`:
+
+```bash
+claude mcp add <name> -e KEY=value -- <command> [args...]
+```
+
+For an **HTTP** server, no `--` is needed — pass the URL with `--transport http`:
+
+```bash
+claude mcp add --transport http <name> <url>
+```
 
 ***
 
@@ -25,13 +35,13 @@ The `--` separates Claude Code's own options from the positional arguments (`<na
 
 ```bash
 # JAR
-claude mcp add --transport stdio \
+claude mcp add solr-mcp \
     -e SOLR_URL=http://localhost:8983/solr/ \
-    -- solr-mcp java -jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar
+    -- java -jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar
 
 # Docker (local image — build first with ./gradlew jibDockerBuild)
-claude mcp add --transport stdio -- solr-mcp \
-    docker run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+claude mcp add solr-mcp \
+    -- docker run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ \
     solr-mcp:latest
 ```
 
@@ -79,7 +89,7 @@ Start the server first (see [Running the Server](https://github.com/apache/solr-
 ### CLI ###
 
 ```bash
-claude mcp add --transport http -- solr-mcp http://localhost:8080/mcp
+claude mcp add --transport http solr-mcp http://localhost:8080/mcp
 ```
 
 ### `.mcp.json` ###

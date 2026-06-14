@@ -14,10 +14,10 @@ template: mcp/resources
 
 * [README](https://github.com/apache/solr-mcp#readme) &mdash; quick start, client configurations, and usage overview
 * [CONTRIBUTING](https://github.com/apache/solr-mcp/blob/main/CONTRIBUTING.md) &mdash; pull request process and commit conventions
-* [Architecture](https://github.com/apache/solr-mcp/blob/main/docs/development/ARCHITECTURE.md) &mdash; project structure and design decisions
-* [Development Guide](https://github.com/apache/solr-mcp/blob/main/docs/development/DEVELOPMENT.md) &mdash; build system, testing, and IDE setup
-* [Auth0 Setup](https://github.com/apache/solr-mcp/blob/main/docs/development/AUTH0_SETUP.md) &mdash; detailed OAuth2 setup with Auth0
-* [Keycloak Setup](https://github.com/apache/solr-mcp/blob/main/docs/development/keycloak.md) &mdash; detailed OAuth2 setup with Keycloak
+* [Architecture](https://github.com/apache/solr-mcp/blob/main/dev-docs/ARCHITECTURE.md) &mdash; project structure and design decisions
+* [Development Guide](https://github.com/apache/solr-mcp/blob/main/dev-docs/DEVELOPMENT.md) &mdash; build system, testing, and IDE setup
+* [Auth0 Setup](https://github.com/apache/solr-mcp/blob/main/docs/security/auth0.md) &mdash; detailed OAuth2 setup with Auth0
+* [Keycloak Setup](https://github.com/apache/solr-mcp/blob/main/docs/security/keycloak.md) &mdash; detailed OAuth2 setup with Keycloak
 
 ***
 
