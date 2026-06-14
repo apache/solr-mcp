@@ -143,27 +143,35 @@ repositories {
 
 dependencies {
 
-    developmentOnly(libs.bundles.spring.boot.dev)
+    developmentOnly(libs.spring.boot.docker.compose)
+    developmentOnly(libs.spring.ai.spring.boot.docker.compose) {
+        exclude(group = "org.springframework.boot", module = "spring-boot-starter-mongodb")
+    }
 
-    implementation(libs.spring.boot.starter.web)
+    implementation(libs.spring.boot.starter.webmvc)
+    implementation(libs.spring.boot.starter.json)
     implementation(libs.spring.boot.starter.actuator)
-    implementation(libs.spring.boot.starter.aop)
     implementation(libs.spring.ai.starter.mcp.server.webmvc)
+    // Spring AI 2.0.0-M7 marked the common autoconfigure module as optional in the
+    // webmvc starter POM (#6088), so it is no longer pulled transitively even though
+    // the webmvc autoconfig classes still reference McpServerStdioDisabledCondition
+    // and other types from it.
+    implementation(libs.spring.ai.autoconfigure.mcp.server.common)
     implementation(libs.solr.solrj)
     implementation(libs.commons.csv)
-    // JSpecify for nullability annotations
-    implementation(libs.jspecify)
-
-    implementation(platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.11.0"))
-    implementation("io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter")
-    implementation(libs.micrometer.tracing.bridge.otel)
-
-    implementation("io.micrometer:micrometer-registry-prometheus")
 
     // Security
     implementation(libs.mcp.server.security)
     implementation(libs.spring.boot.starter.security)
     implementation(libs.spring.boot.starter.oauth2.resource.server)
+
+    // Observability: Spring Boot 4 idiomatic OpenTelemetry support
+    // spring-boot-starter-opentelemetry provides traces, metrics, and log export via OTLP
+    // spring-boot-starter-aspectj enables @Observed annotation support (replaces starter-aop in SB4)
+    implementation(libs.spring.boot.starter.opentelemetry)
+    implementation(libs.spring.boot.starter.aspectj)
+    implementation(libs.opentelemetry.logback.appender)
+    runtimeOnly(libs.micrometer.registry.otlp)
 
     // Error Prone and NullAway for null safety analysis
     errorprone(libs.errorprone.core)
@@ -176,6 +184,28 @@ dependencies {
 dependencyManagement {
     imports {
         mavenBom("org.springframework.ai:spring-ai-bom:${libs.versions.spring.ai.get()}")
+    }
+}
+
+// Force opentelemetry-proto to a version compiled with protobuf 3.x
+// This resolves NoSuchMethodError with protobuf 4.x
+// See: https://github.com/micrometer-metrics/micrometer/issues/5658
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "io.opentelemetry.proto" && requested.name == "opentelemetry-proto") {
+            useVersion("1.3.2-alpha")
+            because("Version 1.8.0-alpha has protobuf 4.x incompatibility causing NoSuchMethodError")
+        }
+        // Align the OpenTelemetry incubator API with the stable API version managed by
+        // the Spring Boot 4.1.0 BOM (opentelemetry-api:1.62.0). The logback-appender
+        // (opentelemetry-instrumentation 2.21.0-alpha) transitively pins
+        // opentelemetry-api-incubator to 1.55.0-alpha, which lacks
+        // DeclarativeConfigProperties.get(String) used by SB4's OpenTelemetrySdk
+        // autoconfiguration — causing a NoSuchMethodError at context startup.
+        if (requested.group == "io.opentelemetry" && requested.name == "opentelemetry-api-incubator") {
+            useVersion("1.62.0-alpha")
+            because("Must match Spring Boot 4.1.0-managed opentelemetry-api:1.62.0")
+        }
     }
 }
 
@@ -302,6 +332,20 @@ tasks.withType<JavaCompile>().configureEach {
 // follow-up. Production code is fully enforced.
 tasks.named<JavaCompile>("compileTestJava") {
     options.errorprone.disable("NullAway")
+}
+
+// Disable Error Prone / NullAway for AOT-generated sources. The GraalVM native
+// plugin registers compileAotJava and compileAotTestJava tasks that compile
+// Spring Boot AOT-generated bean definitions. These generated sources contain
+// patterns (e.g., args.get(0)) that NullAway flags as nullable, but they are
+// correct code produced by the Spring AOT engine and cannot be modified.
+tasks.matching { it.name == "compileAotJava" || it.name == "compileAotTestJava" }.configureEach {
+    if (this is JavaCompile) {
+        options.errorprone {
+            disableAllChecks.set(true)
+            disable("NullAway")
+        }
+    }
 }
 
 tasks.build {
@@ -449,6 +493,8 @@ jib {
             }
     }
     from {
+        // Use Eclipse Temurin JRE 25 as the base image
+        // Temurin is the open-source build of OpenJDK from Adoptium
         image = "eclipse-temurin:25-jre"
         platforms {
             platform {
@@ -462,7 +508,12 @@ jib {
         }
     }
     to {
+        // Default image name (can be overridden with -Djib.to.image=...)
+        // Format: repository/image-name:tag
         image = "solr-mcp:$version"
+
+        // Tags to apply to the image
+        // The version tag is applied by default, plus "latest" tag
         tags = setOf("latest")
     }
     container {

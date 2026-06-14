@@ -8,7 +8,7 @@ Solr MCP Server is a Spring AI Model Context Protocol (MCP) server that enables 
 
 - **Status:** Apache incubating project (v0.0.2-SNAPSHOT)
 - **Java:** 25+ (centralized in build.gradle.kts)
-- **Framework:** Spring Boot 3.5.14, Spring AI 1.1.7
+- **Framework:** Spring Boot 4.1.0, Spring AI 2.0.0
 - **License:** Apache 2.0
 
 ## Common Commands
@@ -221,6 +221,28 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
   `solr-mcp:<version>-native-http` (with corresponding `:latest-native-*` tags).
 - **CI:** Separate `native.yml` workflow; native failures do not block JVM-path merges.
 - **Spec:** [dev-docs/graalvm-native-image.md](dev-docs/graalvm-native-image.md)
+
+### Spring Boot 4 Notes
+
+This branch targets Spring Boot 4.1.0 and Spring AI 2.0.0
+([release announcement](https://spring.io/blog/2026/06/12/spring-ai-2-0-0-GA-available-now)).
+Key differences from the main (SB 3.x) branch:
+
+- **Jackson 3:** `tools.jackson.databind` replaces `com.fasterxml.jackson.databind`. Annotations
+  remain in `com.fasterxml.jackson.annotation`.
+- **MCP Annotations:** Package moved from `org.springaicommunity.mcp.annotation` to
+  `org.springframework.ai.mcp.annotation` in Spring AI 2.0.
+- **Testcontainers 2.x:** Module names changed (e.g., `testcontainers-junit-jupiter`, `testcontainers-solr`).
+- **JSpecify:** Built into Spring Boot 4 — no separate dependency needed.
+- **`spring-boot-starter-aop` removed:** Replaced by `spring-boot-starter-aspectj` for
+  `@Observed` annotation support.
+- **Observability:** Uses `spring-boot-starter-opentelemetry` (SB4 idiomatic) for traces,
+  metrics, and log export via OTLP. The old `micrometer-tracing-bridge-otel` + manual OTel BOM
+  approach from SB 3.x is no longer needed.
+- **MCP SDK:** Uses `io.modelcontextprotocol.sdk:mcp:2.0.0` with Jackson 3 module
+  (`mcp-json-jackson3`).
+- **Span naming:** `@Observed` spans use `ClassName#methodName` (PascalCase) instead of
+  SB3's `class-name#method-name` (kebab-case).
 
 ## Release LICENSE / NOTICE
 
