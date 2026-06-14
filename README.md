@@ -20,6 +20,8 @@ This Spring AI [Model Context Protocol (MCP)](https://spec.modelcontextprotocol.
 
 **Prerequisites:** Java 25+, [Docker](https://docs.docker.com/get-docker/) and Docker Compose, Git.
 
+**Compatibility:** works with Apache Solr **8.11–10** (the test suite runs against 9.9 by default — see [Solr version compatibility](dev-docs/DEVELOPMENT.md#solr-version-compatibility)).
+
 #### 1. Start Solr with sample data
 
 ```bash
@@ -125,6 +127,15 @@ Slash-command-style workflow templates that walk the assistant through a canonic
 | `design-schema` | `collection`, `datasetDescription`, `sampleDocument` (optional) | Choose field types and apply additive schema changes |
 | `index-data` | `collection`, `format` (`json` / `csv` / `xml`), `sample` (optional) | Pick the right indexing tool and confirm the result |
 | `search-collection` | `collection`, `question` | Translate a natural-language question into a Solr query |
+
+### Completions
+
+The server implements MCP argument autocompletion, so clients can suggest valid values as you type:
+
+- **Resource argument** — the `{collection}` segment of `solr://{collection}/schema` completes to live collection names.
+- **Prompt arguments** — the `collection` argument of the `search-collection`, `index-data`, `view-schema`, and `design-schema` prompts completes to live collection names.
+
+Suggestions are matched case-insensitively by prefix and capped per request.
 
 ## Configuration
 

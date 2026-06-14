@@ -184,6 +184,26 @@ This runs tests tagged with `@Tag("docker-integration")` which verify:
 - Container stability
 - Solr connectivity
 
+### Solr Version Compatibility
+
+Tests run against `solr:9.9-slim` by default. Point them at another Solr version with the `solr.test.image` system property:
+
+```bash
+./gradlew test -Dsolr.test.image=solr:8.11-slim   # Solr 8.11
+./gradlew test -Dsolr.test.image=solr:9.4-slim    # Solr 9.4
+./gradlew test -Dsolr.test.image=solr:9.9-slim    # Solr 9.9 (default)
+./gradlew test -Dsolr.test.image=solr:9.10-slim   # Solr 9.10
+./gradlew test -Dsolr.test.image=solr:10-slim     # Solr 10
+```
+
+**Tested compatible versions:** 8.11, 9.4, 9.9, 9.10, 10.
+
+**Solr 10 notes.** Solr 10 is fully supported with the JSON wire format. The `/admin/mbeans`
+endpoint was removed in Solr 10, so `getCacheMetrics()`/`getHandlerMetrics()` catch
+`RuntimeException` and return `null` — `cacheStats`/`handlerStats` from `get-collection-stats`
+are therefore always `null` on Solr 10 (a future migration to `/admin/metrics` will restore
+them). SolrJ 10.x is not yet on Maven Central, so tests run SolrJ 9.x against a Solr 10 server.
+
 ### Test with MCP Inspector
 
 The [MCP Inspector](https://github.com/modelcontextprotocol/inspector) provides a web UI for testing:
