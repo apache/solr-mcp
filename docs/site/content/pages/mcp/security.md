@@ -5,18 +5,19 @@ template: mcp/security
 
 ## Overview ##
 
-When running in HTTP mode, the Solr MCP Server supports **OAuth2 authentication** with JWT token validation. Security is **disabled by default** and must be explicitly enabled.
+When running in HTTP mode, the Solr MCP Server supports **OAuth2 authentication** with JWT token validation. Security is **enabled by default** in HTTP mode &mdash; point it at an OAuth2 issuer to use it, or disable it for local development.
 
 * **Protocol**: OAuth2 Resource Server with JWT validation
 * **Supported providers**: Auth0, Keycloak, Okta, or any OAuth2/OIDC provider
 * **STDIO mode**: Security is not applicable (OS-level process isolation)
-* **HTTP mode**: Optional, enabled with `SECURITY_ENABLED=true`
+* **HTTP mode**: **Secured by default** &mdash; set `OAUTH2_ISSUER_URI` to wire up a provider; disable for local dev only with `HTTP_SECURITY_ENABLED=false`
 
-### Enable Security ###
+### Configure Security ###
+
+HTTP mode is secured by default &mdash; you only need to point it at an OAuth2 issuer:
 
 ```bash
 export PROFILES=http
-export SECURITY_ENABLED=true
 export OAUTH2_ISSUER_URI=https://your-provider.example.com/
 ./gradlew bootRun
 ```
@@ -26,11 +27,12 @@ Or with Docker (local image &mdash; build first with `./gradlew jibDockerBuild`)
 ```bash
 docker run -p 8080:8080 --rm \
     -e PROFILES=http \
-    -e SECURITY_ENABLED=true \
     -e OAUTH2_ISSUER_URI=https://your-provider.example.com/ \
     -e SOLR_URL=http://host.docker.internal:8983/solr/ \
     solr-mcp:latest
 ```
+
+To turn authentication **off** for local development, set `HTTP_SECURITY_ENABLED=false`.
 
 ***
 
@@ -66,7 +68,6 @@ Each callback URL serves a different client:
 
 ```bash
 export PROFILES=http
-export SECURITY_ENABLED=true
 export OAUTH2_ISSUER_URI=https://your-tenant.auth0.com/
 ./gradlew bootRun
 ```
@@ -140,7 +141,6 @@ Access the admin console at `http://localhost:8180` (login: `admin` / `admin`).
 
 ```bash
 export PROFILES=http
-export SECURITY_ENABLED=true
 export OAUTH2_ISSUER_URI=http://localhost:8180/realms/solr-mcp
 ./gradlew bootRun
 ```

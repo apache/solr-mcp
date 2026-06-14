@@ -9,9 +9,9 @@ template: mcp/client
 
 ## STDIO Mode (Recommended) ##
 
-### Project Configuration (`.junie/mcp.json`) ###
+### Project Configuration (`.junie/mcp/mcp.json`) ###
 
-Create `.junie/mcp.json` in your project root:
+Create `.junie/mcp/mcp.json` in your project root:
 
 **JAR:**
 

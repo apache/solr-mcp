@@ -73,7 +73,7 @@ Start the server first (see [Running the Server](https://github.com/apache/solr-
 {
   "servers": {
     "solr-mcp": {
-      "type": "sse",
+      "type": "http",
       "url": "http://localhost:8080/mcp"
     }
   }
