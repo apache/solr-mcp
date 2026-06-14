@@ -66,7 +66,32 @@ The build produces a [CycloneDX](https://cyclonedx.org/) 1.6 Software Bill of Ma
 cat build/reports/application.cdx.json
 ```
 
-For consuming and scanning the SBOM (HTTP endpoint, GitHub Release attachment, Trivy/Grype), see the [Supply chain & SBOM](../README.md#supply-chain--sbom) section of the README.
+### Where the SBOM ships
+
+Every released JAR and Docker image carries a CycloneDX 1.6 SBOM so downstream consumers can audit and scan the dependency graph:
+
+- **Inside every JAR and image:** `META-INF/sbom/application.cdx.json` — embedded by the Spring Boot Gradle plugin at build time. The Jib JVM image (`solr-mcp:<v>`) and both Paketo native images (`solr-mcp:<v>-native-stdio`, `solr-mcp:<v>-native-http`) all package the bootJar contents, so the SBOM ships with every distribution channel.
+- **HTTP endpoint** (`http` profile only): `GET /actuator/sbom/application` returns the SBOM as `application/vnd.cyclonedx+json`.
+- **GitHub Releases:** `release-publish.yml` attaches `solr-mcp-<version>.cdx.json` to every official ASF release.
+- **CI artifacts:** every `Build and Publish` run uploads `solr-mcp-sbom` (CycloneDX JSON) to the workflow run page, retained for 30 days.
+
+### Consuming and scanning the SBOM
+
+Fetch from a running HTTP-mode server:
+
+```bash
+curl -s http://localhost:8080/actuator/sbom/application > application.cdx.json
+```
+
+Scan it for CVEs (both tools natively consume CycloneDX 1.6):
+
+```bash
+# Trivy
+trivy sbom application.cdx.json
+
+# Grype
+grype sbom:application.cdx.json
+```
 
 ## Running Locally
 

@@ -6,19 +6,19 @@ Thank you for your interest in contributing to the Solr MCP Server! This documen
 
 To avoid duplication, the environment setup, build/run/test workflows, and detailed developer guides live in the dev-docs folder:
 
-- Development Guide (build, run, test, IDE, CI): dev-docs/DEVELOPMENT.md
-- Architecture: dev-docs/ARCHITECTURE.md
-- Deployment (Docker, HTTP vs STDIO): dev-docs/DEPLOYMENT.md
-- Troubleshooting: dev-docs/TROUBLESHOOTING.md
+- [Development Guide](dev-docs/DEVELOPMENT.md) — build, run, test, IDE, CI
+- [Architecture](dev-docs/ARCHITECTURE.md) — project structure and design decisions
+- [Deployment](dev-docs/DEPLOYMENT.md) — Docker images, HTTP vs STDIO
+- [Troubleshooting](dev-docs/TROUBLESHOOTING.md) — common issues and solutions
 
-If you're ready to contribute code, see Submitting Changes below.
+If you're ready to contribute code, see [Submitting Changes](#submitting-changes) below.
 
 ## Code Style and Quality
 
 We use Spotless for code formatting and style enforcement. CI enforces `spotlessCheck` on pull requests.
 
-- Commands and details: dev-docs/DEVELOPMENT.md#common-gradle-tasks
-- Build system overview: dev-docs/DEVELOPMENT.md#build-system
+- [Commands and details](dev-docs/DEVELOPMENT.md#common-gradle-tasks)
+- [Build system overview](dev-docs/DEVELOPMENT.md#build-system)
 
 ### Coding Standards
 
@@ -36,31 +36,15 @@ Every package is `@NullMarked` via `package-info.java`. Methods, parameters, and
 
 To keep this document concise, please see the Development Guide for all testing workflows and tips:
 
-- Testing overview: dev-docs/DEVELOPMENT.md#testing
-- Unit tests: dev-docs/DEVELOPMENT.md#unit-tests
-- Integration tests: dev-docs/DEVELOPMENT.md#integration-tests
-- Docker image tests: dev-docs/DEVELOPMENT.md#docker-integration-tests
-- Coverage reports: dev-docs/DEVELOPMENT.md#testing
+- [Testing overview](dev-docs/DEVELOPMENT.md#testing)
+- [Unit tests](dev-docs/DEVELOPMENT.md#unit-tests)
+- [Integration tests](dev-docs/DEVELOPMENT.md#integration-tests)
+- [Docker image tests](dev-docs/DEVELOPMENT.md#docker-integration-tests)
+- [Coverage reports](dev-docs/DEVELOPMENT.md#testing)
 
 ## Publishing to Maven Local
 
-To install the project artifacts to your local Maven repository for testing or local development:
-
-```bash
-./gradlew publishToMavenLocal
-```
-
-This publishes the following artifacts to `~/.m2/repository/org/apache/solr/solr-mcp/{version}/`:
-
-- `solr-mcp-{version}.jar` - Main application JAR
-- `solr-mcp-{version}-sources.jar` - Source code for IDE navigation
-- `solr-mcp-{version}-javadoc.jar` - API documentation
-- `solr-mcp-{version}.pom` - Maven POM with dependencies
-
-This is useful when:
-- Testing the library locally before publishing to a remote repository
-- Sharing artifacts between local projects during development
-- Verifying the published POM and artifact structure
+To install the project artifacts (JAR, sources, javadoc, POM) to your local Maven repository for testing or local development, run `./gradlew publishToMavenLocal`. See [Publishing to Maven Local](dev-docs/DEVELOPMENT.md#publishing-to-maven-local) for the full artifact list and when it's useful.
 
 ## Submitting Changes
 
@@ -135,11 +119,11 @@ test: add integration tests for collection service
 
 For implementation details and examples, see the Development Guide:
 
-- Adding new MCP tools: dev-docs/DEVELOPMENT.md#adding-a-new-mcp-tool
-- Adding a new document format: dev-docs/DEVELOPMENT.md#adding-a-new-document-format
-- Project structure and architecture: dev-docs/ARCHITECTURE.md
-- Dependencies and version catalogs: dev-docs/DEVELOPMENT.md#build-system
-- Documentation practices: dev-docs/DEVELOPMENT.md#modifying-configuration
+- [Adding new MCP tools](dev-docs/DEVELOPMENT.md#adding-a-new-mcp-tool)
+- [Adding a new document format](dev-docs/DEVELOPMENT.md#adding-a-new-document-format)
+- [Project structure and architecture](dev-docs/ARCHITECTURE.md)
+- [Dependencies and version catalogs](dev-docs/DEVELOPMENT.md#build-system)
+- [Documentation practices](dev-docs/DEVELOPMENT.md#modifying-configuration)
 
 ## Security Setup (HTTP Mode)
 
