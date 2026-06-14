@@ -80,6 +80,8 @@ Add to your project root:
 }
 ```
 
+**Linux users**: add `"--add-host=host.docker.internal:host-gateway"` to the `args` array.
+
 ***
 
 ## HTTP Mode ##

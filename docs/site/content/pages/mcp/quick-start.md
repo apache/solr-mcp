@@ -7,6 +7,7 @@ template: mcp/quick-start
 
 * Java 25+ ([Eclipse Temurin](https://adoptium.net/) recommended)
 * [Docker](https://docs.docker.com/get-docker/) and Docker Compose
+* Apache Solr **8.11–10** (the bundled sample stack runs Solr 9; the server is tested against 8.11, 9.4, 9.9, 9.10, and 10)
 * An MCP client &mdash; this guide uses [Claude Desktop](https://claude.ai/download), but any MCP-compatible client works. See [Adding to AI Clients](/mcp/clients/claude-desktop.html) for other options.
 
 ## Start Solr with Sample Data ##
@@ -118,6 +119,8 @@ Open Claude Desktop and try these prompts:
 * *"Show me the schema for the films collection"*
 * *"Find all sci-fi movies released after 2000 and show the genre breakdown"*
 * *"Index this JSON into the books collection: [{"id": "1", "title": "The Great Gatsby", "author": "F. Scott Fitzgerald"}]"*
+
+**Tip:** clients that support MCP completions autocomplete collection names — for the `{collection}` in the `solr://{collection}/schema` resource and for the `collection` argument of the `search-collection`, `index-data`, `view-schema`, and `design-schema` prompts.
 
 ***
 

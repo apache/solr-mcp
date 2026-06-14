@@ -42,6 +42,8 @@ Create `.cursor/mcp.json` in your project root:
 }
 ```
 
+**Linux users**: add `"--add-host=host.docker.internal:host-gateway"` to the `args` array.
+
 ### Cursor Settings UI ###
 
 1. Open **Cursor Settings** (gear icon or <kbd>Cmd+,</kbd> / <kbd>Ctrl+,</kbd>)

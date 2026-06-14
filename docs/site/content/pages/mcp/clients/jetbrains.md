@@ -42,6 +42,8 @@ Create `.junie/mcp/mcp.json` in your project root:
 }
 ```
 
+**Linux users**: add `"--add-host=host.docker.internal:host-gateway"` to the `args` array.
+
 ### IDE Settings ###
 
 1. Open **Settings** (<kbd>Cmd+,</kbd> / <kbd>Ctrl+Alt+S</kbd>)

@@ -43,6 +43,8 @@ This starts the Inspector UI at `http://localhost:6274`.
 2. In MCP Inspector, enter: `http://localhost:8080/mcp`
 3. Click **Connect**
 
+**Linux users** (Docker option): add `--add-host=host.docker.internal:host-gateway` to the `docker run` command.
+
 ***
 
 ## OAuth2 ##
