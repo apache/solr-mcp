@@ -15,6 +15,18 @@
  limitations under the License.
 -->
 
+# buildSrc — project build logic
+
+This directory holds the project's custom build logic, written in Kotlin. Today that is
+two ASF-compliance concerns:
+
+- assembling the **binary-release `LICENSE` and `NOTICE`** files bundled inside the
+  executable JAR (the end-user view of *what* these contain lives on the
+  [Licensing & Notices](https://solr.apache.org/mcp/licensing.html) docs page); and
+- enforcing **Apache license headers** on source files via Apache RAT.
+
+If you don't work with Gradle day-to-day, this README explains what each piece is and how
+they fit together.
 # buildSrc — generating the binary LICENSE & NOTICE
 
 This directory holds the build logic that assembles the **binary-release `LICENSE`
@@ -39,7 +51,10 @@ small. (Think of it as a tiny library that only this project's build uses.)
 | `src/main/kotlin/.../GenerateBinaryNotice.kt`  | A custom Gradle **task** that writes the binary `NOTICE` (our `NOTICE` + the `NOTICE` files of bundled dependencies). |
 | `src/main/kotlin/org.apache.solr.mcp.license-notice.gradle.kts` | A **convention plugin** that creates the two tasks above and wires them into the build. |
 | `src/test/kotlin/.../LicenseNoticeTasksTest.kt` | Unit tests for the two tasks. |
-| `build.gradle.kts` | Builds `buildSrc` itself (enables Kotlin + the test dependencies). |
+| `src/main/kotlin/.../RatExcludes.kt` | Pure helper that translates `.gitignore` entries into Apache RAT (Ant-style) exclude globs. |
+| `src/main/kotlin/org.apache.solr.mcp.rat.gradle.kts` | A **convention plugin** that applies Apache RAT and configures its excludes (`.gitignore`-derived + an explicit list). |
+| `src/test/kotlin/.../RatExcludesTest.kt` | Unit tests for the gitignore→glob translation. |
+| `build.gradle.kts` | Builds `buildSrc` itself (enables Kotlin + the RAT plugin + the test dependencies). |
 
 ## Gradle concepts, for Java developers
 
