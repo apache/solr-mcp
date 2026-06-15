@@ -55,6 +55,10 @@ import org.springframework.context.annotation.ImportRuntimeHints;
 @ImportRuntimeHints(SolrNativeHints.Registrar.class)
 public class SolrNativeHints {
 
+	/** Default constructor used by Spring to instantiate this configuration. */
+	public SolrNativeHints() {
+	}
+
 	/**
 	 * Package-private record types returned by {@code @McpTool} methods. Jackson
 	 * needs reflection access to serialize these as MCP tool responses in native

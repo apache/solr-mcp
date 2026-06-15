@@ -106,6 +106,10 @@ public class SolrConfig {
 	private static final int SOCKET_TIMEOUT_MS = 60000;
 	private static final String SOLR_PATH = "solr/";
 
+	/** Default constructor used by Spring to instantiate this configuration. */
+	public SolrConfig() {
+	}
+
 	/**
 	 * Creates and configures a SolrClient bean for Apache Solr communication.
 	 *

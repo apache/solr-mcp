@@ -286,6 +286,10 @@ public class CollectionService {
 	 * array of collection names.
 	 *
 	 * @return JSON string containing the list of collections
+	 * @throws SolrServerException
+	 *             if there are errors communicating with Solr
+	 * @throws IOException
+	 *             if there are I/O errors during communication
 	 */
 	@PreAuthorize("isAuthenticated()")
 	@McpResource(
@@ -341,6 +345,10 @@ public class CollectionService {
 	 * resource-template handler on {@link #completeCollection} only matches
 	 * {@code ref/resource}. Each wrapper delegates so all collection-name
 	 * completion shares one implementation and one cap.
+	 *
+	 * @param argument
+	 *            the partial value the client is completing
+	 * @return matching collection names, capped at {@link #MAX_COMPLETION_RESULTS}
 	 */
 	@PreAuthorize("isAuthenticated()")
 	@McpComplete(prompt = PromptNames.SEARCH_COLLECTION)
@@ -351,6 +359,10 @@ public class CollectionService {
 	/**
 	 * Completion for the {@code collection} argument of the {@code index-data}
 	 * prompt.
+	 *
+	 * @param argument
+	 *            the partial value the client is completing
+	 * @return matching collection names, capped at {@link #MAX_COMPLETION_RESULTS}
 	 */
 	@PreAuthorize("isAuthenticated()")
 	@McpComplete(prompt = PromptNames.INDEX_DATA)
@@ -361,6 +373,10 @@ public class CollectionService {
 	/**
 	 * Completion for the {@code collection} argument of the {@code view-schema}
 	 * prompt.
+	 *
+	 * @param argument
+	 *            the partial value the client is completing
+	 * @return matching collection names, capped at {@link #MAX_COMPLETION_RESULTS}
 	 */
 	@PreAuthorize("isAuthenticated()")
 	@McpComplete(prompt = PromptNames.VIEW_SCHEMA)
@@ -371,6 +387,10 @@ public class CollectionService {
 	/**
 	 * Completion for the {@code collection} argument of the {@code design-schema}
 	 * prompt.
+	 *
+	 * @param argument
+	 *            the partial value the client is completing
+	 * @return matching collection names, capped at {@link #MAX_COMPLETION_RESULTS}
 	 */
 	@PreAuthorize("isAuthenticated()")
 	@McpComplete(prompt = PromptNames.DESIGN_SCHEMA)
@@ -628,6 +648,10 @@ public class CollectionService {
 	 *            the collection name to retrieve cache metrics for
 	 * @return CacheStats object with all cache performance metrics, or null if
 	 *         unavailable
+	 * @throws SolrServerException
+	 *             if there are errors communicating with Solr
+	 * @throws IOException
+	 *             if there are I/O errors during communication
 	 * @see CacheStats
 	 * @see CacheInfo
 	 * @see #extractCacheStats(NamedList)
@@ -740,6 +764,10 @@ public class CollectionService {
 	 *            the collection name to retrieve handler metrics for
 	 * @return HandlerStats object with performance metrics for all handlers, or
 	 *         null if unavailable
+	 * @throws SolrServerException
+	 *             if there are errors communicating with Solr
+	 * @throws IOException
+	 *             if there are I/O errors during communication
 	 * @see HandlerStats
 	 * @see HandlerInfo
 	 * @see #fetchFlatHandlerInfo(String, String, String)
@@ -1111,6 +1139,12 @@ public class CollectionService {
 		return new CollectionCreationResult(name, true, "Collection created successfully", new Date());
 	}
 
+	/**
+	 * MCP prompt that walks the client through a read-only inventory of the
+	 * cluster: list collections and characterise each by stats and health.
+	 *
+	 * @return the prompt text instructing the model how to explore collections
+	 */
 	@PreAuthorize("isAuthenticated()")
 
 	@McpPrompt(
@@ -1142,6 +1176,19 @@ public class CollectionService {
 				""";
 	}
 
+	/**
+	 * MCP prompt that guides the client through creating a new Solr collection:
+	 * validate the name, pick configset / shards / replication factor, create the
+	 * collection, and verify it.
+	 *
+	 * @param name
+	 *            desired collection name (lowercase letters, digits, underscores,
+	 *            hyphens — no spaces)
+	 * @param purpose
+	 *            optional one-line description of what the collection is for; may
+	 *            be {@code null} or blank
+	 * @return the prompt text instructing the model how to set up the collection
+	 */
 	@PreAuthorize("isAuthenticated()")
 
 	@McpPrompt(
