@@ -27,6 +27,12 @@ import java.util.List;
  * Failures throw and never produce this result, so no {@code success} flag is
  * needed. {@code addedNames} echoes the {@code name} field from each input
  * definition in input order so the caller can confirm what landed.
+ *
+ * @param collection
+ *            the collection whose schema was updated
+ * @param addedNames
+ *            the names of the field or field-type definitions added, in input
+ *            order
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
