@@ -16,13 +16,14 @@
  */
 package org.apache.solr.mcp.server.config;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
@@ -31,6 +32,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.json.JsonTest;
+import org.springframework.util.ReflectionUtils;
 
 /**
  * Unit tests for the optional HTTP Basic Authentication wiring performed by
@@ -62,10 +64,9 @@ class SolrConfigAuthTest {
 	@Test
 	void credentialsAppliedWhenBothProvided() throws Exception {
 		String header = authorizationHeaderFor("alice", "s3cret");
-		assertNotNull(header);
-		String expected = Base64.getEncoder().encodeToString("alice:s3cret".getBytes());
-		assertTrue(header.equals(expected) || header.equals("Basic " + expected),
-				"Expected Basic auth payload for alice:s3cret, got: " + header);
+		String expected = "Basic "
+				+ Base64.getEncoder().encodeToString("alice:s3cret".getBytes(StandardCharsets.UTF_8));
+		assertEquals(expected, header);
 	}
 
 	private @org.jspecify.annotations.Nullable String authorizationHeaderFor(
@@ -76,21 +77,10 @@ class SolrConfigAuthTest {
 		SolrConfig config = new SolrConfig();
 		try (SolrClient client = config.solrClient(properties, new JsonResponseParser(objectMapper))) {
 			HttpJdkSolrClient httpClient = assertInstanceOf(HttpJdkSolrClient.class, client);
-			Field field = findField(httpClient.getClass(), "basicAuthAuthorizationStr");
-			field.setAccessible(true);
-			return (String) field.get(httpClient);
+			Field field = ReflectionUtils.findField(httpClient.getClass(), "basicAuthAuthorizationStr");
+			assertNotNull(field, "SolrJ field 'basicAuthAuthorizationStr' not found");
+			ReflectionUtils.makeAccessible(field);
+			return (String) ReflectionUtils.getField(field, httpClient);
 		}
-	}
-
-	private static Field findField(Class<?> type, String name) throws NoSuchFieldException {
-		Class<?> current = type;
-		while (current != null) {
-			try {
-				return current.getDeclaredField(name);
-			} catch (NoSuchFieldException ignored) {
-				current = current.getSuperclass();
-			}
-		}
-		throw new NoSuchFieldException(name);
 	}
 }

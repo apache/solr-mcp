@@ -24,6 +24,7 @@ import org.apache.solr.client.solrj.request.XMLRequestWriter;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.util.StringUtils;
 
 /**
  * Spring Configuration class for Apache Solr client setup and connection
@@ -208,7 +209,7 @@ public class SolrConfig {
 		// are provided so existing unauthenticated deployments are unaffected.
 		String username = properties.username();
 		String password = properties.password();
-		if (username != null && !username.isEmpty() && password != null) {
+		if (StringUtils.hasText(username) && password != null) {
 			builder.withBasicAuthCredentials(username, password);
 		}
 
