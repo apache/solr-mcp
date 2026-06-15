@@ -374,48 +374,50 @@ jobs:
                     announce-path-suffix: "solr/mcp/${{ inputs.release_version }}"
 
             -   name: Create GitHub Release
-                uses: softprops/action-gh-release@v1
-                with:
-                    tag_name: v${{ inputs.release_version }}
-                    name: Apache Solr MCP ${{ inputs.release_version }}
-                    draft: false
-                    prerelease: false
-                    body: |
-                        ## Apache Solr MCP ${{ inputs.release_version }}
-                        
-                        This release was approved through the Apache voting process.
-                        
-                        ### Installation
-                        
-                        **Docker:**
-                        ```bash
-                        docker pull apache/solr-mcp:${{ inputs.release_version }}
-                        ```
-                        
-                        **JAR:**
-                        Download from [Apache Mirrors](https://www.apache.org/dyn/closer.lua/solr/mcp/${{ inputs.release_version }}/)
-                        
-                        ### Verification
-                        
-                        All release artifacts are signed. Verify using:
-                        ```bash
-                        gpg --verify solr-mcp-${{ inputs.release_version }}.jar.asc
-                        sha512sum -c solr-mcp-${{ inputs.release_version }}.jar.sha512
-                        ```
-                        
-                        ### Release Notes
-                        See [CHANGES.txt](https://github.com/apache/solr-mcp/blob/v${{ inputs.release_version }}/CHANGES.txt)
+                env:
+                    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                    RELEASE_VERSION: ${{ inputs.release_version }}
+                run: |
+                    cat > "${RUNNER_TEMP}/release-notes.md" <<'NOTES'
+                    ## Apache Solr MCP ${{ inputs.release_version }}
+
+                    This release was approved through the Apache voting process.
+
+                    ### Installation
+
+                    **Docker:**
+                    ```bash
+                    docker pull apache/solr-mcp:${{ inputs.release_version }}
+                    ```
+
+                    **JAR:**
+                    Download from [Apache Mirrors](https://www.apache.org/dyn/closer.lua/solr/mcp/${{ inputs.release_version }}/)
+
+                    ### Verification
+
+                    All release artifacts are signed. Verify using:
+                    ```bash
+                    gpg --verify solr-mcp-${{ inputs.release_version }}.jar.asc
+                    sha512sum -c solr-mcp-${{ inputs.release_version }}.jar.sha512
+                    ```
+
+                    ### Release Notes
+                    See [CHANGES.txt](https://github.com/apache/solr-mcp/blob/v${{ inputs.release_version }}/CHANGES.txt)
+                    NOTES
+                    gh release create "v${RELEASE_VERSION}" \
+                        --title "Apache Solr MCP ${RELEASE_VERSION}" \
+                        --notes-file "${RUNNER_TEMP}/release-notes.md"
 
             -   name: Trigger Docker publishing workflow
-                uses: peter-evans/repository-dispatch@v2
-                with:
-                    token: ${{ secrets.GITHUB_TOKEN }}
-                    event-type: release-approved
-                    client-payload: |
-                        {
-                          "release_version": "${{ inputs.release_version }}",
-                          "release_candidate": "${{ inputs.release_candidate }}"
-                        }
+                env:
+                    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                    RELEASE_VERSION: ${{ inputs.release_version }}
+                    RELEASE_CANDIDATE: ${{ inputs.release_candidate }}
+                    REPO: ${{ github.repository }}
+                run: |
+                    printf '{"event_type":"release-approved","client_payload":{"release_version":"%s","release_candidate":"%s"}}' \
+                        "$RELEASE_VERSION" "$RELEASE_CANDIDATE" \
+                        | gh api "repos/${REPO}/dispatches" --input -
 
             -   name: Final summary
                 run: |
