@@ -288,7 +288,7 @@ public class SchemaService {
 	 *            field definitions in the Solr Schema API {@code add-field} shape
 	 * @return summary listing the collection and the names of the fields added
 	 * @throws SolrServerException
-	 *             if there are if there are errors communicating with Solr
+	 *             if there are errors communicating with Solr
 	 * @throws IOException
 	 *             if there are I/O errors during communication
 	 */
