@@ -27,6 +27,13 @@ two ASF-compliance concerns:
 
 If you don't work with Gradle day-to-day, this README explains what each piece is and how
 they fit together.
+# buildSrc — generating the binary LICENSE & NOTICE
+
+This directory holds the build logic that assembles the **binary-release `LICENSE`
+and `NOTICE`** files (the ones bundled inside the executable JAR). It is written in
+Kotlin. If you don't work with Gradle day-to-day, this README explains what each piece
+is and how they fit together; the end-user view of *what* these files contain lives on
+the [Licensing & Notices](https://solr.apache.org/mcp/licensing.html) docs page.
 
 ## What is `buildSrc`?
 

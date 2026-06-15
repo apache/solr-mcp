@@ -37,6 +37,62 @@ The build produces an executable JAR in `build/libs/`:
 
 - `solr-mcp-1.0.0-SNAPSHOT.jar` — Spring Boot executable (fat) JAR
 
+### Publishing to Maven Local
+
+To install the project artifacts to your local Maven repository for testing or local development:
+
+```bash
+./gradlew publishToMavenLocal
+```
+
+This publishes the following artifacts to `~/.m2/repository/org/apache/solr/solr-mcp/{version}/`:
+
+- `solr-mcp-{version}.jar` - Main application JAR
+- `solr-mcp-{version}-sources.jar` - Source code for IDE navigation
+- `solr-mcp-{version}-javadoc.jar` - API documentation
+- `solr-mcp-{version}.pom` - Maven POM with dependencies
+
+This is useful when:
+- Testing the library locally before publishing to a remote repository
+- Sharing artifacts between local projects during development
+- Verifying the published POM and artifact structure
+
+### Generating the SBOM locally
+
+The build produces a [CycloneDX](https://cyclonedx.org/) 1.6 Software Bill of Materials. The Spring Boot Gradle plugin also embeds it in the bootJar (and therefore every Docker image) at `META-INF/sbom/application.cdx.json`. To generate it from source without running the server:
+
+```bash
+./gradlew cyclonedxBom
+cat build/reports/application.cdx.json
+```
+
+### Where the SBOM ships
+
+Every released JAR and Docker image carries a CycloneDX 1.6 SBOM so downstream consumers can audit and scan the dependency graph:
+
+- **Inside every JAR and image:** `META-INF/sbom/application.cdx.json` — embedded by the Spring Boot Gradle plugin at build time. The Jib JVM image (`solr-mcp:<v>`) and both Paketo native images (`solr-mcp:<v>-native-stdio`, `solr-mcp:<v>-native-http`) all package the bootJar contents, so the SBOM ships with every distribution channel.
+- **HTTP endpoint** (`http` profile only): `GET /actuator/sbom/application` returns the SBOM as `application/vnd.cyclonedx+json`.
+- **GitHub Releases:** `release-publish.yml` attaches `solr-mcp-<version>.cdx.json` to every official ASF release.
+- **CI artifacts:** every `Build and Publish` run uploads `solr-mcp-sbom` (CycloneDX JSON) to the workflow run page, retained for 30 days.
+
+### Consuming and scanning the SBOM
+
+Fetch from a running HTTP-mode server:
+
+```bash
+curl -s http://localhost:8080/actuator/sbom/application > application.cdx.json
+```
+
+Scan it for CVEs (both tools natively consume CycloneDX 1.6):
+
+```bash
+# Trivy
+trivy sbom application.cdx.json
+
+# Grype
+grype sbom:application.cdx.json
+```
+
 ## Running Locally
 
 ### Start Solr
@@ -128,6 +184,26 @@ This runs tests tagged with `@Tag("docker-integration")` which verify:
 - Container stability
 - Solr connectivity
 
+### Solr Version Compatibility
+
+Tests run against `solr:9.9-slim` by default. Point them at another Solr version with the `solr.test.image` system property:
+
+```bash
+./gradlew test -Dsolr.test.image=solr:8.11-slim   # Solr 8.11
+./gradlew test -Dsolr.test.image=solr:9.4-slim    # Solr 9.4
+./gradlew test -Dsolr.test.image=solr:9.9-slim    # Solr 9.9 (default)
+./gradlew test -Dsolr.test.image=solr:9.10-slim   # Solr 9.10
+./gradlew test -Dsolr.test.image=solr:10-slim     # Solr 10
+```
+
+**Tested compatible versions:** 8.11, 9.4, 9.9, 9.10, 10.
+
+**Solr 10 notes.** Solr 10 is fully supported with the JSON wire format. The `/admin/mbeans`
+endpoint was removed in Solr 10, so `getCacheMetrics()`/`getHandlerMetrics()` catch
+`RuntimeException` and return `null` — `cacheStats`/`handlerStats` from `get-collection-stats`
+are therefore always `null` on Solr 10 (a future migration to `/admin/metrics` will restore
+them). SolrJ 10.x is not yet on Maven Central, so tests run SolrJ 9.x against a Solr 10 server.
+
 ### Test with MCP Inspector
 
 The [MCP Inspector](https://github.com/modelcontextprotocol/inspector) provides a web UI for testing:
@@ -141,6 +217,43 @@ npx @modelcontextprotocol/inspector
 ```
 
 Then open the browser URL provided (typically http://localhost:6274) and connect to http://localhost:8080/mcp
+
+### Distributed Tracing Tests
+
+`DistributedTracingTest` verifies that spans are produced for `@Observed` methods (e.g.
+`SearchService#search`) without requiring any external tracing infrastructure.
+
+```bash
+./gradlew test --tests "org.apache.solr.mcp.server.observability.DistributedTracingTest"
+```
+
+**How it works.** Spring Boot 3.5's observability stack is
+`@Observed annotation → Micrometer Observation API → Micrometer Tracing → tracer`. The test
+swaps in a `SimpleTracer` (from `micrometer-tracing-test`) as a `@Primary` bean via
+`OpenTelemetryTestConfiguration`, so spans are captured in-memory. Spans are retrieved with
+`tracer.getSpans()` (returns `Deque<SimpleSpan>`) and named in kebab-case as
+`class-name#method-name` (e.g. `search-service#search`). Test properties disable OTLP export,
+force `management.tracing.sampling.probability=1.0`, and set
+`management.observations.annotations.enabled=true`.
+
+**Known issue — `OtlpExportIntegrationTest` is disabled.** The end-to-end OTLP export test
+(via `LgtmStackContainer`/`testcontainers-grafana`) fails with a Jetty
+`ClassNotFoundException` for `org.eclipse.jetty.client.transport.HttpClientTransportOverHTTP`
+under the current Jetty BOM. Core tracing is fully covered by `DistributedTracingTest`, so the
+impact is low; fixing it would mean swapping the HTTP client (Apache HttpClient/OkHttp) or
+upgrading `testcontainers-grafana`.
+
+**Spring Boot 3.5 vs 4 differences** (relevant if/when we upgrade — SB4 drops the Micrometer
+bridge for direct OpenTelemetry):
+
+| Aspect | Spring Boot 3.5 | Spring Boot 4 |
+|--------|-----------------|---------------|
+| Tracing API | Micrometer Observation → Micrometer Tracing → OpenTelemetry | Direct OpenTelemetry integration |
+| Test approach | `SimpleTracer` (`micrometer-tracing-test`) | `InMemorySpanExporter` (`opentelemetry-sdk-testing`) |
+| Span retrieval | `tracer.getSpans()` | `spanExporter.getFinishedSpanItems()` |
+| Span type | `SimpleSpan` (Micrometer) | `SpanData` (OpenTelemetry) |
+| Bridge dependency | `micrometer-tracing-bridge-otel` required | not required |
+| AspectJ starter | `spring-boot-starter-aop` | `spring-boot-starter-aspectj` |
 
 ## Code Quality
 
@@ -205,6 +318,69 @@ Override if needed:
 export DOCKER_EXECUTABLE=/custom/path/to/docker
 ./gradlew jibDockerBuild
 ```
+
+### Native Image (GraalVM)
+
+Native compilation is opt-in behind the `-Pnative` Gradle property. It trades a
+slower, RAM-hungry build for sub-second startup, much lower RSS, and a smaller,
+JRE-free image — most valuable for the local STDIO use case where Claude Desktop
+launches a fresh container per session. See the [Image × Mode matrix](../AGENTS.md)
+for which image serves which transport.
+
+**Prerequisites.** `nativeCompile`/`nativeTest` need a GraalVM JDK on `PATH` or
+`JAVA_HOME` (the plugin does not auto-provision a toolchain). Install locally via
+SDKMAN:
+
+```bash
+sdk install java 25.0.2-graalce
+```
+
+or download from <https://www.graalvm.org>. CI provisions it with
+`graalvm/setup-graalvm`.
+
+**Build and test.**
+
+```bash
+# Compile a host-OS native binary
+./gradlew nativeCompile -Pnative
+
+# Run the test suite as a native image (slow — not part of ./gradlew build)
+./gradlew nativeTest -Pnative
+
+# Build a native Docker image via Paketo buildpacks (compiles inside a Linux
+# builder container, so it works on any host OS — no cross-compilation)
+./gradlew bootBuildImage -Pnative                    # stdio binary
+./gradlew bootBuildImage -Pnative -Pprofile=http     # http binary
+```
+
+`nativeTest` is intentionally excluded from `./gradlew build` (an image compile
+per run is slow); it runs in the dedicated `native.yml` CI job instead.
+
+**Adding a reflection hint.** GraalVM's closed-world analysis can't see
+reflective access, so when `nativeTest` fails with a missing-class/method or
+resource error:
+
+1. Add a targeted hint to a `RuntimeHintsRegistrar` (we centralize these in
+   `SolrNativeHints.java`, registered via `@ImportRuntimeHints`) rather than
+   scattering `@Reflective` annotations — the rules stay reviewable in one place.
+2. Only if static analysis of the failures is too noisy, fall back to the
+   tracing agent (`-agentlib:native-image-agent`); commit its output under
+   `src/main/resources/META-INF/native-image/`.
+
+**Known gotchas.**
+
+- **Memory:** `nativeCompile` commonly needs 4–8 GB RAM. Ensure local/CI runners
+  have headroom.
+- **First Paketo build is large:** `bootBuildImage` downloads a ~1 GB builder on
+  first run; CI caching mitigates this.
+- **OpenTelemetry build-time init:** the pinned OTel instrumentation BOM lacks
+  native metadata, so the build adds `--initialize-at-build-time` for four OTel
+  packages (see `SolrNativeHints`/`build.gradle.kts`). Do **not** add
+  `io.opentelemetry.instrumentation.spring` — it contains CGLIB proxies that
+  cannot be build-time initialized. Bumping the OTel BOM to 2.26.1 currently
+  fails at AOT time (`io.opentelemetry.common.ComponentLoader` not found) because
+  it outpaces the OTel SDK that Spring Boot 3.5.x manages; revisit when Spring
+  Boot aligns its managed OTel version.
 
 ## IDE Setup
 
