@@ -28,6 +28,10 @@ plugins {
     alias(libs.plugins.jib)
     alias(libs.plugins.graalvm.native) apply false
     alias(libs.plugins.cyclonedx)
+    // Generates ASF source/binary LICENSE + NOTICE (buildSrc convention plugin).
+    // Listed after spring-boot + cyclonedx so productionRuntimeClasspath and
+    // cyclonedxBom exist when it wires its tasks. See buildSrc/.
+    id("org.apache.solr.mcp.license-notice")
 }
 
 // GraalVM Native Image (Opt-In)
@@ -77,15 +81,12 @@ java {
 }
 
 // ASF release policy requires every distributed artifact to carry the project's
-// LICENSE and NOTICE files. Bundle them into META-INF of every JAR produced by
-// this build (main jar, bootJar, sources, javadoc).
+// LICENSE and NOTICE files. This is handled by the `org.apache.solr.mcp.license-notice`
+// convention plugin (buildSrc/): the source-form jars (thin jar, -sources, -javadoc)
+// get the base Apache-2.0 LICENSE/NOTICE, while the binary fat bootJar gets generated
+// files with an SBOM-derived third-party appendix. The plugin must own this wiring for
+// the bootJar — bundling the base files here too would duplicate META-INF/LICENSE.
 // See https://www.apache.org/legal/release-policy.html#licensing-documentation
-tasks.withType<Jar>().configureEach {
-    metaInf {
-        from(rootProject.file("LICENSE"))
-        from(rootProject.file("NOTICE"))
-    }
-}
 
 // Maven Publishing Configuration
 // ==============================
