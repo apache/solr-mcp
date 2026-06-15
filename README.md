@@ -453,6 +453,44 @@ docker run -p 8080:8080 --rm \
 
 See [docs/specs/graalvm-native-image.md](docs/specs/graalvm-native-image.md) for the native image design and known risks.
 
+## Supply chain & SBOM
+
+Every released JAR and Docker image ships a [CycloneDX](https://cyclonedx.org/) 1.6 Software Bill of Materials so downstream consumers can audit and scan the dependency graph.
+
+### Where the SBOM lives
+
+- **Inside every JAR and image:** `META-INF/sbom/application.cdx.json` — embedded by the Spring Boot Gradle plugin at build time. The Jib JVM image (`solr-mcp:<v>`) and both Paketo native images (`solr-mcp:<v>-native-stdio`, `solr-mcp:<v>-native-http`) all package the bootJar contents, so the SBOM ships with every distribution channel.
+- **HTTP endpoint** (`http` profile only): `GET /actuator/sbom/application` returns the same SBOM as `application/vnd.cyclonedx+json`.
+- **GitHub Releases:** the release workflow attaches `solr-mcp-<version>.cdx.json` to every official ASF release.
+- **CI artifacts:** every `Build and Publish` run uploads `solr-mcp-sbom` (CycloneDX JSON) to the workflow run page; downloadable for 30 days.
+
+### Fetch the SBOM
+
+From a running HTTP-mode server:
+
+```bash
+curl -s http://localhost:8080/actuator/sbom/application > application.cdx.json
+```
+
+From the local build (no server required):
+
+```bash
+./gradlew cyclonedxBom
+cat build/reports/application.cdx.json
+```
+
+### Scan the SBOM
+
+```bash
+# Trivy
+trivy sbom application.cdx.json
+
+# Grype
+grype sbom:application.cdx.json
+```
+
+Both tools natively consume CycloneDX 1.6 and report CVEs against the listed components.
+
 ## Documentation
 
 - [Auth0 Setup (OAuth2 configuration)](security-docs/AUTH0_SETUP.md)
