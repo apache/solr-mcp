@@ -110,7 +110,7 @@ public class Main {
 	public Main() {
 	}
 
-	static void main(String[] args) {
+	public static void main(String[] args) {
 		SpringApplication.run(Main.class, args);
 	}
 }
