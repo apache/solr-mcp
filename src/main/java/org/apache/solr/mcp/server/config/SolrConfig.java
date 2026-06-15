@@ -199,8 +199,19 @@ public class SolrConfig {
 		// additional reflection metadata in GraalVM native images.
 		// Force HTTP/1.1: the JDK HttpClient's HTTP/2 transport intermittently
 		// closes reused connections with an EOFException against Solr/Jetty.
-		return new HttpJdkSolrClient.Builder(url).withConnectionTimeout(CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+		HttpJdkSolrClient.Builder builder = new HttpJdkSolrClient.Builder(url)
+				.withConnectionTimeout(CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
 				.withIdleTimeout(SOCKET_TIMEOUT_MS, TimeUnit.MILLISECONDS).useHttp1_1(true)
-				.withResponseParser(jsonResponseParser).withRequestWriter(new XMLRequestWriter()).build();
+				.withResponseParser(jsonResponseParser).withRequestWriter(new XMLRequestWriter());
+
+		// Optional HTTP Basic Authentication: applied only when both credentials
+		// are provided so existing unauthenticated deployments are unaffected.
+		String username = properties.username();
+		String password = properties.password();
+		if (username != null && !username.isEmpty() && password != null) {
+			builder.withBasicAuthCredentials(username, password);
+		}
+
+		return builder.build();
 	}
 }
