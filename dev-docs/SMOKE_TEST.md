@@ -47,6 +47,13 @@ list-collections   → returns your collections (e.g. tmdb, statedecoded, …)
 ## Step 3 — Build & query the demo collection
 
 Run these tools in order (or ask Claude to). Schema = **Appendix A**, data = **Appendix B**.
+
+> **⚠️ Shared public Solr:** The demo URL (`quepid-solr.dev.o19s.com`) is a public instance many people test against, so `shows` may already exist from a previous run. `create-collection` is **not** idempotent — it errors with *"collection already exists: shows"* if the name is taken.
+>
+> **Recommended:** use your own collection name (e.g. `shows-<your-initials>`) and substitute it everywhere these examples say `shows`. You get a clean, isolated collection, you don't clobber anyone else's data, and the `61 of 61` / `numDocs: 61` checkpoints below stay accurate.
+>
+> **If you reuse `shows`:** skip `create-collection` (or run it and ignore the "already exists" error). Note `numDocs` may not be 61 if it already holds data — for a clean slate, delete it first with the cleanup `curl` below, then create. Running `list-collections` (Step 2) first tells you whether `shows` is already there.
+
 ```text
 create-collection      { "name": "shows" }
 add-fields             { "collection": "shows", "fields": [ …Appendix A… ] }
