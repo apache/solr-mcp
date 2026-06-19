@@ -503,11 +503,13 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("boot
 // `nativeTest` tasks and triggers Spring Boot's bootBuildImage to use the
 // Paketo native-image buildpack.
 //
-// AOT runs with the stdio profile only. The http profile sets
-// spring.main.web-application-type=servlet, which Spring AOT bakes in at
-// build time — activating both profiles produces a binary that always starts
-// Tomcat regardless of runtime PROFILES, breaking STDIO. The native image is
-// therefore STDIO-only.
+// AOT runs with a single pinned profile ($nativeProfile, default stdio). The
+// http profile sets spring.main.web-application-type=servlet, which Spring AOT
+// bakes in at build time — activating both profiles produces a binary that
+// always starts Tomcat regardless of runtime PROFILES, breaking STDIO. There is
+// no way to defer the choice to runtime in a native image, so each binary is
+// pinned to one transport and we build one native image per profile
+// (solr-mcp:<v>-native-stdio and solr-mcp:<v>-native-http).
 if (nativeBuild) {
     extensions.configure<org.graalvm.buildtools.gradle.dsl.GraalVMExtension>("graalvmNative") {
         binaries {

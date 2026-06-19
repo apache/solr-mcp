@@ -129,8 +129,6 @@ actuator serves it at `/actuator/sbom/application` in the `http` profile
 Paketo native images package the bootJar contents, so every distribution
 artifact ships the SBOM without per-image wiring.
 
-Spec: [docs/superpowers/specs/2026-06-05-sbom-generation-design.md](docs/superpowers/specs/2026-06-05-sbom-generation-design.md)
-
 ### Logging Architecture
 
 The STDIO transport uses stdout for JSON-RPC messages, so any stray stdout output
@@ -222,7 +220,7 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
   Paketo native = `solr-mcp:<version>-native-stdio` /
   `solr-mcp:<version>-native-http` (with corresponding `:latest-native-*` tags).
 - **CI:** Separate `native.yml` workflow; native failures do not block JVM-path merges.
-- **Spec:** [docs/specs/graalvm-native-image.md](docs/specs/graalvm-native-image.md)
+- **Spec:** [dev-docs/graalvm-native-image.md](dev-docs/graalvm-native-image.md)
 
 ## Release LICENSE / NOTICE
 

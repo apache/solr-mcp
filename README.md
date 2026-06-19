@@ -158,7 +158,7 @@ Running in **HTTP mode** — OAuth2, CORS, and the `HTTP_SECURITY_ENABLED` toggl
 **Developing it**
 - [Development guide](dev-docs/DEVELOPMENT.md) — build, run, test, IDE, native image, SBOM · [Architecture](dev-docs/ARCHITECTURE.md)
 - [Deployment](dev-docs/DEPLOYMENT.md) — Docker images, the three-image matrix, registries, Kubernetes · [Troubleshooting](dev-docs/TROUBLESHOOTING.md)
-- [GraalVM native image spec](docs/specs/graalvm-native-image.md) · [Contributing](CONTRIBUTING.md)
+- [GraalVM native image spec](dev-docs/graalvm-native-image.md) · [Contributing](CONTRIBUTING.md)
 
 > **Container images:** published images are not yet available on a public registry. The Docker examples in the client guides use a **locally built** image — build it with `./gradlew jibDockerBuild` (produces `solr-mcp:latest`). See [Building Docker images](dev-docs/DEPLOYMENT.md#docker-images-with-jib).
 
