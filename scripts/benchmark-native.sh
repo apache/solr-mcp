@@ -41,6 +41,7 @@ VERSION="$(grep '^version = ' build.gradle.kts | sed 's/version = "\(.*\)"/\1/')
 JVM_IMAGE="solr-mcp:${VERSION}"
 NATIVE_IMAGE="solr-mcp:${VERSION}-native-stdio"
 RESULT_FILE="docs/specs/benchmark-results.md"
+mkdir -p "$(dirname "${RESULT_FILE}")"
 # Require this many consecutive RSS samples within 1 MB to declare startup complete
 STABLE_THRESHOLD="${STABLE_THRESHOLD:-3}"
 

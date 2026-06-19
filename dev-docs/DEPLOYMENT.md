@@ -130,7 +130,7 @@ docker run -p 8080:8080 --rm \
 }
 ```
 
-See [docs/specs/graalvm-native-image.md](../docs/specs/graalvm-native-image.md)
+See [graalvm-native-image.md](graalvm-native-image.md)
 for the native image design and known risks.
 
 ## Running Docker Containers
