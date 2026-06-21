@@ -38,7 +38,6 @@ on:
         paths:
             - 'build.gradle.kts'
             - 'gradle/libs.versions.toml'
-            - 'docs/specs/graalvm-native-image.md'
             - 'scripts/benchmark-native.sh'
             - '.github/workflows/native.yml'
             - 'src/main/java/**/*NativeHints*.java'

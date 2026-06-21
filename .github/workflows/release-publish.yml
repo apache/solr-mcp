@@ -402,12 +402,16 @@ jobs:
         run: |
           sed -i "s/version = \".*\"/version = \"${RELEASE_VERSION}\"/" build.gradle.kts
 
+      # Inline `docker login` rather than docker/login-action: that third-party
+      # action is not on the ASF GitHub Actions allow-list, which fails the whole
+      # workflow at startup. The token is piped via stdin (never on the command
+      # line or in logs) and the username is read from an env var, so no untrusted
+      # value is interpolated into the run script.
       - name: Log in to GHCR
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0 (ASF-allow-listed, no expiry)
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 
       # Refuse to overwrite an already-published version tag. Moving tags
       # (latest-*) are mutable and assembled later; per-version tags are not.
@@ -451,12 +455,16 @@ jobs:
       contents: read
       packages: write
     steps:
+      # Inline `docker login` rather than docker/login-action: that third-party
+      # action is not on the ASF GitHub Actions allow-list, which fails the whole
+      # workflow at startup. The token is piped via stdin (never on the command
+      # line or in logs) and the username is read from an env var, so no untrusted
+      # value is interpolated into the run script.
       - name: Log in to GHCR
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0 (ASF-allow-listed, no expiry)
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 
       - name: Create version manifest lists
         env:
