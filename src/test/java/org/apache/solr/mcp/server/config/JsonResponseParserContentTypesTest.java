@@ -18,10 +18,10 @@ package org.apache.solr.mcp.server.config;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Collection;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Unit tests verifying the Content-Types accepted by
@@ -39,7 +39,7 @@ class JsonResponseParserContentTypesTest {
 
 	@Test
 	void advertisesJsonAndTextPlain() {
-		JsonResponseParser parser = new JsonResponseParser(new ObjectMapper());
+		JsonResponseParser parser = new JsonResponseParser(JsonMapper.builder().build());
 
 		Collection<String> contentTypes = parser.getContentTypes();
 

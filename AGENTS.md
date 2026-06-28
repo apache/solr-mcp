@@ -120,14 +120,23 @@ Configuration files: `application-stdio.properties`, `application-http.propertie
 
 ### SBOM Architecture
 
-CycloneDX SBOM generation is wired by applying the `org.cyclonedx.bom` plugin
-(version 2.4.1, matching what Spring Initializr ships for Spring Boot 3.5.14).
-Spring Boot's `CycloneDxPluginAction` auto-configures `cyclonedxBom` and makes
-the bootJar embed the result at `META-INF/sbom/application.cdx.json`; the
-actuator serves it at `/actuator/sbom/application` in the `http` profile
-(enabled via `application-http.properties`). Both the Jib JVM image and the
-Paketo native images package the bootJar contents, so every distribution
-artifact ships the SBOM without per-image wiring.
+CycloneDX SBOM generation is wired by applying the `org.cyclonedx.bom` plugin.
+It stays pinned to **2.4.1** even on Spring Boot 4.1.0 (Spring Initializr ships
+3.x for SB4) because cyclonedx 3.x fails at *configuration* time on Gradle 9.4.1
+— a variant-mutation conflict on `:cyclonedxDirectBom`. Spring Boot's
+`CycloneDxPluginAction` only auto-configures the plugin version it recognizes
+(3.x), so with 2.4.1 unrecognized it leaves `cyclonedxBom` at plugin defaults:
+it would write `build/reports/bom.json` and scan the wrong configuration set
+(stale Jackson 2, no Spring Boot 4 modular jars). `build.gradle.kts` therefore
+configures the task explicitly — `outputName = "application.cdx"` and
+`includeConfigs = [productionRuntimeClasspath]` — so the SBOM lands at
+`build/reports/application.cdx.json` and describes exactly the shipped fat-jar
+classpath (matching `generateBinaryLicense`'s completeness gate). The bootJar
+embeds the result at `META-INF/sbom/application.cdx.json`; the actuator serves
+it at `/actuator/sbom/application` in the `http` profile (enabled via
+`application-http.properties`). Both the Jib JVM image and the Paketo native
+images package the bootJar contents, so every distribution artifact ships the
+SBOM without per-image wiring.
 
 ### Logging Architecture
 

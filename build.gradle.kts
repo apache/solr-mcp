@@ -91,6 +91,26 @@ java {
 // the bootJar — bundling the base files here too would duplicate META-INF/LICENSE.
 // See https://www.apache.org/legal/release-policy.html#licensing-documentation
 
+// CycloneDX SBOM scope and output name
+// ====================================
+// Spring Boot's `CycloneDxPluginAction` only auto-configures `cyclonedxBom` for the
+// cyclonedx plugin version it recognizes (3.x ships with Spring Boot 4.1.0). We pin
+// `org.cyclonedx.bom` to 2.4.1 because cyclonedx 3.x fails at *configuration* time on
+// Gradle 9.4.1 (a variant-mutation conflict on `:cyclonedxDirectBom`). With 2.4.1
+// unrecognized, Spring Boot does not adjust the task, so it falls back to plugin defaults:
+// it writes `build/reports/bom.json` (not `application.cdx.json`) and scans cyclonedx's
+// default configuration set rather than the shipped classpath — yielding an SBOM with the
+// wrong components (stale Jackson 2, none of the Spring Boot 4 modular jars). Configure
+// both explicitly so the SBOM lands where the license-notice plugin and the actuator
+// endpoint expect it, and describes exactly what ships:
+//   - `outputName = "application.cdx"`  -> build/reports/application.cdx.json
+//   - `includeConfigs = [productionRuntimeClasspath]` -> only the fat-jar classpath,
+//     matching `generateBinaryLicense`'s completeness gate (shippedCoordinates).
+tasks.named<org.cyclonedx.gradle.CycloneDxTask>("cyclonedxBom") {
+    setOutputName("application.cdx")
+    includeConfigs.set(listOf("productionRuntimeClasspath"))
+}
+
 // Maven Publishing Configuration
 // ==============================
 // This configuration enables publishing the project artifacts to Maven repositories.
