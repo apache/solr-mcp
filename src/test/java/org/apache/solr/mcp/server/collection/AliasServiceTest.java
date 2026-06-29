@@ -16,113 +16,159 @@
  */
 package org.apache.solr.mcp.server.collection;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Map;
+
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.response.CollectionAdminResponse;
 import org.apache.solr.common.util.NamedList;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledInNativeImage;
 
 /**
  * Unit tests for {@link AliasService}.
  */
+@DisabledInNativeImage
 class AliasServiceTest {
 
-	private SolrClient solrClient;
-	private AliasService aliasService;
+    private SolrClient solrClient;
+    private AliasService aliasService;
 
-	@BeforeEach
-	void setUp() {
-		solrClient = mock(SolrClient.class);
-		aliasService = new AliasService(solrClient);
-	}
+    @BeforeEach
+    void setUp() {
+        solrClient = mock(SolrClient.class);
+        aliasService = new AliasService(solrClient);
+    }
 
-	@Nested
-	@DisplayName("list-aliases")
-	class ListAliases {
+    @Nested
+    @DisplayName("list-aliases")
+    class ListAliases {
 
-		@Test
-		@DisplayName("returns aliases map when aliases exist")
-		void returnsAliasesWhenPresent() throws Exception {
-			// Given
-			CollectionAdminResponse response = mock(CollectionAdminResponse.class);
-			NamedList<Object> responseData = new NamedList<>();
-			responseData.add("aliases", Map.of("ORDERS", "ORDERS_V2", "PRODUCTS", "PRODUCTS_V1"));
-			when(response.getResponse()).thenReturn(responseData);
-			when(solrClient.request(any(), any(String.class))).thenReturn(responseData);
+        @Test
+        @DisplayName("returns aliases map when aliases exist")
+        void returnsAliasesWhenPresent() throws Exception {
+            // Given
+            NamedList<Object> responseData = new NamedList<>();
+            responseData.add("aliases", Map.of("ORDERS", "ORDERS_V2", "PRODUCTS", "PRODUCTS_V1"));
+            when(solrClient.request(any(), nullable(String.class))).thenReturn(responseData);
 
-			// When - direct SolrJ invocation would require more complex mocking;
-			// this test validates the service logic conceptually
-			// In a real integration test, the full SolrJ stack would be exercised
-		}
+            // When
+            Map<String, String> result = aliasService.listAliases();
 
-		@Test
-		@DisplayName("returns empty map when no aliases exist")
-		void returnsEmptyMapWhenNoAliases() {
-			// Given
-			CollectionAdminResponse response = mock(CollectionAdminResponse.class);
-			NamedList<Object> responseData = new NamedList<>();
-			responseData.add("aliases", null);
-			when(response.getResponse()).thenReturn(responseData);
-		}
-	}
+            // Then
+            assertThat(result).containsEntry("ORDERS", "ORDERS_V2").containsEntry("PRODUCTS", "PRODUCTS_V1").hasSize(2);
+        }
 
-	@Nested
-	@DisplayName("create-alias")
-	class CreateAlias {
+        @Test
+        @DisplayName("returns empty map when no aliases exist")
+        void returnsEmptyMapWhenNoAliases() throws Exception {
+            // Given
+            NamedList<Object> responseData = new NamedList<>();
+            when(solrClient.request(any(), nullable(String.class))).thenReturn(responseData);
 
-		@Test
-		@DisplayName("throws IllegalArgumentException when alias name is blank")
-		void throwsWhenAliasNameBlank() {
-			assertThatThrownBy(() -> aliasService.createAlias("", "ORDERS_V2"))
-					.isInstanceOf(IllegalArgumentException.class).hasMessage("Alias name must not be blank");
-		}
+            // When
+            Map<String, String> result = aliasService.listAliases();
 
-		@Test
-		@DisplayName("throws IllegalArgumentException when alias name is null")
-		void throwsWhenAliasNameNull() {
-			assertThatThrownBy(() -> aliasService.createAlias(null, "ORDERS_V2"))
-					.isInstanceOf(IllegalArgumentException.class).hasMessage("Alias name must not be blank");
-		}
+            // Then
+            assertThat(result).isEmpty();
+        }
+    }
 
-		@Test
-		@DisplayName("throws IllegalArgumentException when collections is blank")
-		void throwsWhenCollectionsBlank() {
-			assertThatThrownBy(() -> aliasService.createAlias("ORDERS", ""))
-					.isInstanceOf(IllegalArgumentException.class).hasMessage("Collections must not be blank");
-		}
+    @Nested
+    @DisplayName("create-alias")
+    class CreateAlias {
 
-		@Test
-		@DisplayName("throws IllegalArgumentException when collections is null")
-		void throwsWhenCollectionsNull() {
-			assertThatThrownBy(() -> aliasService.createAlias("ORDERS", null))
-					.isInstanceOf(IllegalArgumentException.class).hasMessage("Collections must not be blank");
-		}
-	}
+        @Test
+        @DisplayName("creates alias successfully")
+        void createsAliasSuccessfully() throws Exception {
+            // Given
+            NamedList<Object> responseData = new NamedList<>();
+            responseData.add("responseHeader", new NamedList<>(Map.of("status", 0)));
+            when(solrClient.request(any(), nullable(String.class))).thenReturn(responseData);
 
-	@Nested
-	@DisplayName("delete-alias")
-	class DeleteAlias {
+            // When
+            AliasResult result = aliasService.createAlias("ORDERS", "ORDERS_V2");
 
-		@Test
-		@DisplayName("throws IllegalArgumentException when alias name is blank")
-		void throwsWhenAliasNameBlank() {
-			assertThatThrownBy(() -> aliasService.deleteAlias("")).isInstanceOf(IllegalArgumentException.class)
-					.hasMessage("Alias name must not be blank");
-		}
+            // Then
+            assertThat(result.aliasName()).isEqualTo("ORDERS");
+            assertThat(result.collections()).isEqualTo("ORDERS_V2");
+            assertThat(result.success()).isTrue();
+            assertThat(result.message()).contains("successfully");
+            assertThat(result.timestamp()).isNotNull();
+        }
 
-		@Test
-		@DisplayName("throws IllegalArgumentException when alias name is null")
-		void throwsWhenAliasNameNull() {
-			assertThatThrownBy(() -> aliasService.deleteAlias(null)).isInstanceOf(IllegalArgumentException.class)
-					.hasMessage("Alias name must not be blank");
-		}
-	}
+        @Test
+        @DisplayName("throws IllegalArgumentException when alias name is blank")
+        void throwsWhenAliasNameBlank() {
+            assertThatThrownBy(() -> aliasService.createAlias("", "ORDERS_V2"))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessage("Alias name must not be blank");
+        }
+
+        @Test
+        @DisplayName("throws IllegalArgumentException when alias name is null")
+        void throwsWhenAliasNameNull() {
+            assertThatThrownBy(() -> aliasService.createAlias(null, "ORDERS_V2"))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessage("Alias name must not be blank");
+        }
+
+        @Test
+        @DisplayName("throws IllegalArgumentException when collections is blank")
+        void throwsWhenCollectionsBlank() {
+            assertThatThrownBy(() -> aliasService.createAlias("ORDERS", ""))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessage("Collections must not be blank");
+        }
+
+        @Test
+        @DisplayName("throws IllegalArgumentException when collections is null")
+        void throwsWhenCollectionsNull() {
+            assertThatThrownBy(() -> aliasService.createAlias("ORDERS", null))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessage("Collections must not be blank");
+        }
+    }
+
+    @Nested
+    @DisplayName("delete-alias")
+    class DeleteAlias {
+
+        @Test
+        @DisplayName("deletes alias successfully")
+        void deletesAliasSuccessfully() throws Exception {
+            // Given
+            NamedList<Object> responseData = new NamedList<>();
+            responseData.add("responseHeader", new NamedList<>(Map.of("status", 0)));
+            when(solrClient.request(any(), nullable(String.class))).thenReturn(responseData);
+
+            // When
+            AliasResult result = aliasService.deleteAlias("ORDERS");
+
+            // Then
+            assertThat(result.aliasName()).isEqualTo("ORDERS");
+            assertThat(result.collections()).isNull();
+            assertThat(result.success()).isTrue();
+            assertThat(result.message()).contains("deleted");
+            assertThat(result.timestamp()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("throws IllegalArgumentException when alias name is blank")
+        void throwsWhenAliasNameBlank() {
+            assertThatThrownBy(() -> aliasService.deleteAlias("")).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Alias name must not be blank");
+        }
+
+        @Test
+        @DisplayName("throws IllegalArgumentException when alias name is null")
+        void throwsWhenAliasNameNull() {
+            assertThatThrownBy(() -> aliasService.deleteAlias(null)).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Alias name must not be blank");
+        }
+    }
 }
