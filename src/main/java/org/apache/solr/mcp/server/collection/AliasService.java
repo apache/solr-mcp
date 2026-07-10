@@ -156,9 +156,11 @@ public class AliasService {
         }
 
         CollectionAdminRequest.CreateAlias request = CollectionAdminRequest.createAlias(aliasName, collections);
-        request.process(solrClient);
+        CollectionAdminResponse response = request.process(solrClient);
+        boolean success = response.getStatus() == 0;
 
-        return new AliasResult(aliasName, collections, true, "Alias created/updated successfully", new Date());
+        return new AliasResult(aliasName, collections, success,
+                success ? "Alias created/updated successfully" : "Alias creation/update failed", new Date());
     }
 
     /**
@@ -194,8 +196,10 @@ public class AliasService {
         }
 
         CollectionAdminRequest.DeleteAlias request = CollectionAdminRequest.deleteAlias(aliasName);
-        request.process(solrClient);
+        CollectionAdminResponse response = request.process(solrClient);
+        boolean success = response.getStatus() == 0;
 
-        return new AliasResult(aliasName, null, true, "Alias deleted successfully", new Date());
+        return new AliasResult(aliasName, null, success,
+                success ? "Alias deleted successfully" : "Alias deletion failed", new Date());
     }
 }

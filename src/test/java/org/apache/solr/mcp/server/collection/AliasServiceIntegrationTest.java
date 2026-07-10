@@ -50,6 +50,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class AliasServiceIntegrationTest {
 
     private static final String TEST_COLLECTION = "alias_test_collection";
+    private static final String TEST_COLLECTION_2 = "alias_test_collection_2";
     private static final String TEST_ALIAS = "alias_test_alias";
     private static final String TEST_ALIAS_2 = "alias_test_alias_2";
 
@@ -63,6 +64,8 @@ class AliasServiceIntegrationTest {
     void setupCollection() throws Exception {
         CollectionCreationResult created = collectionService.createCollection(TEST_COLLECTION, null, null, null);
         assertThat(created.success()).as("Collection creation should succeed: %s", created.message()).isTrue();
+        CollectionCreationResult created2 = collectionService.createCollection(TEST_COLLECTION_2, null, null, null);
+        assertThat(created2.success()).as("Collection 2 creation should succeed: %s", created2.message()).isTrue();
     }
 
     @Test
@@ -95,18 +98,15 @@ class AliasServiceIntegrationTest {
     @Test
     @Order(4)
     void createAlias_updatesExistingAlias() throws Exception {
-        // Create a second collection to point the alias to
-        String secondCollection = TEST_COLLECTION;
-
-        // Update alias to point to same collection (idempotent check)
-        AliasResult result = aliasService.createAlias(TEST_ALIAS, secondCollection);
+        // Update alias to point to a different collection
+        AliasResult result = aliasService.createAlias(TEST_ALIAS, TEST_COLLECTION_2);
 
         assertThat(result.success()).isTrue();
-        assertThat(result.collections()).isEqualTo(secondCollection);
+        assertThat(result.collections()).isEqualTo(TEST_COLLECTION_2);
 
-        // Verify it's still listed
+        // Verify the alias now points to the second collection
         Map<String, String> aliases = aliasService.listAliases();
-        assertThat(aliases).containsEntry(TEST_ALIAS, secondCollection);
+        assertThat(aliases).containsEntry(TEST_ALIAS, TEST_COLLECTION_2);
     }
 
     @Test
