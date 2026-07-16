@@ -108,14 +108,6 @@ import org.springframework.util.StringUtils;
 @Observed
 public class SearchService {
 
-	/** Key for the field name within a sort clause map. */
-	public static final String SORT_ITEM = "item";
-	/**
-	 * Key for the sort direction ({@code asc} / {@code desc}) within a sort clause
-	 * map.
-	 */
-	public static final String SORT_ORDER = "order";
-
 	/**
 	 * Fragments of Solr's own error text that identify a failure we can advise on.
 	 *
@@ -246,7 +238,8 @@ public class SearchService {
 	 * @param facetFields
 	 *            List of fields to facet on
 	 * @param sortClauses
-	 *            List of sort clauses for ordering results
+	 *            List of sort clauses for ordering results; each names a field and
+	 *            an optional {@code asc}/{@code desc} order (default {@code asc})
 	 * @param start
 	 *            Starting offset for pagination
 	 * @param rows
@@ -303,8 +296,9 @@ public class SearchService {
 					required = false) @Nullable List<String> filterQueries,
 			@McpToolParam(description = "Solr facet fields", required = false) @Nullable List<String> facetFields,
 			@McpToolParam(
-					description = "Solr sort parameter",
-					required = false) @Nullable List<Map<String, String>> sortClauses,
+					description = "Sort clauses applied in order. Each has 'field' (field name to sort"
+							+ " on) and 'order' ('asc' or 'desc', default 'asc')",
+					required = false) @Nullable List<SortClause> sortClauses,
 			@McpToolParam(description = "Starting offset for pagination", required = false) @Nullable Integer start,
 			@McpToolParam(description = "Number of rows to return", required = false) @Nullable Integer rows)
 			throws SolrServerException, IOException {
@@ -330,7 +324,7 @@ public class SearchService {
 
 		// sorting
 		if (!CollectionUtils.isEmpty(sortClauses)) {
-			solrQuery.setSorts(sortClauses.stream().map(SearchService::toSortClause).toList());
+			solrQuery.setSorts(sortClauses.stream().map(SortClause::toSolrSortClause).toList());
 		}
 
 		// pagination
@@ -359,35 +353,6 @@ public class SearchService {
 		final var facets = getFacets(queryResponse);
 
 		return new SearchResponse(documents.getNumFound(), documents.getStart(), documents.getMaxScore(), docs, facets);
-	}
-
-	/**
-	 * Builds a {@link SolrQuery.SortClause} from one caller-supplied map.
-	 *
-	 * <p>
-	 * Both keys are validated up front: {@code SortClause}'s constructor calls
-	 * {@code ORDER.valueOf(order)}, which throws {@link NullPointerException} on a
-	 * missing order and an opaque {@link IllegalArgumentException} on an
-	 * unrecognised one. Callers are LLMs, so the message needs to say what to send.
-	 */
-	private static SolrQuery.SortClause toSortClause(Map<String, String> sortClause) {
-		String field = sortClause.get(SORT_ITEM);
-		String order = sortClause.get(SORT_ORDER);
-		if (field == null || field.isBlank()) {
-			throw new IllegalArgumentException("Each sort clause requires a non-empty '" + SORT_ITEM + "' key");
-		}
-		if (order == null || order.isBlank()) {
-			throw new IllegalArgumentException(
-					"Sort clause for '" + field + "' requires a '" + SORT_ORDER + "' key of 'asc' or 'desc'");
-		}
-		SolrQuery.ORDER parsed;
-		try {
-			parsed = SolrQuery.ORDER.valueOf(order.toLowerCase(Locale.ROOT));
-		} catch (IllegalArgumentException e) {
-			throw new IllegalArgumentException(
-					"Unsupported sort order '" + order + "' for '" + field + "'; expected 'asc' or 'desc'", e);
-		}
-		return new SolrQuery.SortClause(field, parsed);
 	}
 
 	/**

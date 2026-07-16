@@ -228,8 +228,7 @@ class SearchServiceIntegrationTest {
 	 */
 	@Test
 	void searchWithUndefinedSortFieldReturnsGetSchemaHint() {
-		List<Map<String, String>> sort = List
-				.of(Map.of(SearchService.SORT_ITEM, "definitely_not_a_field", SearchService.SORT_ORDER, "asc"));
+		List<SortClause> sort = List.of(new SortClause("definitely_not_a_field", "asc"));
 		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
 				() -> searchService.search(COLLECTION_NAME, "*:*", null, null, sort, null, null));
 		assertTrue(e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
@@ -318,7 +317,7 @@ class SearchServiceIntegrationTest {
 
 	@Test
 	void testSortByPriceAscending() throws Exception {
-		List<Map<String, String>> sortClauses = List.of(Map.of("item", "price", "order", "asc"));
+		List<SortClause> sortClauses = List.of(new SortClause("price", "asc"));
 		SearchResponse result = searchService.search(COLLECTION_NAME, null, null, null, sortClauses, null, null);
 		assertNotNull(result);
 		List<Map<String, Object>> documents = result.documents();
@@ -336,7 +335,7 @@ class SearchServiceIntegrationTest {
 
 	@Test
 	void testSortByPriceDescending() throws Exception {
-		List<Map<String, String>> sortClauses = List.of(Map.of("item", "price", "order", "desc"));
+		List<SortClause> sortClauses = List.of(new SortClause("price", "desc"));
 		SearchResponse result = searchService.search(COLLECTION_NAME, null, null, null, sortClauses, null, null);
 		assertNotNull(result);
 		List<Map<String, Object>> documents = result.documents();
@@ -354,7 +353,7 @@ class SearchServiceIntegrationTest {
 
 	@Test
 	void testSortBySequence() throws Exception {
-		List<Map<String, String>> sortClauses = List.of(Map.of("item", "sequence_i", "order", "asc"));
+		List<SortClause> sortClauses = List.of(new SortClause("sequence_i", "asc"));
 		List<String> filterQueries = List.of("series_s:\"A Song of Ice and Fire\"");
 		SearchResponse result = searchService.search(COLLECTION_NAME, null, filterQueries, null, sortClauses, null,
 				null);
@@ -402,7 +401,7 @@ class SearchServiceIntegrationTest {
 
 	@Test
 	void testCombinedSortingAndFiltering() throws Exception {
-		List<Map<String, String>> sortClauses = List.of(Map.of("item", "price", "order", "desc"));
+		List<SortClause> sortClauses = List.of(new SortClause("price", "desc"));
 		List<String> filterQueries = List.of("genre_s:fantasy");
 		SearchResponse result = searchService.search(COLLECTION_NAME, null, filterQueries, null, sortClauses, null,
 				null);
