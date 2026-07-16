@@ -19,6 +19,9 @@ package org.apache.solr.mcp.server.indexing;
 import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
 import javax.xml.parsers.ParserConfigurationException;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -204,14 +207,16 @@ public class IndexingService {
 	@McpTool(
 			name = "index-json-documents",
 			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index documents from json String into Solr collection")
+			description = "Index documents from json String into Solr collection. Field names are"
+					+ " sanitized for Solr compatibility (lowercased, special characters replaced"
+					+ " with underscores); the response lists the field names as indexed")
 	public String indexJsonDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "JSON string containing documents to index") String json)
 			throws IOException, SolrServerException {
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
 		int successCount = indexDocuments(collection, schemalessDoc);
 		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
-				+ collection + "'";
+				+ collection + "'" + describeIndexedFields(schemalessDoc);
 	}
 
 	/**
@@ -277,14 +282,16 @@ public class IndexingService {
 	@McpTool(
 			name = "index-csv-documents",
 			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index documents from CSV string into Solr collection")
+			description = "Index documents from CSV string into Solr collection. Column names are"
+					+ " sanitized for Solr compatibility (lowercased, special characters replaced"
+					+ " with underscores); the response lists the field names as indexed")
 	public String indexCsvDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "CSV string containing documents to index") String csv)
 			throws IOException, SolrServerException {
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromCsv(csv);
 		int successCount = indexDocuments(collection, schemalessDoc);
 		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
-				+ collection + "'";
+				+ collection + "'" + describeIndexedFields(schemalessDoc);
 	}
 
 	/**
@@ -374,14 +381,16 @@ public class IndexingService {
 	@McpTool(
 			name = "index-xml-documents",
 			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index documents from XML string into Solr collection")
+			description = "Index documents from XML string into Solr collection. Element names are"
+					+ " sanitized for Solr compatibility (lowercased, special characters replaced"
+					+ " with underscores); the response lists the field names as indexed")
 	public String indexXmlDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "XML string containing documents to index") String xml)
 			throws ParserConfigurationException, SAXException, IOException, SolrServerException {
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromXml(xml);
 		int successCount = indexDocuments(collection, schemalessDoc);
 		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
-				+ collection + "'";
+				+ collection + "'" + describeIndexedFields(schemalessDoc);
 	}
 
 	/**
@@ -448,6 +457,37 @@ public class IndexingService {
 	 * @see SolrClient#add(String, java.util.Collection)
 	 * @see SolrClient#commit(String)
 	 */
+	/**
+	 * Maximum number of distinct field names listed in an indexing response before
+	 * the remainder is elided.
+	 */
+	private static final int MAX_REPORTED_FIELDS = 50;
+
+	/**
+	 * Summarizes the field names that were actually indexed. Document creators
+	 * sanitize input field names for Solr compatibility (lowercasing, replacing
+	 * special characters with underscores), so the indexed names can differ from
+	 * the input; reporting them lets MCP clients query the right fields instead of
+	 * assuming the input names survived.
+	 *
+	 * @param documents
+	 *            the documents that were submitted for indexing
+	 * @return a sentence listing the distinct indexed field names, or an empty
+	 *         string if there are none
+	 */
+	private static String describeIndexedFields(List<SolrInputDocument> documents) {
+		Set<String> fieldNames = documents.stream().flatMap(document -> document.getFieldNames().stream())
+				.collect(Collectors.toCollection(TreeSet::new));
+		if (fieldNames.isEmpty()) {
+			return "";
+		}
+		String listed = fieldNames.stream().limit(MAX_REPORTED_FIELDS).collect(Collectors.joining(", "));
+		String elided = fieldNames.size() > MAX_REPORTED_FIELDS
+				? " and " + (fieldNames.size() - MAX_REPORTED_FIELDS) + " more"
+				: "";
+		return ". Indexed field names (input names are sanitized for Solr compatibility): " + listed + elided;
+	}
+
 	public int indexDocuments(String collection, List<SolrInputDocument> documents)
 			throws SolrServerException, IOException {
 		int successCount = 0;
