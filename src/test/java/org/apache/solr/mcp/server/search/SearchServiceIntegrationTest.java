@@ -185,6 +185,13 @@ class SearchServiceIntegrationTest {
 	}
 
 	@Test
+	void searchWithUndefinedFieldReturnsRemediationHint() {
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> searchService
+				.search(COLLECTION_NAME, "definitely_not_a_field:value", null, null, null, null, null));
+		assertTrue(e.getMessage().contains("get-schema"));
+	}
+
+	@Test
 	void testSearchWithQuery() throws SolrServerException, IOException {
 		SearchResponse result = searchService.search(COLLECTION_NAME, "name:\"Game of Thrones\"", null, null, null,
 				null, null);

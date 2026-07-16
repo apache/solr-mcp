@@ -32,6 +32,7 @@ import org.apache.solr.client.solrj.response.FacetField;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
+import org.apache.solr.common.SolrException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
 
@@ -45,6 +46,41 @@ class SearchServiceTest {
 	void constructor_ShouldInitializeWithSolrClient() {
 		SearchService localService = new SearchService(mock(SolrClient.class));
 		assertNotNull(localService);
+	}
+
+	@Test
+	void search_WithUndefinedField_ShouldHintGetSchema() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
+				.thenThrow(new SolrException(SolrException.ErrorCode.BAD_REQUEST, "undefined field bogus"));
+		SearchService localService = new SearchService(mockClient);
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+				() -> localService.search("test_collection", "bogus:x", null, null, null, null, null));
+		assertTrue(e.getMessage().contains("undefined field bogus"));
+		assertTrue(e.getMessage().contains("get-schema"));
+	}
+
+	@Test
+	void search_WithQuerySyntaxError_ShouldHintLuceneSyntax() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenThrow(new SolrException(
+				SolrException.ErrorCode.BAD_REQUEST, "org.apache.solr.search.SyntaxError: Cannot parse 'name:('"));
+		SearchService localService = new SearchService(mockClient);
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+				() -> localService.search("test_collection", "name:(", null, null, null, null, null));
+		assertTrue(e.getMessage().contains("Lucene query syntax"));
+	}
+
+	@Test
+	void search_WithUnrelatedSolrError_ShouldPropagateUnchanged() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
+				.thenThrow(new SolrException(SolrException.ErrorCode.SERVER_ERROR, "internal failure"));
+		SearchService localService = new SearchService(mockClient);
+		SolrException e = assertThrows(SolrException.class,
+				() -> localService.search("test_collection", null, null, null, null, null, null));
+		assertTrue(e.getMessage().contains("internal failure"));
+		assertFalse(e.getMessage().contains("Hint:"));
 	}
 
 	@Test

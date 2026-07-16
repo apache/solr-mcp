@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -29,6 +30,7 @@ import org.apache.solr.client.solrj.response.FacetField;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
+import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.FacetParams;
 import org.apache.solr.mcp.server.util.PromptNames;
 import org.springaicommunity.mcp.annotation.McpArg;
@@ -300,7 +302,12 @@ public class SearchService {
 			solrQuery.setRows(rows);
 		}
 
-		final QueryResponse queryResponse = solrClient.query(collection, solrQuery);
+		final QueryResponse queryResponse;
+		try {
+			queryResponse = solrClient.query(collection, solrQuery);
+		} catch (SolrException e) {
+			throw withRemediationHint(e, collection);
+		}
 
 		// Add documents
 		final SolrDocumentList documents = queryResponse.getResults();
@@ -312,6 +319,37 @@ public class SearchService {
 		final var facets = getFacets(queryResponse);
 
 		return new SearchResponse(documents.getNumFound(), documents.getStart(), documents.getMaxScore(), docs, facets);
+	}
+
+	/**
+	 * Wraps common Solr query failures with a next-step hint. MCP clients receive
+	 * the exception message as the tool error, so naming the follow-up tool lets
+	 * them self-correct instead of retrying blind.
+	 *
+	 * @param e
+	 *            the Solr exception raised by the query
+	 * @param collection
+	 *            the collection that was queried
+	 * @return an exception carrying the original message plus a remediation hint,
+	 *         or the original exception when no hint applies
+	 */
+	private static RuntimeException withRemediationHint(SolrException e, String collection) {
+		String message = String.valueOf(e.getMessage());
+		String lower = message.toLowerCase(Locale.ROOT);
+		if (lower.contains("undefined field") || lower.contains("field can't be found")) {
+			return new IllegalArgumentException(message + ". Hint: call get-schema on collection '" + collection
+					+ "' to see the fields that exist; schemaless collections often store values under"
+					+ " dynamic-suffix names such as name_s or price_d.", e);
+		}
+		if (lower.contains("syntaxerror") || lower.contains("cannot parse")) {
+			return new IllegalArgumentException(message + ". Hint: the q parameter uses Lucene query syntax;"
+					+ " quote or escape special characters and check any {!...} local params.", e);
+		}
+		if (lower.contains("collection not found") || lower.contains("can not find") || lower.contains("404")) {
+			return new IllegalArgumentException(message + ". Hint: call list-collections to see available collections.",
+					e);
+		}
+		return e;
 	}
 
 	/**
