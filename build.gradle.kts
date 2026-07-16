@@ -27,6 +27,14 @@ plugins {
     alias(libs.plugins.spotless)
     alias(libs.plugins.jib)
     alias(libs.plugins.graalvm.native) apply false
+    alias(libs.plugins.cyclonedx)
+    // Generates ASF source/binary LICENSE + NOTICE (buildSrc convention plugin).
+    // Listed after spring-boot + cyclonedx so productionRuntimeClasspath and
+    // cyclonedxBom exist when it wires its tasks. See buildSrc/.
+    id("org.apache.solr.mcp.license-notice")
+    // Enforces Apache license headers via Apache RAT (buildSrc convention plugin).
+    // Wires `rat` into `check`, so `./gradlew build` audits headers. See buildSrc/.
+    id("org.apache.solr.mcp.rat")
 }
 
 // GraalVM Native Image (Opt-In)
@@ -74,6 +82,14 @@ java {
     withSourcesJar()
     withJavadocJar()
 }
+
+// ASF release policy requires every distributed artifact to carry the project's
+// LICENSE and NOTICE files. This is handled by the `org.apache.solr.mcp.license-notice`
+// convention plugin (buildSrc/): the source-form jars (thin jar, -sources, -javadoc)
+// get the base Apache-2.0 LICENSE/NOTICE, while the binary fat bootJar gets generated
+// files with an SBOM-derived third-party appendix. The plugin must own this wiring for
+// the bootJar — bundling the base files here too would duplicate META-INF/LICENSE.
+// See https://www.apache.org/legal/release-policy.html#licensing-documentation
 
 // Maven Publishing Configuration
 // ==============================
@@ -490,11 +506,13 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("boot
 // `nativeTest` tasks and triggers Spring Boot's bootBuildImage to use the
 // Paketo native-image buildpack.
 //
-// AOT runs with the stdio profile only. The http profile sets
-// spring.main.web-application-type=servlet, which Spring AOT bakes in at
-// build time — activating both profiles produces a binary that always starts
-// Tomcat regardless of runtime PROFILES, breaking STDIO. The native image is
-// therefore STDIO-only.
+// AOT runs with a single pinned profile ($nativeProfile, default stdio). The
+// http profile sets spring.main.web-application-type=servlet, which Spring AOT
+// bakes in at build time — activating both profiles produces a binary that
+// always starts Tomcat regardless of runtime PROFILES, breaking STDIO. There is
+// no way to defer the choice to runtime in a native image, so each binary is
+// pinned to one transport and we build one native image per profile
+// (solr-mcp:<v>-native-stdio and solr-mcp:<v>-native-http).
 if (nativeBuild) {
     extensions.configure<org.graalvm.buildtools.gradle.dsl.GraalVMExtension>("graalvmNative") {
         binaries {

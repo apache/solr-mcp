@@ -1,6 +1,6 @@
 # Docker Publishing Guide for Apache Solr MCP
 
-This guide documents the Docker image publishing process for Apache Solr MCP, including nightly builds, release candidates, and official releases.
+This guide documents the Docker image publishing process for Apache Solr MCP, including release candidates and official releases.
 
 ## Overview
 
@@ -8,7 +8,6 @@ The Solr MCP project publishes Docker images to multiple registries:
 
 1. **GitHub Container Registry (GHCR)**: `ghcr.io/apache/solr-mcp`
 2. **Docker Hub Official**: `apache/solr-mcp` (requires Apache PMC credentials)
-3. **Docker Hub Nightly**: `apache/solr-mcp-nightly` (for pre-release builds)
 
 ## Build System
 
@@ -29,20 +28,7 @@ Currently, this repository does not define an automated workflow for per-merge d
   - `ghcr.io/{owner}/solr-mcp:latest`
 - No ASF vote required for dev images (they are not releases and must be clearly marked as such).
 
-### 2. Nightly Builds
-
-**Workflow**: `.github/workflows/nightly-build.yml`
-
-- **Schedule**: Daily at 2 AM UTC
-- **Images Published**:
-  - `apache/solr-mcp-nightly:nightly-YYYYMMDD-SHA`
-  - `apache/solr-mcp-nightly:latest-nightly`
-- **Artifacts**:
-  - Source tarball to `https://nightlies.apache.org/solr/mcp/`
-  - GitHub pre-release with build artifacts
-- **No ASF vote required**
-
-### 3. Official Releases
+### 2. Official Releases
 
 **Workflow**: `.github/workflows/release-publish.yml`
 
@@ -63,7 +49,7 @@ Currently, this repository does not define an automated workflow for per-merge d
 - The authoritative ASF release is the signed source distribution published to the ASF distribution system (`dist.apache.org` / `downloads.apache.org` mirrors). Docker images and other binaries are considered convenience binaries and must be built from the voted source, but they are not the release of record.
 - Releases require a minimum 72-hour vote with at least three +1 binding PMC votes. Only after the vote passes may convenience binaries (e.g., Docker images) be published.
 - Release artifacts must be signed by the Release Manager using their PGP key that is present in the project `KEYS` file. Automated signing via ASF Infra may be possible but must be explicitly arranged with INFRA; manual RM signing remains the baseline.
-- Nightly and per-merge builds are allowed as non-release artifacts. They must be clearly marked as such and must not be uploaded to the ASF release distribution system.
+- Per-merge and ad-hoc development builds are allowed as non-release artifacts. They must be clearly marked as such and must not be uploaded to the ASF release distribution system.
 
 ## ASF Release Process
 
@@ -220,7 +206,6 @@ If ARM64 builds fail:
 ## Versioning Strategy
 
 - **Main branch**: `VERSION-SNAPSHOT-SHA` (e.g., `1.0.0-SNAPSHOT-a1b2c3d`)
-- **Nightly**: `nightly-YYYYMMDD-SHA` (e.g., `nightly-20240115-a1b2c3d`)
 - **Release**: Semantic versioning `MAJOR.MINOR.PATCH` (e.g., `1.0.0`)
 
 ## Release Checklist

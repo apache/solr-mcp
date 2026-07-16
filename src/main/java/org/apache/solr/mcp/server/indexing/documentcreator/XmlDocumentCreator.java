@@ -47,6 +47,10 @@ import org.xml.sax.SAXException;
 @Component
 public class XmlDocumentCreator implements SolrDocumentCreator {
 
+	/** Default constructor used by Spring to instantiate this component. */
+	public XmlDocumentCreator() {
+	}
+
 	/**
 	 * Creates a list of SolrInputDocument objects from XML content.
 	 *

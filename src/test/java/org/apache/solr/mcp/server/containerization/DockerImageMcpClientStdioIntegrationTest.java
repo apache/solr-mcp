@@ -51,8 +51,7 @@ import org.testcontainers.utility.DockerImageName;
 @Testcontainers(disabledWithoutDocker = true)
 class DockerImageMcpClientStdioIntegrationTest extends McpClientIntegrationTestBase {
 
-	private static final String DOCKER_IMAGE = BuildInfoReader.getDockerImageName()
-			+ System.getProperty("solr.mcp.docker.image.tag.suffix", "");
+	private static final String DOCKER_IMAGE = BuildInfoReader.getDockerImageName();
 
 	@Container
 	static final SolrContainer solrContainer = new SolrContainer(

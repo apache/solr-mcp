@@ -41,6 +41,10 @@ public class CsvDocumentCreator implements SolrDocumentCreator {
 
 	private static final int MAX_INPUT_SIZE_BYTES = 10 * 1024 * 1024;
 
+	/** Default constructor used by Spring to instantiate this component. */
+	public CsvDocumentCreator() {
+	}
+
 	/**
 	 * Creates a list of schema-less SolrInputDocument objects from a CSV string.
 	 *

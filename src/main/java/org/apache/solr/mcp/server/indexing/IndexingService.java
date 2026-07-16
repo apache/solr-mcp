@@ -131,6 +131,9 @@ public class IndexingService {
 	 *
 	 * @param solrClient
 	 *            the SolrJ client instance for communicating with Solr
+	 * @param indexingDocumentCreator
+	 *            the orchestrator that parses JSON, CSV, and XML input into
+	 *            {@code SolrInputDocument} batches
 	 * @see SolrClient
 	 */
 	public IndexingService(SolrClient solrClient, IndexingDocumentCreator indexingDocumentCreator) {
@@ -189,6 +192,8 @@ public class IndexingService {
 	 *            the name of the Solr collection to index documents into
 	 * @param json
 	 *            JSON string containing an array of documents to index
+	 * @return a human-readable summary reporting how many documents were
+	 *         successfully indexed
 	 * @throws IOException
 	 *             if there are critical errors in JSON parsing or Solr
 	 *             communication
@@ -261,6 +266,8 @@ public class IndexingService {
 	 * @param csv
 	 *            CSV string containing documents to index (first row must be
 	 *            headers)
+	 * @return a human-readable summary reporting how many documents were
+	 *         successfully indexed
 	 * @throws IOException
 	 *             if there are critical errors in CSV parsing or Solr communication
 	 * @throws SolrServerException
@@ -352,6 +359,8 @@ public class IndexingService {
 	 *            the name of the Solr collection to index documents into
 	 * @param xml
 	 *            XML string containing documents to index
+	 * @return a human-readable summary reporting how many documents were
+	 *         successfully indexed
 	 * @throws ParserConfigurationException
 	 *             if XML parser configuration fails
 	 * @throws SAXException
@@ -566,6 +575,20 @@ public class IndexingService {
 		};
 	}
 
+	/**
+	 * MCP prompt that guides the client through indexing documents: verify the
+	 * target schema, pick the right indexing tool for the input format, and confirm
+	 * the result.
+	 *
+	 * @param collection
+	 *            target Solr collection name
+	 * @param format
+	 *            document format; one of {@code json}, {@code csv}, or {@code xml}
+	 * @param sample
+	 *            optional small sample of the input document(s) to ground
+	 *            field-shape decisions; may be {@code null} or blank
+	 * @return the prompt text instructing the model how to index the documents
+	 */
 	@PreAuthorize("isAuthenticated()")
 
 	@McpPrompt(

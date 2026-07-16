@@ -244,10 +244,42 @@ jobs:
             -Djib.to.tags=${{ inputs.release_version }},latest
 
       - name: Generate SBOM (Software Bill of Materials)
+        # The CycloneDX plugin is wired in build.gradle.kts; bootJar already
+        # depends on cyclonedxBom transitively. Running it explicitly here
+        # ensures build/reports/application.cdx.json exists for the upload
+        # steps below even if the `Build project` step above used a cached
+        # bootJar output.
+        run: ./gradlew cyclonedxBom
+
+      - name: Upload SBOM as workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          # The release_version input is constrained by validate-release; safe to
+          # interpolate into the artifact name.
+          name: solr-mcp-sbom-${{ inputs.release_version }}
+          path: build/reports/application.cdx.json
+          retention-days: 90
+
+      - name: Attach SBOM to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Pass the release_version through env so the shell sees a quoted
+          # variable instead of an inline ${{ }} expansion (defence-in-depth
+          # against actions-injection, even though release_version is already
+          # validated by validate-release).
+          RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
-          # Generate SBOM for the release
-          # This helps with supply chain security
-          ./gradlew cyclonedxBom || echo "SBOM generation not configured"
+          # Rename to include the version so the asset is unambiguous on the release page.
+          cp build/reports/application.cdx.json "solr-mcp-${RELEASE_VERSION}.cdx.json"
+          # --clobber lets re-runs of this workflow replace a previously uploaded SBOM.
+          # If the v<version> GitHub Release does not exist yet, log and continue —
+          # the workflow artifact above is still captured.
+          if gh release view "v${RELEASE_VERSION}" >/dev/null 2>&1; then
+            gh release upload "v${RELEASE_VERSION}" "solr-mcp-${RELEASE_VERSION}.cdx.json" --clobber
+          else
+            echo "GitHub Release v${RELEASE_VERSION} does not exist yet; SBOM available as workflow artifact only."
+          fi
 
       - name: Create release announcement
         run: |
@@ -357,7 +389,7 @@ jobs:
           ref: "v${{ inputs.release_version }}-${{ inputs.release_candidate }}"
 
       - name: Set up GraalVM JDK 25
-        uses: graalvm/setup-graalvm@v1
+        uses: graalvm/setup-graalvm@329c42c5f4c343bceb505f0b28cc8499bc2bf174 # v1.5.4 (ASF-allow-listed, no expiry)
         with:
           java-version: '25'
           distribution: 'graalvm'
@@ -370,12 +402,16 @@ jobs:
         run: |
           sed -i "s/version = \".*\"/version = \"${RELEASE_VERSION}\"/" build.gradle.kts
 
+      # Inline `docker login` rather than docker/login-action: that third-party
+      # action is not on the ASF GitHub Actions allow-list, which fails the whole
+      # workflow at startup. The token is piped via stdin (never on the command
+      # line or in logs) and the username is read from an env var, so no untrusted
+      # value is interpolated into the run script.
       - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 
       # Refuse to overwrite an already-published version tag. Moving tags
       # (latest-*) are mutable and assembled later; per-version tags are not.
@@ -419,15 +455,16 @@ jobs:
       contents: read
       packages: write
     steps:
+      # Inline `docker login` rather than docker/login-action: that third-party
+      # action is not on the ASF GitHub Actions allow-list, which fails the whole
+      # workflow at startup. The token is piped via stdin (never on the command
+      # line or in logs) and the username is read from an env var, so no untrusted
+      # value is interpolated into the run script.
       - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 
       - name: Create version manifest lists
         env:

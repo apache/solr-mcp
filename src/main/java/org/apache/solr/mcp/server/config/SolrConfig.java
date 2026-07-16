@@ -24,6 +24,7 @@ import org.apache.solr.client.solrj.request.XMLRequestWriter;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.util.StringUtils;
 
 /**
  * Spring Configuration class for Apache Solr client setup and connection
@@ -105,6 +106,10 @@ public class SolrConfig {
 	private static final int CONNECTION_TIMEOUT_MS = 10000;
 	private static final int SOCKET_TIMEOUT_MS = 60000;
 	private static final String SOLR_PATH = "solr/";
+
+	/** Default constructor used by Spring to instantiate this configuration. */
+	public SolrConfig() {
+	}
 
 	/**
 	 * Creates and configures a SolrClient bean for Apache Solr communication.
@@ -195,8 +200,19 @@ public class SolrConfig {
 		// additional reflection metadata in GraalVM native images.
 		// Force HTTP/1.1: the JDK HttpClient's HTTP/2 transport intermittently
 		// closes reused connections with an EOFException against Solr/Jetty.
-		return new HttpJdkSolrClient.Builder(url).withConnectionTimeout(CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+		HttpJdkSolrClient.Builder builder = new HttpJdkSolrClient.Builder(url)
+				.withConnectionTimeout(CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
 				.withIdleTimeout(SOCKET_TIMEOUT_MS, TimeUnit.MILLISECONDS).useHttp1_1(true)
-				.withResponseParser(jsonResponseParser).withRequestWriter(new XMLRequestWriter()).build();
+				.withResponseParser(jsonResponseParser).withRequestWriter(new XMLRequestWriter());
+
+		// Optional HTTP Basic Authentication: applied only when both credentials
+		// are provided so existing unauthenticated deployments are unaffected.
+		String username = properties.username();
+		String password = properties.password();
+		if (StringUtils.hasText(username) && password != null) {
+			builder.withBasicAuthCredentials(username, password);
+		}
+
+		return builder.build();
 	}
 }
