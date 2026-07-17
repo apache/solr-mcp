@@ -114,6 +114,38 @@ public class SearchService {
 	 * map.
 	 */
 	public static final String SORT_ORDER = "order";
+
+	/**
+	 * Fragments of Solr's own error text that identify a failure we can advise on.
+	 *
+	 * <p>
+	 * These are matched rather than imported because they are produced by
+	 * <em>solr-core</em>, which is not on this server's classpath — only
+	 * {@code solr-solrj} is. Nothing couples them to Solr at compile time, so
+	 * {@code SearchServiceIntegrationTest} pins each one against a real Solr
+	 * server: if a future Solr rewords a message, that test fails rather than the
+	 * hint silently disappearing. Prefer a structured signal (see
+	 * {@link SolrException#code()} below) whenever one exists.
+	 */
+	static final String UNDEFINED_FIELD_TOKEN = "undefined field";
+	/** @see #UNDEFINED_FIELD_TOKEN */
+	static final String SORT_FIELD_NOT_FOUND_TOKEN = "field can't be found";
+	/** @see #UNDEFINED_FIELD_TOKEN */
+	static final String SYNTAX_ERROR_TOKEN = "syntaxerror";
+	/** @see #UNDEFINED_FIELD_TOKEN */
+	static final String CANNOT_PARSE_TOKEN = "cannot parse";
+
+	/**
+	 * Remediation hint naming the {@code get-schema} tool; takes the collection.
+	 */
+	static final String GET_SCHEMA_HINT_FORMAT = ". Hint: call get-schema on collection '%s' to see the fields that"
+			+ " exist; schemaless collections often store values under dynamic-suffix names such as name_s or price_d.";
+	/** Remediation hint for an unparseable {@code q}. */
+	static final String LUCENE_SYNTAX_HINT = ". Hint: the q parameter uses Lucene query syntax; quote or escape"
+			+ " special characters and check any {!...} local params.";
+	/** Remediation hint naming the {@code list-collections} tool. */
+	static final String LIST_COLLECTIONS_HINT = ". Hint: call list-collections to see available collections.";
+
 	private final SolrClient solrClient;
 
 	/**
@@ -334,20 +366,24 @@ public class SearchService {
 	 *         or the original exception when no hint applies
 	 */
 	private static RuntimeException withRemediationHint(SolrException e, String collection) {
-		String message = String.valueOf(e.getMessage());
-		String lower = message.toLowerCase(Locale.ROOT);
-		if (lower.contains("undefined field") || lower.contains("field can't be found")) {
-			return new IllegalArgumentException(message + ". Hint: call get-schema on collection '" + collection
-					+ "' to see the fields that exist; schemaless collections often store values under"
-					+ " dynamic-suffix names such as name_s or price_d.", e);
+		final String message = String.valueOf(e.getMessage());
+
+		// An unknown collection is a 404 whose body is Solr's HTML "not found" page,
+		// so SolrJ reports it as a mime-type mismatch and leaves getMetadata() null.
+		// The status code is the only signal that survives; match it rather than the
+		// message text, which mentions neither the collection nor "404".
+		if (e.code() == SolrException.ErrorCode.NOT_FOUND.code) {
+			return new IllegalArgumentException(message + LIST_COLLECTIONS_HINT, e);
 		}
-		if (lower.contains("syntaxerror") || lower.contains("cannot parse")) {
-			return new IllegalArgumentException(message + ". Hint: the q parameter uses Lucene query syntax;"
-					+ " quote or escape special characters and check any {!...} local params.", e);
+
+		// Everything below is a 400 carrying a generic SolrException, indistinguishable
+		// except by Solr's message text.
+		final String lower = message.toLowerCase(Locale.ROOT);
+		if (lower.contains(UNDEFINED_FIELD_TOKEN) || lower.contains(SORT_FIELD_NOT_FOUND_TOKEN)) {
+			return new IllegalArgumentException(message + GET_SCHEMA_HINT_FORMAT.formatted(collection), e);
 		}
-		if (lower.contains("collection not found") || lower.contains("can not find") || lower.contains("404")) {
-			return new IllegalArgumentException(message + ". Hint: call list-collections to see available collections.",
-					e);
+		if (lower.contains(SYNTAX_ERROR_TOKEN) || lower.contains(CANNOT_PARSE_TOKEN)) {
+			return new IllegalArgumentException(message + LUCENE_SYNTAX_HINT, e);
 		}
 		return e;
 	}
