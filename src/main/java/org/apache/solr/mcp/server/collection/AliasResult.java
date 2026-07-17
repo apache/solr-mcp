@@ -17,9 +17,7 @@
 package org.apache.solr.mcp.server.collection;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-
 import java.util.Date;
-
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -29,12 +27,17 @@ import org.jspecify.annotations.Nullable;
  * Returned by {@link AliasService} methods to communicate the outcome of
  * create, update, and delete operations on Solr aliases.
  *
- * @param aliasName   the alias that was operated on
- * @param collections the target collection(s) (null for delete operations)
- * @param success     whether the operation completed successfully
- * @param message     human-readable description of the outcome
- * @param timestamp   when the operation was performed
+ * @param aliasName
+ *            the alias that was operated on
+ * @param collections
+ *            the target collection(s) (null for delete operations)
+ * @param success
+ *            whether the operation completed successfully
+ * @param message
+ *            human-readable description of the outcome
+ * @param timestamp
+ *            when the operation was performed
  */
 public record AliasResult(String aliasName, @Nullable String collections, boolean success, String message,
-                          @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") Date timestamp) {
+		@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") Date timestamp) {
 }
