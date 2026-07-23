@@ -10,6 +10,12 @@ To release Solr MCP, these are the steps:
 
 1) create the artifacts via `./gradlew clean build`
 
+1) `./gradlew build` already ran the Apache RAT license-header check (`org.apache.solr.mcp.rat`) and regenerated the binary `LICENSE`/`NOTICE` as part of `check` — confirm the build was green, then spot-check the generated files bundled in the bootJar:
+```
+unzip -p build/libs/solr-mcp-X.Y.Z.jar META-INF/LICENSE
+unzip -p build/libs/solr-mcp-X.Y.Z.jar META-INF/NOTICE
+```
+
 1) Sign them via:
 ```
 for fn in *.jar
@@ -28,20 +34,7 @@ done
 
 1) Upload all the artifacts to the previously created release in ATR.
 
-1) Test in Claude Code and Claude Desktop using the steps below, then post the same steps to the vote thread so others can test the release candidate too.
-
-_This demonstrates how to use the MCP server against a shared public Solr.  Please be kind._
-
-```
-mkdir ./test-solr-mcp
-cd ./test-solr-mcp
-wget https://release-test.apache.org/download/path/solr-mcp/1.0.0/solr-mcp-1.0.0.jar
-claude mcp add solr-mcp --transport stdio \
-  --env SOLR_URL=http://quepid-solr.dev.o19s.com:8987/solr \
-  -- java -jar $PWD/solr-mcp-1.0.0.jar
-claude mcp list        # confirm it connects   (/mcp inside a session)
-
-```
+1) Test in Claude Code or Claude Desktop using the steps in ./dev-docs/SMOKE_TEST.md.
 
 1) After the vote, create a tag with the source code in github, as `releases/solr-mcp/1.0.0`
 
