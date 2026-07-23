@@ -18,7 +18,7 @@ do
 done
 ```
 
-1) Make sha keys via:
+1) Make sha keys via (macOS; use `sha512sum` instead of `sha512` on Linux):
 ```
 for fn in *.jar
 do
@@ -26,11 +26,9 @@ do
 done
 ```
 
-1) Uplaod all the artifacts to the previously created release in ATR.
+1) Upload all the artifacts to the previously created release in ATR.
 
-1) Test in Claude Code and Claude Desktop the following steps.
-
-1) IN the vote thread we want to make it easy for folks to test.   Add the following steps:
+1) Test in Claude Code and Claude Desktop using the steps below, then post the same steps to the vote thread so others can test the release candidate too.
 
 _This demonstrates how to use the MCP server against a shared public Solr.  Please be kind._
 
@@ -45,7 +43,6 @@ claude mcp list        # confirm it connects   (/mcp inside a session)
 
 ```
 
-1) After the vote, create a tag with the source code in github, as `releases/
-solr-mcp/1.0.0`
+1) After the vote, create a tag with the source code in github, as `releases/solr-mcp/1.0.0`
 
 1) After the vote bump the version tag in `main` for 1.1 so we get -snapshot builds there.
