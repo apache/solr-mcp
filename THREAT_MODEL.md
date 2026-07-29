@@ -27,18 +27,20 @@
   / incubating.
 - **Author:** ASF Security team, via the threat-model-producer rubric.
 - **Date:** 2026-07-14.
-- **Status:** **v0 DRAFT** by the ASF Security team for the Apache Solr PMC to
-  review, correct, and own. **Not yet ratified.** This is a public artefact
-  offered as a starting point; nothing here is a maintainer position until the
-  PMC adopts it. Every claim is either *(documented)* against the repo or
-  *(inferred)* and routed to a §14 open question.
+- **Status:** **v1 — maintainer-answered.** Drafted by the ASF Security team,
+  then reviewed against the source by Aditya Parikh (Apache Solr) on
+  2026-07-16, who answered every §14 question; Eric Pugh endorsed the answers
+  on 2026-07-22. The claims below are now maintainer positions, not the
+  Security team's reading. Ratification (merge) is the PMC's call. Every claim
+  is *(documented)* against the repo or *(maintainer)* per that review; the one
+  question still under discussion is tracked in §14.
 - **Version binding:** intended to be versioned alongside the project once
   adopted; a report against version *N* is triaged against the model as it
   stood at *N*, not at HEAD.
 - **Reporting cross-reference:** findings that fall under §8 (claimed
   properties) should be reported via the ASF security process (the project
-  shares Apache Solr's disclosure channel — `security@solr.apache.org`;
-  confirm in §14). Findings that fall under §3 or §9 are closed citing this
+  shares Apache Solr's disclosure channel — `security@solr.apache.org`,
+  confirmed by the PMC). Findings that fall under §3 or §9 are closed citing this
   document.
 - **Relationship to the search engine:** This models the **MCP bridge server**,
   not Apache Solr itself. The backend Solr's own hardening posture is out of
@@ -47,10 +49,10 @@
   this document cross-references it wherever a threat lands on the Solr side of
   the boundary.
 - **Provenance legend:** *(documented)* — stated in the repo/docs, cited;
-  *(maintainer)* — stated by a maintainer through this process (none yet at
-  v0); *(inferred)* — reasoned from code/docs and routed to a §14 open
-  question.
-- **Draft confidence:** ~24 documented / 0 maintainer / 20 inferred.
+  *(maintainer)* — confirmed by a maintainer through this process (Aditya
+  Parikh, 2026-07-16); *(inferred)* — reasoned from code/docs and routed to a
+  §14 open question. No *(inferred)* claims remain.
+- **Confidence:** ~24 documented / 13 maintainer / 0 inferred.
 
 **What it is.** The Solr MCP Server is a **single-process bridge**. On one side
 it speaks MCP (JSON-RPC) to an AI client over one of two transports — **STDIO**
@@ -79,7 +81,7 @@ that client.
   supplies to each tool are shaped by an LLM acting on natural language that may
   include attacker-influenced content (indexed documents, pasted text, upstream
   prompt injection). Treat tool arguments as untrusted data, the client's
-  *identity* as operator-authorized. *(inferred — Q-clienttrust.)*
+  *identity* as operator-authorized. *(maintainer — Q-clienttrust.)*
 - **Operator/deployer** — trusted. Owns `SOLR_URL`, the backend credentials, the
   transport choice, the OAuth2 issuer config, CORS allowlist, and which Solr the
   server points at. *(documented — docs/security/stdio.md, http.md.)*
@@ -122,7 +124,7 @@ that client.
 - **The AI client and the model behind it.** Whether the LLM faithfully relays
   user intent, whether the client presents approval UX, and whether a malicious
   *client* is connected are the operator's and the client vendor's concern, not
-  the server's. *(inferred — Q-clienttrust.)*
+  the server's. *(maintainer — Q-clienttrust.)*
 - **The `docker compose` / `init-solr.sh` sample stack.** The bundled Solr,
   ZooKeeper, and Grafana LGTM containers are an unauthenticated local
   development fixture, not a supported deployment. *(documented — compose.yaml;
@@ -187,7 +189,7 @@ reaching the backend Solr directly, bypassing this server, is out of model (§3)
   telemetry when a collector is configured; and, in HTTP `bootRun`, may start
   `docker compose`-declared services in local dev. It does not spawn child
   processes for tool execution or read arbitrary files from tool input.
-  *(inferred — Q-sideeffects.)*
+  *(maintainer — Q-sideeffects.)*
 
 ## §5a Configuration variants — the security-relevant knobs
 
@@ -198,6 +200,17 @@ reaching the backend Solr directly, bypassing this server, is out of model (§3)
 | `OAUTH2_ISSUER_URI` | empty (placeholder) | With HTTP security on and no issuer, the chain still returns 401/403 on every non-permitted endpoint (locked down, no token validator). A real issuer enables JWT signature/issuer/exp/**audience** validation. | Q-httpsec |
 | `MCP_CORS_ALLOWED_ORIGINS` | MCP Inspector localhost proxy | Explicit CORS allowlist; wildcard-with-credentials is rejected by construction (`setAllowedOrigins`, not patterns). | *(documented)* |
 | `SOLR_USERNAME` / `SOLR_PASSWORD` | unset | When both set, static HTTP Basic Auth to backend Solr on every request; when unset, unauthenticated backend calls. | Q-backendcreds |
+
+**How HTTP mode enforces auth** *(maintainer — Q-transport.)*: the transport
+is streamable HTTP running in **stateless** mode
+(`spring.ai.mcp.server.protocol=stateless`), so there is no sampling, progress
+or elicitation channel and no per-request context feature. `/mcp` is
+`permitAll()` at the filter-chain level; authentication is enforced instead by
+`@PreAuthorize("isAuthenticated()")` on **every** MCP entry point — all 11
+tools, both resources, every prompt and completion handler — following the
+spring-ai-community/mcp-security "secured tools" pattern. A finding that reads
+`permitAll()` on `/mcp` as an authentication bypass without checking the
+method-level annotations is a `KNOWN-NON-FINDING` (§11a).
 
 **The insecure-default question is `PROFILES=stdio` vs `http`, and it is
 already answered by design:** STDIO's "no auth" is the *intended, spec-aligned*
@@ -216,7 +229,7 @@ trust table:
 | transport (HTTP) | `Authorization` bearer JWT | **yes** | server validates sig/iss/exp/aud (default posture) |
 | transport (HTTP) | `Origin` header | **yes** | CORS allowlist (no wildcard+credentials) |
 | transport (STDIO) | stdin JSON-RPC frame | only parent process | OS-user trust; no in-process check |
-| `search` | `collection` | **yes** | used as Solr collection/path segment — Q-collection |
+| `search` | `collection` | **yes** | used only as a path segment against the fixed `SOLR_URL` base; **cannot redirect to another host**. What a path reaches *within* that Solr is the backend's authorization call. *(maintainer — Q-collection.)* |
 | `search` | `query` (`q`), `filterQueries` (`fq`) | **yes** | passed into `SolrQuery`; Solr query-parser semantics apply — Q-queryinj |
 | `search` | `facetFields`, `sortClauses`, `start`, `rows` | **yes** | forwarded to Solr; `rows` unbounded? — Q-resource |
 | `index-*` | `collection`, `json`/`csv`/`xml` body | **yes** | parsed then written to index; XML parser is XXE-hardened *(documented)* |
@@ -224,8 +237,11 @@ trust table:
 | `add-fields` / `add-field-types` | `collection`, field/type defs | **yes** | additive schema change (existing fields cannot be modified per README) |
 | config (startup only) | `SOLR_URL`, `SOLR_USERNAME`, `SOLR_PASSWORD` | **no — deployer config** | never wire from a tool argument *(documented)* |
 
-**Shape/rate:** indexing bodies and `rows` are caller-sized; whether the server
-imposes any bound before handing them to Solr is unconfirmed. *(inferred —
+**Shape/rate:** indexing bodies and `rows` are caller-sized, and the server
+imposes **no** bound before handing them to Solr — resource limits are the
+backend Solr's. This is a settled maintainer position, not an oversight: PR
+#127 (pagination / validation bounds) was closed on the rationale that such
+hardening belongs in Solr/SolrJ rather than in this bridge. *(maintainer —
 Q-resource.)*
 
 ## §7 Adversary model
@@ -239,7 +255,7 @@ Two adversaries are in scope; several are explicitly not.
   perform an index write, a collection/schema mutation, or a query the human
   did not intend — or to smuggle instructions back to the model via tool output.
   In scope: whether the *server's* tool surface and trust decisions contain the
-  blast radius. *(inferred — Q-clienttrust.)*
+  blast radius. *(maintainer — Q-clienttrust.)*
 - **An HTTP network peer (HTTP transport only).** Anyone able to reach the
   servlet listener. Capability: send HTTP requests to `/mcp` and `/actuator/*`;
   attempt auth bypass, token confusion (wrong-audience JWT), CORS abuse, or
@@ -304,15 +320,20 @@ Two adversaries are in scope; several are explicitly not.
   anyone with write access to that Solr) can carry text that the LLM then reads
   as instructions. The server neither sanitises nor sandboxes tool output
   against this. Defending the model against injected content is the AI client's
-  and operator's responsibility. *(inferred — Q-promptinj.)*
+  and operator's responsibility. *(maintainer — Q-promptinj.)*
   - *False friend:* the static, project-authored tool **descriptions** are
     trustworthy, but the **data** those tools return is not — do not treat Solr
     result content as trusted narration.
 - **It does not add authorization on top of Solr, nor per-user identity
   passthrough.** All MCP callers share one static backend credential; the server
   makes no per-caller decision about which collections a caller may read or
-  write. Whatever the configured Solr credential can do, any authorized MCP
-  caller can do. Scoping the backend Solr's permissions is the operator's job.
+  write. The credential is read once from `SOLR_USERNAME`/`SOLR_PASSWORD` at
+  startup, applied only when both are set, and never sourced from a tool
+  argument *(maintainer — Q-backendcreds.)*. Whatever the configured Solr
+  credential can do, any authorized MCP caller can do. Scoping the backend
+  Solr's permissions is the operator's job. (Should #66 land, authorization
+  becomes finer-grained *server-side*; the backend Solr credential stays
+  shared.)
   *(documented — docs/security/stdio.md "Scope the Solr instance"; `SolrConfig`.)*
   - *False friend:* the HTTP-mode OAuth2 layer authenticates *that a caller may
     use the server* — it is **not** an authorization model over Solr collections
@@ -321,22 +342,29 @@ Two adversaries are in scope; several are explicitly not.
   arguments (`q`, `fq`) are forwarded into a `SolrQuery` with Solr query-parser
   semantics; a crafted argument can express any query the Solr parser accepts
   (local-params, function queries, join/subquery syntax, expensive queries).
-  This is by-design for a search tool, and its blast radius is bounded by the
-  backend Solr's own posture (CWE-943; see apache/solr's model). *(inferred —
-  Q-queryinj.)*
+  The server performs **no escaping** of `q`/`fq` — full query-parser
+  expressiveness is the feature, and the blast radius is bounded by the backend
+  Solr's own posture (CWE-943; see apache/solr's model). This is a settled
+  maintainer position: PRs #122 and #127, which added server-side query
+  escaping/validation, were both closed on the rationale that such hardening
+  belongs in Solr/SolrJ. *(maintainer — Q-queryinj.)*
 - **It does not restrict which collections/schemas a caller may create or
   mutate.** `create-collection`, `add-fields`, `add-field-types` are exposed to
   any authorized caller with no per-collection gate; the server cannot be
-  configured (as of v0) to present a read-only tool subset. Whether that
-  exposure is intended for all deployments is a §14 question. *(inferred —
+  configured (as of v0) to present a read-only tool subset. This is the
+  **intended v0 posture**, not an oversight — but fine-grained per-tool
+  authorization is on the roadmap as
+  [#66](https://github.com/apache/solr-mcp/issues/66) ("Have specific security
+  roles"). A report proposing a read-only tool subset or per-tool roles is
+  `VALID-HARDENING` and should be routed to #66. *(maintainer —
   Q-adminexposure.)*
 - **It makes no resource guarantee on caller-sized inputs.** `rows`, facet
   cardinality, and indexing-body size are forwarded to Solr; the server does not
-  document a cap. A pathological argument is bounded only by Solr. *(inferred —
+  document a cap. A pathological argument is bounded only by Solr. *(maintainer —
   Q-resource.)*
 - **It does not secure the backend, the transport TLS, or the OTLP export
   channel.** TLS termination in front of the HTTP listener, TLS to Solr, and the
-  telemetry sink are operator infrastructure. *(inferred — Q-otel.)*
+  telemetry sink are operator infrastructure. *(maintainer — Q-otel.)*
 - **Well-known attack classes left to the caller/operator:** prompt injection and
   tool poisoning via returned data (MCP-specific); confused-deputy /
   token-passthrough across the AI-client → server → Solr chain; SSRF *if* the
@@ -361,11 +389,11 @@ Two adversaries are in scope; several are explicitly not.
   client's job.
 - **Assume Solr result content can carry injected instructions.** If the backend
   Solr is writable by untrusted parties, the returned documents are an injection
-  vector into your model. *(inferred — Q-promptinj.)*
+  vector into your model. *(maintainer — Q-promptinj.)*
 - **Run STDIO as an unprivileged user; do not redirect stdout.** *(documented —
   docs/security/stdio.md.)*
 - **Enable TLS** for the HTTP transport and for the SolrJ connection; secure the
-  OTLP collector endpoint. *(inferred — Q-otel.)*
+  OTLP collector endpoint. *(maintainer — Q-otel.)*
 
 ## §11 Known misuse patterns
 
@@ -406,8 +434,14 @@ Two adversaries are in scope; several are explicitly not.
   *(documented.)*
 - **"Solr query injection via the `search` tool."** Expressing arbitrary Solr
   queries is the feature; the blast radius is the backend Solr's, governed by
-  apache/solr's model. Route Solr-side query-parser exposure there. *(inferred —
-  Q-queryinj.)*
+  apache/solr's model. Route Solr-side query-parser exposure there. PRs #122
+  and #127 proposed server-side escaping/validation and were closed for this
+  reason. `KNOWN-NON-FINDING`. *(maintainer — Q-queryinj.)*
+- **"`/mcp` is `permitAll()` — the MCP endpoint is unauthenticated."** Auth is
+  enforced at the method level by `@PreAuthorize("isAuthenticated()")` on every
+  tool, resource, prompt and completion handler, not at the filter chain.
+  `KNOWN-NON-FINDING` unless an entry point is found *without* the annotation —
+  that would be `VALID`. *(maintainer — Q-transport.)*
 - **Findings in the `docker compose` sample stack (unauthenticated Solr/ZooKeeper/
   Grafana).** `OUT-OF-MODEL: unsupported-component` — dev fixture, §3.
   *(documented — compose.yaml.)*
@@ -432,7 +466,7 @@ Two adversaries are in scope; several are explicitly not.
 | Disposition | Meaning | Licensed by |
 | --- | --- | --- |
 | `VALID` | A §8 property breaks via an in-scope adversary (auth bypass, wrong-audience token accepted, CORS wildcard+credentials, network listener in STDIO, tool-arg repoints backend, XXE in XML indexing, dishonest tool hint). | §8, §6, §7 |
-| `VALID-HARDENING` | No §8 break, but a §11 misuse is made too easy (e.g. admin tools exposed with no opt-out); fixed at maintainer discretion. | §11 |
+| `VALID-HARDENING` | No §8 break, but a §11 misuse is made too easy (e.g. admin tools exposed with no opt-out); fixed at maintainer discretion. Per-tool / read-only-subset proposals route to [#66](https://github.com/apache/solr-mcp/issues/66). | §11 |
 | `OUT-OF-MODEL: trusted-input` | Requires control of deployer config (`SOLR_URL`, credentials, issuer, CORS list). | §5/§6/§10 |
 | `OUT-OF-MODEL: adversary-not-in-scope` | Requires owning the client's stdin (STDIO), a maliciously-connected client, or direct backend access. | §7 |
 | `OUT-OF-MODEL: non-default-build` | Only manifests with `HTTP_SECURITY_ENABLED=false` or an otherwise discouraged toggle. | §5a |
@@ -441,69 +475,111 @@ Two adversaries are in scope; several are explicitly not.
 | `KNOWN-NON-FINDING` | Matches a §11a pattern. | §11a |
 | `MODEL-GAP` | Cannot be routed to any of the above. | triggers §12 |
 
-## §14 Open questions for the maintainers
+## §14 Maintainer answers (and the one question still open)
 
-Grouped in waves; every *(inferred)* tag above maps to one of these. Each states
-a proposed answer for the PMC to confirm or correct.
+**Answered by Aditya Parikh (Apache Solr) on 2026-07-16**, verified against the
+source, and endorsed by Eric Pugh on 2026-07-22. Every answer below is folded
+into the body above; the corresponding claims now carry *(maintainer)* tags.
 
-**Wave 1 — scope and trust posture (load-bearing).**
+**Wave 1 — scope and trust posture — ANSWERED**
 
-- **Q-clienttrust.** *Proposed:* the connected AI client's *identity* is
-  operator-trusted, but its emitted **tool arguments** are untrusted data (they
-  reflect NL that may be attacker-influenced). Defending the *model* against bad
-  content is the client/operator's job; the server's job is to keep tool
-  behaviour honest and contained. Confirm. (§2/§7.)
-- **Q-transport / Q-httpsec.** *Proposed:* STDIO (no auth, OS-user trust) and
-  HTTP-secured-by-default are both supported postures; a report against
-  `HTTP_SECURITY_ENABLED=false` on a network deployment is
-  `OUT-OF-MODEL: non-default-build`, and unauthenticated STDIO is
-  `KNOWN-NON-FINDING`. Confirm. (§5a/§8.)
-- **Q-adminexposure.** *Proposed:* exposing `create-collection`/`add-fields`/
-  `add-field-types` to any authorized caller is intended; there is no per-tool
-  or per-collection gate and no read-only mode. Is that the intended posture for
-  all deployments, or should a read-only/opt-out configuration be a
-  `VALID-HARDENING` target? (§9/§11/§12.)
+- **Q-clienttrust.** Is the client's *identity* trusted but its *tool arguments*
+  untrusted? → **Confirmed.** The client's identity is operator-authorized (the
+  operator chose to connect it), but every argument it emits is untrusted data;
+  the server validates nothing about the natural language upstream of it.
+  Model-side defenses (approval UX, content filtering) belong to the client and
+  operator. (§2/§7.)
+- **Q-transport / Q-httpsec.** Are STDIO-unauthenticated and
+  HTTP-secured-by-default both supported postures? → **Confirmed**, with both
+  dispositions as proposed: `HTTP_SECURITY_ENABLED=false` on a network
+  deployment is `OUT-OF-MODEL: non-default-build`; unauthenticated STDIO is
+  `KNOWN-NON-FINDING`. Two precision points, now in §5a: the HTTP transport runs
+  **stateless** (`spring.ai.mcp.server.protocol=stateless`), and `/mcp` is
+  `permitAll()` at the filter chain with auth enforced by
+  `@PreAuthorize("isAuthenticated()")` on every entry point. (§5a/§8/§11a.)
+- **Q-adminexposure.** Is exposing `create-collection`/`add-fields`/
+  `add-field-types` to any authorized caller the intended posture? →
+  **Confirmed as the intended v0 posture, and yes — a `VALID-HARDENING`
+  target.** No per-tool or per-collection gate today, deliberately; per-tool
+  authorization is roadmapped as
+  [#66](https://github.com/apache/solr-mcp/issues/66). Route such reports there.
+  (§9/§11/§12/§13.)
 
-**Wave 2 — data-flow and injection.**
+**Wave 2 — data-flow and injection — ANSWERED**
 
-- **Q-promptinj.** *Proposed:* prompt injection / tool poisoning via Solr result
-  content flowing back to the model is a **disclaimed** property (`BY-DESIGN`);
-  the server does not sanitise tool output. Confirm this is the intended stance
-  and the disposition for such reports. (§9/§10.)
-- **Q-queryinj.** *Proposed:* `search` faithfully forwards `q`/`fq` with Solr
-  query-parser semantics; query-parser abuse (local-params, function/join
-  queries, expensive queries) is bounded by and routed to apache/solr's model,
-  not this one. Confirm, and note any argument escaping the server does perform.
-  (§6/§9.)
-- **Q-collection.** *Proposed:* the `collection` tool argument is used only as a
-  Solr collection name/path segment against the fixed `SOLR_URL` base and cannot
-  redirect to a different host. Confirm there is no path-traversal / host-escape
-  via `collection`. (§6.)
+- **Q-promptinj.** Is prompt injection via returned Solr content a disclaimed
+  property? → **Confirmed: disclaimed, `BY-DESIGN`.** The server returns Solr
+  content verbatim and cannot meaningfully sanitise it; the defense belongs to
+  the client (approval UX, which the server supports by advertising honest
+  `readOnlyHint`/`destructiveHint` annotations) and to the operator (don't back
+  the server with a Solr writable by untrusted parties). (§9/§10.)
+- **Q-queryinj.** Does `search` forward `q`/`fq` with full Solr query-parser
+  semantics? → **Confirmed, with no escaping performed.** Full expressiveness is
+  the feature; blast radius is the backend Solr's. A documented position, not an
+  omission: PRs #122 and #127 added server-side escaping/validation and were
+  closed on the rationale that such hardening belongs in Solr/SolrJ. (§6/§9/§11a.)
+- **Q-collection.** Can `collection` traverse paths or escape to another host? →
+  **Confirmed: no host escape.** The base URL is fixed at startup from
+  `SOLR_URL`; `collection` is used only as a path segment against it. The server
+  does not validate the string further — what a given path reaches *within* that
+  Solr is the backend's authorization call, consistent with the #122/#127
+  position. (§6.)
 
-**Wave 3 — backend, resources, telemetry.**
+**Wave 3 — backend, resources, telemetry — ANSWERED**
 
-- **Q-backendcreds.** *Proposed:* a single static `SOLR_USERNAME`/`SOLR_PASSWORD`
-  (or none) is shared across all MCP callers; there is no per-caller credential
-  or identity passthrough to Solr. Confirm, and confirm credentials are only
-  ever read from environment. (§8.5/§9.)
-- **Q-resource.** *Proposed:* the server imposes no cap on `rows`, facet
-  cardinality, or indexing-body size before forwarding to Solr; resource bounds
-  are the backend Solr's. Confirm, or state any server-side limit. (§9.)
-- **Q-sideeffects / Q-otel.** *Proposed:* the server's only outbound network side
-  effects are the SolrJ connection (always), the servlet listener (HTTP only),
-  and OTLP telemetry export (when configured); securing the OTLP channel and TLS
-  is operator infra. Confirm the side-effect inventory. (§5.)
+- **Q-backendcreds.** One static shared backend credential, no identity
+  passthrough? → **Confirmed.** Read once from `SOLR_USERNAME`/`SOLR_PASSWORD`
+  at startup, applied only when both are set; no per-caller credential. (If #66
+  lands, authorization becomes finer-grained *server-side*; the backend
+  credential stays shared.) (§8.5/§9.)
+- **Q-resource.** Any server-side cap on `rows`, facet cardinality, or indexing
+  body size? → **Confirmed: none.** Bounds are the backend Solr's. Also
+  documented — PR #127 (pagination/validation bounds) was closed for the same
+  reason. (§6/§9.)
+- **Q-sideeffects / Q-otel.** Is the outbound side-effect inventory complete? →
+  **Confirmed.** SolrJ connection (always), servlet listener (HTTP mode only),
+  OTLP export (when configured). No child processes and no file reads from tool
+  input. Securing OTLP and TLS is operator infrastructure. The `docker compose`
+  autostart exists only in the http-profile `bootRun` local-dev path. (§5/§9.)
 
-**Wave 4 — meta / ownership.**
+**Wave 4 — meta / ownership — ANSWERED**
 
-- **Q-disclosure.** *Proposed:* §8 findings are reported through the ASF security
-  process on the shared Apache Solr channel (`security@solr.apache.org`). Confirm
-  the channel and whether solr-mcp reports route to the Solr PMC. (§1.)
-- **Q-ownership.** *Proposed:* this `THREAT_MODEL.md` becomes the project's
-  canonical, scanner-facing security model, cross-referencing apache/solr's model
-  for backend concerns and the `docs/security/` pages for operator guidance.
-  Confirm the coexistence (this = "for scanners", `docs/security/*.md` = "for
-  operators"). (§1/§15.)
+- **Q-disclosure.** Which channel do §8 findings go to? →
+  **`security@solr.apache.org`**, the Solr PMC's channel, same as apache/solr.
+  `SECURITY.md` was aligned to it in this PR (commit `440d5d4`). (§1.)
+- **Q-ownership.** Does this document coexist with `docs/security/*.md`? →
+  **Confirmed.** `THREAT_MODEL.md` is the canonical scanner-facing model;
+  `docs/security/*.md` remain the operator-facing source of truth, with the
+  cross-references as set out in §15. (§1/§15.)
+
+**STILL OPEN — Q-tenancy (raised by Jan Høydahl, 2026-07-29).**
+
+Should the project declare that the **only supported deployment mode is one
+`solr-mcp` instance per user**, each configured with that user's own
+`SOLR_USER`/`SOLR_PASSWORD` mapping to their roles on the Solr backend?
+
+The proposal, in Jan's words, is that this makes "a 1:1 connection to the user
+writing the prompt and the permission that user is given in solr backend" —
+so a report that user *Y* can perform destructive action *Z* becomes, by
+construction, a misconfigured Solr server rather than an MCP-server flaw. A
+single person needing both normal and elevated access would run two instances.
+Multi-tenancy or credential forwarding would be a later version.
+
+This is **not yet a maintainer position** and is deliberately not folded into
+§2/§8/§10 above. Jan asked whether to settle it on the PR or take it to the dev
+list first, and that call sits with the PMC. Two notes for whoever picks it up:
+
+- It would strengthen §10 (downstream responsibilities) and add a §11a entry,
+  rather than change any §8 claim — the server gains no new property, it makes
+  an existing operator assumption explicit and testable.
+- It interacts with [#66](https://github.com/apache/solr-mcp/issues/66): if
+  per-tool roles land server-side, the one-instance-per-user constraint becomes
+  a recommendation rather than the only supported mode, so §12 would trip.
+
+The ASF Security team is happy to draft the §2/§10/§11a wording once the PMC
+decides — or to leave it entirely to the project. It does not block the scan
+either way; an undecided question is legitimately an undecided question.
+
 
 ## §15 Appendix — document roles and existing-policy back-map
 
@@ -539,6 +615,7 @@ truth and cross-reference this model:
 | Code: tool behaviour hints (`readOnly`/`idempotent`/`destructive`) | §8.7 |
 | README: tool set is read + additive only (no delete tool) | §12 (would change model) |
 
-This is a v0 draft: the §8/§9/§11a lists and every *(inferred)* tag are provided
-for the Solr PMC to confirm, correct, and own. Nothing here binds the project
-until adopted.
+The §8/§9/§11a lists were reviewed against the source by the Apache Solr
+project and carry maintainer confirmation as of 2026-07-16 (see §14). One
+question — Q-tenancy — remains open by the project's choice. This document
+binds the project once the PMC merges it.
