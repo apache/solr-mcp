@@ -30,10 +30,11 @@
 - **Status:** **v1 — maintainer-answered.** Drafted by the ASF Security team,
   then reviewed against the source by Aditya Parikh (Apache Solr) on
   2026-07-16, who answered every §14 question; Eric Pugh endorsed the answers
-  on 2026-07-22. The claims below are now maintainer positions, not the
-  Security team's reading. Ratification (merge) is the PMC's call. Every claim
-  is *(documented)* against the repo or *(maintainer)* per that review; the one
-  question still under discussion is tracked in §14.
+  on 2026-07-22. The deployment-tenancy question raised by Jan Høydahl was
+  settled by Jan and Eric on 2026-07-29 and is folded in at §2/§10/§11a/§12.
+  The claims below are now maintainer positions, not the Security team's
+  reading. Ratification (merge) is the PMC's call. Every claim is
+  *(documented)* against the repo or *(maintainer)*; no questions remain open.
 - **Version binding:** intended to be versioned alongside the project once
   adopted; a report against version *N* is triaged against the model as it
   stood at *N*, not at HEAD.
@@ -88,6 +89,18 @@ that client.
 - **HTTP network peer** — in scope **only** in HTTP transport: anyone who can
   reach the servlet listener. Gated by OAuth2 bearer auth in the default
   posture. *(documented — docs/security/http.md.)*
+
+**Supported deployment mode — one instance per user.** *(maintainer —
+Q-tenancy.)* For the 1.0 release the only supported and recommended way to run
+`solr-mcp` is **one server instance per user**, each configured with that
+user's own `SOLR_USER`/`SOLR_PASSWORD` mapping to that user's roles on the Solr
+backend. This gives a 1:1 correspondence between the person writing the prompt
+and the permissions they hold in Solr. A person who needs both ordinary and
+elevated access runs **two** instances rather than one instance with elevated
+rights. Multi-tenancy and per-caller credential forwarding are explicitly
+deferred to a later version (see §12). This is a deliberate scoping choice for
+1.0, not a claim that finer-grained authorization is unnecessary — see
+[#66](https://github.com/apache/solr-mcp/issues/66).
 
 **Component-family table.**
 
@@ -390,6 +403,12 @@ Two adversaries are in scope; several are explicitly not.
 - **Assume Solr result content can carry injected instructions.** If the backend
   Solr is writable by untrusted parties, the returned documents are an injection
   vector into your model. *(maintainer — Q-promptinj.)*
+- **Give each user their own instance and their own Solr credential.**
+  *(maintainer — Q-tenancy.)* Do not share one `solr-mcp` instance, or one
+  backend credential, across people whose Solr permissions differ — the server
+  has no per-caller identity, so a shared instance grants every caller the
+  union of what that one credential can do. Provision a second instance for a
+  user's elevated work rather than widening the first one's credential.
 - **Run STDIO as an unprivileged user; do not redirect stdout.** *(documented —
   docs/security/stdio.md.)*
 - **Enable TLS** for the HTTP transport and for the SolrJ connection; secure the
@@ -437,6 +456,15 @@ Two adversaries are in scope; several are explicitly not.
   apache/solr's model. Route Solr-side query-parser exposure there. PRs #122
   and #127 proposed server-side escaping/validation and were closed for this
   reason. `KNOWN-NON-FINDING`. *(maintainer — Q-queryinj.)*
+- **"User *Y* can perform destructive action *Z* through the MCP server."**
+  Under the supported one-instance-per-user deployment (§2), the caller's
+  Solr permissions are exactly the permissions of the credential the operator
+  gave that instance. A caller doing something the backend Solr permits is the
+  backend's authorization decision, not an MCP-server flaw — the server is
+  acting as any other Solr client on that user's behalf. `BY-DESIGN`, redirect
+  to the Solr backend's configuration. This does **not** cover a caller
+  reaching Solr under an identity the operator did not configure for that
+  instance — that would be `VALID`. *(maintainer — Q-tenancy.)*
 - **"`/mcp` is `permitAll()` — the MCP endpoint is unauthenticated."** Auth is
   enforced at the method level by `@PreAuthorize("isAuthenticated()")` on every
   tool, resource, prompt and completion handler, not at the filter chain.
@@ -455,6 +483,12 @@ Two adversaries are in scope; several are explicitly not.
   argument or per-request input (would open SSRF/credential-relay).
 - Adding **per-caller identity passthrough** or an authorization layer over Solr
   collections/actions (would add new §8 properties).
+- **Supporting more than one user per instance.** The one-instance-per-user
+  deployment mode in §2 is a 1.0 scoping decision. If multi-tenancy or
+  credential forwarding lands — e.g. via
+  [#66](https://github.com/apache/solr-mcp/issues/66) — then one instance no
+  longer implies one identity, the §11a "user *Y* can do *Z*" non-finding stops
+  holding by construction, and §2/§10/§11a all need revisiting together.
 - Introducing **tool output sanitisation** or a configurable **read-only tool
   subset** (would change §9/§11a).
 - A change in the **default** of `PROFILES` or `HTTP_SECURITY_ENABLED`.
@@ -475,7 +509,7 @@ Two adversaries are in scope; several are explicitly not.
 | `KNOWN-NON-FINDING` | Matches a §11a pattern. | §11a |
 | `MODEL-GAP` | Cannot be routed to any of the above. | triggers §12 |
 
-## §14 Maintainer answers (and the one question still open)
+## §14 Maintainer answers
 
 **Answered by Aditya Parikh (Apache Solr) on 2026-07-16**, verified against the
 source, and endorsed by Eric Pugh on 2026-07-22. Every answer below is folded
@@ -552,34 +586,29 @@ into the body above; the corresponding claims now carry *(maintainer)* tags.
   `docs/security/*.md` remain the operator-facing source of truth, with the
   cross-references as set out in §15. (§1/§15.)
 
-**STILL OPEN — Q-tenancy (raised by Jan Høydahl, 2026-07-29).**
+**Wave 5 — deployment tenancy — ANSWERED**
 
-Should the project declare that the **only supported deployment mode is one
-`solr-mcp` instance per user**, each configured with that user's own
-`SOLR_USER`/`SOLR_PASSWORD` mapping to their roles on the Solr backend?
+- **Q-tenancy** (raised by Jan Høydahl, 2026-07-29; settled with Eric Pugh the
+  same day). Should the project declare that the only supported deployment mode
+  is one `solr-mcp` instance per user, each with that user's own
+  `SOLR_USER`/`SOLR_PASSWORD`? → **Yes, for 1.0.** Jan's reasoning is that this
+  makes "a 1:1 connection to the user writing the prompt and the permission that
+  user is given in solr backend", so a report that user *Y* can perform
+  destructive action *Z* resolves to a misconfigured Solr backend rather than an
+  MCP-server flaw. Eric confirmed the scope: *"a simple approach that says
+  'means that one person might need to setup two instances' is perfectly good
+  for our 1.0 release. Let's not gold plate this thing until we know we have
+  active user base."*
 
-The proposal, in Jan's words, is that this makes "a 1:1 connection to the user
-writing the prompt and the permission that user is given in solr backend" —
-so a report that user *Y* can perform destructive action *Z* becomes, by
-construction, a misconfigured Solr server rather than an MCP-server flaw. A
-single person needing both normal and elevated access would run two instances.
-Multi-tenancy or credential forwarding would be a later version.
+  Folded in at §2 (supported deployment mode), §10 (operator gives each user
+  their own instance and credential), §11a (the "user *Y* can do *Z*"
+  non-finding, with the carve-out that an identity the operator did not
+  configure is still `VALID`), and §12 (multi-tenancy or credential forwarding
+  would retire this mode and require revisiting all three).
 
-This is **not yet a maintainer position** and is deliberately not folded into
-§2/§8/§10 above. Jan asked whether to settle it on the PR or take it to the dev
-list first, and that call sits with the PMC. Two notes for whoever picks it up:
-
-- It would strengthen §10 (downstream responsibilities) and add a §11a entry,
-  rather than change any §8 claim — the server gains no new property, it makes
-  an existing operator assumption explicit and testable.
-- It interacts with [#66](https://github.com/apache/solr-mcp/issues/66): if
-  per-tool roles land server-side, the one-instance-per-user constraint becomes
-  a recommendation rather than the only supported mode, so §12 would trip.
-
-The ASF Security team is happy to draft the §2/§10/§11a wording once the PMC
-decides — or to leave it entirely to the project. It does not block the scan
-either way; an undecided question is legitimately an undecided question.
-
+  Deliberately recorded as a **1.0 scoping decision**, not a permanent
+  architectural claim — finer-grained per-tool authorization remains roadmapped
+  as [#66](https://github.com/apache/solr-mcp/issues/66).
 
 ## §15 Appendix — document roles and existing-policy back-map
 
@@ -616,6 +645,6 @@ truth and cross-reference this model:
 | README: tool set is read + additive only (no delete tool) | §12 (would change model) |
 
 The §8/§9/§11a lists were reviewed against the source by the Apache Solr
-project and carry maintainer confirmation as of 2026-07-16 (see §14). One
-question — Q-tenancy — remains open by the project's choice. This document
-binds the project once the PMC merges it.
+project and carry maintainer confirmation as of 2026-07-16, with the
+deployment-tenancy question settled on 2026-07-29 (see §14). No questions
+remain open. This document binds the project once the PMC merges it.
