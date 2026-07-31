@@ -66,6 +66,18 @@ public class IndexingDocumentCreator {
 
 	private final MarkdownDocumentCreator markdownDocumentCreator;
 
+	/**
+	 * Constructs the orchestrator with the per-format document creators.
+	 *
+	 * @param xmlDocumentCreator
+	 *            converts XML input into {@code SolrInputDocument} batches
+	 * @param csvDocumentCreator
+	 *            converts CSV input into {@code SolrInputDocument} batches
+	 * @param jsonDocumentCreator
+	 *            converts JSON input into {@code SolrInputDocument} batches
+	 * @param markdownDocumentCreator
+	 *            converts Markdown input into {@code SolrInputDocument} batches
+	 */
 	public IndexingDocumentCreator(XmlDocumentCreator xmlDocumentCreator, CsvDocumentCreator csvDocumentCreator,
 			JsonDocumentCreator jsonDocumentCreator, MarkdownDocumentCreator markdownDocumentCreator) {
 		this.xmlDocumentCreator = xmlDocumentCreator;

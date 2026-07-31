@@ -105,7 +105,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  */
 @SpringBootApplication
 public class Main {
-	static void main(String[] args) {
+
+	/** Default constructor used by Spring Boot to bootstrap the application. */
+	public Main() {
+	}
+
+	public static void main(String[] args) {
 		SpringApplication.run(Main.class, args);
 	}
 }
