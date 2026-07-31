@@ -46,10 +46,10 @@ import org.springframework.util.ReflectionUtils;
  * encoding.
  */
 @JsonTest
-@DisabledInNativeImage // Reflects into SolrJ's private basicAuthAuthorizationStr field, which is
-// not registered for reflection under GraalVM's closed-world model. The
-// basic-auth
+// Reflects into SolrJ's private basicAuthAuthorizationStr field, which is not
+// registered for reflection under GraalVM's closed-world model. The basic-auth
 // wiring logic itself is fully covered by the JVM test run.
+@DisabledInNativeImage
 class SolrConfigAuthTest {
 
 	@Autowired
