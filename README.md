@@ -14,7 +14,7 @@ Just ask your AI assistant:
 
 > *"Find sci-fi movies with 'star wars' in the title released after 2000, show me the genre breakdown, and sort by relevance."*
 
-This Spring AI [Model Context Protocol (MCP)](https://spec.modelcontextprotocol.io/) server exposes Solr operations as tools that any MCP-compatible AI client (Claude Desktop, Claude Code, VS Code/Copilot, Cursor, JetBrains) can invoke.
+This Spring AI [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server exposes Solr operations as tools that any MCP-compatible AI client (Claude Desktop, Claude Code, VS Code/Copilot, Cursor, JetBrains) can invoke.
 
 ## Quick start
 
