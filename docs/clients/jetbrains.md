@@ -56,7 +56,7 @@ Create `.junie/mcp/mcp.json` in your project root:
 
 ## HTTP Mode ##
 
-Start the server first (see [Running the Server](https://github.com/apache/solr-mcp#running-the-server)), then:
+Start the server in HTTP mode first (`PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar`, or `PROFILES=http ./gradlew bootRun`), then:
 
 ```json
 {

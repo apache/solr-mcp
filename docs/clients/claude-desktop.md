@@ -17,7 +17,7 @@ STDIO mode communicates via stdin/stdout. This is the simplest setup for local u
 
 ### JAR ###
 
-Requires Java 25+ and a [built JAR](https://github.com/apache/solr-mcp#running-the-server) (`./gradlew build`).
+Requires Java 25+ and a [built JAR](../../README.md#quick-start) (`./gradlew build`).
 
 ```json
 {
