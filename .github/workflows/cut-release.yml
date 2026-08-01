@@ -34,7 +34,11 @@
 # 2. Moves "Unreleased" changelog entries to new version section
 # 3. Creates version tag (e.g., v1.0.0)
 # 4. Creates GitHub Release with changelog
-# 5. Triggers build-and-publish.yml to publish Docker images
+#
+# NOTE: pushing the tag does not trigger any further workflow. No workflow in
+# this repository is triggered by tag pushes, and build-and-publish.yml no
+# longer publishes container images (removed in #153). Container images are
+# published only by release-publish.yml, run manually after an ASF vote.
 #
 # FOR OFFICIAL ASF RELEASES:
 # --------------------------
@@ -46,8 +50,8 @@
 # RELATED WORKFLOWS:
 # ------------------
 # - auto-release.yml: Accumulates changelog on merge (no tags)
-# - build-and-publish.yml: Publishes Docker images on tag
-# - release-publish.yml: Official ASF releases (after vote)
+# - build-and-publish.yml: Builds and tests the JAR on push to main (no images)
+# - release-publish.yml: Official ASF releases (after vote) - publishes images
 
 name: Cut Release
 
@@ -228,5 +232,5 @@ jobs:
           echo "**Tag:** v${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
-          echo "- Docker images will be published automatically by build-and-publish.yml" >> $GITHUB_STEP_SUMMARY
+          echo "- No container images are published by this workflow, and the tag push triggers no further workflow" >> $GITHUB_STEP_SUMMARY
           echo "- For official ASF release, create RC tag and run release-publish.yml after vote" >> $GITHUB_STEP_SUMMARY
