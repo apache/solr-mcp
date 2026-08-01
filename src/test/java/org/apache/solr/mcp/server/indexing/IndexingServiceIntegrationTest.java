@@ -27,6 +27,7 @@ import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.indexing.documentcreator.CsvDocumentCreator;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
 import org.apache.solr.mcp.server.indexing.documentcreator.JsonDocumentCreator;
+import org.apache.solr.mcp.server.indexing.documentcreator.MarkdownDocumentCreator;
 import org.apache.solr.mcp.server.indexing.documentcreator.XmlDocumentCreator;
 import org.apache.solr.mcp.server.search.SearchResponse;
 import org.apache.solr.mcp.server.search.SearchService;
@@ -72,9 +73,10 @@ class IndexingServiceIntegrationTest {
 		CsvDocumentCreator csvDocumentCreator = new CsvDocumentCreator();
 		JsonDocumentCreator jsonDocumentCreator = new JsonDocumentCreator(
 				new com.fasterxml.jackson.databind.ObjectMapper());
+		MarkdownDocumentCreator markdownDocumentCreator = new MarkdownDocumentCreator();
 
 		indexingDocumentCreator = new IndexingDocumentCreator(xmlDocumentCreator, csvDocumentCreator,
-				jsonDocumentCreator);
+				jsonDocumentCreator, markdownDocumentCreator);
 
 		indexingService = new IndexingService(solrClient, indexingDocumentCreator);
 		searchService = new SearchService(solrClient);

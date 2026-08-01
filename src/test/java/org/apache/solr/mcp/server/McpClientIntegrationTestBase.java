@@ -104,6 +104,7 @@ public abstract class McpClientIntegrationTestBase {
 
 		assertTrue(toolNames.contains("create-collection"), "Should have create-collection tool");
 		assertTrue(toolNames.contains("index-json-documents"), "Should have index-json-documents tool");
+		assertTrue(toolNames.contains("index-markdown-documents"), "Should have index-markdown-documents tool");
 		assertTrue(toolNames.contains("search"), "Should have search tool");
 		assertTrue(toolNames.contains("list-collections"), "Should have list-collections tool");
 		assertTrue(toolNames.contains("check-health"), "Should have check-health tool");
@@ -135,6 +136,7 @@ public abstract class McpClientIntegrationTestBase {
 		assertHint(tools, "index-json-documents", false, true, true);
 		assertHint(tools, "index-csv-documents", false, true, true);
 		assertHint(tools, "index-xml-documents", false, true, true);
+		assertHint(tools, "index-markdown-documents", false, true, true);
 	}
 
 	private static void assertReadOnly(Map<String, Tool> tools, String name) {
@@ -396,6 +398,38 @@ public abstract class McpClientIntegrationTestBase {
 		Map<String, Object> r2 = OBJECT_MAPPER.readValue(extractText(byGenre), new TypeReference<>() {
 		});
 		assertEquals(1, getNumFound(r2), "Multi-valued 'genres' should match on 'crime'");
+	}
+
+	// Self-contained markdown round-trip: independent of the other order-18 test
+	// (the markdown document carries none of the fields its filter queries touch).
+	@Test
+	@Order(18)
+	void indexMarkdownDocumentAndFindItById() throws Exception {
+		String markdown = """
+				---
+				id: md-doc-1
+				author: Markdown Author
+				---
+				# Markdown Indexing Guide
+
+				## Installation
+
+				Index markdown documents through the MCP server.
+				""";
+
+		CallToolResult indexResult = mcpClient.callTool(new CallToolRequest("index-markdown-documents",
+				Map.of("collection", COLLECTION, "markdown", markdown)));
+
+		assertNotNull(indexResult);
+		assertNotError(indexResult);
+		assertTrue(extractText(indexResult).contains("Successfully indexed 1"),
+				"Markdown indexing should report one indexed document: " + extractText(indexResult));
+
+		CallToolResult searchResult = mcpClient
+				.callTool(new CallToolRequest("search", Map.of("collection", COLLECTION, "query", "id:md-doc-1")));
+		Map<String, Object> response = OBJECT_MAPPER.readValue(extractText(searchResult), new TypeReference<>() {
+		});
+		assertEquals(1, getNumFound(response), "Should find the markdown document by its front matter id");
 	}
 
 	// ===== End-to-end shows workflow (orders 19–27) =====
