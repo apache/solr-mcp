@@ -91,12 +91,16 @@ group = "org.apache.solr"
 //
 // Initial Version Setup:
 // ----------------------
-// To start at version 1.0.0, create a baseline tag:
-//   git tag v0.0.0 -m "Initial version baseline"
-//   git push origin v0.0.0
+// This assumes the 1.0.0 release is cut first (see #136), which pins the
+// version manually. Once 1.0.0 is released, tag it so the plugin has a
+// baseline to calculate from:
+//   git tag v1.0.0 -m "1.0.0 release baseline"
+//   git push origin v1.0.0
 //
-// Then any feat: commit will bump to 0.1.0, or use the cut-release workflow
-// with version_override to set 1.0.0 explicitly for the first release.
+// From then on the version is derived automatically: a fix: commit yields
+// 1.0.1-SNAPSHOT, a feat: commit yields 1.1.0-SNAPSHOT, and so on. The
+// cut-release workflow's version_override input remains available if a
+// release ever needs an explicit version.
 //
 semver {
     // Use "SNAPSHOT" suffix for development builds
