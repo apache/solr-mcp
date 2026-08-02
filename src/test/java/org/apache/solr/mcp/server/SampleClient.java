@@ -152,13 +152,16 @@ public class SampleClient {
 			assertNotNull(toolsList, "Tools list should not be null");
 			assertNotNull(toolsList.tools(), "Tools collection should not be null");
 
-			// Validate expected tool count based on MCP server implementation
-			assertEquals(8, toolsList.tools().size(), "Expected 8 tools to be available");
-
-			// Define expected tools based on the log output
+			// Every tool the server is expected to expose. Asserted as a lower
+			// bound plus per-name checks so adding a tool does not break this
+			// client - an exact count went stale as soon as create-collection,
+			// add-fields and add-field-types were added.
 			Set<String> expectedToolNames = Set.of("index-json-documents", "index-csv-documents",
 					"get-collection-stats", "search", "list-collections", "check-health", "index-xml-documents",
-					"get-schema");
+					"get-schema", "create-collection", "add-fields", "add-field-types");
+
+			assertTrue(toolsList.tools().size() >= expectedToolNames.size(),
+					"Expected at least " + expectedToolNames.size() + " tools, got " + toolsList.tools().size());
 
 			// Validate each expected tool is present
 			List<String> actualToolNames = toolsList.tools().stream().map(Tool::name).toList();
