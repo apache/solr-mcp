@@ -104,7 +104,10 @@ record SolrMetrics(
 		HandlerStats handlerStats,
 
 		/** Timestamp when these metrics were collected, formatted as ISO 8601 */
-		@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") Date timestamp) {
+		@JsonFormat(
+				shape = JsonFormat.Shape.STRING,
+				pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+				timezone = "UTC") Date timestamp) {
 }
 
 /**
@@ -464,7 +467,10 @@ record SolrHealthStatus(
 		Long totalDocuments,
 
 		/** Timestamp when this health check was performed, formatted as ISO 8601 */
-		@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") Date lastChecked,
+		@JsonFormat(
+				shape = JsonFormat.Shape.STRING,
+				pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+				timezone = "UTC") Date lastChecked,
 
 		/** Name of the collection that was checked */
 		String collection,
@@ -497,5 +503,8 @@ record CollectionCreationResult(
 		String message,
 
 		/** Timestamp when the collection was created, formatted as ISO 8601 */
-		@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") Date createdAt) {
+		@JsonFormat(
+				shape = JsonFormat.Shape.STRING,
+				pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+				timezone = "UTC") Date createdAt) {
 }

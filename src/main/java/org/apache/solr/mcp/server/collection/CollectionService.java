@@ -145,6 +145,14 @@ public class CollectionService {
 	/** Suffix pattern used to identify shard names in SolrCloud deployments */
 	private static final String SHARD_SUFFIX = "_shard";
 
+	/**
+	 * Matches a SolrCloud shard/replica suffix at the end of a core name, e.g.
+	 * {@code _shard1} or {@code _shard1_replica_n1}. Anchored so that collection
+	 * names merely containing "_shard" are left intact.
+	 */
+	private static final java.util.regex.Pattern SHARD_SUFFIX_PATTERN = java.util.regex.Pattern
+			.compile("_shard\\d+(_replica.*)?$");
+
 	/** Request parameter name for specifying response writer type */
 	private static final String WT_PARAM = "wt";
 
@@ -946,15 +954,10 @@ public class CollectionService {
 			return collectionOrShard;
 		}
 
-		// Check if this looks like a shard name (contains "_shard" pattern)
-		if (collectionOrShard.contains(SHARD_SUFFIX)) {
-			// Extract collection name before "_shard"
-			int shardIndex = collectionOrShard.indexOf(SHARD_SUFFIX);
-			return collectionOrShard.substring(0, shardIndex);
-		}
-
-		// If it doesn't look like a shard name, return as-is
-		return collectionOrShard;
+		// Strip only a real SolrCloud shard/replica suffix. Matching a bare
+		// "_shard" anywhere would truncate legitimate collection names such as
+		// "orders_shard_archive" down to "orders".
+		return SHARD_SUFFIX_PATTERN.matcher(collectionOrShard).replaceFirst("");
 	}
 
 	/**

@@ -676,9 +676,12 @@ class IndexingServiceIntegrationTest {
 		// Create documents
 		List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
 
-		// Verify no documents were created since input is not an array
+		// A bare object is indexed as a single document. This previously returned
+		// an empty list, so indexing one object silently indexed nothing and still
+		// reported success.
 		assertNotNull(documents);
-		assertEquals(0, documents.size());
+		assertEquals(1, documents.size());
+		assertEquals("single_object_001", documents.getFirst().getFieldValue("id"));
 	}
 
 	@Test
