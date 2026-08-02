@@ -49,19 +49,29 @@ services:
   #   docker compose up -d lgtm   # Start only the observability stack
   #   docker compose up -d        # Start everything including Solr
   #
-  # Access Grafana at http://localhost:3000 (no authentication required)
+  # Access Grafana at http://localhost:3000. Anonymous access is enabled but
+  # read-only (Viewer), and the UI is published on the loopback interface only,
+  # so it is not reachable from other hosts on your network.
+  #
+  # To grant anonymous Admin (e.g. to edit dashboards), opt in explicitly:
+  #   GF_ANON_ROLE=Admin docker compose up -d lgtm
+  # To expose the UI beyond loopback on a trusted network, set the bind address:
+  #   GRAFANA_BIND=0.0.0.0 docker compose up -d lgtm
+  #
   # Pre-configured datasources for Loki, Tempo, and Mimir are available.
   lgtm:
     image: grafana/otel-lgtm:latest
     ports:
-      - "3000:3000"   # Grafana UI
-      - "4317:4317"   # OTLP gRPC receiver
-      - "4318:4318"   # OTLP HTTP receiver
+      # Loopback-only by default: anonymous Grafana on 0.0.0.0 would hand the
+      # dashboards to anyone who can reach this machine.
+      - "${GRAFANA_BIND:-127.0.0.1}:3000:3000"   # Grafana UI
+      - "${OTLP_BIND:-127.0.0.1}:4317:4317"      # OTLP gRPC receiver
+      - "${OTLP_BIND:-127.0.0.1}:4318:4318"      # OTLP HTTP receiver
     networks: [ search ]
     environment:
-      # Disable authentication for local development
+      # Anonymous access for local development, read-only unless overridden.
       GF_AUTH_ANONYMOUS_ENABLED: "true"
-      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "${GF_ANON_ROLE:-Viewer}"
 
 volumes:
   data:

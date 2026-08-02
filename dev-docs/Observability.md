@@ -97,7 +97,10 @@ docker compose up -d lgtm solr
 
 ### Grafana Dashboard
 
-Access Grafana at **http://localhost:3000** (no login required in development mode).
+Access Grafana at **http://localhost:3000** (no login required in development
+mode). Anonymous access is read-only and the UI is published on the loopback
+interface only, so it is not reachable from other machines. To edit dashboards
+anonymously, start the stack with `GF_ANON_ROLE=Admin docker compose up -d lgtm`.
 
 The LGTM stack comes with pre-configured datasources:
 - **Tempo** - For distributed traces
