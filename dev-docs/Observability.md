@@ -27,7 +27,7 @@ The Solr MCP Server integrates with OpenTelemetry to provide comprehensive obser
 | Signal | Description | Backend |
 |--------|-------------|---------|
 | **Traces** | Distributed tracing for request flows | Tempo |
-| **Metrics** | Application and JVM metrics | Mimir (Prometheus-compatible) |
+| **Metrics** | Application and JVM metrics | Prometheus |
 | **Logs** | Structured log export with trace correlation | Loki |
 
 **Note:** Observability is only available in HTTP mode. STDIO mode disables telemetry to prevent stdout pollution that would interfere with MCP protocol communication.
@@ -41,7 +41,7 @@ The project uses the **Grafana LGTM stack** (`grafana/otel-lgtm`) - an all-in-on
 | **L**oki | Log aggregation and querying | Internal |
 | **G**rafana | Visualization, dashboards, and exploration | 3000 |
 | **T**empo | Distributed tracing backend | Internal |
-| **M**imir | Prometheus-compatible metrics storage | Internal |
+| **M**imir | Metrics storage — note the image actually ships **Prometheus**, which is what Grafana is wired to | Internal |
 
 The image also includes an **OpenTelemetry Collector** that receives telemetry data via OTLP protocol:
 - **Port 4317**: OTLP gRPC receiver
@@ -59,7 +59,7 @@ PROFILES=http ./gradlew bootRun
 ```
 
 Spring Boot detects the `compose.yaml` file and automatically:
-1. Starts the `lgtm` container (Grafana, Loki, Tempo, Mimir)
+1. Starts the `lgtm` container (Grafana, Loki, Tempo, Prometheus, Pyroscope)
 2. Starts the `solr` and `zoo` containers
 3. Configures OTLP endpoints to point to the running containers
 4. Waits for containers to be healthy before accepting requests
@@ -74,23 +74,23 @@ docker compose up -d lgtm solr
 ## Architecture
 
 ```
-┌─────────────────────┐     OTLP/HTTP      ┌─────────────────────────────────┐
-│  Solr MCP Server    │─────────────────────│   OpenTelemetry Collector      │
-│  (HTTP mode)        │    :4318            │   (grafana/otel-lgtm)          │
-│                     │                     │                                 │
-│  ┌───────────────┐  │                     │  ┌─────────┐  ┌─────────────┐  │
-│  │ Traces        │──┼─────────────────────┼─▶│ Tempo   │  │ Grafana     │  │
-│  │ (auto-instr.) │  │                     │  └─────────┘  │ :3000       │  │
-│  └───────────────┘  │                     │               │             │  │
-│  ┌───────────────┐  │                     │  ┌─────────┐  │ - Dashboards│  │
-│  │ Metrics       │──┼─────────────────────┼─▶│ Mimir   │  │ - Explore   │  │
-│  │ (actuator)    │  │                     │  └─────────┘  │ - Alerts    │  │
-│  └───────────────┘  │                     │               └─────────────┘  │
-│  ┌───────────────┐  │                     │  ┌─────────┐                   │
-│  │ Logs          │──┼─────────────────────┼─▶│ Loki    │                   │
-│  │ (logback)     │  │                     │  └─────────┘                   │
-│  └───────────────┘  │                     │                                 │
-└─────────────────────┘                     └─────────────────────────────────┘
+┌─────────────────────┐     OTLP/HTTP       ┌───────────────────────────────────┐
+│  Solr MCP Server    │─────────────────────│   OpenTelemetry Collector         │
+│  (HTTP mode)        │    :4318            │   (grafana/otel-lgtm)             │
+│                     │                     │                                   │
+│  ┌───────────────┐  │                     │  ┌────────────┐  ┌─────────────┐  │
+│  │ Traces        │──┼─────────────────────┼─▶│ Tempo      │  │ Grafana     │  │
+│  │ (auto-instr.) │  │                     │  └────────────┘  │ :3000       │  │
+│  └───────────────┘  │                     │                  │             │  │
+│  ┌───────────────┐  │                     │  ┌────────────┐  │ - Dashboards│  │
+│  │ Metrics       │──┼─────────────────────┼─▶│ Prometheus │  │ - Explore   │  │
+│  │ (actuator)    │  │                     │  └────────────┘  │ - Alerts    │  │
+│  └───────────────┘  │                     │                  └─────────────┘  │
+│  ┌───────────────┐  │                     │  ┌────────────┐                   │
+│  │ Logs          │──┼─────────────────────┼─▶│ Loki       │                   │
+│  │ (logback)     │  │                     │  └────────────┘                   │
+│  └───────────────┘  │                     │                                   │
+└─────────────────────┘                     └───────────────────────────────────┘
 ```
 
 ## Accessing Telemetry Data
@@ -103,9 +103,10 @@ interface only, so it is not reachable from other machines. To edit dashboards
 anonymously, start the stack with `GF_ANON_ROLE=Admin docker compose up -d lgtm`.
 
 The LGTM stack comes with pre-configured datasources:
+- **Prometheus** - For metrics (the default datasource)
 - **Tempo** - For distributed traces
 - **Loki** - For logs
-- **Mimir** - For metrics (Prometheus-compatible)
+- **Pyroscope** - For continuous profiling
 
 ### Viewing Traces
 
@@ -168,7 +169,7 @@ This unified view makes it easy to investigate issues by correlating traces with
 
 1. Open Grafana: http://localhost:3000
 2. Go to **Explore**
-3. Select **Mimir** as the datasource
+3. Select **Prometheus** as the datasource
 4. Query metrics using PromQL:
 
 **Example queries:**

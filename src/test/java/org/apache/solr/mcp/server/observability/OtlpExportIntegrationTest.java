@@ -47,8 +47,7 @@ import tools.jackson.databind.ObjectMapper;
  * <p>
  * This test uses Spring Boot 3.5's {@code @ServiceConnection} with
  * {@code LgtmStackContainer} to integrate with the Grafana LGTM stack (Loki for
- * logs, Grafana for visualization, Tempo for traces, Mimir/Prometheus for
- * metrics).
+ * logs, Grafana for visualization, Tempo for traces, Prometheus for metrics).
  *
  * <p>
  * <b>What this test verifies:</b>

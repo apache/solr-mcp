@@ -42,7 +42,8 @@ services:
   # - Grafana: Visualization dashboards (http://localhost:3000)
   # - Loki: Log aggregation
   # - Tempo: Distributed tracing
-  # - Mimir: Metrics storage (Prometheus-compatible)
+  # - Prometheus: Metrics storage (the default Grafana datasource)
+  # - Pyroscope: Continuous profiling
   # - OpenTelemetry Collector: Receives OTLP data on ports 4317 (gRPC) and 4318 (HTTP)
   #
   # Usage:
@@ -58,9 +59,9 @@ services:
   # To expose the UI beyond loopback on a trusted network, set the bind address:
   #   GRAFANA_BIND=0.0.0.0 docker compose up -d lgtm
   #
-  # Pre-configured datasources for Loki, Tempo, and Mimir are available.
+  # Pre-configured datasources: Prometheus (default), Loki, Tempo, Pyroscope.
   lgtm:
-    image: grafana/otel-lgtm:latest
+    image: grafana/otel-lgtm:0.30.0
     ports:
       # Loopback-only by default: anonymous Grafana on 0.0.0.0 would hand the
       # dashboards to anyone who can reach this machine.
