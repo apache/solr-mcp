@@ -3,7 +3,9 @@
                    factoryName="Spring Boot">
         <option name="ACTIVE_PROFILES" value="http"/>
         <envs>
-            <env name="OAUTH2_ISSUER_URI" value="https://dev-qa6ay6y8fhsk7m7l.us.auth0.com/"/>
+            <!-- Placeholder: point this at your own issuer before running.
+                 Do not commit a contributor-specific tenant URL. -->
+            <env name="OAUTH2_ISSUER_URI" value="https://YOUR_TENANT.us.auth0.com/"/>
         </envs>
         <module name="solr-mcp.main"/>
         <option name="SPRING_BOOT_MAIN_CLASS" value="org.apache.solr.mcp.server.Main"/>
