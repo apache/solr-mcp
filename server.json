@@ -6,7 +6,7 @@
     "url": "https://github.com/apache/solr-mcp",
     "source": "github"
   },
-  "version": "1.0.0",
+  "version": "1.0.0-SNAPSHOT",
   "packages": [
     {
       "registryType": "docker",

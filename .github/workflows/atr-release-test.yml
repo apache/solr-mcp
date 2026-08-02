@@ -115,8 +115,11 @@ jobs:
                     fetch-depth: 0  # Full history for proper tagging
 
             -   name: Create test tag if not exists
+                env:
+                    RELEASE_VERSION: ${{ inputs.release_version }}
+                    RELEASE_CANDIDATE: ${{ inputs.release_candidate }}
                 run: |
-                    TEST_TAG="v${{ inputs.release_version }}-${{ inputs.release_candidate }}"
+                    TEST_TAG="v${RELEASE_VERSION}-${RELEASE_CANDIDATE}"
                     if ! git rev-parse "${TEST_TAG}" >/dev/null 2>&1; then
                       echo "Creating test tag: ${TEST_TAG}"
                       git config user.email "test@example.com"
@@ -221,7 +224,7 @@ jobs:
 
             -   name: Upload artifacts to ATR (Real)
                 if: ${{ !inputs.dry_run }}
-                uses: apache/tooling-actions/upload-to-atr@main
+                uses: apache/tooling-actions/upload-to-atr@81f0a6cf2202b362ee6434b82c271b1849133581 # main @ 2026-07-27
                 with:
                     project: ${{ env.ATR_PROJECT_NAME }}
                     version: ${{ inputs.release_version }}-${{ inputs.release_candidate }}
@@ -261,7 +264,9 @@ jobs:
         name: Vote Instructions (TEST)
         runs-on: ubuntu-latest
         needs: [ compose-release ]
-        if: ${{ !inputs.skip_vote && (success() || inputs.skip_compose) }}
+        # A skipped `needs` job skips its dependents unless the if: uses always().
+        # Without it the skip_compose=true path could never reach this job.
+        if: ${{ always() && !inputs.skip_vote && (needs.compose-release.result == 'success' || inputs.skip_compose) }}
 
         steps:
             -   name: Generate test vote email
@@ -307,6 +312,10 @@ jobs:
     finish-release:
         name: Finalize Release (TEST)
         runs-on: ubuntu-latest
+        # Must wait for the compose and vote jobs even though both may be skipped
+        # (skip_compose / skip_vote). always() keeps this reachable in that case,
+        # but without needs: it would otherwise start in parallel with them.
+        needs: [ compose-release, vote-instructions ]
         if: ${{ always() && inputs.skip_vote }}
 
         steps:
@@ -343,7 +352,7 @@ jobs:
 
             -   name: Resolve vote and announce on ATR (Real)
                 if: ${{ !inputs.dry_run }}
-                uses: apache/tooling-actions/release-on-atr@main
+                uses: apache/tooling-actions/release-on-atr@81f0a6cf2202b362ee6434b82c271b1849133581 # main @ 2026-07-27
                 with:
                     version: ${{ inputs.release_version }}
                     atr-host: release-test.apache.org
@@ -382,7 +391,7 @@ jobs:
                     
                     # Test main platform
                     echo "1. Testing main platform (https://release-test.apache.org):"
-                    if curl -s -o /dev/null -w "   HTTP Status: %{http_code}\n" https://release-test.apache.org; then
+                    if curl -fsS --max-time 15 -o /dev/null -w "   HTTP Status: %{http_code}\n" https://release-test.apache.org; then
                       echo "   ✅ Platform is reachable"
                     else
                       echo "   ❌ Platform unreachable"
