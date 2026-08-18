@@ -153,7 +153,7 @@ Running in **HTTP mode** — OAuth2, CORS, and the `HTTP_SECURITY_ENABLED` toggl
 **Using it**
 - [Quick start](docs/site/content/pages/mcp/quick-start.md) · [Client setup](docs/site/content/pages/mcp/clients/) — Claude Desktop, Claude Code, VS Code, Cursor, JetBrains, MCP Inspector
 - [Observability](docs/site/content/pages/mcp/observability.md) — OpenTelemetry traces, metrics, logs
-- Security: [STDIO model](docs/security/stdio.md) · [HTTP model](docs/security/http.md) · OAuth2 setup: [Auth0](docs/security/auth0.md) · [Keycloak](docs/security/keycloak.md)
+- Security: [Deployment model (single-tenant)](docs/security/deployment-model.md) · [STDIO model](docs/security/stdio.md) · [HTTP model](docs/security/http.md) · OAuth2 setup: [Auth0](docs/security/auth0.md) · [Keycloak](docs/security/keycloak.md)
 
 **Developing it**
 - [Development guide](dev-docs/DEVELOPMENT.md) — build, run, test, IDE, native image, SBOM · [Architecture](dev-docs/ARCHITECTURE.md)
