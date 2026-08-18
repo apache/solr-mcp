@@ -173,7 +173,7 @@ class CollectionServiceIntegrationTest {
 		assertEquals((long) DOC_COUNT, status.totalDocuments(), "Health check should report indexed document count");
 
 		assertNotNull(status.lastChecked());
-		assertTrue(System.currentTimeMillis() - status.lastChecked().getTime() < 5000);
+		assertTrue(java.time.Duration.between(status.lastChecked(), java.time.Instant.now()).toMillis() < 5000);
 	}
 
 	@Test

@@ -25,8 +25,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.observation.annotation.Observed;
 import io.modelcontextprotocol.spec.McpSchema.CompleteRequest;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import org.apache.solr.client.solrj.SolrClient;
@@ -504,7 +504,9 @@ public class CollectionService {
 	@McpTool(
 			name = "get-collection-stats",
 			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
-			description = "Get stats/metrics on a Solr collection")
+			description = "Get stats/metrics on a Solr collection. On Solr 10+ cacheStats and"
+					+ " handlerStats are always null because the /admin/mbeans endpoint was removed"
+					+ " from Solr; this is expected and not an error.")
 	public SolrMetrics getCollectionStats(
 			@McpToolParam(description = "Solr collection to get stats/metrics for") String collection)
 			throws SolrServerException, IOException {
@@ -525,7 +527,7 @@ public class CollectionService {
 		QueryResponse statsResponse = solrClient.query(actualCollection, new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
 
 		return new SolrMetrics(buildIndexStats(lukeResponse), buildQueryStats(statsResponse),
-				fetchCacheMetrics(actualCollection), fetchHandlerMetrics(actualCollection), new Date());
+				fetchCacheMetrics(actualCollection), fetchHandlerMetrics(actualCollection), Instant.now());
 	}
 
 	/**
@@ -1069,10 +1071,10 @@ public class CollectionService {
 					new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
 
 			return new SolrHealthStatus(true, null, pingResponse.getElapsedTime(),
-					statsResponse.getResults().getNumFound(), new Date(), actualCollection, null, null);
+					statsResponse.getResults().getNumFound(), Instant.now(), actualCollection);
 
 		} catch (Exception e) {
-			return new SolrHealthStatus(false, e.getMessage(), null, null, new Date(), actualCollection, null, null);
+			return new SolrHealthStatus(false, e.getMessage(), null, null, Instant.now(), actualCollection);
 		}
 	}
 
@@ -1136,7 +1138,7 @@ public class CollectionService {
 		CollectionAdminRequest.createCollection(name, effectiveConfigSet, effectiveShards, effectiveRf)
 				.process(solrClient);
 
-		return new CollectionCreationResult(name, true, "Collection created successfully", new Date());
+		return new CollectionCreationResult(name, true, "Collection created successfully", Instant.now());
 	}
 
 	/**

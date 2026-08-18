@@ -42,6 +42,11 @@ on:
             - '.github/workflows/native.yml'
             - 'src/main/java/**/*NativeHints*.java'
             - 'src/main/resources/META-INF/native-image/**'
+            # The Docker integration tests are the native-image validation suite,
+            # so changes to them (or the image-name helper they rely on) must
+            # re-trigger this workflow.
+            - 'src/test/java/**/containerization/**'
+            - 'src/test/java/**/BuildInfoReader.java'
 
 jobs:
     native-test:

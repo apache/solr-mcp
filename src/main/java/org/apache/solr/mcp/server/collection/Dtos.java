@@ -19,7 +19,7 @@ package org.apache.solr.mcp.server.collection;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import java.util.Date;
+import java.time.Instant;
 
 /**
  * Data Transfer Objects (DTOs) for the Apache Solr MCP Server.
@@ -104,7 +104,7 @@ record SolrMetrics(
 		HandlerStats handlerStats,
 
 		/** Timestamp when these metrics were collected, formatted as ISO 8601 */
-		@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") Date timestamp) {
+		@JsonFormat(shape = JsonFormat.Shape.STRING) Instant timestamp) {
 }
 
 /**
@@ -146,49 +146,6 @@ record IndexStats(
 		 * better performance)
 		 */
 		Integer segmentCount) {
-}
-
-/**
- * Field-level statistics for individual Solr schema fields.
- *
- * <p>
- * Provides detailed information about how individual fields are utilized within
- * the Solr index. This information helps with schema optimization and
- * understanding field usage patterns.
- *
- * <p>
- * <strong>Statistics include:</strong>
- *
- * <ul>
- * <li><strong>type</strong>: Solr field type (e.g., "text_general", "int",
- * "date")
- * <li><strong>docs</strong>: Number of documents containing this field
- * <li><strong>distinct</strong>: Number of unique values for this field
- * </ul>
- *
- * <p>
- * <strong>Analysis Insights:</strong>
- *
- * <p>
- * High cardinality fields (high distinct values) may require special indexing
- * considerations, while sparsely populated fields (low docs count) might
- * benefit from different storage strategies.
- *
- * <p>
- * <strong>Note:</strong> This class is currently unused in the collection
- * statistics but is available for future field-level analysis features.
- */
-@JsonIgnoreProperties(ignoreUnknown = true)
-@JsonInclude(JsonInclude.Include.NON_NULL)
-record FieldStats(
-		/** Solr field type as defined in the schema configuration */
-		String type,
-
-		/** Number of documents in the index that contain this field */
-		Integer docs,
-
-		/** Number of unique/distinct values for this field across all documents */
-		Integer distinct) {
 }
 
 /**
@@ -464,16 +421,10 @@ record SolrHealthStatus(
 		Long totalDocuments,
 
 		/** Timestamp when this health check was performed, formatted as ISO 8601 */
-		@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") Date lastChecked,
+		@JsonFormat(shape = JsonFormat.Shape.STRING) Instant lastChecked,
 
 		/** Name of the collection that was checked */
-		String collection,
-
-		/** Version of Solr server (when available) */
-		String solrVersion,
-
-		/** Additional status information or state description */
-		String status) {
+		String collection) {
 }
 
 /**
@@ -497,5 +448,5 @@ record CollectionCreationResult(
 		String message,
 
 		/** Timestamp when the collection was created, formatted as ISO 8601 */
-		@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'") Date createdAt) {
+		@JsonFormat(shape = JsonFormat.Shape.STRING) Instant createdAt) {
 }
