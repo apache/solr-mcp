@@ -135,5 +135,6 @@ import org.springframework.validation.annotation.Validated;
  */
 @Validated
 @ConfigurationProperties(prefix = "solr")
-public record SolrConfigurationProperties(@NotBlank String url, @Nullable String username, @Nullable String password) {
+public record SolrConfigurationProperties(@NotBlank @SolrUrl String url, @Nullable String username,
+		@Nullable String password) {
 }
