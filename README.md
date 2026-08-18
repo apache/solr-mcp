@@ -106,6 +106,9 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 | `add-fields` | Add fields to a collection schema (additive only; existing fields cannot be modified) |
 | `add-field-types` | Add field types — custom analyzers, `DenseVectorField` for semantic search, etc. |
 | `get-schema` | Retrieve schema information for a collection |
+| `list-aliases` | List all Solr aliases and the collections they point to |
+| `create-alias` | Create or update a Solr alias pointing to one or more collections |
+| `delete-alias` | Delete a Solr alias (underlying collections are not affected) |
 
 Every tool advertises MCP behavior hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`) so clients can build sensible approval UX — `search` and the metadata tools are read-only, indexing is destructive but idempotent, schema modification is additive.
 
