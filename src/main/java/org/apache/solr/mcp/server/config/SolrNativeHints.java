@@ -68,10 +68,10 @@ public class SolrNativeHints {
 			"org.apache.solr.mcp.server.collection.CollectionCreationResult",
 			"org.apache.solr.mcp.server.collection.SolrHealthStatus",
 			"org.apache.solr.mcp.server.collection.SolrMetrics", "org.apache.solr.mcp.server.collection.IndexStats",
-			"org.apache.solr.mcp.server.collection.FieldStats", "org.apache.solr.mcp.server.collection.QueryStats",
-			"org.apache.solr.mcp.server.collection.CacheStats", "org.apache.solr.mcp.server.collection.CacheInfo",
-			"org.apache.solr.mcp.server.collection.HandlerStats", "org.apache.solr.mcp.server.collection.HandlerInfo",
-			"org.apache.solr.mcp.server.search.SearchResponse", "org.apache.solr.mcp.server.schema.SchemaUpdateResult");
+			"org.apache.solr.mcp.server.collection.QueryStats", "org.apache.solr.mcp.server.collection.CacheStats",
+			"org.apache.solr.mcp.server.collection.CacheInfo", "org.apache.solr.mcp.server.collection.HandlerStats",
+			"org.apache.solr.mcp.server.collection.HandlerInfo", "org.apache.solr.mcp.server.search.SearchResponse",
+			"org.apache.solr.mcp.server.schema.SchemaUpdateResult");
 
 	static class Registrar implements RuntimeHintsRegistrar {
 		@Override
@@ -114,6 +114,13 @@ public class SolrNativeHints {
 			for (String className : MCP_RESPONSE_RECORDS) {
 				hints.reflection().registerTypeIfPresent(classLoader, className, categories);
 			}
+
+			// Spring AI MCP reflectively instantiates DefaultMetaProvider via its
+			// no-arg constructor in MetaUtils.getMeta() when building resource
+			// specifications. AOT does not generate this hint automatically.
+			hints.reflection().registerTypeIfPresent(classLoader,
+					"org.springaicommunity.mcp.context.DefaultMetaProvider",
+					MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
 
 			// Include logback.xml in the native image so logback's early
 			// initialization (before Spring Boot) finds it and applies the

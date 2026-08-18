@@ -14,7 +14,7 @@ Just ask your AI assistant:
 
 > *"Find sci-fi movies with 'star wars' in the title released after 2000, show me the genre breakdown, and sort by relevance."*
 
-This Spring AI [Model Context Protocol (MCP)](https://spec.modelcontextprotocol.io/) server exposes Solr operations as tools that any MCP-compatible AI client (Claude Desktop, Claude Code, VS Code/Copilot, Cursor, JetBrains) can invoke.
+This Spring AI [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server exposes Solr operations as tools that any MCP-compatible AI client (Claude Desktop, Claude Code, VS Code/Copilot, Cursor, JetBrains) can invoke.
 
 ## Quick start
 
@@ -59,11 +59,12 @@ Add the server to your MCP client. For **Claude Desktop**, edit
 ```
 
 Using a different client, or want STDIO/HTTP/Docker options? See the per-client guides:
-**[Claude Code](docs/site/content/pages/mcp/clients/claude-code.md)** ·
-**[VS Code / Copilot](docs/site/content/pages/mcp/clients/vs-code.md)** ·
-**[Cursor](docs/site/content/pages/mcp/clients/cursor.md)** ·
-**[JetBrains](docs/site/content/pages/mcp/clients/jetbrains.md)** ·
-**[MCP Inspector](docs/site/content/pages/mcp/clients/mcp-inspector.md)**.
+**[Claude Desktop](docs/clients/claude-desktop.md)** ·
+**[Claude Code](docs/clients/claude-code.md)** ·
+**[VS Code / Copilot](docs/clients/vs-code.md)** ·
+**[Cursor](docs/clients/cursor.md)** ·
+**[JetBrains](docs/clients/jetbrains.md)** ·
+**[MCP Inspector](docs/clients/mcp-inspector.md)**.
 
 #### 4. Try it out
 
@@ -146,14 +147,14 @@ The server reads configuration from environment variables. The essentials:
 | `SOLR_URL` | Solr base URL | `http://localhost:8983/solr/` |
 | `PROFILES` | Transport mode: `stdio` (default, for Claude Desktop) or `http` (remote / multi-client) | `stdio` |
 
-Running in **HTTP mode** — OAuth2, CORS, and the `HTTP_SECURITY_ENABLED` toggle (secured by default) — is covered in the [security docs](docs/security/). Tracing and metrics env vars (`OTEL_SAMPLING_PROBABILITY`, `OTEL_TRACES_URL`) are covered in [Observability](docs/site/content/pages/mcp/observability.md).
+Running in **HTTP mode** — OAuth2, CORS, and the `HTTP_SECURITY_ENABLED` toggle (secured by default) — is covered in the [security docs](docs/security/). Tracing and metrics env vars (`OTEL_SAMPLING_PROBABILITY`, `OTEL_TRACES_URL`) are covered in [Observability](docs/observability.md).
 
 ## Documentation
 
 **Using it**
-- [Quick start](docs/site/content/pages/mcp/quick-start.md) · [Client setup](docs/site/content/pages/mcp/clients/) — Claude Desktop, Claude Code, VS Code, Cursor, JetBrains, MCP Inspector
-- [Observability](docs/site/content/pages/mcp/observability.md) — OpenTelemetry traces, metrics, logs
-- Security: [STDIO model](docs/security/stdio.md) · [HTTP model](docs/security/http.md) · OAuth2 setup: [Auth0](docs/security/auth0.md) · [Keycloak](docs/security/keycloak.md)
+- [Quick start](#quick-start) · [Client setup](docs/clients/) — Claude Desktop, Claude Code, VS Code, Cursor, JetBrains, MCP Inspector
+- [Observability](docs/observability.md) — OpenTelemetry traces, metrics, logs
+- Security: [Deployment model (single-tenant)](docs/security/deployment-model.md) · [STDIO model](docs/security/stdio.md) · [HTTP model](docs/security/http.md) · OAuth2 setup: [Auth0](docs/security/auth0.md) · [Keycloak](docs/security/keycloak.md)
 
 **Developing it**
 - [Development guide](dev-docs/DEVELOPMENT.md) — build, run, test, IDE, native image, SBOM · [Architecture](dev-docs/ARCHITECTURE.md)

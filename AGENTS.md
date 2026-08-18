@@ -211,7 +211,7 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
   - **MCP tool response records** (invisible to AOT because the MCP framework uses
     generic `Object` dispatch): `CollectionCreationResult`, `SolrHealthStatus`,
     `SolrMetrics`, `IndexStats`, `QueryStats`, `CacheStats`, `CacheInfo`,
-    `HandlerStats`, `HandlerInfo`, `FieldStats`, `SearchResponse`
+    `HandlerStats`, `HandlerInfo`, `SearchResponse`
   - **Resource**: `logback.xml` (see Logging Architecture above)
 - **Wire format:** `SolrConfig` uses `XMLRequestWriter` instead of the default
   `JavaBinRequestWriter`. The JavaBin binary codec uses deep reflection that would
@@ -347,7 +347,7 @@ Remaining known differences from Solr 9:
 - **`/admin/mbeans` removed:** Cache and handler stats from `getCollectionStats()` will always be `null` on Solr 10. A future migration to `/admin/metrics` will restore these metrics.
 - **Metrics migration:** Dropwizard metrics replaced by OpenTelemetry. Metric names switch to snake_case in Solr 10.
 - **SolrJ base URL:** Already uses root URLs — **no change needed**.
-- **SolrJ 10.x dependency:** Not yet on Maven Central (as of 2026-03-06); tests use SolrJ 9.x against a Solr 10 server. Update `solr-solrj` and Jetty BOM when 10.x is released.
+- **SolrJ version:** `solr-solrj` is on 10.0.0 (`gradle/libs.versions.toml`), released to Maven Central and bumped in #58. Jetty artifacts are declared versionless and managed by Spring Boot's BOM, so there is no separate Jetty pin to update. Note the client is *newer* than the default test server: `solr.test.image` defaults to `solr:9.9-slim`, so the standard build exercises a SolrJ 10 client against Solr 9.9.
 
 ## Key Configuration
 

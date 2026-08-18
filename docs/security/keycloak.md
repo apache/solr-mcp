@@ -17,7 +17,6 @@ This guide covers setting up [Keycloak](https://www.keycloak.org/) as an OAuth2/
 - [Testing Authentication](#testing-authentication)
 - [User Management Options](#user-management-options)
   - [Manual User Creation](#manual-user-creation)
-  - [User Federation (LDAP/AD)](#user-federation-ldapad)
   - [Identity Brokering (GitHub, Google, etc.)](#identity-brokering-github-google-etc)
   - [Self-Registration](#self-registration)
   - [REST API](#rest-api)

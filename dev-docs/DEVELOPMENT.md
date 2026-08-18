@@ -204,7 +204,8 @@ Tests run against `solr:9.9-slim` by default. Point them at another Solr version
 endpoint was removed in Solr 10, so `getCacheMetrics()`/`getHandlerMetrics()` catch
 `RuntimeException` and return `null` — `cacheStats`/`handlerStats` from `get-collection-stats`
 are therefore always `null` on Solr 10 (a future migration to `/admin/metrics` will restore
-them). SolrJ 10.x is not yet on Maven Central, so tests run SolrJ 9.x against a Solr 10 server.
+them). SolrJ is on 10.0.0; since `solr.test.image` defaults to `solr:9.9-slim`, the standard
+build runs a SolrJ 10 client against a Solr 9.9 server.
 
 ### Test with MCP Inspector
 

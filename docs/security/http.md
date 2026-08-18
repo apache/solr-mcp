@@ -171,7 +171,8 @@ exists for browser-based tooling.
 
 ## Related documents
 
+- [Deployment model — single-tenant by design](./deployment-model.md)
 - [STDIO transport security model](./stdio.md)
 - OAuth2 provider setup: [Auth0](./auth0.md) · [Keycloak](./keycloak.md)
-- [GraalVM native image spec](../specs/graalvm-native-image.md)
+- [GraalVM native image spec](../../dev-docs/graalvm-native-image.md)
 - [Logging architecture in `CLAUDE.md`](../../CLAUDE.md#logging-architecture)
