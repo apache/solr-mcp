@@ -17,9 +17,11 @@
 package org.apache.solr.mcp.server.indexing;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -146,5 +148,35 @@ class CsvIndexingTest {
 		assertThat(secondDoc.getFieldValue("id")).isEqualTo("2");
 		assertThat(secondDoc.getFieldValue("name")).isEqualTo("Regular Name");
 		assertThat(secondDoc.getFieldValue("description")).isEqualTo("Regular description");
+	}
+
+	@Test
+	void testCreateSchemalessDocumentsFromCsvWithNullInput() {
+		// Given
+
+		// When/Then
+		assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromCsv(null))
+				.isInstanceOf(DocumentProcessingException.class)
+				.hasMessageContaining("CSV input cannot be null or empty");
+	}
+
+	@Test
+	void testCreateSchemalessDocumentsFromCsvWithEmptyInput() {
+		// Given
+
+		// When/Then
+		assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromCsv(""))
+				.isInstanceOf(DocumentProcessingException.class)
+				.hasMessageContaining("CSV input cannot be null or empty");
+	}
+
+	@Test
+	void testCreateSchemalessDocumentsFromCsvWithWhitespaceOnlyInput() {
+		// Given
+
+		// When/Then
+		assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromCsv("   \n\t  "))
+				.isInstanceOf(DocumentProcessingException.class)
+				.hasMessageContaining("CSV input cannot be null or empty");
 	}
 }
