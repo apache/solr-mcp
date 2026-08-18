@@ -16,6 +16,8 @@
  */
 package org.apache.solr.mcp.server.search;
 
+import static org.apache.solr.mcp.server.util.ToolArguments.requireCollection;
+
 import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -308,6 +310,8 @@ public class SearchService {
 			@McpToolParam(description = "Starting offset for pagination", required = false) @Nullable Integer start,
 			@McpToolParam(description = "Number of rows to return", required = false) @Nullable Integer rows)
 			throws SolrServerException, IOException {
+
+		requireCollection(collection);
 
 		// query
 		final SolrQuery solrQuery = new SolrQuery("*:*");

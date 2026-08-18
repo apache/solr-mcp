@@ -20,6 +20,7 @@ import static org.apache.solr.mcp.server.collection.CollectionUtils.getFloat;
 import static org.apache.solr.mcp.server.collection.CollectionUtils.getInteger;
 import static org.apache.solr.mcp.server.collection.CollectionUtils.getLong;
 import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
+import static org.apache.solr.mcp.server.util.ToolArguments.requireCollection;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.observation.annotation.Observed;
@@ -258,9 +259,6 @@ public class CollectionService {
 
 	/** Default replication factor for new collections */
 	private static final int DEFAULT_REPLICATION_FACTOR = 1;
-
-	/** Error message for blank collection name validation */
-	private static final String BLANK_COLLECTION_NAME_ERROR = "Collection name must not be blank";
 
 	/** SolrJ client for communicating with Solr server */
 	private final SolrClient solrClient;
@@ -519,6 +517,8 @@ public class CollectionService {
 	public SolrMetrics getCollectionStats(
 			@McpToolParam(description = "Solr collection to get stats/metrics for") String collection)
 			throws SolrServerException, IOException {
+		requireCollection(collection);
+
 		// Extract actual collection name from shard name if needed
 		String actualCollection = extractCollectionName(collection);
 
@@ -1067,6 +1067,8 @@ public class CollectionService {
 			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
 			description = "Check health of a Solr collection")
 	public SolrHealthStatus checkHealth(@McpToolParam(description = "Solr collection") String collection) {
+		requireCollection(collection);
+
 		String actualCollection = extractCollectionName(collection);
 		try {
 			// Ping Solr
@@ -1135,9 +1137,7 @@ public class CollectionService {
 					required = false) @Nullable Integer replicationFactor)
 			throws SolrServerException, IOException {
 
-		if (name == null || name.isBlank()) {
-			throw new IllegalArgumentException(BLANK_COLLECTION_NAME_ERROR);
-		}
+		requireCollection(name);
 
 		String effectiveConfigSet = configSet != null ? configSet : DEFAULT_CONFIGSET;
 		int effectiveShards = numShards != null ? numShards : DEFAULT_NUM_SHARDS;

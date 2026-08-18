@@ -18,6 +18,7 @@ package org.apache.solr.mcp.server.schema;
 
 import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 import static org.apache.solr.mcp.server.util.PromptText.optionalCodeBlock;
+import static org.apache.solr.mcp.server.util.ToolArguments.requireCollection;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.observation.annotation.Observed;
@@ -182,6 +183,8 @@ public class SchemaService {
 			description = "Schema definition for a Solr collection including fields, field types, and copy fields",
 			mimeType = "application/json")
 	public String getSchemaResource(String collection) {
+		requireCollection(collection);
+
 		try {
 			return toJson(objectMapper, getSchema(collection));
 		} catch (Exception e) {
@@ -277,6 +280,8 @@ public class SchemaService {
 			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
 			description = "Get schema for a Solr collection")
 	public SchemaRepresentation getSchema(String collection) throws Exception {
+		requireCollection(collection);
+
 		SchemaRequest schemaRequest = new SchemaRequest();
 		return schemaRequest.process(solrClient, collection).getSchemaRepresentation();
 	}
@@ -482,15 +487,9 @@ public class SchemaService {
 		return def;
 	}
 
-	private static void requireCollection(String collection) {
-		if (collection == null || collection.isBlank()) {
-			throw new IllegalArgumentException("Collection name must not be blank");
-		}
-	}
-
 	private static void requireNonEmpty(List<?> list, String name) {
 		if (list == null || list.isEmpty()) {
-			throw new IllegalArgumentException(name + " must not be empty");
+			throw new IllegalArgumentException(name + " cannot be null or empty");
 		}
 	}
 
