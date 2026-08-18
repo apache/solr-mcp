@@ -8,7 +8,7 @@ Solr MCP Server is a Spring AI Model Context Protocol (MCP) server that enables 
 
 - **Status:** Apache incubating project (v0.0.2-SNAPSHOT)
 - **Java:** 25+ (centralized in build.gradle.kts)
-- **Framework:** Spring Boot 3.5.13, Spring AI 1.1.4
+- **Framework:** Spring Boot 3.5.14, Spring AI 1.1.7
 - **License:** Apache 2.0
 
 ## Common Commands
@@ -22,25 +22,74 @@ Solr MCP Server is a Spring AI Model Context Protocol (MCP) server that enables 
 ./gradlew test                               # Run all tests
 ./gradlew test --tests SearchServiceTest     # Run specific test class
 ./gradlew test --tests "*IntegrationTest"    # Run integration tests
-./gradlew dockerIntegrationTest              # Run Docker image tests (requires jibDockerBuild first)
 ./gradlew test jacocoTestReport              # Tests with coverage report
+
+# SBOM (Software Bill of Materials)
+./gradlew cyclonedxBom                       # Generate build/reports/application.cdx.json
 
 # Code formatting (REQUIRED before commit)
 ./gradlew spotlessApply            # Apply formatting
 ./gradlew spotlessCheck            # Check formatting
 
-# Docker
-./gradlew jibDockerBuild           # Build Docker image locally
+# Docker images
+./gradlew jibDockerBuild                                  # JVM (Jib):    solr-mcp:<v>                  (both stdio + http)
+./gradlew bootBuildImage -Pnative                         # Native stdio: solr-mcp:<v>-native-stdio
+./gradlew bootBuildImage -Pnative -Pprofile=http          # Native http:  solr-mcp:<v>-native-http
+./gradlew dockerIntegrationTest                           # Test JVM Jib (stdio + http + MCP stdio)
+./gradlew dockerIntegrationTest -Pnative                  # Test native stdio
+./gradlew dockerIntegrationTest -Pnative -Pprofile=http   # Test native http
 
-# Native image (experimental, requires GraalVM JDK 25)
-./gradlew nativeCompile -Pnative            # Compile native binary (host OS only)
-./gradlew bootBuildImage                     # Build native Docker image (any OS/arch)
-./gradlew nativeTest                         # Run tests as native image
-./gradlew dockerIntegrationTest -Pnative     # Docker integration tests (native)
+# Native image (requires GraalVM JDK 25; -Pnative applies the graalvm-native plugin)
+./gradlew nativeCompile -Pnative             # Compile native binary (host OS only)
+./gradlew nativeTest -Pnative                # Run tests as native image
 
 # Run locally (requires `docker compose up -d` for Solr)
 ./gradlew bootRun                  # STDIO mode (default)
 PROFILES=http ./gradlew bootRun    # HTTP mode
+```
+
+## Image × Mode matrix
+
+Three published image artifacts cover the full transport × runtime matrix:
+
+| Image                          | Toolchain | Build command                                            | STDIO | HTTP |
+|--------------------------------|-----------|----------------------------------------------------------|-------|------|
+| `solr-mcp:<v>`                 | Jib       | `./gradlew jibDockerBuild`                               | ✅    | ✅   |
+| `solr-mcp:<v>-native-stdio`    | Paketo    | `./gradlew bootBuildImage -Pnative`                      | ✅    | ❌   |
+| `solr-mcp:<v>-native-http`     | Paketo    | `./gradlew bootBuildImage -Pnative -Pprofile=http`       | ❌    | ✅   |
+
+Why three images:
+
+- **Jib's JVM image is dual-mode** because Jib uses a clean `java -jar`
+  entrypoint with no launcher script. Stdout stays clean for MCP STDIO, and
+  runtime `PROFILES=http` switches to web mode.
+- **Paketo's JVM image is unsuitable for stdio** — its `libjvm` helpers
+  (memory calculator, NMT, ca-certificates) write 6 lines to stdout before
+  the JVM, breaking MCP's JSON-RPC stream. Verified via
+  `DockerImageMcpClientStdioIntegrationTest`. Filed upstream as
+  [paketo-buildpacks/libjvm#482](https://github.com/paketo-buildpacks/libjvm/issues/482).
+  We use Jib for the JVM image instead.
+- **Native images must AOT-pin to one profile** because Spring AOT bakes
+  `spring.main.web-application-type` into the binary; activating both profiles
+  picks `servlet` (http overrides stdio) and forces Tomcat to start regardless
+  of runtime `PROFILES`. So one native image per profile.
+
+Run examples:
+
+```bash
+# STDIO — Jib JVM (default profile is stdio)
+docker run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ solr-mcp:latest
+
+# STDIO — native (faster startup, smaller image)
+docker run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ solr-mcp:latest-native-stdio
+
+# HTTP — Jib JVM
+docker run -p 8080:8080 --rm -e PROFILES=http \
+    -e SOLR_URL=http://host.docker.internal:8983/solr/ solr-mcp:latest
+
+# HTTP — native
+docker run -p 8080:8080 --rm -e PROFILES=http \
+    -e SOLR_URL=http://host.docker.internal:8983/solr/ solr-mcp:latest-native-http
 ```
 
 ## Architecture
@@ -52,7 +101,7 @@ Four service classes expose MCP tools via `@McpTool` annotations:
 - **SearchService** (`search/`) - Full-text search with filtering, faceting, sorting, pagination
 - **IndexingService** (`indexing/`) - Document indexing supporting JSON, CSV, XML formats
 - **CollectionService** (`metadata/`) - List collections, get stats, health checks
-- **SchemaService** (`metadata/`) - Schema introspection
+- **SchemaService** (`schema/`) - Schema introspection and additive modification (add-fields, add-field-types)
 
 ### Document Creators (Strategy Pattern)
 
@@ -68,6 +117,17 @@ Four service classes expose MCP tools via `@McpTool` annotations:
 - **HTTP**: For MCP Inspector and remote access. Servlet-based with optional OAuth2 security.
 
 Configuration files: `application-stdio.properties`, `application-http.properties`
+
+### SBOM Architecture
+
+CycloneDX SBOM generation is wired by applying the `org.cyclonedx.bom` plugin
+(version 2.4.1, matching what Spring Initializr ships for Spring Boot 3.5.14).
+Spring Boot's `CycloneDxPluginAction` auto-configures `cyclonedxBom` and makes
+the bootJar embed the result at `META-INF/sbom/application.cdx.json`; the
+actuator serves it at `/actuator/sbom/application` in the `http` profile
+(enabled via `application-http.properties`). Both the Jib JVM image and the
+Paketo native images package the bootJar contents, so every distribution
+artifact ships the SBOM without per-image wiring.
 
 ### Logging Architecture
 
@@ -90,21 +150,55 @@ corrupts the protocol. Logging is configured in two layers:
 
 **Init order**: logback.xml → Spring Boot starts → logback-spring.xml → application-{profile}.properties
 
-### Why Jib Instead of Spring Boot Buildpacks
+### Docker image strategy
 
-Spring Boot Buildpacks output logs to stdout, breaking MCP's STDIO protocol. Jib produces clean images with no stdout pollution, plus faster builds and multi-platform support (amd64/arm64).
+Two toolchains, three image artifacts. See **Image × Mode matrix** above
+for the published-artifact summary.
 
-### GraalVM Native Image (Opt-In)
+- **Jib** builds the JVM image (`solr-mcp:<v>`). Plain `java -jar` entrypoint,
+  multi-arch (amd64 + arm64), clean stdout. One image serves both stdio and
+  http; runtime `PROFILES` env var selects.
+- **Paketo `bootBuildImage`** builds two native-image variants:
+  - `solr-mcp:<v>-native-stdio` via `./gradlew bootBuildImage -Pnative`
+  - `solr-mcp:<v>-native-http`  via `./gradlew bootBuildImage -Pnative -Pprofile=http`
 
-An opt-in native image build is available via `-Pnative`, targeting the STDIO profile only.
-The native binary is compiled by `org.graalvm.buildtools.native` (`nativeCompile`) and packaged
-into a Docker image via `bootBuildImage` (Paketo buildpacks). Key configuration:
+**Why not Paketo for the JVM image:** Paketo's `libjvm` runtime helpers
+(memory calculator, NMT, ca-certificates) write 6 status lines to stdout
+before the JVM starts. This breaks MCP STDIO at the protocol level;
+verified end-to-end via `DockerImageMcpClientStdioIntegrationTest` (Spring
+AI MCP client times out on `initialize()`). Filed upstream as
+[paketo-buildpacks/libjvm#482](https://github.com/paketo-buildpacks/libjvm/issues/482).
+Jib doesn't have this problem because it writes a plain `java -jar`
+entrypoint — no launcher script, no stdout pollution.
 
-- **Opt-in flag:** `val nativeBuild = project.hasProperty("native")` in `build.gradle.kts`
-- **Cross-platform:** `bootBuildImage` compiles inside a Linux builder container, so it works on any host OS (macOS, Linux, Windows).
-- **AOT profile:** `processAot` runs with `--spring.profiles.active=stdio` under `-Pnative`
-  so security autoconfig exclusions from `application-stdio.properties` are applied during
-  hint generation. The `@SpringBootApplication` annotation is **not** modified.
+**Why two native images instead of one:** Spring AOT bakes
+`spring.main.web-application-type` into the binary at AOT time. Activating
+both `stdio` and `http` profiles during AOT picks `servlet` (http overrides
+stdio), which forces Tomcat to start regardless of the runtime `PROFILES`
+value — breaking stdio. So we AOT-pin per profile and produce one native
+image per transport: stdio binary excludes web servlet beans; http binary
+includes them.
+
+### GraalVM Native Image
+
+Native image is enabled via `-Pnative`. The native binary is compiled by the
+`org.graalvm.buildtools.native` plugin (`nativeCompile`) or via Paketo
+buildpacks (`bootBuildImage -Pnative`). Key configuration:
+
+- **Opt-in flag:** `val nativeBuild = project.hasProperty("native")` in
+  `build.gradle.kts`. The `graalvm-native` plugin is applied conditionally on
+  this flag, and the entire `graalvmNative { ... }` configuration block runs
+  only under `-Pnative`. `nativeCompile`, `nativeTest`, and the native variant
+  of `bootBuildImage` all require `-Pnative`.
+- **Per-profile AOT pin:** `processAot` runs with
+  `--spring.profiles.active=$nativeProfile` where `nativeProfile` is `stdio`
+  by default or `http` if `-Pprofile=http` is passed. Activating both profiles
+  during AOT picks `servlet` and forces Tomcat regardless of runtime
+  `PROFILES`, breaking stdio — hence one native image per profile.
+- **Cross-platform builds:** `bootBuildImage` compiles inside a Linux builder
+  container, so it works on any host OS (macOS, Linux, Windows). Multi-arch
+  (amd64+arm64) is handled in CI via a GitHub Actions matrix; local builds
+  produce a single image for the host architecture.
 - **OTel build-time init:** OTel instrumentation BOM 2.11.0 lacks native metadata;
   `--initialize-at-build-time` is set for `io.opentelemetry.api`, `io.opentelemetry.context`,
   `io.opentelemetry.instrumentation.api`, and `io.opentelemetry.instrumentation.logback`.
@@ -122,15 +216,111 @@ into a Docker image via `bootBuildImage` (Paketo buildpacks). Key configuration:
 - **Wire format:** `SolrConfig` uses `XMLRequestWriter` instead of the default
   `JavaBinRequestWriter`. The JavaBin binary codec uses deep reflection that would
   require extensive additional native image hints.
-- **Docker tags:** JVM image = `solr-mcp:<version>` (Jib), native image = `solr-mcp:<version>-native` (bootBuildImage)
+- **Docker tags:** Jib JVM = `solr-mcp:<version>` (`solr-mcp:latest`).
+  Paketo native = `solr-mcp:<version>-native-stdio` /
+  `solr-mcp:<version>-native-http` (with corresponding `:latest-native-*` tags).
 - **CI:** Separate `native.yml` workflow; native failures do not block JVM-path merges.
-- **Spec:** [docs/specs/graalvm-native-image.md](docs/specs/graalvm-native-image.md)
+- **Spec:** [dev-docs/graalvm-native-image.md](dev-docs/graalvm-native-image.md)
+
+## Release LICENSE / NOTICE
+
+ASF policy requires distinct LICENSE/NOTICE for the *source* form and the *binary*
+form, because the binary (Spring Boot fat `bootJar`) bundles third-party bytecode.
+See [infra.apache.org/licensing-howto](https://infra.apache.org/licensing-howto.html).
+
+- **Source form** (thin `jar`, `-sources`, `-javadoc`): the base `LICENSE` (Apache-2.0)
+  and `NOTICE` at the repo root, bundled into `META-INF/` as-is.
+- **Binary form** (`bootJar`): generated at build time and bundled into its `META-INF/`:
+  - `generateBinaryLicense` → `LICENSE` = base Apache-2.0 + an appendix listing every
+    bundled `productionRuntimeClasspath` dependency and a link to its license. Licenses
+    are read from the **CycloneDX SBOM** (`cyclonedxBom`, the same SBOM embedded at
+    `META-INF/sbom/application.cdx.json`), filtered to the shipped classpath. The SBOM
+    resolves a license for every bundled component — including Gradle-module-metadata
+    -only ASF artifacts such as `solr-solrj`/`solr-api` that POM-only scanners miss — so
+    no per-dependency list is hand-maintained.
+  - `generateBinaryNotice` → `NOTICE` = base NOTICE + the `META-INF/NOTICE` files lifted
+    verbatim (de-duplicated) from the bundled jars (Maven-Shade
+    `ApacheNoticeResourceTransformer` approach).
+- **Where / when they appear:** both binary files are regenerated on every build — the
+  two tasks run ahead of `bootJar` (and in `check`), so any `./gradlew build` / `bootJar`
+  produces them. They live at `META-INF/LICENSE` and `META-INF/NOTICE` inside the fat jar
+  (`build/libs/solr-mcp-<v>.jar`), and therefore inside every published **Docker image**
+  too, since the Jib JVM image and the Paketo native images both package the bootJar
+  contents. Inspect a built artifact with
+  `unzip -p build/libs/solr-mcp-<v>.jar META-INF/LICENSE` (or `META-INF/NOTICE`); the
+  generator also writes them to `build/generated/license/` for local viewing. The
+  source-form jars (thin `jar`, `-sources`, `-javadoc`) instead carry the repo-root base
+  files unchanged.
+- **Licenses are disclosed as the SBOM reports them** (SPDX ids where available). The
+  appendix is a disclosure, not a license policy: there is **no allow-list and no
+  corrections**, so a few imprecise-but-permissive upstream labels appear as-is (e.g.
+  `mcp-server-security` shows `Apache-1.0`, ANTLR shows `BSD-4-Clause`/`BSD licence`); the
+  appendix preamble says so and links each license. All bundled deps are ASF Category A/B.
+- **Completeness gate** (`generateBinaryLicense`, run as part of `check`/`build`): the
+  *only* gate — fails if a bundled dependency is missing from the SBOM, so a dependency
+  can never be silently omitted from the LICENSE. It makes no judgement about which
+  licenses are acceptable. (Unlike apache/solr's `solr/licenses/` folder, which JanHoy
+  said not to replicate, there is no per-dependency license/checksum store here.)
+- This builds on the SBOM generation (see **SBOM Architecture**); the SBOM remains the
+  machine-readable bill of materials, and LICENSE/NOTICE are the human-readable legal
+  artifacts derived from it.
+- **Implementation:** the `org.apache.solr.mcp.license-notice` convention plugin in
+  `buildSrc/` (typed `GenerateBinaryLicense` / `GenerateBinaryNotice` tasks). The root
+  `build.gradle.kts` only applies the plugin. The tasks are unit-tested in
+  `buildSrc/src/test/kotlin/.../LicenseNoticeTasksTest.kt` (appendix listing, SBOM
+  name/URL handling, the completeness gate, and NOTICE de-duplication); `buildSrc`'s
+  `test` runs as part of `./gradlew build`.
 
 ## Testing Structure
 
-- **Unit tests** (`*Test.java`): Mocked dependencies, fast execution
-- **Integration tests** (`*IntegrationTest.java`, `*DirectTest.java`): Real Solr via Testcontainers
-- **Docker tests** (`containerization/`): Tagged `@Tag("docker-integration")`, run separately
+- **Unit tests** (`*Test.java`): Mocked dependencies, fast execution. Mockito-based
+  unit tests are `@DisabledInNativeImage` because ByteBuddy proxies don't survive
+  GraalVM's closed-world assumption.
+- **Integration tests** (`*IntegrationTest.java`, `*DirectTest.java`): Real Solr via
+  Testcontainers. Run as part of `./gradlew build` (JVM) and `./gradlew nativeTest -Pnative`
+  (native test binary).
+- **Docker tests** (`containerization/`): Tagged `@Tag("docker-integration")`, only
+  run via `./gradlew dockerIntegrationTest`. They drive a built Docker image as a
+  black-box subject under test.
+
+### MCP-protocol vs container smoke tests
+
+Two different layers verify stdio behavior — easy to confuse:
+
+- `McpClientStdioIntegrationTest` (top-level package) spawns the raw `java -jar`
+  JAR as a subprocess and runs the full MCP tool-call workflow. Verifies the
+  application's stdio JSON-RPC at the JVM-process layer. Runs in `./gradlew build`
+  and `./gradlew nativeTest -Pnative`. It does **not** test any Docker image.
+- `DockerImageMcpClientStdioIntegrationTest` (`containerization/`) does the same
+  workflow but spawns `docker run -i <image>` instead of `java -jar`. This is
+  the protocol-level Docker image verification. Runs only in
+  `dockerIntegrationTest`.
+- `DockerImageStdioIntegrationTest` is a container **smoke** test (starts, stays
+  alive, no errors in logs). It does not exercise MCP at all.
+- `DockerImageHttpIntegrationTest` exercises the HTTP transport via real HTTP
+  calls to `/actuator/health`, etc.
+
+### Image × Mode test coverage
+
+Each Gradle invocation builds a different image and runs the appropriate test
+subset. Together the three invocations cover all four image × mode combinations:
+
+| Gradle invocation                                          | Image built                       | Tests that run                                                                                              |
+|------------------------------------------------------------|-----------------------------------|-------------------------------------------------------------------------------------------------------------|
+| `./gradlew dockerIntegrationTest`                          | Jib JVM `solr-mcp:<v>`            | `DockerImageStdioIntegrationTest` (smoke) + `DockerImageMcpClientStdioIntegrationTest` (MCP STDIO protocol) + `DockerImageHttpIntegrationTest` (HTTP endpoint) |
+| `./gradlew dockerIntegrationTest -Pnative`                 | Paketo `solr-mcp:<v>-native-stdio` | `DockerImageStdioIntegrationTest` + `DockerImageMcpClientStdioIntegrationTest`                                |
+| `./gradlew dockerIntegrationTest -Pnative -Pprofile=http`  | Paketo `solr-mcp:<v>-native-http`  | `DockerImageHttpIntegrationTest`                                                                              |
+
+The native-stdio image excludes the HTTP test (no servlet beans in the closed
+world). The native-http image excludes the stdio tests (no MCP STDIO transport
+in that profile). The Jib JVM image runs all three because it serves both
+modes.
+
+### CI coverage
+
+`native.yml` runs `dockerIntegrationTest` over a `[stdio, http]` matrix on
+every PR that touches native-related files, so both Paketo native variants
+are exercised. The Jib JVM path runs in `build-and-publish.yml`.
 
 ### Solr Version Compatibility Testing
 
@@ -157,7 +347,7 @@ Remaining known differences from Solr 9:
 - **`/admin/mbeans` removed:** Cache and handler stats from `getCollectionStats()` will always be `null` on Solr 10. A future migration to `/admin/metrics` will restore these metrics.
 - **Metrics migration:** Dropwizard metrics replaced by OpenTelemetry. Metric names switch to snake_case in Solr 10.
 - **SolrJ base URL:** Already uses root URLs — **no change needed**.
-- **SolrJ 10.x dependency:** Not yet on Maven Central (as of 2026-03-06); tests use SolrJ 9.x against a Solr 10 server. Update `solr-solrj` and Jetty BOM when 10.x is released.
+- **SolrJ version:** `solr-solrj` is on 10.0.0 (`gradle/libs.versions.toml`), released to Maven Central and bumped in #58. Jetty artifacts are declared versionless and managed by Spring Boot's BOM, so there is no separate Jetty pin to update. Note the client is *newer* than the default test server: `solr.test.image` defaults to `solr:9.9-slim`, so the standard build exercises a SolrJ 10 client against Solr 9.9.
 
 ## Key Configuration
 

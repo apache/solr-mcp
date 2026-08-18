@@ -27,6 +27,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -39,20 +40,53 @@ class HttpSecurityConfiguration {
 	@Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri:}")
 	private String issuerUrl;
 
+	@Value("${mcp.cors.allowed-origins}")
+	private List<String> allowedOrigins;
+
 	@Bean
 	@ConditionalOnProperty(name = "http.security.enabled", havingValue = "true", matchIfMissing = true)
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+		http.authorizeHttpRequests(auth -> {
+			// Liveness/readiness probes need anonymous access for load
+			// balancers and orchestrators. All other actuator endpoints
+			// (loggers, sbom, metrics, prometheus, info) require auth so
+			// that an unauthenticated caller cannot read the dependency
+			// tree, scrape metrics that map the tool surface, or — if
+			// path-matcher semantics ever shift — change log levels.
+			auth.requestMatchers("/actuator/health").permitAll();
+			auth.requestMatchers("/actuator", "/actuator/**").authenticated();
+			// /mcp is gated by @PreAuthorize on individual @McpTool
+			// methods, matching the spring-ai-community/mcp-security
+			// "secured tools" sample pattern.
+			auth.requestMatchers("/mcp").permitAll();
+			auth.anyRequest().authenticated();
+		});
+		// Configure OAuth2 on the MCP server.
+		//
+		// Only wired when an issuer URL is actually supplied —
+		// McpServerOAuth2Configurer
+		// builds a NimbusJwtDecoder eagerly during init() and that builder requires a
+		// non-blank issuer. In native (AOT) builds the secured filter-chain bean is
+		// baked in regardless of the runtime http.security.enabled value, so the only
+		// way to let an unconfigured native-http image start (e.g. CI smoke test) is to
+		// gate the OAuth2 wiring at runtime here. With no issuer set, every non-
+		// permitAll() endpoint still falls through to Spring Security's default 401/403
+		// — the chain is locked down, just without a bearer-token validator.
+		//
+		// resourcePath: declares "/mcp" as the canonical resource indicator
+		// for OAuth 2.0 Protected Resource Metadata (RFC 9728), which is what
+		// MCP clients use to discover the authorization server.
+		//
+		// validateAudienceClaim: per the MCP Authorization specification, MCP
+		// servers MUST validate that tokens were specifically issued for them.
+		// The audience is matched against the resource indicator (RFC 8707)
+		// configured above. The IdP must populate the JWT "aud" claim
+		// accordingly — see docs/security/http.md for IdP configuration notes.
+		if (StringUtils.hasText(issuerUrl)) {
+			http.with(McpServerOAuth2Configurer.mcpServerOAuth2(), mcpAuthorization -> mcpAuthorization
+					.authorizationServer(issuerUrl).resourcePath("/mcp").validateAudienceClaim(true));
+		}
 		return http
-				// ⬇️ Open every request on the server
-				.authorizeHttpRequests(auth -> {
-					auth.requestMatchers("/actuator").permitAll();
-					auth.requestMatchers("/actuator/*").permitAll();
-					auth.requestMatchers("/mcp").permitAll();
-					auth.anyRequest().authenticated();
-				})
-				// Configure OAuth2 on the MCP server
-				.with(McpServerOAuth2Configurer.mcpServerOAuth2(),
-						mcpAuthorization -> mcpAuthorization.authorizationServer(issuerUrl))
 				// MCP inspector
 				.cors(cors -> cors.configurationSource(corsConfigurationSource())).csrf(CsrfConfigurer::disable)
 				.build();
@@ -69,9 +103,19 @@ class HttpSecurityConfiguration {
 
 	public CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration configuration = new CorsConfiguration();
-		configuration.setAllowedOriginPatterns(List.of("*"));
-		configuration.setAllowedMethods(List.of("*"));
-		configuration.setAllowedHeaders(List.of("*"));
+		// Use the strict setAllowedOrigins API (not setAllowedOriginPatterns) so the
+		// browser-spec rule that wildcards cannot be combined with credentials is
+		// enforced.
+		// Origins are configurable via the mcp.cors.allowed-origins property
+		// (env: MCP_CORS_ALLOWED_ORIGINS) and default to the MCP Inspector's local
+		// proxy.
+		configuration.setAllowedOrigins(allowedOrigins);
+		// Only the HTTP methods used by the MCP Streamable HTTP transport.
+		configuration.setAllowedMethods(List.of("GET", "POST", "DELETE", "OPTIONS"));
+		// Only the headers the MCP specification requires for the Streamable HTTP
+		// transport.
+		configuration.setAllowedHeaders(
+				List.of("Authorization", "Content-Type", "Mcp-Session-Id", "MCP-Protocol-Version", "Last-Event-ID"));
 		configuration.setAllowCredentials(true);
 
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

@@ -23,10 +23,12 @@ import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.observation.annotation.Observed;
+import io.modelcontextprotocol.spec.McpSchema.CompleteRequest;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -41,7 +43,10 @@ import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
+import org.apache.solr.mcp.server.util.PromptNames;
+import org.springaicommunity.mcp.annotation.McpArg;
 import org.springaicommunity.mcp.annotation.McpComplete;
+import org.springaicommunity.mcp.annotation.McpPrompt;
 import org.springaicommunity.mcp.annotation.McpResource;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
@@ -102,10 +107,11 @@ import org.springframework.stereotype.Service;
  * <strong>Error Handling:</strong>
  *
  * <p>
- * The service implements robust error handling with graceful degradation.
- * Failed operations return null values rather than throwing exceptions (except
- * where validation requires it), allowing partial metrics collection when some
- * endpoints are unavailable.
+ * Collection-level operations (listing, validation) propagate
+ * {@link SolrServerException} and {@link IOException} so that callers
+ * (including the MCP framework) receive a clear error when Solr is unreachable.
+ * Sub-metric operations (cache, handler) degrade gracefully and return
+ * {@code null} when their specific endpoints are unavailable.
  *
  * <p>
  * <strong>Example Usage:</strong>
@@ -280,25 +286,116 @@ public class CollectionService {
 	 * array of collection names.
 	 *
 	 * @return JSON string containing the list of collections
+	 * @throws SolrServerException
+	 *             if there are errors communicating with Solr
+	 * @throws IOException
+	 *             if there are I/O errors during communication
 	 */
-	@McpResource(uri = "solr://collections", name = "solr-collections", description = "List of all Solr collections available in the cluster", mimeType = "application/json")
-	public String getCollectionsResource() {
+	@PreAuthorize("isAuthenticated()")
+	@McpResource(
+			uri = "solr://collections",
+			name = "solr-collections",
+			description = "List of all Solr collections available in the cluster",
+			mimeType = "application/json")
+	public String getCollectionsResource() throws SolrServerException, IOException {
 		return toJson(objectMapper, listCollections());
 	}
 
+	/** Maximum number of completion suggestions returned per request. */
+	static final int MAX_COMPLETION_RESULTS = 100;
+
 	/**
-	 * MCP Completion endpoint for collection name autocompletion.
+	 * MCP Completion endpoint for the {@code {collection}} segment of the
+	 * {@code solr://{collection}/schema} resource template.
 	 *
 	 * <p>
-	 * Provides autocompletion support for the collection parameter in the schema
-	 * resource URI template. Returns all available collection names that MCP
-	 * clients can use to complete the {collection} placeholder.
+	 * Returns collection names that start with the user-supplied prefix
+	 * (case-insensitive). When the prefix is empty all collections are returned,
+	 * subject to {@link #MAX_COMPLETION_RESULTS}. The results are sorted so that
+	 * client UIs see a stable ordering.
 	 *
-	 * @return list of available collection names for autocompletion
+	 * @param argument
+	 *            the partial value the client is completing; its
+	 *            {@link CompleteRequest.CompleteArgument#name() name} must be
+	 *            {@code collection}
+	 * @return matching collection names, capped at {@link #MAX_COMPLETION_RESULTS}
 	 */
+	@PreAuthorize("isAuthenticated()")
 	@McpComplete(uri = "solr://{collection}/schema")
-	public List<String> completeCollectionForSchema() {
-		return listCollections();
+	public List<String> completeCollection(CompleteRequest.CompleteArgument argument) {
+		if (argument == null || !"collection".equals(argument.name())) {
+			return List.of();
+		}
+		String prefix = argument.value() == null ? "" : argument.value().toLowerCase(Locale.ROOT);
+		try {
+			return listCollections().stream().filter(c -> c != null && c.toLowerCase(Locale.ROOT).startsWith(prefix))
+					.sorted().limit(MAX_COMPLETION_RESULTS).toList();
+		} catch (SolrServerException | IOException _) {
+			return List.of();
+		}
+	}
+
+	/**
+	 * Completion for the {@code collection} argument of the
+	 * {@code search-collection} prompt (defined in {@code SearchService}).
+	 *
+	 * <p>
+	 * {@code @McpComplete} registers a handler per {@code (ref/prompt, name)} pair,
+	 * so a prompt that takes a collection argument needs its own handler — the
+	 * resource-template handler on {@link #completeCollection} only matches
+	 * {@code ref/resource}. Each wrapper delegates so all collection-name
+	 * completion shares one implementation and one cap.
+	 *
+	 * @param argument
+	 *            the partial value the client is completing
+	 * @return matching collection names, capped at {@link #MAX_COMPLETION_RESULTS}
+	 */
+	@PreAuthorize("isAuthenticated()")
+	@McpComplete(prompt = PromptNames.SEARCH_COLLECTION)
+	public List<String> completeSearchCollectionPromptArg(CompleteRequest.CompleteArgument argument) {
+		return completeCollection(argument);
+	}
+
+	/**
+	 * Completion for the {@code collection} argument of the {@code index-data}
+	 * prompt.
+	 *
+	 * @param argument
+	 *            the partial value the client is completing
+	 * @return matching collection names, capped at {@link #MAX_COMPLETION_RESULTS}
+	 */
+	@PreAuthorize("isAuthenticated()")
+	@McpComplete(prompt = PromptNames.INDEX_DATA)
+	public List<String> completeIndexDataPromptArg(CompleteRequest.CompleteArgument argument) {
+		return completeCollection(argument);
+	}
+
+	/**
+	 * Completion for the {@code collection} argument of the {@code view-schema}
+	 * prompt.
+	 *
+	 * @param argument
+	 *            the partial value the client is completing
+	 * @return matching collection names, capped at {@link #MAX_COMPLETION_RESULTS}
+	 */
+	@PreAuthorize("isAuthenticated()")
+	@McpComplete(prompt = PromptNames.VIEW_SCHEMA)
+	public List<String> completeViewSchemaPromptArg(CompleteRequest.CompleteArgument argument) {
+		return completeCollection(argument);
+	}
+
+	/**
+	 * Completion for the {@code collection} argument of the {@code design-schema}
+	 * prompt.
+	 *
+	 * @param argument
+	 *            the partial value the client is completing
+	 * @return matching collection names, capped at {@link #MAX_COMPLETION_RESULTS}
+	 */
+	@PreAuthorize("isAuthenticated()")
+	@McpComplete(prompt = PromptNames.DESIGN_SCHEMA)
+	public List<String> completeDesignSchemaPromptArg(CompleteRequest.CompleteArgument argument) {
+		return completeCollection(argument);
 	}
 
 	/**
@@ -314,14 +411,6 @@ public class CollectionService {
 	 * the base collection name if needed.
 	 *
 	 * <p>
-	 * <strong>Error Handling:</strong>
-	 *
-	 * <p>
-	 * If the operation fails due to connectivity issues or API errors, an empty
-	 * list is returned rather than throwing an exception, allowing the application
-	 * to continue functioning with degraded capabilities.
-	 *
-	 * <p>
 	 * <strong>MCP Tool Usage:</strong>
 	 *
 	 * <p>
@@ -329,22 +418,26 @@ public class CollectionService {
 	 * natural language requests like "list all collections" or "show me available
 	 * databases".
 	 *
-	 * @return a list of collection names, or an empty list if unable to retrieve
-	 *         them
+	 * @return a list of collection names; never null (returns an empty list when
+	 *         Solr reports no collections)
+	 * @throws SolrServerException
+	 *             if there are errors communicating with Solr
+	 * @throws IOException
+	 *             if there are I/O errors during communication
 	 * @see CollectionAdminRequest.List
 	 */
-	@McpTool(name = "list-collections", description = "List solr collections")
-	public List<String> listCollections() {
-		try {
-			CollectionAdminRequest.List request = new CollectionAdminRequest.List();
-			CollectionAdminResponse response = request.process(solrClient);
+	@PreAuthorize("isAuthenticated()")
+	@McpTool(
+			name = "list-collections",
+			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
+			description = "List solr collections")
+	public List<String> listCollections() throws SolrServerException, IOException {
+		CollectionAdminRequest.List request = new CollectionAdminRequest.List();
+		CollectionAdminResponse response = request.process(solrClient);
 
-			@SuppressWarnings("unchecked")
-			List<String> collections = (List<String>) response.getResponse().get(COLLECTIONS_KEY);
-			return collections != null ? collections : new ArrayList<>();
-		} catch (SolrServerException | IOException _) {
-			return new ArrayList<>();
-		}
+		@SuppressWarnings("unchecked")
+		List<String> collections = (List<String>) response.getResponse().get(COLLECTIONS_KEY);
+		return collections != null ? collections : new ArrayList<>();
 	}
 
 	/**
@@ -407,7 +500,11 @@ public class CollectionService {
 	 * @see LukeRequest
 	 * @see #extractCollectionName(String)
 	 */
-	@McpTool(name = "get-collection-stats", description = "Get stats/metrics on a Solr collection")
+	@PreAuthorize("isAuthenticated()")
+	@McpTool(
+			name = "get-collection-stats",
+			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
+			description = "Get stats/metrics on a Solr collection")
 	public SolrMetrics getCollectionStats(
 			@McpToolParam(description = "Solr collection to get stats/metrics for") String collection)
 			throws SolrServerException, IOException {
@@ -551,12 +648,16 @@ public class CollectionService {
 	 *            the collection name to retrieve cache metrics for
 	 * @return CacheStats object with all cache performance metrics, or null if
 	 *         unavailable
+	 * @throws SolrServerException
+	 *             if there are errors communicating with Solr
+	 * @throws IOException
+	 *             if there are I/O errors during communication
 	 * @see CacheStats
 	 * @see CacheInfo
 	 * @see #extractCacheStats(NamedList)
 	 * @see #isCacheStatsEmpty(CacheStats)
 	 */
-	public CacheStats getCacheMetrics(String collection) {
+	public CacheStats getCacheMetrics(String collection) throws SolrServerException, IOException {
 		String actualCollection = extractCollectionName(collection);
 
 		if (!validateCollectionExists(actualCollection)) {
@@ -663,12 +764,16 @@ public class CollectionService {
 	 *            the collection name to retrieve handler metrics for
 	 * @return HandlerStats object with performance metrics for all handlers, or
 	 *         null if unavailable
+	 * @throws SolrServerException
+	 *             if there are errors communicating with Solr
+	 * @throws IOException
+	 *             if there are I/O errors during communication
 	 * @see HandlerStats
 	 * @see HandlerInfo
 	 * @see #fetchFlatHandlerInfo(String, String, String)
 	 * @see #isHandlerStatsEmpty(HandlerStats)
 	 */
-	public HandlerStats getHandlerMetrics(String collection) {
+	public HandlerStats getHandlerMetrics(String collection) throws SolrServerException, IOException {
 		String actualCollection = extractCollectionName(collection);
 
 		if (!validateCollectionExists(actualCollection)) {
@@ -874,36 +979,29 @@ public class CollectionService {
 	 * This dual approach ensures compatibility with SolrCloud environments where
 	 * shard names may be returned alongside collection names.
 	 *
-	 * <p>
-	 * <strong>Error Handling:</strong>
-	 *
-	 * <p>
-	 * Returns {@code false} if validation fails due to communication errors,
-	 * allowing calling methods to handle missing collections appropriately.
-	 *
 	 * @param collection
 	 *            the collection name to validate
 	 * @return true if the collection exists (either exact or shard match), false
 	 *         otherwise
+	 * @throws SolrServerException
+	 *             if there are errors communicating with Solr
+	 * @throws IOException
+	 *             if there are I/O errors during communication
 	 * @see #listCollections()
 	 * @see #extractCollectionName(String)
 	 */
-	private boolean validateCollectionExists(String collection) {
-		try {
-			List<String> collections = listCollections();
+	private boolean validateCollectionExists(String collection) throws SolrServerException, IOException {
+		List<String> collections = listCollections();
 
-			// Check for exact match first
-			if (collections.contains(collection)) {
-				return true;
-			}
-
-			// Check if any of the returned collections start with the collection name (for
-			// shard
-			// names)
-			return collections.stream().anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
-		} catch (Exception e) {
-			return false;
+		// Check for exact match first
+		if (collections.contains(collection)) {
+			return true;
 		}
+
+		// Check if any of the returned collections start with the collection name (for
+		// shard
+		// names)
+		return collections.stream().anyMatch(c -> c.startsWith(collection + SHARD_SUFFIX));
 	}
 
 	/**
@@ -955,7 +1053,11 @@ public class CollectionService {
 	 * @see SolrHealthStatus
 	 * @see SolrPingResponse
 	 */
-	@McpTool(name = "check-health", description = "Check health of a Solr collection")
+	@PreAuthorize("isAuthenticated()")
+	@McpTool(
+			name = "check-health",
+			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
+			description = "Check health of a Solr collection")
 	public SolrHealthStatus checkHealth(@McpToolParam(description = "Solr collection") String collection) {
 		String actualCollection = extractCollectionName(collection);
 		try {
@@ -1007,13 +1109,20 @@ public class CollectionService {
 	 *             if there are I/O errors during communication
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "create-collection", description = "Create a new Solr collection. "
-			+ "configSet defaults to _default, numShards and replicationFactor default to 1.")
+	@McpTool(
+			name = "create-collection",
+			annotations = @McpTool.McpAnnotations(destructiveHint = false),
+			description = "Create a new Solr collection. "
+					+ "configSet defaults to _default, numShards and replicationFactor default to 1.")
 	public CollectionCreationResult createCollection(
 			@McpToolParam(description = "Name of the collection to create") String name,
 			@McpToolParam(description = "Configset name. Defaults to _default.", required = false) String configSet,
-			@McpToolParam(description = "Number of shards (SolrCloud only). Defaults to 1.", required = false) Integer numShards,
-			@McpToolParam(description = "Replication factor (SolrCloud only). Defaults to 1.", required = false) Integer replicationFactor)
+			@McpToolParam(
+					description = "Number of shards (SolrCloud only). Defaults to 1.",
+					required = false) Integer numShards,
+			@McpToolParam(
+					description = "Replication factor (SolrCloud only). Defaults to 1.",
+					required = false) Integer replicationFactor)
 			throws SolrServerException, IOException {
 
 		if (name == null || name.isBlank()) {
@@ -1028,5 +1137,98 @@ public class CollectionService {
 				.process(solrClient);
 
 		return new CollectionCreationResult(name, true, "Collection created successfully", Instant.now());
+	}
+
+	/**
+	 * MCP prompt that walks the client through a read-only inventory of the
+	 * cluster: list collections and characterise each by stats and health.
+	 *
+	 * @return the prompt text instructing the model how to explore collections
+	 */
+	@PreAuthorize("isAuthenticated()")
+
+	@McpPrompt(
+			name = PromptNames.EXPLORE_COLLECTIONS,
+			title = "Explore Solr collections",
+			description = "Read-only walkthrough: list collections and characterise each by stats and health.")
+	public String exploreCollectionsPrompt() {
+		return """
+				You are exploring an Apache Solr cluster through MCP tools. Goal: produce a concise,
+				accurate picture of what already exists. This prompt is read-only; do not create or
+				modify anything.
+
+				1. List collections.
+				   - Call `list-collections` to get the full set of collection names.
+				   - If the user mentioned a target collection by name, note whether it appears in the
+				     list.
+
+				2. Characterize each interesting collection.
+				   - For each collection the user cares about (or a small representative sample if they
+				     did not name one), call `get-collection-stats` to read numDocs, segment counts, and
+				     cache/handler metrics, and `check-health` to confirm the collection responds to a
+				     ping and the doc count is non-zero where expected.
+
+				3. Summarize.
+				   - Tell the user which collections exist, which look healthy, and which look empty or
+				     stale.
+				   - If the user's intent does not match any existing collection, suggest the
+				     `setup-collection` prompt to create one.
+				""";
+	}
+
+	/**
+	 * MCP prompt that guides the client through creating a new Solr collection:
+	 * validate the name, pick configset / shards / replication factor, create the
+	 * collection, and verify it.
+	 *
+	 * @param name
+	 *            desired collection name (lowercase letters, digits, underscores,
+	 *            hyphens — no spaces)
+	 * @param purpose
+	 *            optional one-line description of what the collection is for; may
+	 *            be {@code null} or blank
+	 * @return the prompt text instructing the model how to set up the collection
+	 */
+	@PreAuthorize("isAuthenticated()")
+
+	@McpPrompt(
+			name = PromptNames.SETUP_COLLECTION,
+			title = "Set up a new Solr collection",
+			description = "Guided workflow: validate a name, pick configset / shards / replication factor, create the collection, and verify it.")
+	public String setupCollectionPrompt(@McpArg(
+			name = "name",
+			description = "Desired collection name. Lowercase letters, digits, underscores, hyphens — no spaces.",
+			required = true) String name,
+			@McpArg(
+					name = "purpose",
+					description = "Optional one-line description of what the collection is for (used only to ground the conversation).",
+					required = false) String purpose) {
+		String purposeLine = (purpose == null || purpose.isBlank()) ? "" : "\nPurpose: %s\n".formatted(purpose.strip());
+		return """
+				You are setting up a new Solr collection named `%s` through MCP tools.%s
+				1. Validate the name.
+				   - Lowercase letters, digits, underscores, hyphens only — no spaces or uppercase.
+				   - Call `list-collections` and confirm `%s` does not already exist. If it does, stop
+				     and tell the user.
+
+				2. Choose creation parameters.
+				   - Defaults: configset `%s`, %d shard(s), replicationFactor %d. These work for most
+				     single-node and small SolrCloud setups.
+				   - Only override if the user asked: a custom configset for a pre-built schema, more
+				     shards for a large dataset, or higher replicationFactor for redundancy.
+
+				3. Create.
+				   - Call `create-collection` with `name=%s` and any non-default `configSet`,
+				     `numShards`, `replicationFactor` values. Report the result (success flag +
+				     message).
+
+				4. Verify.
+				   - Call `list-collections` again; `%s` should appear.
+				   - Call `check-health` on `%s`; it should respond to ping.
+
+				Next step suggestion: define the schema. Use the `design-schema` prompt to design
+				fields for the dataset the user wants to index.
+				""".formatted(name, purposeLine, name, DEFAULT_CONFIGSET, DEFAULT_NUM_SHARDS,
+				DEFAULT_REPLICATION_FACTOR, name, name, name);
 	}
 }

@@ -24,6 +24,10 @@ import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
+import org.apache.solr.mcp.server.util.PromptNames;
+import org.apache.solr.mcp.server.util.PromptText;
+import org.springaicommunity.mcp.annotation.McpArg;
+import org.springaicommunity.mcp.annotation.McpPrompt;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -125,6 +129,9 @@ public class IndexingService {
 	 *
 	 * @param solrClient
 	 *            the SolrJ client instance for communicating with Solr
+	 * @param indexingDocumentCreator
+	 *            the orchestrator that parses JSON, CSV, and XML input into
+	 *            {@code SolrInputDocument} batches
 	 * @see SolrClient
 	 */
 	public IndexingService(SolrClient solrClient, IndexingDocumentCreator indexingDocumentCreator) {
@@ -183,6 +190,8 @@ public class IndexingService {
 	 *            the name of the Solr collection to index documents into
 	 * @param json
 	 *            JSON string containing an array of documents to index
+	 * @return a human-readable summary reporting how many documents were
+	 *         successfully indexed
 	 * @throws IOException
 	 *             if there are critical errors in JSON parsing or Solr
 	 *             communication
@@ -192,12 +201,17 @@ public class IndexingService {
 	 * @see #indexDocuments(String, List)
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "index-json-documents", description = "Index documents from json String into Solr collection")
-	public void indexJsonDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
+	@McpTool(
+			name = "index-json-documents",
+			annotations = @McpTool.McpAnnotations(idempotentHint = true),
+			description = "Index documents from json String into Solr collection")
+	public String indexJsonDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "JSON string containing documents to index") String json)
 			throws IOException, SolrServerException {
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
-		indexDocuments(collection, schemalessDoc);
+		int successCount = indexDocuments(collection, schemalessDoc);
+		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
+				+ collection + "'";
 	}
 
 	/**
@@ -250,6 +264,8 @@ public class IndexingService {
 	 * @param csv
 	 *            CSV string containing documents to index (first row must be
 	 *            headers)
+	 * @return a human-readable summary reporting how many documents were
+	 *         successfully indexed
 	 * @throws IOException
 	 *             if there are critical errors in CSV parsing or Solr communication
 	 * @throws SolrServerException
@@ -258,12 +274,17 @@ public class IndexingService {
 	 * @see #indexDocuments(String, List)
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "index-csv-documents", description = "Index documents from CSV string into Solr collection")
-	public void indexCsvDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
+	@McpTool(
+			name = "index-csv-documents",
+			annotations = @McpTool.McpAnnotations(idempotentHint = true),
+			description = "Index documents from CSV string into Solr collection")
+	public String indexCsvDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "CSV string containing documents to index") String csv)
 			throws IOException, SolrServerException {
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromCsv(csv);
-		indexDocuments(collection, schemalessDoc);
+		int successCount = indexDocuments(collection, schemalessDoc);
+		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
+				+ collection + "'";
 	}
 
 	/**
@@ -336,6 +357,8 @@ public class IndexingService {
 	 *            the name of the Solr collection to index documents into
 	 * @param xml
 	 *            XML string containing documents to index
+	 * @return a human-readable summary reporting how many documents were
+	 *         successfully indexed
 	 * @throws ParserConfigurationException
 	 *             if XML parser configuration fails
 	 * @throws SAXException
@@ -348,12 +371,17 @@ public class IndexingService {
 	 * @see #indexDocuments(String, List)
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(name = "index-xml-documents", description = "Index documents from XML string into Solr collection")
-	public void indexXmlDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
+	@McpTool(
+			name = "index-xml-documents",
+			annotations = @McpTool.McpAnnotations(idempotentHint = true),
+			description = "Index documents from XML string into Solr collection")
+	public String indexXmlDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "XML string containing documents to index") String xml)
 			throws ParserConfigurationException, SAXException, IOException, SolrServerException {
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromXml(xml);
-		indexDocuments(collection, schemalessDoc);
+		int successCount = indexDocuments(collection, schemalessDoc);
+		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
+				+ collection + "'";
 	}
 
 	/**
@@ -449,5 +477,91 @@ public class IndexingService {
 
 		solrClient.commit(collection);
 		return successCount;
+	}
+
+	/**
+	 * Maps an input-format keyword to the MCP tool and payload parameter for that
+	 * format.
+	 */
+	private record IndexTool(String name, String paramName) {
+	}
+
+	private static IndexTool resolveIndexTool(String format) {
+		String normalized = (format == null) ? "" : format.trim().toLowerCase();
+		return switch (normalized) {
+			case "json" -> new IndexTool("index-json-documents", "json");
+			case "csv" -> new IndexTool("index-csv-documents", "csv");
+			case "xml" -> new IndexTool("index-xml-documents", "xml");
+			default -> throw new IllegalArgumentException("format must be one of json/csv/xml, got: " + format);
+		};
+	}
+
+	/**
+	 * MCP prompt that guides the client through indexing documents: verify the
+	 * target schema, pick the right indexing tool for the input format, and confirm
+	 * the result.
+	 *
+	 * @param collection
+	 *            target Solr collection name
+	 * @param format
+	 *            document format; one of {@code json}, {@code csv}, or {@code xml}
+	 * @param sample
+	 *            optional small sample of the input document(s) to ground
+	 *            field-shape decisions; may be {@code null} or blank
+	 * @return the prompt text instructing the model how to index the documents
+	 */
+	@PreAuthorize("isAuthenticated()")
+
+	@McpPrompt(
+			name = PromptNames.INDEX_DATA,
+			title = "Index documents into a Solr collection",
+			description = "Guides the assistant through verifying the target schema, picking the right indexing tool for the input format, and confirming the result.")
+	public String indexDataPrompt(
+			@McpArg(
+					name = "collection",
+					description = "Target Solr collection name",
+					required = true) String collection,
+			@McpArg(
+					name = "format",
+					description = "Document format: 'json', 'csv', or 'xml'",
+					required = true) String format,
+			@McpArg(
+					name = "sample",
+					description = "Optional small sample of the input document(s) to ground field-shape decisions",
+					required = false) String sample) {
+		IndexTool indexTool = resolveIndexTool(format);
+		String sampleSection = PromptText.optionalCodeBlock(sample, "Sample input:",
+				"No sample was provided. If the user has not pasted the documents yet, ask for them (or a representative subset) before indexing.");
+		return """
+				You are indexing %s data into collection `%s` via MCP tools. Work incrementally and
+				verify after each step.
+
+				1. Confirm the schema is ready.
+				   - Call `get-schema` on `%s`. Confirm the fields the input references exist with
+				     compatible types. If fields are missing or typed wrong, pause and run the
+				     `design-schema` prompt to add them — indexing into a collection without the right
+				     fields either fails or silently falls back to schemaless behavior, which can
+				     pollute the configset.
+
+				2. Inspect the input.
+				%s
+
+				3. Index the documents.
+				   - Call `%s` with `collection=%s` and `%s=<the document payload>`.
+				   - The tool batches internally and commits at the end. The return value is the count
+				     of successfully indexed documents.
+				   - On error, read the message carefully: an "unknown field" error means the schema is
+				     missing a field — go back to step 1 and run `design-schema`. A parse error means
+				     the input format does not match the chosen tool — fix the payload and retry.
+
+				4. Verify the count.
+				   - Call `check-health` on `%s` and confirm the reported doc count increased by the
+				     expected amount, OR call `search` with `query=*:*` and `rows=0` and read
+				     `numFound`.
+
+				Next step suggestion: once data is indexed, the `search-collection` prompt drives
+				searching it.
+				""".formatted(indexTool.paramName(), collection, collection, sampleSection, indexTool.name(),
+				collection, indexTool.paramName(), collection);
 	}
 }

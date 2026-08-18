@@ -33,7 +33,6 @@ import org.apache.solr.mcp.server.search.SearchService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledInNativeImage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -48,7 +47,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Import(TestcontainersConfiguration.class)
 @Tag("integration")
 @Testcontainers(disabledWithoutDocker = true)
-@DisabledInNativeImage
 class IndexingServiceIntegrationTest {
 
 	private static boolean initialized = false;
@@ -72,7 +70,8 @@ class IndexingServiceIntegrationTest {
 		// Boot test
 		XmlDocumentCreator xmlDocumentCreator = new XmlDocumentCreator();
 		CsvDocumentCreator csvDocumentCreator = new CsvDocumentCreator();
-		JsonDocumentCreator jsonDocumentCreator = new JsonDocumentCreator();
+		JsonDocumentCreator jsonDocumentCreator = new JsonDocumentCreator(
+				new com.fasterxml.jackson.databind.ObjectMapper());
 
 		indexingDocumentCreator = new IndexingDocumentCreator(xmlDocumentCreator, csvDocumentCreator,
 				jsonDocumentCreator);

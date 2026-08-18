@@ -57,6 +57,82 @@ Docker images are built with multi-platform support for:
 
 Jib automatically selects the appropriate platform or builds the first specified platform.
 
+## Image variants — why three images
+
+Three image artifacts cover the full transport × runtime matrix. The JVM image
+is built with **Jib** (clean stdout, multi-arch); the two native variants are
+built with **Paketo Cloud Native Buildpacks**.
+
+| Image                              | Toolchain | Build command                                            | STDIO | HTTP |
+|------------------------------------|-----------|----------------------------------------------------------|-------|------|
+| `solr-mcp:<version>`               | Jib       | `./gradlew jibDockerBuild`                               | ✅    | ✅   |
+| `solr-mcp:<version>-native-stdio`  | Paketo    | `./gradlew bootBuildImage -Pnative`                      | ✅    | ❌   |
+| `solr-mcp:<version>-native-http`   | Paketo    | `./gradlew bootBuildImage -Pnative -Pprofile=http`       | ❌    | ✅   |
+
+### Run commands
+
+```bash
+# STDIO — Jib JVM (default profile is stdio)
+docker run -i --rm \
+    -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+    solr-mcp:latest
+
+# STDIO — native (faster startup, smaller image)
+docker run -i --rm \
+    -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+    solr-mcp:latest-native-stdio
+
+# HTTP — Jib JVM
+docker run -p 8080:8080 --rm \
+    -e PROFILES=http \
+    -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+    solr-mcp:latest
+
+# HTTP — native
+docker run -p 8080:8080 --rm \
+    -e PROFILES=http \
+    -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+    solr-mcp:latest-native-http
+```
+
+### Why two toolchains and three images
+
+- **Jib's JVM image is dual-mode** because Jib uses a clean `java -jar`
+  entrypoint with no launcher script. Stdout stays clean for MCP STDIO, and
+  runtime `PROFILES=http` switches to web mode — one image serves both.
+- **Paketo's JVM image is unsuitable for stdio** — its `libjvm` helpers
+  (memory calculator, NMT, ca-certificates) write 6 lines to stdout before the
+  JVM starts, breaking MCP's JSON-RPC stream. Verified end-to-end by
+  `DockerImageMcpClientStdioIntegrationTest` (the Spring AI MCP client times out
+  on `initialize()`). Filed upstream as
+  [paketo-buildpacks/libjvm#482](https://github.com/paketo-buildpacks/libjvm/issues/482).
+  So we use Jib for the JVM image and Paketo only for the native variants.
+- **Native images must AOT-pin to one profile.** Spring AOT bakes
+  `spring.main.web-application-type` into the binary at AOT time. Activating both
+  profiles picks `servlet` (http overrides stdio), which forces Tomcat to start
+  regardless of the runtime `PROFILES` value, breaking stdio. So we ship one
+  native image per transport.
+
+### Claude Desktop (native, STDIO)
+
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "SOLR_URL=http://host.docker.internal:8983/solr/",
+        "solr-mcp:latest-native-stdio"
+      ]
+    }
+  }
+}
+```
+
+See [graalvm-native-image.md](graalvm-native-image.md)
+for the native image design and known risks.
+
 ## Running Docker Containers
 
 ### STDIO Mode (Default)

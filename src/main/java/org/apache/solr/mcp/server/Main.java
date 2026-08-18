@@ -18,7 +18,7 @@ package org.apache.solr.mcp.server;
 
 import org.apache.solr.mcp.server.collection.CollectionService;
 import org.apache.solr.mcp.server.indexing.IndexingService;
-import org.apache.solr.mcp.server.metadata.SchemaService;
+import org.apache.solr.mcp.server.schema.SchemaService;
 import org.apache.solr.mcp.server.search.SearchService;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -105,7 +105,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  */
 @SpringBootApplication
 public class Main {
-	static void main(String[] args) {
+
+	/** Default constructor used by Spring Boot to bootstrap the application. */
+	public Main() {
+	}
+
+	public static void main(String[] args) {
 		SpringApplication.run(Main.class, args);
 	}
 }

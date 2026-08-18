@@ -307,4 +307,18 @@ class SearchServiceTest {
 		authorFacet.add("Joshua Bloch", 1);
 		return List.of(genreFacet, authorFacet);
 	}
+
+	@Test
+	void searchCollectionPrompt_includesKeyWorkflowSteps() {
+		SearchService localService = new SearchService(mock(SolrClient.class));
+		String body = localService.searchCollectionPrompt("shows", "What sci-fi shows are on Netflix?");
+
+		assertNotNull(body);
+		assertTrue(body.contains("shows"), "Prompt should mention the target collection name");
+		assertTrue(body.contains("What sci-fi shows are on Netflix?"), "Prompt should embed the user question");
+		assertTrue(body.contains("get-schema"), "Prompt should reference get-schema tool");
+		assertTrue(body.contains("search"), "Prompt should reference search tool");
+		assertTrue(body.contains("filterQueries"), "Prompt should explain filterQueries");
+		assertTrue(body.contains("numFound"), "Prompt should mention numFound interpretation");
+	}
 }

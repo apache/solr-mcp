@@ -22,11 +22,13 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.modelcontextprotocol.spec.McpSchema.CompleteRequest;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.IntStream;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -74,16 +76,14 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void listCollections_WhenExceptionOccurs_ShouldReturnEmptyList() throws Exception {
+	void listCollections_WhenExceptionOccurs_ShouldPropagate() throws Exception {
 		// Given - mock throws exception
 		when(solrClient.request(any(), any())).thenThrow(new SolrServerException("Connection error"));
 
-		// When
-		List<String> result = collectionService.listCollections();
-
-		// Then
-		assertNotNull(result);
-		assertTrue(result.isEmpty());
+		// When / Then - exception propagates to caller
+		SolrServerException exception = assertThrows(SolrServerException.class,
+				() -> collectionService.listCollections());
+		assertTrue(exception.getMessage().contains("Connection error"));
 	}
 
 	// Collection name extraction tests
@@ -365,7 +365,7 @@ class CollectionServiceTest {
 
 	// Collection validation tests
 	@Test
-	void getCollectionStats_NotFound() {
+	void getCollectionStats_NotFound() throws Exception {
 		CollectionService spyService = spy(collectionService);
 		doReturn(Collections.emptyList()).when(spyService).listCollections();
 
@@ -390,7 +390,7 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void validateCollectionExists_WithException() throws Exception {
+	void validateCollectionExists_WithEmptyList() throws Exception {
 		CollectionService spyService = spy(collectionService);
 		doReturn(Collections.emptyList()).when(spyService).listCollections();
 
@@ -402,9 +402,12 @@ class CollectionServiceTest {
 
 	// Cache metrics tests
 	@Test
-	void getCacheMetrics_WithNonExistentCollection_ShouldReturnNull() {
-		// When - Mock will not have collection configured
-		CacheStats result = collectionService.getCacheMetrics("nonexistent");
+	void getCacheMetrics_WithNonExistentCollection_ShouldReturnNull() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		doReturn(Collections.emptyList()).when(spyService).listCollections();
+
+		// When - collection not found in empty list
+		CacheStats result = spyService.getCacheMetrics("nonexistent");
 
 		// Then
 		assertNull(result);
@@ -426,7 +429,7 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void getCacheMetrics_CollectionNotFound() {
+	void getCacheMetrics_CollectionNotFound() throws Exception {
 		CollectionService spyService = spy(collectionService);
 		doReturn(Collections.emptyList()).when(spyService).listCollections();
 
@@ -543,9 +546,12 @@ class CollectionServiceTest {
 
 	// Handler metrics tests
 	@Test
-	void getHandlerMetrics_WithNonExistentCollection_ShouldReturnNull() {
-		// When - Mock will not have collection configured
-		HandlerStats result = collectionService.getHandlerMetrics("nonexistent");
+	void getHandlerMetrics_WithNonExistentCollection_ShouldReturnNull() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		doReturn(Collections.emptyList()).when(spyService).listCollections();
+
+		// When - collection not found in empty list
+		HandlerStats result = spyService.getHandlerMetrics("nonexistent");
 
 		// Then
 		assertNull(result);
@@ -568,7 +574,7 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void getHandlerMetrics_CollectionNotFound() {
+	void getHandlerMetrics_CollectionNotFound() throws Exception {
 		CollectionService spyService = spy(collectionService);
 		doReturn(Collections.emptyList()).when(spyService).listCollections();
 
@@ -714,23 +720,17 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void listCollections_Error() throws Exception {
+	void listCollections_SolrServerException_Propagates() throws Exception {
 		when(solrClient.request(any(), any())).thenThrow(new SolrServerException("Connection error"));
 
-		List<String> result = collectionService.listCollections();
-
-		assertNotNull(result);
-		assertTrue(result.isEmpty());
+		assertThrows(SolrServerException.class, () -> collectionService.listCollections());
 	}
 
 	@Test
-	void listCollections_IOError() throws Exception {
+	void listCollections_IOException_Propagates() throws Exception {
 		when(solrClient.request(any(), any())).thenThrow(new IOException("IO error"));
 
-		List<String> result = collectionService.listCollections();
-
-		assertNotNull(result);
-		assertTrue(result.isEmpty());
+		assertThrows(IOException.class, () -> collectionService.listCollections());
 	}
 
 	// Helper methods — mock the Solr Metrics API response format:
@@ -867,5 +867,130 @@ class CollectionServiceTest {
 
 		assertThrows(SolrServerException.class,
 				() -> collectionService.createCollection("fail_core", null, null, null));
+	}
+
+	@Test
+	void exploreCollectionsPrompt_isReadOnlyAndReferencesKeyTools() {
+		String body = collectionService.exploreCollectionsPrompt();
+
+		assertNotNull(body);
+		assertTrue(body.contains("list-collections"), "Prompt should reference list-collections tool");
+		assertTrue(body.contains("get-collection-stats"), "Prompt should reference get-collection-stats tool");
+		assertTrue(body.contains("check-health"), "Prompt should reference check-health tool");
+		assertFalse(body.contains("create-collection"),
+				"Explore prompt is read-only; should not direct the LLM to create-collection");
+		assertTrue(body.contains("setup-collection"),
+				"Explore prompt should cross-reference setup-collection for follow-up");
+	}
+
+	@Test
+	void setupCollectionPrompt_includesNameAndInterpolatedDefaults() {
+		String body = collectionService.setupCollectionPrompt("widgets", "Catalog of widgets");
+
+		assertNotNull(body);
+		assertTrue(body.contains("widgets"), "Prompt should embed the chosen collection name");
+		assertTrue(body.contains("Catalog of widgets"), "Prompt should embed the purpose when provided");
+		assertTrue(body.contains("create-collection"), "Setup prompt should reference create-collection tool");
+		assertTrue(body.contains("_default"), "Setup prompt should mention the default configset");
+		assertTrue(body.contains("design-schema"), "Setup prompt should cross-reference design-schema for follow-up");
+	}
+
+	@Test
+	void setupCollectionPrompt_omitsPurposeLineWhenBlank() {
+		String body = collectionService.setupCollectionPrompt("widgets", null);
+
+		assertFalse(body.contains("Purpose:"), "Purpose line should be omitted when no purpose is provided");
+	}
+
+	// completeCollection tests
+	@Test
+	void completeCollection_WithMatchingPrefix_ReturnsMatches() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		doReturn(Arrays.asList("products", "prod-logs", "users")).when(spyService).listCollections();
+
+		List<String> result = spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "prod"));
+
+		assertEquals(List.of("prod-logs", "products"), result);
+	}
+
+	@Test
+	void completeCollection_WithEmptyPrefix_ReturnsAllSorted() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		doReturn(Arrays.asList("zeta", "alpha", "mu")).when(spyService).listCollections();
+
+		List<String> result = spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", ""));
+
+		assertEquals(List.of("alpha", "mu", "zeta"), result);
+	}
+
+	@Test
+	void completeCollection_WithNullValue_ReturnsAllSorted() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		doReturn(Arrays.asList("zeta", "alpha")).when(spyService).listCollections();
+
+		List<String> result = spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", null));
+
+		assertEquals(List.of("alpha", "zeta"), result);
+	}
+
+	@Test
+	void completeCollection_IsCaseInsensitive() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		doReturn(Arrays.asList("Products", "PROD_LOGS", "users")).when(spyService).listCollections();
+
+		List<String> result = spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "prod"));
+
+		assertEquals(List.of("PROD_LOGS", "Products"), result);
+	}
+
+	@Test
+	void completeCollection_WithNoMatches_ReturnsEmpty() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		doReturn(Arrays.asList("alpha", "beta")).when(spyService).listCollections();
+
+		List<String> result = spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "zzz"));
+
+		assertTrue(result.isEmpty());
+	}
+
+	@Test
+	void completeCollection_WithWrongArgumentName_ReturnsEmpty() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		// Should not even attempt to list collections when the argument name does not
+		// match the template variable.
+		List<String> result = spyService.completeCollection(new CompleteRequest.CompleteArgument("field", "prod"));
+
+		assertTrue(result.isEmpty());
+		verify(spyService, never()).listCollections();
+	}
+
+	@Test
+	void completeCollection_WithNullArgument_ReturnsEmpty() {
+		List<String> result = collectionService.completeCollection(null);
+
+		assertTrue(result.isEmpty());
+	}
+
+	@Test
+	void completeCollection_CapsResultsAtMax() throws Exception {
+		CollectionService spyService = spy(collectionService);
+		List<String> many = IntStream.range(0, CollectionService.MAX_COMPLETION_RESULTS + 25)
+				.mapToObj(i -> String.format("c%04d", i)).toList();
+		doReturn(many).when(spyService).listCollections();
+
+		List<String> result = spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "c"));
+
+		assertEquals(CollectionService.MAX_COMPLETION_RESULTS, result.size());
+		assertEquals("c0000", result.get(0));
+	}
+
+	@Test
+	void completeCollection_WhenListCollectionsFails_ReturnsEmpty() throws Exception {
+		when(solrClient.request(any(), any())).thenThrow(new SolrServerException("connection refused"));
+
+		List<String> result = collectionService
+				.completeCollection(new CompleteRequest.CompleteArgument("collection", "prod"));
+
+		assertTrue(result.isEmpty());
 	}
 }

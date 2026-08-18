@@ -51,15 +51,19 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * requiring external infrastructure. This is the Spring Boot 3 recommended
  * approach.
  */
-@SpringBootTest(properties = {
-		// Enable HTTP mode for observability
-		"spring.profiles.active=http",
-		// Disable OTLP export in tests - we're using SimpleTracer instead
-		"management.otlp.tracing.endpoint=", "management.opentelemetry.logging.export.otlp.enabled=false",
-		// Ensure 100% sampling for tests
-		"management.tracing.sampling.probability=1.0",
-		// Enable @Observed annotation support
-		"management.observations.annotations.enabled=true"})
+@SpringBootTest(
+		properties = {
+				// Enable HTTP mode for observability
+				"spring.profiles.active=http",
+				// Tracing test does not exercise the OAuth2 filter chain; opt out of
+				// secure-by-default to avoid requiring a live JWKS endpoint at startup.
+				"http.security.enabled=false",
+				// Disable OTLP export in tests - we're using SimpleTracer instead
+				"management.otlp.tracing.endpoint=", "management.opentelemetry.logging.export.otlp.enabled=false",
+				// Ensure 100% sampling for tests
+				"management.tracing.sampling.probability=1.0",
+				// Enable @Observed annotation support
+				"management.observations.annotations.enabled=true"})
 @Import({TestcontainersConfiguration.class, OpenTelemetryTestConfiguration.class})
 @Tag("integration")
 @Testcontainers(disabledWithoutDocker = true)

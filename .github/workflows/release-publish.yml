@@ -186,10 +186,12 @@ jobs:
         uses: ./.github/actions/setup-java
 
       - name: Update version in build.gradle.kts
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
-            # Ensure the Gradle project version matches the GA version (removes any -SNAPSHOT)
-            # This keeps image tags and any generated artifacts consistent with the voted release
-          sed -i 's/version = ".*"/version = "${{ inputs.release_version }}"/' build.gradle.kts
+          # Ensure the Gradle project version matches the GA version (removes any -SNAPSHOT)
+          # This keeps image tags and any generated artifacts consistent with the voted release
+          sed -i "s/version = \".*\"/version = \"${RELEASE_VERSION}\"/" build.gradle.kts
 
       - name: Build project
         run: ./gradlew build
@@ -242,10 +244,42 @@ jobs:
             -Djib.to.tags=${{ inputs.release_version }},latest
 
       - name: Generate SBOM (Software Bill of Materials)
+        # The CycloneDX plugin is wired in build.gradle.kts; bootJar already
+        # depends on cyclonedxBom transitively. Running it explicitly here
+        # ensures build/reports/application.cdx.json exists for the upload
+        # steps below even if the `Build project` step above used a cached
+        # bootJar output.
+        run: ./gradlew cyclonedxBom
+
+      - name: Upload SBOM as workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          # The release_version input is constrained by validate-release; safe to
+          # interpolate into the artifact name.
+          name: solr-mcp-sbom-${{ inputs.release_version }}
+          path: build/reports/application.cdx.json
+          retention-days: 90
+
+      - name: Attach SBOM to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Pass the release_version through env so the shell sees a quoted
+          # variable instead of an inline ${{ }} expansion (defence-in-depth
+          # against actions-injection, even though release_version is already
+          # validated by validate-release).
+          RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
-          # Generate SBOM for the release
-          # This helps with supply chain security
-          ./gradlew cyclonedxBom || echo "SBOM generation not configured"
+          # Rename to include the version so the asset is unambiguous on the release page.
+          cp build/reports/application.cdx.json "solr-mcp-${RELEASE_VERSION}.cdx.json"
+          # --clobber lets re-runs of this workflow replace a previously uploaded SBOM.
+          # If the v<version> GitHub Release does not exist yet, log and continue —
+          # the workflow artifact above is still captured.
+          if gh release view "v${RELEASE_VERSION}" >/dev/null 2>&1; then
+            gh release upload "v${RELEASE_VERSION}" "solr-mcp-${RELEASE_VERSION}.cdx.json" --clobber
+          else
+            echo "GitHub Release v${RELEASE_VERSION} does not exist yet; SBOM available as workflow artifact only."
+          fi
 
       - name: Create release announcement
         run: |
@@ -306,22 +340,165 @@ jobs:
           fi
 
       - name: Publish release summary
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+          RELEASE_CANDIDATE: ${{ inputs.release_candidate }}
+          REPO_OWNER: ${{ github.repository_owner }}
         run: |
-          echo "### Release Published Successfully! 🎉" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Version**: ${{ inputs.release_version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Release Candidate**: ${{ inputs.release_candidate }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "#### Docker Images Published" >> $GITHUB_STEP_SUMMARY
-          echo "- \`apache/solr-mcp:${{ inputs.release_version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`apache/solr-mcp:latest\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`ghcr.io/${{ github.repository_owner }}/solr-mcp:${{ inputs.release_version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "#### Next Steps" >> $GITHUB_STEP_SUMMARY
-          echo "1. Announce the release on the mailing list" >> $GITHUB_STEP_SUMMARY
-          echo "2. Update the documentation" >> $GITHUB_STEP_SUMMARY
-          echo "3. Close the release milestone in GitHub" >> $GITHUB_STEP_SUMMARY
-          echo "4. Tweet about the release (optional)" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### JVM Image Published 🎉"
+            echo ""
+            echo "**Version**: ${RELEASE_VERSION}"
+            echo "**Release Candidate**: ${RELEASE_CANDIDATE}"
+            echo ""
+            echo "#### JVM Docker Images"
+            echo "- \`apache/solr-mcp:${RELEASE_VERSION}\`"
+            echo "- \`apache/solr-mcp:latest\`"
+            echo "- \`ghcr.io/${REPO_OWNER}/solr-mcp:${RELEASE_VERSION}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Build and publish the two GraalVM native image variants (stdio + http).
+  # Paketo's bootBuildImage builds a single architecture per invocation, so we
+  # use a profile × arch matrix and assemble a manifest list per profile in the
+  # follow-up job.
+  #
+  # Scope of this PR: pushes ONLY to ghcr.io/<repo_owner>/solr-mcp (works for
+  # both fork validation and apache org once permissions are set up). DockerHub
+  # apache/solr-mcp publishing for native images is intentionally deferred to a
+  # follow-up PR once the mechanics are validated end-to-end.
+  publish-native:
+    name: Publish native (${{ matrix.profile }}, ${{ matrix.arch.name }})
+    runs-on: ${{ matrix.arch.runs-on }}
+    needs: validate-release
+    if: ${{ needs.validate-release.outputs.proceed == 'true' }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [stdio, http]
+        arch:
+          - { name: amd64, runs-on: ubuntu-latest }
+          - { name: arm64, runs-on: ubuntu-24.04-arm }
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: "v${{ inputs.release_version }}-${{ inputs.release_candidate }}"
+
+      - name: Set up GraalVM JDK 25
+        uses: graalvm/setup-graalvm@329c42c5f4c343bceb505f0b28cc8499bc2bf174 # v1.5.4 (ASF-allow-listed, no expiry)
+        with:
+          java-version: '25'
+          distribution: 'graalvm'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: 'gradle'
+
+      - name: Update version in build.gradle.kts
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          sed -i "s/version = \".*\"/version = \"${RELEASE_VERSION}\"/" build.gradle.kts
+
+      # Inline `docker login` rather than docker/login-action: that third-party
+      # action is not on the ASF GitHub Actions allow-list, which fails the whole
+      # workflow at startup. The token is piped via stdin (never on the command
+      # line or in logs) and the username is read from an env var, so no untrusted
+      # value is interpolated into the run script.
+      - name: Log in to GHCR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
+      # Refuse to overwrite an already-published version tag. Moving tags
+      # (latest-*) are mutable and assembled later; per-version tags are not.
+      - name: Verify target tag does not already exist
+        env:
+          TARGET_TAG: ghcr.io/${{ github.repository_owner }}/solr-mcp:${{ inputs.release_version }}-native-${{ matrix.profile }}-${{ matrix.arch.name }}
+        run: |
+          if docker manifest inspect "${TARGET_TAG}" >/dev/null 2>&1; then
+            echo "ERROR: ${TARGET_TAG} already exists. Refusing to overwrite a published release tag."
+            exit 1
+          fi
+
+      # Build to the local Docker daemon (no --publishImage), then docker push.
+      # Spring Boot's bootBuildImage publishRegistry auth doesn't interoperate
+      # with GHCR — same credentials succeed for `docker login` (above) but
+      # fail for bootBuildImage's push, regardless of URL format. Splitting
+      # build and push lets us reuse the working docker login session.
+      - name: Build native image (local daemon)
+        env:
+          IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/solr-mcp:${{ inputs.release_version }}-native-${{ matrix.profile }}-${{ matrix.arch.name }}
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          ./gradlew bootBuildImage -Pnative "-Pprofile=${PROFILE}" \
+            "--imageName=${IMAGE_NAME}" \
+            --no-daemon
+
+      - name: Push native image to GHCR
+        env:
+          IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/solr-mcp:${{ inputs.release_version }}-native-${{ matrix.profile }}-${{ matrix.arch.name }}
+        run: docker push "${IMAGE_NAME}"
+
+  # Assemble per-profile manifest lists from the arch-specific tags pushed
+  # above. Consumers pull `:<v>-native-<profile>` (or `:latest-native-<profile>`)
+  # and Docker selects the right arch automatically.
+  publish-native-manifests:
+    name: Assemble native manifest lists
+    runs-on: ubuntu-latest
+    needs: publish-native
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      # Inline `docker login` rather than docker/login-action: that third-party
+      # action is not on the ASF GitHub Actions allow-list, which fails the whole
+      # workflow at startup. The token is piped via stdin (never on the command
+      # line or in logs) and the username is read from an env var, so no untrusted
+      # value is interpolated into the run script.
+      - name: Log in to GHCR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
+      - name: Create version manifest lists
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          for PROFILE in stdio http; do
+            BASE="ghcr.io/${REPO_OWNER}/solr-mcp"
+            docker buildx imagetools create \
+              --tag "${BASE}:${RELEASE_VERSION}-native-${PROFILE}" \
+              "${BASE}:${RELEASE_VERSION}-native-${PROFILE}-amd64" \
+              "${BASE}:${RELEASE_VERSION}-native-${PROFILE}-arm64"
+            docker buildx imagetools create \
+              --tag "${BASE}:latest-native-${PROFILE}" \
+              "${BASE}:${RELEASE_VERSION}-native-${PROFILE}-amd64" \
+              "${BASE}:${RELEASE_VERSION}-native-${PROFILE}-arm64"
+          done
+
+      - name: Native release summary
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          {
+            echo "### Native Images Published 🚀"
+            echo ""
+            echo "#### Native Docker Images (multi-arch)"
+            echo "- \`ghcr.io/${REPO_OWNER}/solr-mcp:${RELEASE_VERSION}-native-stdio\`"
+            echo "- \`ghcr.io/${REPO_OWNER}/solr-mcp:${RELEASE_VERSION}-native-http\`"
+            echo "- \`ghcr.io/${REPO_OWNER}/solr-mcp:latest-native-stdio\`"
+            echo "- \`ghcr.io/${REPO_OWNER}/solr-mcp:latest-native-http\`"
+            echo ""
+            echo "Each tag points to a manifest list covering linux/amd64 + linux/arm64."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   publish-mcp-registry:
       # Job: Publish to MCP Registry so MCP clients can discover the server version released above
@@ -336,7 +513,9 @@ jobs:
       #   publishing registry entries that don't correspond to an approved release.
     name: Publish to MCP Registry
     runs-on: ubuntu-latest
-    needs: publish-docker  # Wait for Docker images to be published successfully
+    # Wait for both JVM (publish-docker) and native (publish-native-manifests)
+    # images so the MCP Registry entry references a fully-published release.
+    needs: [publish-docker, publish-native-manifests]
     if: ${{ needs.validate-release.outputs.proceed == 'true' }}
 
       # Permissions required for OIDC-based auth to the MCP Registry and read access
@@ -384,8 +563,8 @@ jobs:
 
         # Publish this server to the MCP Registry
         -   name: Publish to MCP Registry
-        run: |
-            ./mcp-publisher publish
+            run: |
+                ./mcp-publisher publish
 
         # Verify publication by querying the public registry API
         -   name: Verify publication
