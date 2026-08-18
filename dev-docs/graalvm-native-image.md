@@ -157,11 +157,11 @@ container and value types.
   silently drops the `fields`/`fieldTypes`/`dynamicFields`/`copyFields` arrays —
   a quiet correctness bug, not a crash.
 - **MCP tool response records** — `CollectionCreationResult`, `SolrHealthStatus`,
-  `SolrMetrics`, `IndexStats`, `FieldStats`, `QueryStats`, `CacheStats`,
-  `CacheInfo`, `HandlerStats`, `HandlerInfo`, `SearchResponse`,
-  `SchemaUpdateResult`. These are package-private records the MCP framework
-  dispatches via generic `Object`, so AOT can't see them. They're registered by
-  name with `registerTypeIfPresent`.
+  `SolrMetrics`, `IndexStats`, `QueryStats`, `CacheStats`, `CacheInfo`,
+  `HandlerStats`, `HandlerInfo`, `SearchResponse`, `SchemaUpdateResult`. These
+  are package-private records the MCP framework dispatches via generic
+  `Object`, so AOT can't see them. They're registered by name with
+  `registerTypeIfPresent`.
 - **`logback.xml` resource.** Registered as a resource pattern so logback's
   early (pre-Spring) initialization finds it and installs the `NopStatusListener`.
   Without it, logback falls through to `BasicConfigurator` and writes status
