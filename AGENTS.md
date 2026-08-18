@@ -129,8 +129,6 @@ actuator serves it at `/actuator/sbom/application` in the `http` profile
 Paketo native images package the bootJar contents, so every distribution
 artifact ships the SBOM without per-image wiring.
 
-Spec: [docs/superpowers/specs/2026-06-05-sbom-generation-design.md](docs/superpowers/specs/2026-06-05-sbom-generation-design.md)
-
 ### Logging Architecture
 
 The STDIO transport uses stdout for JSON-RPC messages, so any stray stdout output
@@ -222,7 +220,56 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
   Paketo native = `solr-mcp:<version>-native-stdio` /
   `solr-mcp:<version>-native-http` (with corresponding `:latest-native-*` tags).
 - **CI:** Separate `native.yml` workflow; native failures do not block JVM-path merges.
-- **Spec:** [docs/specs/graalvm-native-image.md](docs/specs/graalvm-native-image.md)
+- **Spec:** [dev-docs/graalvm-native-image.md](dev-docs/graalvm-native-image.md)
+
+## Release LICENSE / NOTICE
+
+ASF policy requires distinct LICENSE/NOTICE for the *source* form and the *binary*
+form, because the binary (Spring Boot fat `bootJar`) bundles third-party bytecode.
+See [infra.apache.org/licensing-howto](https://infra.apache.org/licensing-howto.html).
+
+- **Source form** (thin `jar`, `-sources`, `-javadoc`): the base `LICENSE` (Apache-2.0)
+  and `NOTICE` at the repo root, bundled into `META-INF/` as-is.
+- **Binary form** (`bootJar`): generated at build time and bundled into its `META-INF/`:
+  - `generateBinaryLicense` → `LICENSE` = base Apache-2.0 + an appendix listing every
+    bundled `productionRuntimeClasspath` dependency and a link to its license. Licenses
+    are read from the **CycloneDX SBOM** (`cyclonedxBom`, the same SBOM embedded at
+    `META-INF/sbom/application.cdx.json`), filtered to the shipped classpath. The SBOM
+    resolves a license for every bundled component — including Gradle-module-metadata
+    -only ASF artifacts such as `solr-solrj`/`solr-api` that POM-only scanners miss — so
+    no per-dependency list is hand-maintained.
+  - `generateBinaryNotice` → `NOTICE` = base NOTICE + the `META-INF/NOTICE` files lifted
+    verbatim (de-duplicated) from the bundled jars (Maven-Shade
+    `ApacheNoticeResourceTransformer` approach).
+- **Where / when they appear:** both binary files are regenerated on every build — the
+  two tasks run ahead of `bootJar` (and in `check`), so any `./gradlew build` / `bootJar`
+  produces them. They live at `META-INF/LICENSE` and `META-INF/NOTICE` inside the fat jar
+  (`build/libs/solr-mcp-<v>.jar`), and therefore inside every published **Docker image**
+  too, since the Jib JVM image and the Paketo native images both package the bootJar
+  contents. Inspect a built artifact with
+  `unzip -p build/libs/solr-mcp-<v>.jar META-INF/LICENSE` (or `META-INF/NOTICE`); the
+  generator also writes them to `build/generated/license/` for local viewing. The
+  source-form jars (thin `jar`, `-sources`, `-javadoc`) instead carry the repo-root base
+  files unchanged.
+- **Licenses are disclosed as the SBOM reports them** (SPDX ids where available). The
+  appendix is a disclosure, not a license policy: there is **no allow-list and no
+  corrections**, so a few imprecise-but-permissive upstream labels appear as-is (e.g.
+  `mcp-server-security` shows `Apache-1.0`, ANTLR shows `BSD-4-Clause`/`BSD licence`); the
+  appendix preamble says so and links each license. All bundled deps are ASF Category A/B.
+- **Completeness gate** (`generateBinaryLicense`, run as part of `check`/`build`): the
+  *only* gate — fails if a bundled dependency is missing from the SBOM, so a dependency
+  can never be silently omitted from the LICENSE. It makes no judgement about which
+  licenses are acceptable. (Unlike apache/solr's `solr/licenses/` folder, which JanHoy
+  said not to replicate, there is no per-dependency license/checksum store here.)
+- This builds on the SBOM generation (see **SBOM Architecture**); the SBOM remains the
+  machine-readable bill of materials, and LICENSE/NOTICE are the human-readable legal
+  artifacts derived from it.
+- **Implementation:** the `org.apache.solr.mcp.license-notice` convention plugin in
+  `buildSrc/` (typed `GenerateBinaryLicense` / `GenerateBinaryNotice` tasks). The root
+  `build.gradle.kts` only applies the plugin. The tasks are unit-tested in
+  `buildSrc/src/test/kotlin/.../LicenseNoticeTasksTest.kt` (appendix listing, SBOM
+  name/URL handling, the completeness gate, and NOTICE de-duplication); `buildSrc`'s
+  `test` runs as part of `./gradlew build`.
 
 ## Testing Structure
 
@@ -300,7 +347,7 @@ Remaining known differences from Solr 9:
 - **`/admin/mbeans` removed:** Cache and handler stats from `getCollectionStats()` will always be `null` on Solr 10. A future migration to `/admin/metrics` will restore these metrics.
 - **Metrics migration:** Dropwizard metrics replaced by OpenTelemetry. Metric names switch to snake_case in Solr 10.
 - **SolrJ base URL:** Already uses root URLs — **no change needed**.
-- **SolrJ 10.x dependency:** Not yet on Maven Central (as of 2026-03-06); tests use SolrJ 9.x against a Solr 10 server. Update `solr-solrj` and Jetty BOM when 10.x is released.
+- **SolrJ version:** `solr-solrj` is on 10.0.0 (`gradle/libs.versions.toml`), released to Maven Central and bumped in #58. Jetty artifacts are declared versionless and managed by Spring Boot's BOM, so there is no separate Jetty pin to update. Note the client is *newer* than the default test server: `solr.test.image` defaults to `solr:9.9-slim`, so the standard build exercises a SolrJ 10 client against Solr 9.9.
 
 ## Key Configuration
 
