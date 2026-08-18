@@ -173,7 +173,7 @@ docker run -i --rm \
 ### Workflows
 
 - `.github/workflows/build-and-publish.yml` — Build, test, and publish Docker images
-- `.github/workflows/publish-mcp.yml` — Publish to the Model Context Protocol Registry on version tags
+- `.github/workflows/release-publish.yml` — the `publish-mcp-registry` job publishes to the Model Context Protocol Registry after a release vote passes
 
 ### Docker image publishing
 
@@ -194,7 +194,7 @@ To publish images, use Jib from your local machine or set up your own workflow:
 
 ### MCP Registry Publishing
 
-`.github/workflows/publish-mcp.yml` publishes to the Model Context Protocol Registry.
+The `publish-mcp-registry` job in `.github/workflows/release-publish.yml` publishes to the Model Context Protocol Registry.
 
 **Triggers:**
 - Version tags (e.g., `v0.1.0`)
@@ -412,8 +412,12 @@ The server exposes Spring Boot Actuator endpoints:
 # Health check
 curl http://localhost:8080/actuator/health
 
-# Build info
-curl http://localhost:8080/actuator/info
+# Build info. Only /actuator/health is anonymous; every other actuator
+# endpoint requires authentication when HTTP security is enabled (the default),
+# so pass a bearer token:
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/actuator/info
+
+# ...or run with HTTP_SECURITY_ENABLED=false for a local unsecured setup.
 ```
 
 ### Docker Health Check

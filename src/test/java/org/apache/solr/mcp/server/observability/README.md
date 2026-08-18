@@ -25,7 +25,7 @@ We use a **three-tier testing strategy** to verify that distributed tracing work
 - Span durations are valid
 
 **How it works**:
-- Uses `InMemorySpanExporter` to capture spans without external infrastructure
+- Uses `SimpleTracer` (micrometer-tracing-test) to capture spans without external infrastructure
 - Uses Awaitility for asynchronous span collection
 - Runs fast (seconds) - suitable for CI/CD pipelines
 
@@ -63,10 +63,10 @@ We use a **three-tier testing strategy** to verify that distributed tracing work
 
 ### 3. Helper Classes
 
-#### `ObservabilityTestConfiguration.java`
+#### `OpenTelemetryTestConfiguration.java`
 Test configuration that provides:
-- `InMemorySpanExporter` bean for capturing spans
-- `SdkTracerProvider` configured to use in-memory exporter
+- A `SimpleTracer` bean (from `micrometer-tracing-test`) that records spans in memory
+- Exposed as `SimpleTracer` rather than `Tracer` so tests can call `getSpans()`
 
 #### `LgtmAssertions.java`
 Helper for querying LGTM stack (Tempo, Prometheus, Loki):
@@ -180,7 +180,7 @@ The **integration tests** (`OtlpExportIntegrationTest`) can be run:
 
 ### Spans Not Appearing in Tests
 
-**Problem**: `InMemorySpanExporter` returns empty list
+**Problem**: `tracer.getSpans()` returns an empty list
 
 **Solutions**:
 1. Verify `@Observed` annotation is present on method
@@ -206,7 +206,8 @@ The **integration tests** (`OtlpExportIntegrationTest`) can be run:
 1. Verify LGTM stack is running: `docker compose ps`
 2. Check OTLP endpoint: `http://localhost:4318/v1/traces`
 3. Verify application properties:
-   - `spring.opentelemetry.tracing.export.otlp.endpoint` is set
+   - `otel.exporter.otlp.endpoint` is set (see `application-http.properties`);
+     tests override `management.otlp.tracing.endpoint` to disable export
    - `management.tracing.sampling.probability=1.0` (100% sampling)
 4. Check application logs for OTLP export errors
 5. Verify Grafana datasource: Grafana → Connections → Data Sources → Tempo
@@ -227,7 +228,7 @@ The **integration tests** (`OtlpExportIntegrationTest`) can be run:
 @Test
 void shouldCreateSpanForMyOperation() throws Exception {
     // Given: Initial state
-    spanExporter.reset();
+    tracer.getSpans().clear();
 
     // When: Execute operation
     myService.doSomething();
@@ -236,7 +237,7 @@ void shouldCreateSpanForMyOperation() throws Exception {
     await()
         .atMost(5, TimeUnit.SECONDS)
         .untilAsserted(() -> {
-            List<SpanData> spans = spanExporter.getFinishedSpanItems();
+            var spans = tracer.getSpans();
             TraceAssertions.assertSpanExists(spans, "MyService.doSomething");
             TraceAssertions.assertSpanHasAttribute(spans, "MyService", "operation", "doSomething");
         });

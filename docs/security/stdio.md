@@ -15,8 +15,8 @@ that launched the process. No code changes are required for STDIO security.
 | Property | Where it's set | Why it's safe |
 |---|---|---|
 | No network listener | `application-stdio.properties` → `spring.main.web-application-type=none` | No socket exists for a remote attacker to reach |
-| Communication is stdin/stdout only | MCP framing per spec | Only the parent process (e.g. Claude Desktop) can write to `stdin` |
-| Trust boundary = OS process owner | Launcher runs the binary | Same model as any local CLI; OS user permissions are the auth |
+| Communication is stdin/stdout only | MCP framing per spec | No socket to reach; input arrives over an inherited file descriptor |
+| Trust boundary = OS process owner | Launcher runs the binary | Same model as any local CLI; OS user permissions are the auth. Note the boundary is **any process that can reach the server's stdin**, not only the direct parent — a descriptor can be inherited or passed on, so isolate by OS user rather than assuming a single writer |
 | Spring Security autoconfig disabled | `application-stdio.properties` excludes `SecurityAutoConfiguration` and `ManagementWebSecurityAutoConfiguration` | Belt-and-suspenders; the filter chain has nothing to do without a servlet container |
 | `stdout` is reserved for JSON-RPC | `logback.xml` + empty `logging.pattern.console` (see [Logging Architecture in CLAUDE.md](../../CLAUDE.md#logging-architecture)) | Prevents log lines from being mis-parsed as MCP frames |
 

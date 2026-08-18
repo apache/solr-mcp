@@ -72,15 +72,15 @@ Anthropic puts it, *"tool descriptions occupy more context window
 space"*, and at scale agents *"need to process hundreds of thousands of
 tokens before reading a request."*[code-execution]
 
-For this server (27 tools across search, indexing, schema, and
+For this server (11 tools across search, indexing, schema, and
 collections), the upfront overhead is a few thousand tokens — real but
 bounded.
 
 Two factors close the gap at runtime:
 
-- **Typed, compact returns.** Every tool returns the same typed record
-  (e.g. `SearchResponse`, `SolrHealthStatus`), not raw Solr JSON the
-  model must reparse. Over a multi-turn agent run, leaner tool output
+- **Typed, compact returns.** Every tool returns its own purpose-built
+  typed record (`SearchResponse`, `SolrHealthStatus`, `IndexStats`, …),
+  not raw Solr JSON the model must reparse. Over a multi-turn agent run, leaner tool output
   offsets the upfront schema cost.
 - **Code execution with MCP.** Anthropic's pattern of discovering tool
   definitions on demand inside a code-execution loop cut a reference

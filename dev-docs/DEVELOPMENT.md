@@ -102,8 +102,9 @@ docker compose up -d
 ```
 
 This starts a Solr instance in SolrCloud mode with ZooKeeper and creates two sample collections:
-- `books` - Collection with sample book data
-- `films` - Collection with sample film data
+- `books` - Created empty. The books.csv download and post are commented out in
+  `init-solr.sh`, so use it as a scratch collection or uncomment those lines.
+- `films` - Collection populated with Solr's sample film data
 
 ### Run the Server
 
@@ -438,7 +439,7 @@ Standard debugging works normally:
        description = "What this tool does"
    )
    public String myTool(
-       @McpToolParameter(description = "Parameter description")
+       @McpToolParam(description = "Parameter description")
        String param
    ) {
        // Implementation
@@ -449,8 +450,8 @@ Standard debugging works normally:
 
 ### Adding a New Document Format
 
-1. Create a new class implementing `IndexingDocumentCreator`
-2. Register in `SolrDocumentCreator` factory
+1. Create a new class implementing `SolrDocumentCreator` (the format interface)
+2. Register it with the `IndexingDocumentCreator` orchestrator
 3. Add tests
 4. Update documentation
 
@@ -491,7 +492,7 @@ Analyze with Java Mission Control.
 The project uses GitHub Actions for CI/CD. See:
 
 - `.github/workflows/build-and-publish.yml` - Build, test, and publish Docker images
-- `.github/workflows/publish-mcp.yml` - Publish to the MCP Registry on version tags
+- `.github/workflows/release-publish.yml` - the `publish-mcp-registry` job publishes to the MCP Registry after a release vote passes
 
 Local CI simulation:
 

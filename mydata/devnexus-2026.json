@@ -9,7 +9,7 @@
     "day": "Day 0",
     "date": "2026-03-04",
     "start_time": "09:00",
-    "start_datetime": "2026-03-04T09:00:00Z",
+    "start_datetime": "2026-03-04T14:00:00Z",
     "session_type": "Workshop",
     "tags": ["event-driven", "event-streaming", "architecture", "workshop"]
   },
@@ -23,7 +23,7 @@
     "day": "Day 0",
     "date": "2026-03-04",
     "start_time": "09:00",
-    "start_datetime": "2026-03-04T09:00:00Z",
+    "start_datetime": "2026-03-04T14:00:00Z",
     "session_type": "Workshop",
     "tags": ["software-engineering", "ai", "practices", "workshop"]
   },
@@ -37,7 +37,7 @@
     "day": "Day 0",
     "date": "2026-03-04",
     "start_time": "09:00",
-    "start_datetime": "2026-03-04T09:00:00Z",
+    "start_datetime": "2026-03-04T14:00:00Z",
     "session_type": "Workshop",
     "tags": ["spring-ai", "mcp", "java", "amazon-bedrock", "agents", "workshop"]
   },
@@ -51,7 +51,7 @@
     "day": "Day 0",
     "date": "2026-03-04",
     "start_time": "13:00",
-    "start_datetime": "2026-03-04T13:00:00Z",
+    "start_datetime": "2026-03-04T18:00:00Z",
     "session_type": "Talk",
     "tags": ["ai", "agents", "patterns", "predictive-ai"]
   },
@@ -65,7 +65,7 @@
     "day": "Day 0",
     "date": "2026-03-04",
     "start_time": "13:00",
-    "start_datetime": "2026-03-04T13:00:00Z",
+    "start_datetime": "2026-03-04T18:00:00Z",
     "session_type": "Talk",
     "tags": ["java", "java-25", "language-evolution", "jvm"]
   },
@@ -79,7 +79,7 @@
     "day": "Day 0",
     "date": "2026-03-04",
     "start_time": "13:00",
-    "start_datetime": "2026-03-04T13:00:00Z",
+    "start_datetime": "2026-03-04T18:00:00Z",
     "session_type": "Talk",
     "tags": ["ai", "agents", "modernization", "generative-ai"]
   },
@@ -93,7 +93,7 @@
     "day": "Day 0",
     "date": "2026-03-04",
     "start_time": "18:15",
-    "start_datetime": "2026-03-04T18:15:00Z",
+    "start_datetime": "2026-03-04T23:15:00Z",
     "session_type": "Social",
     "tags": ["networking", "social"]
   },
@@ -107,7 +107,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "09:00",
-    "start_datetime": "2026-03-05T09:00:00Z",
+    "start_datetime": "2026-03-05T14:00:00Z",
     "session_type": "Keynote",
     "tags": ["keynote", "java", "ai", "enterprise"]
   },
@@ -121,7 +121,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "10:00",
-    "start_datetime": "2026-03-05T10:00:00Z",
+    "start_datetime": "2026-03-05T15:00:00Z",
     "session_type": "Talk",
     "tags": ["ai", "agents", "design-patterns", "multi-agent"]
   },
@@ -135,7 +135,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "10:00",
-    "start_datetime": "2026-03-05T10:00:00Z",
+    "start_datetime": "2026-03-05T15:00:00Z",
     "session_type": "Talk",
     "tags": ["ai", "java", "practical"]
   },
@@ -149,7 +149,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "10:00",
-    "start_datetime": "2026-03-05T10:00:00Z",
+    "start_datetime": "2026-03-05T15:00:00Z",
     "session_type": "Talk",
     "tags": ["architecture", "data-warehouse", "open-source", "data-lakes", "cloud"]
   },
@@ -163,7 +163,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "10:00",
-    "start_datetime": "2026-03-05T10:00:00Z",
+    "start_datetime": "2026-03-05T15:00:00Z",
     "session_type": "Talk",
     "tags": ["java", "java-26", "language-evolution", "jvm"]
   },
@@ -177,7 +177,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "10:00",
-    "start_datetime": "2026-03-05T10:00:00Z",
+    "start_datetime": "2026-03-05T15:00:00Z",
     "session_type": "Talk",
     "tags": ["spring", "spring-boot", "spring-boot-4", "frameworks"]
   },
@@ -191,7 +191,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "10:00",
-    "start_datetime": "2026-03-05T10:00:00Z",
+    "start_datetime": "2026-03-05T15:00:00Z",
     "session_type": "Talk",
     "tags": ["ai", "mcp", "agents", "generative-ai", "tools"]
   },
@@ -205,7 +205,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "09:00",
-    "start_datetime": "2026-03-05T09:00:00Z",
+    "start_datetime": "2026-03-05T14:00:00Z",
     "session_type": "Community",
     "tags": ["mentorship", "community", "career"]
   },
@@ -219,7 +219,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "10:00",
-    "start_datetime": "2026-03-05T10:00:00Z",
+    "start_datetime": "2026-03-05T15:00:00Z",
     "session_type": "Talk",
     "tags": ["refactoring", "practices", "code-quality"]
   },
@@ -233,7 +233,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "10:00",
-    "start_datetime": "2026-03-05T10:00:00Z",
+    "start_datetime": "2026-03-05T15:00:00Z",
     "session_type": "Talk",
     "tags": ["spring", "java", "ai", "enterprise", "frameworks"]
   },
@@ -247,7 +247,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "10:00",
-    "start_datetime": "2026-03-05T10:00:00Z",
+    "start_datetime": "2026-03-05T15:00:00Z",
     "session_type": "Talk",
     "tags": ["java", "migration", "security", "compatibility"]
   },
@@ -261,7 +261,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "10:00",
-    "start_datetime": "2026-03-05T10:00:00Z",
+    "start_datetime": "2026-03-05T15:00:00Z",
     "session_type": "Talk",
     "tags": ["leadership", "career", "education", "engineering-culture"]
   },
@@ -275,7 +275,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "10:00",
-    "start_datetime": "2026-03-05T10:00:00Z",
+    "start_datetime": "2026-03-05T15:00:00Z",
     "session_type": "Talk",
     "tags": ["mcp", "automation", "tools", "productivity"]
   },
@@ -289,7 +289,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "11:20",
-    "start_datetime": "2026-03-05T11:20:00Z",
+    "start_datetime": "2026-03-05T16:20:00Z",
     "session_type": "Talk",
     "tags": ["ai", "java", "tools", "code-platform"]
   },
@@ -303,7 +303,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "11:20",
-    "start_datetime": "2026-03-05T11:20:00Z",
+    "start_datetime": "2026-03-05T16:20:00Z",
     "session_type": "Talk",
     "tags": ["mcp", "ai", "practical", "architecture"]
   },
@@ -317,7 +317,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "11:20",
-    "start_datetime": "2026-03-05T11:20:00Z",
+    "start_datetime": "2026-03-05T16:20:00Z",
     "session_type": "Talk",
     "tags": ["java", "testing", "junit", "junit-6"]
   },
@@ -331,7 +331,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "11:20",
-    "start_datetime": "2026-03-05T11:20:00Z",
+    "start_datetime": "2026-03-05T16:20:00Z",
     "session_type": "Talk",
     "tags": ["spring", "spring-data", "frameworks", "data-access"]
   },
@@ -345,7 +345,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "11:20",
-    "start_datetime": "2026-03-05T11:20:00Z",
+    "start_datetime": "2026-03-05T16:20:00Z",
     "session_type": "Talk",
     "tags": ["ai", "java", "tools", "generative-ai", "productivity"]
   },
@@ -359,7 +359,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "11:20",
-    "start_datetime": "2026-03-05T11:20:00Z",
+    "start_datetime": "2026-03-05T16:20:00Z",
     "session_type": "Talk",
     "tags": ["lean", "practices", "software-development", "agile"]
   },
@@ -373,7 +373,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "11:20",
-    "start_datetime": "2026-03-05T11:20:00Z",
+    "start_datetime": "2026-03-05T16:20:00Z",
     "session_type": "Talk",
     "tags": ["spring", "spring-cloud", "api", "api-versioning", "gateway", "enterprise"]
   },
@@ -387,7 +387,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "11:20",
-    "start_datetime": "2026-03-05T11:20:00Z",
+    "start_datetime": "2026-03-05T16:20:00Z",
     "session_type": "Talk",
     "tags": ["spring", "spring-security", "security"]
   },
@@ -401,7 +401,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "11:20",
-    "start_datetime": "2026-03-05T11:20:00Z",
+    "start_datetime": "2026-03-05T16:20:00Z",
     "session_type": "Talk",
     "tags": ["architecture", "leadership", "software-development"]
   },
@@ -415,7 +415,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "11:20",
-    "start_datetime": "2026-03-05T11:20:00Z",
+    "start_datetime": "2026-03-05T16:20:00Z",
     "session_type": "Talk",
     "tags": ["ai", "agents", "ide", "productivity", "tools"]
   },
@@ -429,7 +429,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "13:20",
-    "start_datetime": "2026-03-05T13:20:00Z",
+    "start_datetime": "2026-03-05T18:20:00Z",
     "session_type": "Talk",
     "tags": ["ai", "software-engineering", "practices", "tools"]
   },
@@ -443,7 +443,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "13:20",
-    "start_datetime": "2026-03-05T13:20:00Z",
+    "start_datetime": "2026-03-05T18:20:00Z",
     "session_type": "Talk",
     "tags": ["ai", "practical", "critique"]
   },
@@ -457,7 +457,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "13:20",
-    "start_datetime": "2026-03-05T13:20:00Z",
+    "start_datetime": "2026-03-05T18:20:00Z",
     "session_type": "Talk",
     "tags": ["java", "cloud", "serverless", "native", "crac", "performance", "architecture"]
   },
@@ -471,7 +471,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "13:20",
-    "start_datetime": "2026-03-05T13:20:00Z",
+    "start_datetime": "2026-03-05T18:20:00Z",
     "session_type": "Talk",
     "tags": ["java", "performance", "jvm", "latency"]
   },
@@ -485,7 +485,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "13:20",
-    "start_datetime": "2026-03-05T13:20:00Z",
+    "start_datetime": "2026-03-05T18:20:00Z",
     "session_type": "Talk",
     "tags": ["ai", "agents", "java", "enterprise", "benchmarks", "spring"]
   },
@@ -499,7 +499,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "13:20",
-    "start_datetime": "2026-03-05T13:20:00Z",
+    "start_datetime": "2026-03-05T18:20:00Z",
     "session_type": "Talk",
     "tags": ["spring", "spring-ai", "mcp", "agents", "generative-ai"]
   },
@@ -513,7 +513,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "13:20",
-    "start_datetime": "2026-03-05T13:20:00Z",
+    "start_datetime": "2026-03-05T18:20:00Z",
     "session_type": "Talk",
     "tags": ["git", "practices", "tools", "version-control"]
   },
@@ -527,7 +527,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "13:20",
-    "start_datetime": "2026-03-05T13:20:00Z",
+    "start_datetime": "2026-03-05T18:20:00Z",
     "session_type": "Talk",
     "tags": ["spring", "tanzu", "ai", "enterprise", "cloud-native"]
   },
@@ -541,7 +541,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "13:20",
-    "start_datetime": "2026-03-05T13:20:00Z",
+    "start_datetime": "2026-03-05T18:20:00Z",
     "session_type": "Talk",
     "tags": ["llm", "ai", "security", "reliability", "trust"]
   },
@@ -555,7 +555,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "13:20",
-    "start_datetime": "2026-03-05T13:20:00Z",
+    "start_datetime": "2026-03-05T18:20:00Z",
     "session_type": "Talk",
     "tags": ["leadership", "career", "management"]
   },
@@ -569,7 +569,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "14:50",
-    "start_datetime": "2026-03-05T14:50:00Z",
+    "start_datetime": "2026-03-05T19:50:00Z",
     "session_type": "Talk",
     "tags": ["ai", "embabel", "tools", "agents"]
   },
@@ -583,7 +583,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "14:50",
-    "start_datetime": "2026-03-05T14:50:00Z",
+    "start_datetime": "2026-03-05T19:50:00Z",
     "session_type": "Talk",
     "tags": ["mcp", "ai", "agents", "protocol"]
   },
@@ -597,7 +597,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "14:50",
-    "start_datetime": "2026-03-05T14:50:00Z",
+    "start_datetime": "2026-03-05T19:50:00Z",
     "session_type": "Talk",
     "tags": ["architecture", "modular-monolith", "microservices"]
   },
@@ -611,7 +611,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "14:50",
-    "start_datetime": "2026-03-05T14:50:00Z",
+    "start_datetime": "2026-03-05T19:50:00Z",
     "session_type": "Talk",
     "tags": ["java", "kubernetes", "performance", "ai", "jvm"]
   },
@@ -625,7 +625,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "14:50",
-    "start_datetime": "2026-03-05T14:50:00Z",
+    "start_datetime": "2026-03-05T19:50:00Z",
     "session_type": "Talk",
     "tags": ["java", "graphs", "ai", "frameworks", "neo4j"]
   },
@@ -639,7 +639,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "14:50",
-    "start_datetime": "2026-03-05T14:50:00Z",
+    "start_datetime": "2026-03-05T19:50:00Z",
     "session_type": "Talk",
     "tags": ["mcp", "ai", "java", "modernization", "agents", "generative-ai"]
   },
@@ -653,7 +653,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "14:50",
-    "start_datetime": "2026-03-05T14:50:00Z",
+    "start_datetime": "2026-03-05T19:50:00Z",
     "session_type": "Talk",
     "tags": ["refactoring", "intellij", "practices", "code-quality", "ide"]
   },
@@ -667,7 +667,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "14:50",
-    "start_datetime": "2026-03-05T14:50:00Z",
+    "start_datetime": "2026-03-05T19:50:00Z",
     "session_type": "Talk",
     "tags": ["spring", "spring-ai", "agents", "tanzu", "ai"]
   },
@@ -681,7 +681,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "14:50",
-    "start_datetime": "2026-03-05T14:50:00Z",
+    "start_datetime": "2026-03-05T19:50:00Z",
     "session_type": "Talk",
     "tags": ["mcp", "llm", "data-streaming", "kafka", "security"]
   },
@@ -695,7 +695,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "14:50",
-    "start_datetime": "2026-03-05T14:50:00Z",
+    "start_datetime": "2026-03-05T19:50:00Z",
     "session_type": "Talk",
     "tags": ["leadership", "management", "one-on-one", "career"]
   },
@@ -709,7 +709,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "14:50",
-    "start_datetime": "2026-03-05T14:50:00Z",
+    "start_datetime": "2026-03-05T19:50:00Z",
     "session_type": "Talk",
     "tags": ["soft-skills", "career", "communication"]
   },
@@ -723,7 +723,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "15:50",
-    "start_datetime": "2026-03-05T15:50:00Z",
+    "start_datetime": "2026-03-05T20:50:00Z",
     "session_type": "Talk",
     "tags": ["ai", "agents", "memory", "tools"]
   },
@@ -737,7 +737,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "15:50",
-    "start_datetime": "2026-03-05T15:50:00Z",
+    "start_datetime": "2026-03-05T20:50:00Z",
     "session_type": "Talk",
     "tags": ["ai", "multi-agent", "agents", "practical"]
   },
@@ -751,7 +751,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "15:50",
-    "start_datetime": "2026-03-05T15:50:00Z",
+    "start_datetime": "2026-03-05T20:50:00Z",
     "session_type": "Talk",
     "tags": ["java", "cloud-native", "modernization", "automation", "architecture"]
   },
@@ -765,7 +765,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "15:50",
-    "start_datetime": "2026-03-05T15:50:00Z",
+    "start_datetime": "2026-03-05T20:50:00Z",
     "session_type": "Talk",
     "tags": ["career", "java", "developer", "growth"]
   },
@@ -779,7 +779,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "15:50",
-    "start_datetime": "2026-03-05T15:50:00Z",
+    "start_datetime": "2026-03-05T20:50:00Z",
     "session_type": "Talk",
     "tags": ["spring", "jakarta-ee", "frameworks", "java"]
   },
@@ -793,7 +793,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "15:50",
-    "start_datetime": "2026-03-05T15:50:00Z",
+    "start_datetime": "2026-03-05T20:50:00Z",
     "session_type": "Talk",
     "tags": ["microservices", "ai", "agents", "architecture", "generative-ai"]
   },
@@ -807,7 +807,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "15:50",
-    "start_datetime": "2026-03-05T15:50:00Z",
+    "start_datetime": "2026-03-05T20:50:00Z",
     "session_type": "Talk",
     "tags": ["database", "migration", "liquibase", "flyway", "practices"]
   },
@@ -821,7 +821,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "15:50",
-    "start_datetime": "2026-03-05T15:50:00Z",
+    "start_datetime": "2026-03-05T20:50:00Z",
     "session_type": "Talk",
     "tags": ["ai", "inference", "performance", "spring", "llm"]
   },
@@ -835,7 +835,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "15:50",
-    "start_datetime": "2026-03-05T15:50:00Z",
+    "start_datetime": "2026-03-05T20:50:00Z",
     "session_type": "Talk",
     "tags": ["security", "privacy", "devsecops", "practices"]
   },
@@ -849,7 +849,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "15:50",
-    "start_datetime": "2026-03-05T15:50:00Z",
+    "start_datetime": "2026-03-05T20:50:00Z",
     "session_type": "Talk",
     "tags": ["career", "leadership", "software-industry"]
   },
@@ -863,7 +863,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "15:50",
-    "start_datetime": "2026-03-05T15:50:00Z",
+    "start_datetime": "2026-03-05T20:50:00Z",
     "session_type": "Talk",
     "tags": ["developer-experience", "productivity", "tools"]
   },
@@ -877,7 +877,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "16:50",
-    "start_datetime": "2026-03-05T16:50:00Z",
+    "start_datetime": "2026-03-05T21:50:00Z",
     "session_type": "Talk",
     "tags": ["java", "podcast", "ai", "agents", "community"]
   },
@@ -891,7 +891,7 @@
     "day": "Day 1",
     "date": "2026-03-05",
     "start_time": "17:30",
-    "start_datetime": "2026-03-05T17:30:00Z",
+    "start_datetime": "2026-03-05T22:30:00Z",
     "session_type": "Social",
     "tags": ["networking", "social"]
   },
@@ -905,7 +905,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "09:00",
-    "start_datetime": "2026-03-06T09:00:00Z",
+    "start_datetime": "2026-03-06T14:00:00Z",
     "session_type": "Keynote",
     "tags": ["keynote", "ai", "security", "hacking"]
   },
@@ -919,7 +919,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "10:00",
-    "start_datetime": "2026-03-06T10:00:00Z",
+    "start_datetime": "2026-03-06T15:00:00Z",
     "session_type": "Talk",
     "tags": ["ai", "graphs", "context", "rag", "tools"]
   },
@@ -933,7 +933,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "10:00",
-    "start_datetime": "2026-03-06T10:00:00Z",
+    "start_datetime": "2026-03-06T15:00:00Z",
     "session_type": "Talk",
     "tags": ["ai", "llm", "prompting", "practical", "development"]
   },
@@ -947,7 +947,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "10:00",
-    "start_datetime": "2026-03-06T10:00:00Z",
+    "start_datetime": "2026-03-06T15:00:00Z",
     "session_type": "Talk",
     "tags": ["architecture", "cell-architecture", "distributed-systems"]
   },
@@ -961,7 +961,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "10:00",
-    "start_datetime": "2026-03-06T10:00:00Z",
+    "start_datetime": "2026-03-06T15:00:00Z",
     "session_type": "Talk",
     "tags": ["java", "jvm", "startup", "performance", "graalvm"]
   },
@@ -975,7 +975,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "10:00",
-    "start_datetime": "2026-03-06T10:00:00Z",
+    "start_datetime": "2026-03-06T15:00:00Z",
     "session_type": "Talk",
     "tags": ["spring", "api", "api-versioning", "frameworks"]
   },
@@ -989,7 +989,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "10:00",
-    "start_datetime": "2026-03-06T10:00:00Z",
+    "start_datetime": "2026-03-06T15:00:00Z",
     "session_type": "Talk",
     "tags": ["ai", "predictive-ai", "machine-learning", "generative-ai"]
   },
@@ -1003,7 +1003,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "10:00",
-    "start_datetime": "2026-03-06T10:00:00Z",
+    "start_datetime": "2026-03-06T15:00:00Z",
     "session_type": "Talk",
     "tags": ["maven", "build", "practices", "performance"]
   },
@@ -1017,7 +1017,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "10:00",
-    "start_datetime": "2026-03-06T10:00:00Z",
+    "start_datetime": "2026-03-06T15:00:00Z",
     "session_type": "Talk",
     "tags": ["spring", "spring-cloud", "production", "cloud-native"]
   },
@@ -1031,7 +1031,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "10:00",
-    "start_datetime": "2026-03-06T10:00:00Z",
+    "start_datetime": "2026-03-06T15:00:00Z",
     "session_type": "Talk",
     "tags": ["java", "security", "vulnerabilities", "devsecops"]
   },
@@ -1045,7 +1045,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "10:00",
-    "start_datetime": "2026-03-06T10:00:00Z",
+    "start_datetime": "2026-03-06T15:00:00Z",
     "session_type": "Talk",
     "tags": ["ai", "testing", "leadership", "prompting", "software-engineering"]
   },
@@ -1059,7 +1059,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "10:00",
-    "start_datetime": "2026-03-06T10:00:00Z",
+    "start_datetime": "2026-03-06T15:00:00Z",
     "session_type": "Talk",
     "tags": ["boxlang", "jvm-languages", "tools"]
   },
@@ -1073,7 +1073,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "11:20",
-    "start_datetime": "2026-03-06T11:20:00Z",
+    "start_datetime": "2026-03-06T16:20:00Z",
     "session_type": "Talk",
     "tags": ["ai", "rag", "neo4j", "graphs", "tools", "llm"]
   },
@@ -1087,7 +1087,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "11:20",
-    "start_datetime": "2026-03-06T11:20:00Z",
+    "start_datetime": "2026-03-06T16:20:00Z",
     "session_type": "Talk",
     "tags": ["ai", "agents", "microservices", "architecture", "practical"]
   },
@@ -1101,7 +1101,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "11:20",
-    "start_datetime": "2026-03-06T11:20:00Z",
+    "start_datetime": "2026-03-06T16:20:00Z",
     "session_type": "Talk",
     "tags": ["architecture", "hexagonal", "java", "monolith", "layered-architecture"]
   },
@@ -1115,7 +1115,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "11:20",
-    "start_datetime": "2026-03-06T11:20:00Z",
+    "start_datetime": "2026-03-06T16:20:00Z",
     "session_type": "Talk",
     "tags": ["java", "jvm", "memory-management", "garbage-collection", "performance"]
   },
@@ -1129,7 +1129,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "11:20",
-    "start_datetime": "2026-03-06T11:20:00Z",
+    "start_datetime": "2026-03-06T16:20:00Z",
     "session_type": "Talk",
     "tags": ["spring", "spring-boot", "kubernetes", "keda", "autoscaling", "cloud-native"]
   },
@@ -1143,7 +1143,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "11:20",
-    "start_datetime": "2026-03-06T11:20:00Z",
+    "start_datetime": "2026-03-06T16:20:00Z",
     "session_type": "Talk",
     "tags": ["llm", "java", "mcp", "spring-ai", "generative-ai"]
   },
@@ -1157,7 +1157,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "11:20",
-    "start_datetime": "2026-03-06T11:20:00Z",
+    "start_datetime": "2026-03-06T16:20:00Z",
     "session_type": "Talk",
     "tags": ["platform-engineering", "practices", "devops", "culture"]
   },
@@ -1171,7 +1171,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "11:20",
-    "start_datetime": "2026-03-06T11:20:00Z",
+    "start_datetime": "2026-03-06T16:20:00Z",
     "session_type": "Talk",
     "tags": ["spring", "tanzu", "modernization", "refactoring", "cloud"]
   },
@@ -1185,7 +1185,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "11:20",
-    "start_datetime": "2026-03-06T11:20:00Z",
+    "start_datetime": "2026-03-06T16:20:00Z",
     "session_type": "Talk",
     "tags": ["mcp", "spring-security", "oauth2", "security", "authorization"]
   },
@@ -1199,7 +1199,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "11:20",
-    "start_datetime": "2026-03-06T11:20:00Z",
+    "start_datetime": "2026-03-06T16:20:00Z",
     "session_type": "Talk",
     "tags": ["leadership", "career", "tech-lead", "management"]
   },
@@ -1213,7 +1213,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "11:20",
-    "start_datetime": "2026-03-06T11:20:00Z",
+    "start_datetime": "2026-03-06T16:20:00Z",
     "session_type": "Talk",
     "tags": ["java", "rest", "api", "data-oriented-programming", "tools"]
   },
@@ -1227,7 +1227,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "13:20",
-    "start_datetime": "2026-03-06T13:20:00Z",
+    "start_datetime": "2026-03-06T18:20:00Z",
     "session_type": "Talk",
     "tags": ["ai", "agents", "java", "microservices", "fintech", "cloud", "performance"]
   },
@@ -1241,7 +1241,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "13:20",
-    "start_datetime": "2026-03-06T13:20:00Z",
+    "start_datetime": "2026-03-06T18:20:00Z",
     "session_type": "Talk",
     "tags": ["ai", "rag", "semantic-search", "elasticsearch", "e-commerce"]
   },
@@ -1255,7 +1255,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "13:20",
-    "start_datetime": "2026-03-06T13:20:00Z",
+    "start_datetime": "2026-03-06T18:20:00Z",
     "session_type": "Talk",
     "tags": ["architecture", "resilience", "durable-execution", "reliability"]
   },
@@ -1269,7 +1269,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "13:20",
-    "start_datetime": "2026-03-06T13:20:00Z",
+    "start_datetime": "2026-03-06T18:20:00Z",
     "session_type": "Talk",
     "tags": ["java", "jvm", "jit", "performance", "compilation"]
   },
@@ -1283,7 +1283,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "13:20",
-    "start_datetime": "2026-03-06T13:20:00Z",
+    "start_datetime": "2026-03-06T18:20:00Z",
     "session_type": "Talk",
     "tags": ["spring", "spring-boot", "observability", "monitoring", "jvm", "opentelemetry"]
   },
@@ -1297,7 +1297,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "13:20",
-    "start_datetime": "2026-03-06T13:20:00Z",
+    "start_datetime": "2026-03-06T18:20:00Z",
     "session_type": "Talk",
     "tags": ["ai", "graphs", "llm", "generative-ai", "context"]
   },
@@ -1311,7 +1311,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "13:20",
-    "start_datetime": "2026-03-06T13:20:00Z",
+    "start_datetime": "2026-03-06T18:20:00Z",
     "session_type": "Talk",
     "tags": ["testing", "assertj", "java", "practices"]
   },
@@ -1325,7 +1325,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "13:20",
-    "start_datetime": "2026-03-06T13:20:00Z",
+    "start_datetime": "2026-03-06T18:20:00Z",
     "session_type": "Talk",
     "tags": ["spring", "developer-experience", "production", "platform-engineering"]
   },
@@ -1339,7 +1339,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "13:20",
-    "start_datetime": "2026-03-06T13:20:00Z",
+    "start_datetime": "2026-03-06T18:20:00Z",
     "session_type": "Talk",
     "tags": ["java", "ai", "generative-ai", "security", "responsible-ai"]
   },
@@ -1353,7 +1353,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "13:20",
-    "start_datetime": "2026-03-06T13:20:00Z",
+    "start_datetime": "2026-03-06T18:20:00Z",
     "session_type": "Talk",
     "tags": ["leadership", "architecture", "culture", "organizational-change"]
   },
@@ -1367,7 +1367,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "13:20",
-    "start_datetime": "2026-03-06T13:20:00Z",
+    "start_datetime": "2026-03-06T18:20:00Z",
     "session_type": "Talk",
     "tags": ["java", "career", "tools"]
   },
@@ -1381,7 +1381,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "14:40",
-    "start_datetime": "2026-03-06T14:40:00Z",
+    "start_datetime": "2026-03-06T19:40:00Z",
     "session_type": "Talk",
     "tags": ["ai", "prompting", "prompt-engineering", "tools", "llm"]
   },
@@ -1395,7 +1395,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "14:40",
-    "start_datetime": "2026-03-06T14:40:00Z",
+    "start_datetime": "2026-03-06T19:40:00Z",
     "session_type": "Talk",
     "tags": ["java", "kafka", "streaming", "fraud-detection", "vector-search", "ai", "practical"]
   },
@@ -1409,7 +1409,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "14:40",
-    "start_datetime": "2026-03-06T14:40:00Z",
+    "start_datetime": "2026-03-06T19:40:00Z",
     "session_type": "Talk",
     "tags": ["database", "isolation", "architecture", "transactions"]
   },
@@ -1423,7 +1423,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "14:40",
-    "start_datetime": "2026-03-06T14:40:00Z",
+    "start_datetime": "2026-03-06T19:40:00Z",
     "session_type": "Talk",
     "tags": ["java", "async", "reactive", "virtual-threads", "jvm"]
   },
@@ -1437,7 +1437,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "14:40",
-    "start_datetime": "2026-03-06T14:40:00Z",
+    "start_datetime": "2026-03-06T19:40:00Z",
     "session_type": "Talk",
     "tags": ["java", "jpa", "json", "database", "spring", "frameworks"]
   },
@@ -1451,7 +1451,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "14:40",
-    "start_datetime": "2026-03-06T14:40:00Z",
+    "start_datetime": "2026-03-06T19:40:00Z",
     "session_type": "Talk",
     "tags": ["spring-ai", "langchain4j", "java", "generative-ai", "llm"]
   },
@@ -1465,7 +1465,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "14:40",
-    "start_datetime": "2026-03-06T14:40:00Z",
+    "start_datetime": "2026-03-06T19:40:00Z",
     "session_type": "Talk",
     "tags": ["java", "open-source", "community", "jcp", "openjdk", "career"]
   },
@@ -1479,7 +1479,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "14:40",
-    "start_datetime": "2026-03-06T14:40:00Z",
+    "start_datetime": "2026-03-06T19:40:00Z",
     "session_type": "Talk",
     "tags": ["spring", "maintenance", "upgrades", "production"]
   },
@@ -1493,7 +1493,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "14:40",
-    "start_datetime": "2026-03-06T14:40:00Z",
+    "start_datetime": "2026-03-06T19:40:00Z",
     "session_type": "Talk",
     "tags": ["security", "kafka", "data-streaming", "encryption"]
   },
@@ -1507,7 +1507,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "14:40",
-    "start_datetime": "2026-03-06T14:40:00Z",
+    "start_datetime": "2026-03-06T19:40:00Z",
     "session_type": "Talk",
     "tags": ["leadership", "management", "organizational-change", "tech-lead"]
   },
@@ -1521,7 +1521,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "14:40",
-    "start_datetime": "2026-03-06T14:40:00Z",
+    "start_datetime": "2026-03-06T19:40:00Z",
     "session_type": "Talk",
     "tags": ["ai", "gpt", "productivity", "tools", "automation"]
   },
@@ -1535,7 +1535,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "15:40",
-    "start_datetime": "2026-03-06T15:40:00Z",
+    "start_datetime": "2026-03-06T20:40:00Z",
     "session_type": "Talk",
     "tags": ["ai", "agents", "java", "tools", "deployment"]
   },
@@ -1549,7 +1549,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "15:40",
-    "start_datetime": "2026-03-06T15:40:00Z",
+    "start_datetime": "2026-03-06T20:40:00Z",
     "session_type": "Talk",
     "tags": ["microservices", "architecture", "pragmatic"]
   },
@@ -1563,7 +1563,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "15:40",
-    "start_datetime": "2026-03-06T15:40:00Z",
+    "start_datetime": "2026-03-06T20:40:00Z",
     "session_type": "Talk",
     "tags": ["java", "performance", "jvm", "native", "panama"]
   },
@@ -1577,7 +1577,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "15:40",
-    "start_datetime": "2026-03-06T15:40:00Z",
+    "start_datetime": "2026-03-06T20:40:00Z",
     "session_type": "Talk",
     "tags": ["intellij", "debugging", "ide", "practices", "java"]
   },
@@ -1591,7 +1591,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "15:40",
-    "start_datetime": "2026-03-06T15:40:00Z",
+    "start_datetime": "2026-03-06T20:40:00Z",
     "session_type": "Talk",
     "tags": ["spring", "security", "shift-left", "devops", "production"]
   },
@@ -1605,7 +1605,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "15:40",
-    "start_datetime": "2026-03-06T15:40:00Z",
+    "start_datetime": "2026-03-06T20:40:00Z",
     "session_type": "Talk",
     "tags": ["security", "quantum", "encryption", "post-quantum", "cryptography"]
   },
@@ -1619,7 +1619,7 @@
     "day": "Day 2",
     "date": "2026-03-06",
     "start_time": "16:40",
-    "start_datetime": "2026-03-06T16:40:00Z",
+    "start_datetime": "2026-03-06T21:40:00Z",
     "session_type": "Closing",
     "tags": ["closing", "social"]
   }
