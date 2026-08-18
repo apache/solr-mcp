@@ -32,6 +32,7 @@ import org.apache.solr.client.solrj.response.FacetField;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
+import org.apache.solr.common.SolrException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
 
@@ -45,6 +46,73 @@ class SearchServiceTest {
 	void constructor_ShouldInitializeWithSolrClient() {
 		SearchService localService = new SearchService(mock(SolrClient.class));
 		assertNotNull(localService);
+	}
+
+	/*
+	 * These stub Solr's error text rather than observe it, so they can only show
+	 * that a matching message produces a hint — never that Solr still emits such a
+	 * message. The fixture strings below are verbatim samples captured from a real
+	 * Solr 9.9; SearchServiceIntegrationTest is what keeps them honest.
+	 */
+
+	private static SearchService serviceThrowing(SolrException e) throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenThrow(e);
+		return new SearchService(mockClient);
+	}
+
+	@Test
+	void search_WithUndefinedField_ShouldHintGetSchema() throws Exception {
+		SearchService localService = serviceThrowing(
+				new SolrException(SolrException.ErrorCode.BAD_REQUEST, "undefined field bogus"));
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+				() -> localService.search("test_collection", "bogus:x", null, null, null, null, null));
+		assertTrue(e.getMessage().contains("undefined field bogus"), "original Solr message must be preserved");
+		assertTrue(e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted("test_collection")));
+	}
+
+	@Test
+	void search_WithUndefinedSortField_ShouldHintGetSchema() throws Exception {
+		SearchService localService = serviceThrowing(
+				new SolrException(SolrException.ErrorCode.BAD_REQUEST, "sort param field can't be found: bogus"));
+		List<Map<String, String>> sort = List
+				.of(Map.of(SearchService.SORT_ITEM, "bogus", SearchService.SORT_ORDER, "asc"));
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+				() -> localService.search("test_collection", "*:*", null, null, sort, null, null));
+		assertTrue(e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted("test_collection")));
+	}
+
+	@Test
+	void search_WithQuerySyntaxError_ShouldHintLuceneSyntax() throws Exception {
+		SearchService localService = serviceThrowing(new SolrException(SolrException.ErrorCode.BAD_REQUEST,
+				"org.apache.solr.search.SyntaxError: Cannot parse 'name:('"));
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+				() -> localService.search("test_collection", "name:(", null, null, null, null, null));
+		assertTrue(e.getMessage().contains(SearchService.LUCENE_SYNTAX_HINT));
+	}
+
+	/**
+	 * A missing collection is matched on the 404 status, not the message — Solr's
+	 * 404 body is an HTML page, so SolrJ surfaces it as the mime-type mismatch
+	 * stubbed here, which mentions neither the collection nor "404".
+	 */
+	@Test
+	void search_WithNotFoundStatus_ShouldHintListCollections() throws Exception {
+		SearchService localService = serviceThrowing(new SolrException(SolrException.ErrorCode.NOT_FOUND,
+				"Expected mime type in [application/json, text/plain] but got text/html."));
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+				() -> localService.search("test_collection", "*:*", null, null, null, null, null));
+		assertTrue(e.getMessage().contains(SearchService.LIST_COLLECTIONS_HINT));
+	}
+
+	@Test
+	void search_WithUnrelatedSolrError_ShouldPropagateUnchanged() throws Exception {
+		SearchService localService = serviceThrowing(
+				new SolrException(SolrException.ErrorCode.SERVER_ERROR, "internal failure"));
+		SolrException e = assertThrows(SolrException.class,
+				() -> localService.search("test_collection", null, null, null, null, null, null));
+		assertTrue(e.getMessage().contains("internal failure"));
+		assertFalse(e.getMessage().contains("Hint:"));
 	}
 
 	@Test

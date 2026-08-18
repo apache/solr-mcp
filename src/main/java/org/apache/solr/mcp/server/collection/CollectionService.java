@@ -523,7 +523,8 @@ public class CollectionService {
 
 		// Validate collection exists
 		if (!validateCollectionExists(actualCollection)) {
-			throw new IllegalArgumentException(COLLECTION_NOT_FOUND_ERROR + actualCollection);
+			throw new IllegalArgumentException(COLLECTION_NOT_FOUND_ERROR + actualCollection
+					+ ". Hint: call list-collections to see available collections.");
 		}
 
 		// Index statistics using Luke
