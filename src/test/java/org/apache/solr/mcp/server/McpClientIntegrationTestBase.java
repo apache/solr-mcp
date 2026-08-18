@@ -821,9 +821,12 @@ public abstract class McpClientIntegrationTestBase {
 
 	protected static void assertNotError(CallToolResult result) {
 		if (Boolean.TRUE.equals(result.isError())) {
-			String errorText = result.content().isEmpty()
-					? "unknown error"
-					: ((TextContent) result.content().getFirst()).text();
+			// Do not cast blindly: a non-text error payload would raise
+			// ClassCastException here and hide the actual failure message.
+			String errorText = result.content().isEmpty() ? "unknown error" : switch (result.content().getFirst()) {
+				case TextContent text -> text.text();
+				case Object other -> "non-text error content: " + other;
+			};
 			fail("MCP tool call returned error: " + errorText);
 		}
 	}

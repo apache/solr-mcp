@@ -233,8 +233,10 @@ class CollectionServiceIntegrationTest {
 		HandlerInfo select = handlerStats.selectHandler();
 		assertNotNull(select);
 		assertTrue(select.requests() > 0, "Select handler requests should be positive after queries");
-		assertNull(select.errors());
-		assertNull(select.timeouts());
+		// Solr may omit these counters entirely or report an explicit 0 - both mean
+		// "nothing went wrong". Requiring null made the test depend on which.
+		assertTrue(select.errors() == null || select.errors() == 0L, "Select handler should report no errors");
+		assertTrue(select.timeouts() == null || select.timeouts() == 0L, "Select handler should report no timeouts");
 
 		// Update handler: indexing 50 docs should have driven request counts > 0
 		HandlerInfo update = handlerStats.updateHandler();
