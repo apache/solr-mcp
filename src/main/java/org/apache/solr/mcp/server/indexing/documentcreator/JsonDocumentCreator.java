@@ -116,6 +116,9 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
 	 * @see FieldNameSanitizer#sanitizeFieldName(String)
 	 */
 	public List<SolrInputDocument> create(String json) throws DocumentProcessingException {
+		if (json.isBlank()) {
+			throw new DocumentProcessingException("JSON input cannot be empty");
+		}
 		if (json.getBytes(StandardCharsets.UTF_8).length > MAX_INPUT_SIZE_BYTES) {
 			throw new DocumentProcessingException(
 					"Input too large: exceeds maximum size of " + MAX_INPUT_SIZE_BYTES + " bytes");
@@ -134,6 +137,14 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
 					addAllFieldsFlat(doc, item, "");
 					documents.add(doc);
 				}
+			} else if (rootNode.isObject()) {
+				// A single document. Previously fell through and returned an empty
+				// list, so indexing one object silently indexed nothing.
+				SolrInputDocument doc = new SolrInputDocument();
+				addAllFieldsFlat(doc, rootNode, "");
+				documents.add(doc);
+			} else {
+				throw new DocumentProcessingException("JSON input must be an object or an array of objects");
 			}
 		} catch (IOException e) {
 			throw new DocumentProcessingException("Failed to parse JSON document", e);
@@ -219,7 +230,9 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
 	private void processArrayField(SolrInputDocument doc, JsonNode arrayValue, String fieldName) {
 		List<Object> values = new ArrayList<>();
 		for (JsonNode item : arrayValue) {
-			if (!item.isObject()) {
+			// Skip objects and nested arrays alike: neither has a scalar
+			// representation, and asString() on a container node throws.
+			if (!item.isObject() && !item.isArray()) {
 				values.add(convertJsonValue(item));
 			}
 		}
