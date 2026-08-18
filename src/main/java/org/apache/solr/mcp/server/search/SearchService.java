@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -293,9 +294,7 @@ public class SearchService {
 
 		// sorting
 		if (!CollectionUtils.isEmpty(sortClauses)) {
-			solrQuery.setSorts(sortClauses.stream()
-					.map(sortClause -> new SolrQuery.SortClause(sortClause.get(SORT_ITEM), sortClause.get(SORT_ORDER)))
-					.toList());
+			solrQuery.setSorts(sortClauses.stream().map(SearchService::toSortClause).toList());
 		}
 
 		// pagination
@@ -319,6 +318,35 @@ public class SearchService {
 		final var facets = getFacets(queryResponse);
 
 		return new SearchResponse(documents.getNumFound(), documents.getStart(), documents.getMaxScore(), docs, facets);
+	}
+
+	/**
+	 * Builds a {@link SolrQuery.SortClause} from one caller-supplied map.
+	 *
+	 * <p>
+	 * Both keys are validated up front: {@code SortClause}'s constructor calls
+	 * {@code ORDER.valueOf(order)}, which throws {@link NullPointerException} on a
+	 * missing order and an opaque {@link IllegalArgumentException} on an
+	 * unrecognised one. Callers are LLMs, so the message needs to say what to send.
+	 */
+	private static SolrQuery.SortClause toSortClause(Map<String, String> sortClause) {
+		String field = sortClause.get(SORT_ITEM);
+		String order = sortClause.get(SORT_ORDER);
+		if (field == null || field.isBlank()) {
+			throw new IllegalArgumentException("Each sort clause requires a non-empty '" + SORT_ITEM + "' key");
+		}
+		if (order == null || order.isBlank()) {
+			throw new IllegalArgumentException(
+					"Sort clause for '" + field + "' requires a '" + SORT_ORDER + "' key of 'asc' or 'desc'");
+		}
+		SolrQuery.ORDER parsed;
+		try {
+			parsed = SolrQuery.ORDER.valueOf(order.toLowerCase(Locale.ROOT));
+		} catch (IllegalArgumentException e) {
+			throw new IllegalArgumentException(
+					"Unsupported sort order '" + order + "' for '" + field + "'; expected 'asc' or 'desc'", e);
+		}
+		return new SolrQuery.SortClause(field, parsed);
 	}
 
 	/**
@@ -376,7 +404,7 @@ public class SearchService {
 
 				3. Run the search.
 				   - Call `search` with `collection=%s` and the chosen `query` plus optional
-				     `filterQueries`, `facetFields`, `sortFields`, `start`, `rows`. Set `rows=10` for a
+				     `filterQueries`, `facetFields`, `sortClauses`, `start`, `rows`. Set `rows=10` for a
 				     focused look or `rows=0` if you only need counts / facets.
 
 				4. Interpret and refine.

@@ -185,7 +185,10 @@ public class SchemaService {
 		try {
 			return toJson(objectMapper, getSchema(collection));
 		} catch (Exception e) {
-			return "{\"error\": \"" + e.getMessage() + "\"}";
+			// Serialise via Jackson rather than concatenating: an exception message
+			// containing a quote, backslash or newline would otherwise emit invalid
+			// JSON to the MCP client.
+			return toJson(objectMapper, Map.of("error", String.valueOf(e.getMessage())));
 		}
 	}
 
@@ -316,7 +319,7 @@ public class SchemaService {
 		List<String> names = new ArrayList<>(fields.size());
 		List<SchemaRequest.Update> updates = new ArrayList<>(fields.size());
 		for (Map<String, Object> field : fields) {
-			names.add((String) field.get("name"));
+			names.add(requireName(field, "field"));
 			updates.add(new SchemaRequest.AddField(field));
 		}
 
@@ -366,12 +369,35 @@ public class SchemaService {
 		List<String> names = new ArrayList<>(fieldTypes.size());
 		List<SchemaRequest.Update> updates = new ArrayList<>(fieldTypes.size());
 		for (Map<String, Object> fieldType : fieldTypes) {
-			names.add((String) fieldType.get("name"));
+			names.add(requireName(fieldType, "field type"));
 			updates.add(new SchemaRequest.AddFieldType(toFieldTypeDefinition(fieldType)));
 		}
 
 		new SchemaRequest.MultiUpdate(updates).process(solrClient, collection);
 		return new SchemaUpdateResult(collection, names);
+	}
+
+	/**
+	 * Extracts and validates the {@code name} entry of a schema definition.
+	 *
+	 * <p>
+	 * Casting {@code get("name")} directly would record a {@code null} name for a
+	 * definition that omits it, or throw a bare {@link ClassCastException} if it is
+	 * not a string - neither tells the caller which entry was malformed.
+	 *
+	 * @param definition
+	 *            the caller-supplied field or field-type definition
+	 * @param kind
+	 *            human-readable noun used in the error message
+	 * @return the validated name
+	 */
+	private static String requireName(Map<String, Object> definition, String kind) {
+		Object name = definition.get("name");
+		if (!(name instanceof String s) || s.isBlank()) {
+			throw new IllegalArgumentException(
+					"Each " + kind + " definition requires a non-empty string 'name'; got: " + name);
+		}
+		return s;
 	}
 
 	/**

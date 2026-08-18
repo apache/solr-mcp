@@ -35,7 +35,13 @@
         under the STDIO profile. This avoids logback "not referenced" warnings
         and keeps STDIO stdout completely clean.
     -->
-    <springProfile name="http">
+    <!--
+        "http & !stdio": if both profiles are activated at once (PROFILES=stdio,http)
+        the CONSOLE appender would write diagnostics to stdout, corrupting the MCP
+        JSON-RPC stream that STDIO transports over it. Keeping stdio dominant here
+        means the combination degrades safely instead of silently breaking.
+    -->
+    <springProfile name="http &amp; !stdio">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>
                 <pattern>${CONSOLE_LOG_PATTERN:-%d{yyyy-MM-dd HH:mm:ss.SSS} %5p --- [%15.15t] %-40.40logger{39} : %m%n}
