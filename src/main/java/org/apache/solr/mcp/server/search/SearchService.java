@@ -229,6 +229,10 @@ public class SearchService {
 			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
 			description = """
 			Search specified Solr collection with query, optional filters, facets, sorting, and pagination.
+			The q parameter accepts Lucene query syntax. There are no separate defType/qf/mm parameters:
+			to use eDisMax features (multi-field search, minimum-match, boosts), embed Solr local params
+			in q, e.g. {!edismax qf='name author' mm=2}george martin.
+			Put filters in fq (filterQueries) instead of q so Solr can cache and reuse them.
 			Note that solr has dynamic fields where name of field in schema may end with suffixes
 			_s: Represents a string field, used for exact string matching.
 			_i: Represents an integer field.
@@ -256,9 +260,12 @@ public class SearchService {
 	// @formatter:on
 	public SearchResponse search(@McpToolParam(description = "Solr collection to query") String collection,
 			@McpToolParam(
-					description = "Solr q parameter. If none specified defaults to \"*:*\"",
+					description = "Solr q parameter. Lucene syntax; supports local params such as"
+							+ " {!edismax qf='name author'}. If none specified defaults to \"*:*\"",
 					required = false) String query,
-			@McpToolParam(description = "Solr fq parameter", required = false) List<String> filterQueries,
+			@McpToolParam(
+					description = "Solr fq parameter: list of filter queries, one filter per entry",
+					required = false) List<String> filterQueries,
 			@McpToolParam(description = "Solr facet fields", required = false) List<String> facetFields,
 			@McpToolParam(description = "Solr sort parameter", required = false) List<Map<String, String>> sortClauses,
 			@McpToolParam(description = "Starting offset for pagination", required = false) Integer start,
