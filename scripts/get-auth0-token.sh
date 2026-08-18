@@ -113,10 +113,22 @@ load_env_file() {
     local env_file="${PROJECT_ROOT}/.env"
     if [ -f "$env_file" ]; then
         print_info "Loading configuration from .env file"
-        # Export variables from .env file
-        set -a
-        source "$env_file"
-        set +a
+        # Parse only AUTH0_* assignments rather than sourcing the file.
+        # `source` executes its contents, so any command in .env would run
+        # with this script's privileges.
+        local line key value
+        while IFS= read -r line || [ -n "$line" ]; do
+            # Skip blanks, comments, and anything that is not a simple
+            # AUTH0_<NAME>=<value> assignment.
+            [[ "$line" =~ ^[[:space:]]*(#|$) ]] && continue
+            [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?(AUTH0_[A-Za-z0-9_]+)=(.*)$ ]] || continue
+            key="${BASH_REMATCH[2]}"
+            value="${BASH_REMATCH[3]}"
+            # Strip one layer of surrounding quotes, if present
+            value="${value%\"}"; value="${value#\"}"
+            value="${value%\'}"; value="${value#\'}"
+            export "$key=$value"
+        done < "$env_file"
     fi
 }
 

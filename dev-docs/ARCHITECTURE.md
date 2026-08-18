@@ -25,7 +25,7 @@ src/main/java/org/apache/solr/mcp/server/
 │       ├── SolrDocumentCreator.java        # Common interface for document creators
 │       ├── FieldNameSanitizer.java         # Field name sanitization utility
 │       └── DocumentProcessingException.java # Indexing exceptions
-└── metadata/                           # Collection management functionality
+└── collection/                           # Collection management functionality
     ├── CollectionService.java         # MCP tools for collection operations
     ├── SchemaService.java             # MCP tool for schema retrieval
     ├── CollectionUtils.java           # Collection utility methods
@@ -61,11 +61,12 @@ Strategy pattern implementation for parsing different document formats:
 
 ### DTOs
 
-Plain Java classes (POJOs) used as data transfer objects:
+Java `record` types used as data transfer objects:
 
-- No Lombok dependency; simple, explicit types
+- No Lombok dependency; the record declaration is the whole definition
 - Designed for straightforward serialization/deserialization
-- Favor clarity; immutability can be introduced where it adds value
+- Records are immutable by construction, so the response types handed to
+  MCP clients cannot be mutated after they are built
 
 ## Design Decisions
 
@@ -132,24 +133,38 @@ The document creator pattern allows for:
 ### Test Structure
 ```
 src/test/java/org/apache/solr/mcp/server/
+├── MainTest.java                      # Application bootstrap
 ├── McpToolRegistrationTest.java       # MCP tool registration tests
+├── McpClientIntegrationTest.java      # MCP workflow over the in-process client
+├── McpClientStdioIntegrationTest.java # MCP workflow against `java -jar` over STDIO
 ├── BuildInfoReader.java               # Test utility for build metadata
 ├── SampleClient.java                  # Example MCP client
 ├── search/
-│   ├── SearchServiceTest.java         # Unit tests
-│   └── SearchServiceDirectTest.java   # Integration tests
+│   ├── SearchServiceTest.java             # Unit tests
+│   └── SearchServiceIntegrationTest.java  # Testcontainers
 ├── indexing/
 │   ├── IndexingServiceTest.java
-│   ├── IndexingServiceDirectTest.java
+│   ├── IndexingServiceIntegrationTest.java
 │   ├── CsvIndexingTest.java
 │   └── XmlIndexingTest.java
-├── metadata/
+├── collection/
 │   ├── CollectionServiceTest.java
+│   ├── CollectionUtilsTest.java
 │   ├── CollectionServiceIntegrationTest.java
+│   └── ConferenceEndToEndIntegrationTest.java
+├── schema/
 │   ├── SchemaServiceTest.java
 │   └── SchemaServiceIntegrationTest.java
-└── containerization/
+├── config/
+│   ├── JsonResponseParserTest.java
+│   ├── SolrConfigUrlNormalizationTest.java
+│   └── SolrConfigIntegrationTest.java
+├── observability/
+│   ├── DistributedTracingTest.java
+│   └── OtlpExportIntegrationTest.java
+└── containerization/                  # @Tag("docker-integration") only
     ├── DockerImageStdioIntegrationTest.java
+    ├── DockerImageMcpClientStdioIntegrationTest.java
     └── DockerImageHttpIntegrationTest.java
 ```
 
@@ -179,9 +194,9 @@ All dependencies are managed via Gradle version catalogs in `gradle/libs.version
 ### Potential Enhancements
 
 1. **Authentication & Authorization**
-   - OAuth2 support for HTTP mode
-   - Token-based authentication
    - Role-based access control
+   (OAuth2 resource-server support and bearer-token authentication for HTTP
+   mode are already implemented — see `security/HttpSecurityConfiguration`.)
 
 2. **Additional Tools**
    - Bulk operations

@@ -100,7 +100,7 @@ Four service classes expose MCP tools via `@McpTool` annotations:
 
 - **SearchService** (`search/`) - Full-text search with filtering, faceting, sorting, pagination
 - **IndexingService** (`indexing/`) - Document indexing supporting JSON, CSV, XML formats
-- **CollectionService** (`metadata/`) - List collections, get stats, health checks
+- **CollectionService** (`collection/`) - List collections, get stats, health checks
 - **SchemaService** (`schema/`) - Schema introspection and additive modification (add-fields, add-field-types)
 
 ### Document Creators (Strategy Pattern)
