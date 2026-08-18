@@ -504,7 +504,9 @@ public class CollectionService {
 	@McpTool(
 			name = "get-collection-stats",
 			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
-			description = "Get stats/metrics on a Solr collection")
+			description = "Get stats/metrics on a Solr collection. On Solr 10+ cacheStats and"
+					+ " handlerStats are always null because the /admin/mbeans endpoint was removed"
+					+ " from Solr; this is expected and not an error.")
 	public SolrMetrics getCollectionStats(
 			@McpToolParam(description = "Solr collection to get stats/metrics for") String collection)
 			throws SolrServerException, IOException {
