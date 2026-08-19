@@ -50,8 +50,13 @@ class SolrNativeHintsTest {
 		// Spring AI MCP instantiates DefaultMetaProvider reflectively in
 		// MetaUtils.getMeta(); without this hint every Spring context refresh
 		// fails in native image with "Required no-arg constructor not found".
+		// Spring AI 2.x moved the class out of the springaicommunity package and
+		// into Spring AI core, so this pins the current coordinate — the legacy
+		// org.springaicommunity.mcp.context name is still registered defensively
+		// in the Registrar, but registerTypeIfPresent no-ops when, as here, the
+		// class is absent from the classpath.
 		assertTrue(RuntimeHintsPredicates.reflection()
-				.onType(TypeReference.of("org.springaicommunity.mcp.context.DefaultMetaProvider"))
+				.onType(TypeReference.of("org.springframework.ai.mcp.annotation.context.DefaultMetaProvider"))
 				.withMemberCategory(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS).test(hints));
 	}
 
