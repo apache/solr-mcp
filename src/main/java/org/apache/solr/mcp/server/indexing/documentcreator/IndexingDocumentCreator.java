@@ -131,10 +131,10 @@ public class IndexingDocumentCreator {
 	 */
 	public List<SolrInputDocument> createSchemalessDocumentsFromXml(String xml) throws DocumentProcessingException {
 
-		// Input validation
-		if (xml == null || xml.trim().isEmpty()) {
-			throw new DocumentProcessingException("XML input cannot be null or empty");
-		}
+		// Must run before the size check below, which would NPE on null input.
+		// XmlDocumentCreator.create repeats it so the contract holds for direct
+		// callers too; the shared helper keeps the message identical either way.
+		SolrDocumentCreator.requireContent(xml, "XML");
 
 		byte[] xmlBytes = xml.getBytes(StandardCharsets.UTF_8);
 		if (xmlBytes.length > MAX_XML_SIZE_BYTES) {

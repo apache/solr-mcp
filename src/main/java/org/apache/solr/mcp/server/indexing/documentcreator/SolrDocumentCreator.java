@@ -46,7 +46,7 @@ import org.apache.solr.common.SolrInputDocument;
  * <strong>Implementation Guidelines:</strong>
  *
  * <ul>
- * <li>Handle null or empty input gracefully
+ * <li>Reject null or empty input via {@link #requireContent(String, String)}
  * <li>Sanitize field names using {@link FieldNameSanitizer}
  * <li>Preserve original data types where possible
  * <li>Throw {@link DocumentProcessingException} for processing errors
@@ -93,8 +93,9 @@ public interface SolrDocumentCreator {
 	 * <strong>Input Validation:</strong>
 	 *
 	 * <ul>
-	 * <li>Null input should be handled gracefully (implementation-dependent)
-	 * <li>Empty input should return empty list
+	 * <li>Null or blank input throws DocumentProcessingException — see
+	 * {@link #requireContent(String, String)}
+	 * <li>Well-formed content that declares no documents returns an empty list
 	 * <li>Malformed content should throw DocumentProcessingException
 	 * </ul>
 	 *
@@ -103,12 +104,35 @@ public interface SolrDocumentCreator {
 	 *            objects. The format depends on the implementing class (JSON array,
 	 *            CSV data, XML, etc.)
 	 * @return a list of SolrInputDocument objects created from the parsed content.
-	 *         Returns empty list if content is empty or contains no valid documents
+	 *         Returns empty list if the content contains no documents
 	 * @throws DocumentProcessingException
-	 *             if the content cannot be parsed or converted due to format
-	 *             errors, invalid structure, or processing failures
-	 * @throws IllegalArgumentException
-	 *             if content is null (implementation-dependent)
+	 *             if the content is null or blank, or cannot be parsed or converted
+	 *             due to format errors, invalid structure, or processing failures
 	 */
 	List<SolrInputDocument> create(String content) throws DocumentProcessingException;
+
+	/**
+	 * Rejects null or blank input with a message consistent across every format.
+	 *
+	 * <p>
+	 * Implementations call this as the first statement of {@link #create(String)}.
+	 * Although the {@code content} parameter is null-marked (see the package-level
+	 * {@code @NullMarked}), that contract binds only callers the compiler can see.
+	 * These creators are reached from {@code @McpTool} methods whose arguments are
+	 * supplied reflectively from a client's JSON-RPC request, so a null can arrive
+	 * at runtime regardless of the annotation. The check is a trust-boundary guard,
+	 * not redundant defensive coding.
+	 *
+	 * @param content
+	 *            the raw content string supplied by the caller
+	 * @param format
+	 *            the format label used in the error message (e.g. {@code "JSON"})
+	 * @throws DocumentProcessingException
+	 *             if {@code content} is null or contains only whitespace
+	 */
+	static void requireContent(String content, String format) throws DocumentProcessingException {
+		if (content == null || content.isBlank()) {
+			throw new DocumentProcessingException(format + " input cannot be null or empty");
+		}
+	}
 }
