@@ -28,7 +28,7 @@ cyclonedx-plugin = "2.4.1"
 spring-ai = "2.0.0"
 solr = "10.0.0"
 commons-csv = "1.14.1"
-mcp-server-security = "0.0.6"
+mcp-server-security = "0.1.14"
 
 # OpenTelemetry
 opentelemetry-logback-appender = "2.21.0-alpha"
