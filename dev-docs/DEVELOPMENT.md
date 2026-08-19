@@ -35,7 +35,7 @@ This project uses Gradle with version catalogs for dependency management. All de
 
 The build produces an executable JAR in `build/libs/`:
 
-- `solr-mcp-1.0.0-SNAPSHOT.jar` — Spring Boot executable (fat) JAR
+- `solr-mcp-1.0.0.jar` — Spring Boot executable (fat) JAR
 
 ### Publishing to Maven Local
 
@@ -116,7 +116,7 @@ This starts a Solr instance in SolrCloud mode with ZooKeeper and creates two sam
 
 Or using the JAR:
 ```bash
-java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
+java -jar build/libs/solr-mcp-1.0.0.jar
 ```
 
 #### HTTP Mode
@@ -286,7 +286,7 @@ The project generates build metadata at build time via the Spring Boot Gradle pl
 - `build.artifact`: Artifact name (e.g., "solr-mcp")
 - `build.group`: Group ID (e.g., "org.apache.solr")
 - `build.name`: Project name
-- `build.version`: Version (e.g., "1.0.0-SNAPSHOT")
+- `build.version`: Version (e.g., "1.0.0")
 - `build.time`: Build timestamp
 
 This metadata is used by:
@@ -306,7 +306,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed Docker build instructions.
 ./gradlew jibDockerBuild
 
 # Run the image
-docker run -i --rm solr-mcp:1.0.0-SNAPSHOT
+docker run -i --rm solr-mcp:1.0.0
 ```
 
 ### Docker Executable Configuration
@@ -482,7 +482,7 @@ Use Java Flight Recorder:
 
 ```bash
 java -XX:StartFlightRecording=duration=60s,filename=recording.jfr \
-     -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
+     -jar build/libs/solr-mcp-1.0.0.jar
 ```
 
 Analyze with Java Mission Control.

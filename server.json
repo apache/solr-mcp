@@ -11,7 +11,7 @@
     {
       "registryType": "docker",
       "identifier": "ghcr.io/apache/solr-mcp-server",
-      "version": "1.0.0-SNAPSHOT",
+      "version": "1.0.0",
       "transport": {
         "type": "stdio"
       },
@@ -28,7 +28,7 @@
     {
       "registryType": "docker",
       "identifier": "ghcr.io/apache/solr-mcp-server",
-      "version": "1.0.0-SNAPSHOT",
+      "version": "1.0.0",
       "transport": {
         "type": "streamable-http",
         "url": "http://localhost:8080/mcp"

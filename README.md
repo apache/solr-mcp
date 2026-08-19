@@ -38,7 +38,7 @@ This starts Solr in SolrCloud mode with two sample collections: **films** (1,100
 ./gradlew build
 ```
 
-This produces `build/libs/solr-mcp-1.0.0-SNAPSHOT.jar`.
+This produces `build/libs/solr-mcp-1.0.0.jar`.
 
 #### 3. Connect your AI client
 
@@ -51,7 +51,7 @@ Add the server to your MCP client. For **Claude Desktop**, edit
   "mcpServers": {
     "solr-mcp": {
       "command": "java",
-      "args": ["-jar", "/absolute/path/to/solr-mcp/build/libs/solr-mcp-1.0.0-SNAPSHOT.jar"],
+      "args": ["-jar", "/absolute/path/to/solr-mcp/build/libs/solr-mcp-1.0.0.jar"],
       "env": { "SOLR_URL": "http://localhost:8983/solr/" }
     }
   }
