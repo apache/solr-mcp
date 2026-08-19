@@ -35,6 +35,7 @@ plugins {
     // Enforces Apache license headers via Apache RAT (buildSrc convention plugin).
     // Wires `rat` into `check`, so `./gradlew build` audits headers. See buildSrc/.
     id("org.apache.solr.mcp.rat")
+    alias(libs.plugins.git.semver)
 }
 
 // GraalVM Native Image (Opt-In)
@@ -73,7 +74,44 @@ val nativeImageBuildArgs =
     )
 
 group = "org.apache.solr"
-version = "1.0.0-SNAPSHOT"
+
+// ============================================================================
+// Semantic Versioning Configuration (git-semver-plugin)
+// ============================================================================
+//
+// Version is automatically derived from git tags and conventional commits.
+// The plugin analyzes commits since the last tag to determine the next version:
+//   - fix: commits → patch bump (1.0.0 → 1.0.1)
+//   - feat: commits → minor bump (1.0.0 → 1.1.0)
+//   - feat!: or BREAKING CHANGE → major bump (1.0.0 → 2.0.0)
+//
+// Commands:
+//   ./gradlew printVersion    - Show current calculated version
+//   ./gradlew printChangeLog  - Show changelog from commits
+//
+// Initial Version Setup:
+// ----------------------
+// This assumes the 1.0.0 release is cut first (see #136), which pins the
+// version manually. Once 1.0.0 is released, tag it so the plugin has a
+// baseline to calculate from:
+//   git tag v1.0.0 -m "1.0.0 release baseline"
+//   git push origin v1.0.0
+//
+// From then on the version is derived automatically: a fix: commit yields
+// 1.0.1-SNAPSHOT, a feat: commit yields 1.1.0-SNAPSHOT, and so on. The
+// cut-release workflow's version_override input remains available if a
+// release ever needs an explicit version.
+//
+semver {
+    // Use "SNAPSHOT" suffix for development builds
+    defaultPreRelease = "SNAPSHOT"
+    // Tag format: v1.0.0
+    releaseTagNameFormat = "v%s"
+    // Release commit message format (used by cut-release workflow)
+    releaseCommitTextFormat = "chore(release): release version %s"
+}
+
+version = semver.version
 
 java {
     toolchain {

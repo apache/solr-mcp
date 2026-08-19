@@ -106,9 +106,12 @@ jobs:
         runs-on: ubuntu-latest
 
         steps:
-            # Checkout the repository code
+            # Checkout the repository code with full history
+            # Full history is required for git-semver-plugin to calculate version
             -   name: Checkout code
                 uses: actions/checkout@v4
+                with:
+                    fetch-depth: 0
 
             # Set up Java environment using centralized configuration
             # See .github/actions/setup-java/action.yml to update Java version
