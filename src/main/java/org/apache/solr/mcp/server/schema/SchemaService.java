@@ -264,9 +264,11 @@ public class SchemaService {
 	 *            the name of the Solr collection to retrieve schema information for
 	 * @return complete schema representation containing all field and type
 	 *         definitions
-	 * @throws Exception
-	 *             if collection does not exist, access is denied, or communication
-	 *             fails
+	 * @throws SolrServerException
+	 *             if the Solr server returns an error or the collection does not
+	 *             exist
+	 * @throws IOException
+	 *             if communication with the Solr server fails
 	 * @see SchemaRepresentation
 	 * @see SchemaRequest
 	 * @see org.apache.solr.client.solrj.response.schema.SchemaResponse
@@ -276,7 +278,7 @@ public class SchemaService {
 			name = "get-schema",
 			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
 			description = "Get schema for a Solr collection")
-	public SchemaRepresentation getSchema(String collection) throws Exception {
+	public SchemaRepresentation getSchema(String collection) throws SolrServerException, IOException {
 		SchemaRequest schemaRequest = new SchemaRequest();
 		return schemaRequest.process(solrClient, collection).getSchemaRepresentation();
 	}
