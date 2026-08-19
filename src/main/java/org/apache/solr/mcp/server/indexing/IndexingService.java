@@ -16,6 +16,8 @@
  */
 package org.apache.solr.mcp.server.indexing;
 
+import static org.apache.solr.mcp.server.util.ToolArguments.requireCollection;
+
 import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.List;
@@ -213,6 +215,8 @@ public class IndexingService {
 	public String indexJsonDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "JSON string containing documents to index") String json)
 			throws IOException, SolrServerException {
+		requireCollection(collection);
+
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
 		int successCount = indexDocuments(collection, schemalessDoc);
 		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
@@ -288,6 +292,8 @@ public class IndexingService {
 	public String indexCsvDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "CSV string containing documents to index") String csv)
 			throws IOException, SolrServerException {
+		requireCollection(collection);
+
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromCsv(csv);
 		int successCount = indexDocuments(collection, schemalessDoc);
 		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
@@ -387,6 +393,8 @@ public class IndexingService {
 	public String indexXmlDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "XML string containing documents to index") String xml)
 			throws ParserConfigurationException, SAXException, IOException, SolrServerException {
+		requireCollection(collection);
+
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromXml(xml);
 		int successCount = indexDocuments(collection, schemalessDoc);
 		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
