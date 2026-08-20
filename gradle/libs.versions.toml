@@ -16,7 +16,7 @@
 #
 [versions]
 # Build plugins
-spring-boot = "4.1.0"
+spring-boot = "4.1.1"
 spring-dependency-management = "1.1.7"
 errorprone-plugin = "5.1.0"
 jib = "3.5.3"
@@ -25,7 +25,7 @@ graalvm-native = "0.10.6"
 cyclonedx-plugin = "2.4.1"
 
 # Main dependencies
-spring-ai = "2.0.0"
+spring-ai = "2.0.1"
 solr = "10.0.0"
 commons-csv = "1.14.1"
 mcp-server-security = "0.1.14"

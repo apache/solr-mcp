@@ -29,8 +29,8 @@ This starts:
 | Service | URL | Purpose |
 |---------|-----|---------|
 | Grafana | http://localhost:3000 | Dashboards and exploration (no auth required) |
-| OTLP gRPC | localhost:4317 | Trace/metric/log ingestion (gRPC) |
-| OTLP HTTP | localhost:4318 | Trace/metric/log ingestion (HTTP) |
+| OTLP HTTP | localhost:4318 | Trace/metric/log ingestion — **the port this server exports to** |
+| OTLP gRPC | localhost:4317 | Also accepted by the collector; not used by this server |
 
 ### Run the Server with Observability ###
 
@@ -42,9 +42,14 @@ The server auto-configures OTLP export when the LGTM stack is running. Default c
 
 ```properties
 management.tracing.sampling.probability=1.0     # 100% sampling (dev)
-otel.exporter.otlp.endpoint=http://localhost:4317
-otel.exporter.otlp.protocol=grpc
+management.opentelemetry.tracing.export.otlp.endpoint=${OTEL_TRACES_URL:http://localhost:4318/v1/traces}
+management.otlp.metrics.export.url=${OTEL_METRICS_URL:http://localhost:4318/v1/metrics}
+management.opentelemetry.logging.export.otlp.endpoint=${OTEL_LOGS_URL:http://localhost:4318/v1/logs}
 ```
+
+Export goes over **OTLP/HTTP on port 4318**, with a separate full URL per signal.
+Each endpoint is a complete path ending in `/v1/traces`, `/v1/metrics` or
+`/v1/logs` — not a base address.
 
 ***
 
@@ -102,10 +107,28 @@ curl http://localhost:8080/actuator/loggers       # Logger levels
 
 ## Production Configuration ##
 
-For production, reduce the sampling rate and configure the OTLP endpoint for your collector:
+For production, reduce the sampling rate and point each signal at your collector:
 
 ```bash
-export OTEL_SAMPLING_PROBABILITY=0.1           # 10% sampling
-export OTEL_TRACES_URL=https://otel-collector.example.com:4317
+export OTEL_SAMPLING_PROBABILITY=0.1                                          # 10% sampling
+export OTEL_TRACES_URL=https://otel-collector.example.com/v1/traces
+export OTEL_METRICS_URL=https://otel-collector.example.com/v1/metrics
+export OTEL_LOGS_URL=https://otel-collector.example.com/v1/logs
 PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
 ```
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `OTEL_SAMPLING_PROBABILITY` | `1.0` | Fraction of traces sampled |
+| `OTEL_TRACES_URL` | `http://localhost:4318/v1/traces` | OTLP/HTTP traces endpoint |
+| `OTEL_METRICS_URL` | `http://localhost:4318/v1/metrics` | OTLP/HTTP metrics endpoint |
+| `OTEL_LOGS_URL` | `http://localhost:4318/v1/logs` | OTLP/HTTP logs endpoint |
+
+> **Upgrading from a pre-Spring-Boot-4 release?** `OTEL_TRACES_URL` changed meaning.
+> It used to be a *base* endpoint on the gRPC port (`http://collector:4317`); it is now
+> the *complete* traces URL on the HTTP port (`http://collector:4318/v1/traces`). A value
+> carried over unchanged will not error — traces simply stop arriving. `OTEL_METRICS_URL`
+> and `OTEL_LOGS_URL` are new; previously all three signals shared one endpoint.
+
+For the exporter architecture and how the Logback OTLP appender is wired, see
+[dev-docs/Observability.md](../dev-docs/Observability.md).

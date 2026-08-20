@@ -2,6 +2,11 @@
 
 This guide covers setting up observability (metrics, traces, and logs) for the Solr MCP Server running in HTTP mode using OpenTelemetry.
 
+> **Looking for the short version?** [docs/observability.md](../docs/observability.md) is the
+> user-facing guide: start the stack, run the server, read the dashboards, and the environment
+> variables you need in production. This document is the developer companion — exporter
+> architecture, the Logback OTLP appender wiring, and how the pieces fit together.
+
 ## Table of Contents
 
 - [Overview](#overview)
@@ -121,11 +126,8 @@ Grafana's **Drilldown** feature provides an integrated view for exploring traces
    - Duration
    - URL path
 
-The trace view shows the complete request flow with timing breakdown for each span:
-
-![Distributed Tracing in Grafana](images/grafana-traces.png)
-
-In this example, you can see:
+The trace view shows the complete request flow with a timing breakdown for each
+span. A representative `/mcp` search request looks like this:
 - The root span `http post /mcp` taking 223.98ms total
 - Security filter chain spans for authentication/authorization
 - The `SearchService#search` span (177.01ms) created by the `@Observed` annotation on the service method
@@ -196,9 +198,14 @@ For production deployments without Docker Compose, set these environment variabl
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OTEL_SAMPLING_PROBABILITY` | `1.0` | Trace sampling rate (0.0-1.0) |
-| `OTEL_METRICS_URL` | (auto-configured) | OTLP metrics endpoint |
-| `OTEL_TRACES_URL` | (auto-configured) | OTLP traces endpoint |
-| `OTEL_LOGS_URL` | (auto-configured) | OTLP logs endpoint |
+| `OTEL_METRICS_URL` | `http://localhost:4318/v1/metrics` | OTLP/HTTP metrics endpoint |
+| `OTEL_TRACES_URL` | `http://localhost:4318/v1/traces` | OTLP/HTTP traces endpoint |
+| `OTEL_LOGS_URL` | `http://localhost:4318/v1/logs` | OTLP/HTTP logs endpoint |
+
+Each URL is a complete signal path, not a base address. `OTEL_TRACES_URL` previously meant a
+base endpoint on the gRPC port (`http://collector:4317`) and shared that endpoint with metrics
+and logs — a value carried over from before this change stops exporting silently rather than
+failing loudly.
 
 Example production configuration:
 ```bash
