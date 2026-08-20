@@ -272,10 +272,11 @@ are `add-fields` failing with `Field 'x' already exists` on a brand-new collecti
 or a "schemaless" collection silently inheriting another collection's explicit
 types. Restarting Solr resets it, which is why Step 3 exists.
 
-**Unknown search parameters are dropped silently.** The `search` tool takes sorting
-as `sortClauses`, a list of objects shaped `{"item": "imdb_rating", "order": "desc"}`.
-A differently-named parameter is ignored rather than rejected, so a wrong key looks
-like a query that simply did not sort.
+**Unknown search parameters are dropped silently.** Arguments the `search` tool does
+not declare are ignored rather than rejected, so a misnamed one looks like a query
+that simply did not do what you asked — results come back, just unsorted or
+unfiltered. If a result set ignores part of your request, check the tool's parameter
+names via your client's tool inspector before assuming the data is wrong.
 
 ---
 
