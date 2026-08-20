@@ -105,17 +105,26 @@ ask them.
 
 > *"Show me the breakdown of shows-auto by platform."*
 
-This is the most ordinary business question imaginable, and it does not work.
-Depending on your Solr version you will get either an empty result or an error —
-see [Known issues](#known-issues) for why the error is currently unhelpful.
+This is the most ordinary business question imaginable, and the answer comes back
+empty:
 
-To understand the cause, look at what Solr decided:
+```json
+{ "numFound": 61, "documents": [], "facets": { "platform": {} } }
+```
+
+Read that carefully, because it is worse than an error. Sixty-one documents
+matched. The query succeeded. Solr simply has no breakdown to give you, and it
+says so without complaining. Nothing here tells you that the *data* is fine and
+the *field type* is the problem — which is exactly the failure mode that makes
+schemaless deceptive.
+
+To see the cause, look at what Solr decided on your behalf:
 
 > *"Show me the schema for shows-auto."*
 
 | Field | Solr guessed | What that costs you |
 |-------|-------------|---------------------|
-| `platform` | `text_general` | Tokenized and analyzed. `platform:prime` now matches "Amazon Prime Video" — nonsense for a category. Faceting returns **nothing at all**. |
+| `platform` | `text_general` | Tokenized and analyzed, so it is no longer one value. Searching `platform:prime` matches all 20 Amazon Prime Video shows — nonsense for a category — and faceting it yields **no buckets at all**. |
 | `title` | `text_general` | Searchable, but not sortable or exact-matchable. |
 | `imdb_rating` | `pdoubles` | Note the trailing `s` — that plural means **multi-valued**. Every rating is a list, so "highest rated" is not a well-defined question. |
 | `release_year` | `plongs` | Multi-valued too, which makes range filtering awkward. |
@@ -252,16 +261,8 @@ otherwise mean reading `managed-schema` and knowing what `docValues` implies.
 
 ## Known issues
 
-These are current defects you may encounter while following this tutorial. Both
-are tracked; neither is a mistake on your part.
-
-**Faceting a query that matches nothing throws an exception**
-([#182](https://github.com/apache/solr-mcp/issues/182)). Solr serializes an empty
-facet result as `[]`, which the response parser hands to SolrJ as a plain list
-where a `NamedList` is expected, producing
-`ClassCastException: ArrayList cannot be cast to NamedList`. This is what you hit
-in Step 2, and it also affects ordinary searches on well-typed fields whose filter
-happens to match zero documents.
+Two rough edges worth knowing about. The first is a tracked defect you will meet
+while following this tutorial; neither is a mistake on your part.
 
 **Collections share the `_default` configset**
 ([#183](https://github.com/apache/solr-mcp/issues/183)). `create-collection` binds
