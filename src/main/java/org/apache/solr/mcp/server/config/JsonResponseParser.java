@@ -23,6 +23,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import org.apache.solr.client.solrj.response.ResponseParser;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
@@ -66,8 +67,35 @@ import org.springframework.http.MediaType;
  * every odd-indexed element is a non-{@link String} value. This reliably
  * distinguishes {@code ["term", 5, "term2", 3]} (facet NamedList) from
  * {@code ["col1", "col2"]} (plain string list).
+ *
+ * <p>
+ * <strong>Why shape alone is not enough:</strong> an <em>empty</em> array is
+ * ambiguous. Solr writes a facet with no buckets as {@code []}, and also writes
+ * an ordinary empty list — {@code "collections": []} from the Collections API —
+ * as {@code []}. The first must decode to a {@link NamedList} because SolrJ's
+ * {@code QueryResponse.getFacetFields()} casts to one; the second must stay a
+ * {@link List} because {@code CollectionAdminResponse} callers cast to that. No
+ * rule based on the array can satisfy both, so the parser uses the enclosing
+ * key instead: arrays directly inside {@code facet_fields},
+ * {@code facet_queries} and {@code facet_intervals} are always NamedLists,
+ * empty or not, and every other array falls back to the shape heuristic above.
+ *
+ * <p>
+ * <strong>Known gap:</strong> {@code facet_ranges} nests its flat list one
+ * level deeper, under a {@code counts} key, so an empty range facet would still
+ * decode as a {@link List}. The {@code search} tool does not expose range
+ * faceting, so nothing currently reaches that path.
  */
 class JsonResponseParser extends ResponseParser {
+
+	/**
+	 * Response keys whose immediate children are always NamedLists of counts,
+	 * regardless of how many buckets came back. Solr writes each child as a flat
+	 * array under {@code json.nl=flat}, and writes an empty one as {@code []} —
+	 * which is shape-identical to an ordinary empty list such as
+	 * {@code "collections": []}. Only the enclosing key distinguishes them.
+	 */
+	private static final Set<String> FACET_CONTAINERS = Set.of("facet_fields", "facet_queries", "facet_intervals");
 
 	private final ObjectMapper mapper;
 
@@ -99,7 +127,27 @@ class JsonResponseParser extends ResponseParser {
 
 	private SimpleOrderedMap<Object> toNamedList(JsonNode objectNode) {
 		SimpleOrderedMap<Object> result = new SimpleOrderedMap<>();
-		objectNode.fields().forEachRemaining(entry -> result.add(entry.getKey(), convertValue(entry.getValue())));
+		objectNode.fields()
+				.forEachRemaining(entry -> result.add(entry.getKey(),
+						FACET_CONTAINERS.contains(entry.getKey()) && entry.getValue().isObject()
+								? toFacetContainer(entry.getValue())
+								: convertValue(entry.getValue())));
+		return result;
+	}
+
+	/**
+	 * Converts a facet container, forcing every array child to a NamedList.
+	 *
+	 * <p>
+	 * Inside these containers an array is a flat NamedList by definition, so the
+	 * {@link #isFlatNamedList} heuristic is neither needed nor safe: it rejects
+	 * empty arrays, which would hand SolrJ an {@code ArrayList} where
+	 * {@code QueryResponse.getFacetFields()} casts to {@code NamedList}.
+	 */
+	private SimpleOrderedMap<Object> toFacetContainer(JsonNode containerNode) {
+		SimpleOrderedMap<Object> result = new SimpleOrderedMap<>();
+		containerNode.fields().forEachRemaining(entry -> result.add(entry.getKey(),
+				entry.getValue().isArray() ? flatArrayToNamedList(entry.getValue()) : convertValue(entry.getValue())));
 		return result;
 	}
 
