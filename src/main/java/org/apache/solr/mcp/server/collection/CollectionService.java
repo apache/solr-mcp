@@ -40,6 +40,7 @@ import org.apache.solr.client.solrj.response.CollectionAdminResponse;
 import org.apache.solr.client.solrj.response.LukeResponse;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
+import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
@@ -692,7 +693,7 @@ public class CollectionService {
 
 			CacheStats stats = extractCacheStats(coreMetrics);
 			return isCacheStatsEmpty(stats) ? null : stats;
-		} catch (SolrServerException | IOException | RuntimeException _) {
+		} catch (SolrServerException | IOException | SolrException _) {
 			return null;
 		}
 	}
@@ -810,7 +811,7 @@ public class CollectionService {
 
 			HandlerStats stats = new HandlerStats(selectHandler, updateHandler);
 			return isHandlerStatsEmpty(stats) ? null : stats;
-		} catch (SolrServerException | IOException | RuntimeException _) {
+		} catch (SolrServerException | IOException | SolrException _) {
 			return null;
 		}
 	}
