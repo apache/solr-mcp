@@ -40,11 +40,14 @@ import org.apache.solr.client.solrj.response.CollectionAdminResponse;
 import org.apache.solr.client.solrj.response.LukeResponse;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
+import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
 import org.apache.solr.mcp.server.util.PromptNames;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.annotation.McpArg;
 import org.springaicommunity.mcp.annotation.McpComplete;
 import org.springaicommunity.mcp.annotation.McpPrompt;
@@ -135,6 +138,8 @@ import org.springframework.stereotype.Service;
 @Service
 @Observed
 public class CollectionService {
+
+	private static final Logger logger = LoggerFactory.getLogger(CollectionService.class);
 
 	// ========================================
 	// Constants for API Parameters and Paths
@@ -683,16 +688,17 @@ public class CollectionService {
 	 * Internal cache metrics fetch that assumes the collection has already been
 	 * validated and the name has been extracted from any shard identifier.
 	 */
-	private @Nullable CacheStats fetchCacheMetrics(String collection) {
+	private @Nullable CacheStats fetchCacheMetrics(String collectionName) {
 		try {
-			NamedList<Object> coreMetrics = fetchMetrics(collection, CACHE_METRIC_PREFIX);
+			NamedList<Object> coreMetrics = fetchMetrics(collectionName, CACHE_METRIC_PREFIX);
 			if (coreMetrics == null) {
 				return null;
 			}
 
 			CacheStats stats = extractCacheStats(coreMetrics);
 			return isCacheStatsEmpty(stats) ? null : stats;
-		} catch (SolrServerException | IOException | RuntimeException _) {
+		} catch (SolrServerException | IOException | SolrException e) {
+			logger.debug("Cache metrics unavailable for collection: {}", collectionName, e);
 			return null;
 		}
 	}
@@ -799,18 +805,19 @@ public class CollectionService {
 	 * Internal handler metrics fetch that assumes the collection has already been
 	 * validated and the name has been extracted from any shard identifier.
 	 */
-	private @Nullable HandlerStats fetchHandlerMetrics(String collection) {
+	private @Nullable HandlerStats fetchHandlerMetrics(String collectionName) {
 		try {
 			// Handler metrics are flat keys (e.g. QUERY./select.requests) so we
 			// fetch each handler prefix separately and reconstruct HandlerInfo
-			HandlerInfo selectHandler = fetchFlatHandlerInfo(collection, SELECT_HANDLER_METRIC_PREFIX,
+			HandlerInfo selectHandler = fetchFlatHandlerInfo(collectionName, SELECT_HANDLER_METRIC_PREFIX,
 					SELECT_HANDLER_KEY);
-			HandlerInfo updateHandler = fetchFlatHandlerInfo(collection, UPDATE_HANDLER_METRIC_PREFIX,
+			HandlerInfo updateHandler = fetchFlatHandlerInfo(collectionName, UPDATE_HANDLER_METRIC_PREFIX,
 					UPDATE_HANDLER_KEY);
 
 			HandlerStats stats = new HandlerStats(selectHandler, updateHandler);
 			return isHandlerStatsEmpty(stats) ? null : stats;
-		} catch (SolrServerException | IOException | RuntimeException _) {
+		} catch (SolrServerException | IOException | SolrException e) {
+			logger.debug("Handler metrics unavailable for collection: {}", collectionName, e);
 			return null;
 		}
 	}
@@ -1080,6 +1087,7 @@ public class CollectionService {
 					statsResponse.getResults().getNumFound(), Instant.now(), actualCollection);
 
 		} catch (Exception e) {
+			logger.warn("Health check failed for collection: {}", collection, e);
 			return new SolrHealthStatus(false, e.getMessage(), null, null, Instant.now(), actualCollection);
 		}
 	}
