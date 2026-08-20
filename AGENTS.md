@@ -339,9 +339,11 @@ The Solr Docker image used in tests is configurable via the `solr.test.image` sy
 ### Solr 10 Compatibility
 
 Solr 10.0.0 is fully supported with the JSON wire format. The `/admin/mbeans` endpoint was
-removed in Solr 10; `getCacheMetrics()` and `getHandlerMetrics()` now catch `RuntimeException`
-(which covers `RemoteSolrException`) so they degrade gracefully and return `null`. Tests that
-check `cacheStats` and `handlerStats` already handle `null` values.
+removed in Solr 10; `getCacheMetrics()` and `getHandlerMetrics()` catch `SolrException` (which
+`RemoteSolrException` extends) so they degrade gracefully and return `null`. Tests that check
+`cacheStats` and `handlerStats` already handle `null` values. The catch is deliberately *not*
+`RuntimeException`: an unrelated runtime failure inside metrics parsing should surface as a bug,
+not be silently reported as "metrics unavailable".
 
 Remaining known differences from Solr 9:
 - **`/admin/mbeans` removed:** Cache and handler stats from `getCollectionStats()` will always be `null` on Solr 10. A future migration to `/admin/metrics` will restore these metrics.
