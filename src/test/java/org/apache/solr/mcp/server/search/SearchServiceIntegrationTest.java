@@ -16,7 +16,11 @@
  */
 package org.apache.solr.mcp.server.search;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -48,15 +52,13 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class SearchServiceIntegrationTest {
 
 	private static final String COLLECTION_NAME = "search_test_" + System.currentTimeMillis();
-
+	private static boolean initialized = false;
 	@Autowired
 	private SearchService searchService;
 	@Autowired
 	private IndexingService indexingService;
 	@Autowired
 	private SolrClient solrClient;
-
-	private static boolean initialized = false;
 
 	@BeforeEach
 	void setUp() throws Exception {

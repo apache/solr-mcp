@@ -91,6 +91,28 @@ java {
 // the bootJar — bundling the base files here too would duplicate META-INF/LICENSE.
 // See https://www.apache.org/legal/release-policy.html#licensing-documentation
 
+// CycloneDX SBOM scope and output name
+// ====================================
+// Spring Boot's `CycloneDxPluginAction` only auto-configures `cyclonedxBom` for the
+// cyclonedx plugin version it recognizes (3.x ships with Spring Boot 4.1.0). We pin
+// `org.cyclonedx.bom` to 2.4.1 because cyclonedx 3.x fails at *configuration* time on
+// Gradle 9.4.1 (a variant-mutation conflict on `:cyclonedxDirectBom`). With 2.4.1
+// unrecognized, Spring Boot does not adjust the task, so it falls back to plugin defaults:
+// it writes `build/reports/bom.json` (not `application.cdx.json`) and scans cyclonedx's
+// default configuration set rather than the shipped classpath — yielding an SBOM with the
+// wrong components (stale Jackson 2, none of the Spring Boot 4 modular jars). Configure
+// both explicitly so the SBOM lands where the license-notice plugin and the actuator
+// endpoint expect it, and describes exactly what ships:
+//   - `outputName = "application.cdx"`  -> build/reports/application.cdx.json
+//   - `includeConfigs = [productionRuntimeClasspath]` -> only the fat-jar classpath,
+//     matching `generateBinaryLicense`'s completeness gate (shippedCoordinates).
+// Both the pin and this block should be dropped once cyclonedx 3.x configures cleanly —
+// tracked in https://github.com/apache/solr-mcp/issues/186.
+tasks.named<org.cyclonedx.gradle.CycloneDxTask>("cyclonedxBom") {
+    setOutputName("application.cdx")
+    includeConfigs.set(listOf("productionRuntimeClasspath"))
+}
+
 // Maven Publishing Configuration
 // ==============================
 // This configuration enables publishing the project artifacts to Maven repositories.
@@ -143,27 +165,40 @@ repositories {
 
 dependencies {
 
-    developmentOnly(libs.bundles.spring.boot.dev)
+    developmentOnly(libs.spring.boot.docker.compose)
+    // Spring AI's docker-compose module declares starters for every vector store it can
+    // detect, so it drags in spring-boot-starter-mongodb transitively. That starter's
+    // autoconfiguration then tries to build a Mongo client at startup even though this
+    // application has no Mongo. Excluded rather than tolerated: it is developmentOnly, so
+    // the failure would surface as a confusing local `bootRun` error and never in CI.
+    developmentOnly(libs.spring.ai.spring.boot.docker.compose) {
+        exclude(group = "org.springframework.boot", module = "spring-boot-starter-mongodb")
+    }
 
-    implementation(libs.spring.boot.starter.web)
+    implementation(libs.spring.boot.starter.webmvc)
+    implementation(libs.spring.boot.starter.json)
     implementation(libs.spring.boot.starter.actuator)
-    implementation(libs.spring.boot.starter.aop)
     implementation(libs.spring.ai.starter.mcp.server.webmvc)
+    // Spring AI 2.0.0-M7 marked the common autoconfigure module as optional in the
+    // webmvc starter POM (#6088), so it is no longer pulled transitively even though
+    // the webmvc autoconfig classes still reference McpServerStdioDisabledCondition
+    // and other types from it.
+    implementation(libs.spring.ai.autoconfigure.mcp.server.common)
     implementation(libs.solr.solrj)
     implementation(libs.commons.csv)
-    // JSpecify for nullability annotations
-    implementation(libs.jspecify)
-
-    implementation(platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.11.0"))
-    implementation("io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter")
-    implementation(libs.micrometer.tracing.bridge.otel)
-
-    implementation("io.micrometer:micrometer-registry-prometheus")
 
     // Security
     implementation(libs.mcp.server.security)
     implementation(libs.spring.boot.starter.security)
     implementation(libs.spring.boot.starter.oauth2.resource.server)
+
+    // Observability: Spring Boot 4 idiomatic OpenTelemetry support
+    // spring-boot-starter-opentelemetry provides traces, metrics, and log export via OTLP
+    // spring-boot-starter-aspectj enables @Observed annotation support (replaces starter-aop in SB4)
+    implementation(libs.spring.boot.starter.opentelemetry)
+    implementation(libs.spring.boot.starter.aspectj)
+    implementation(libs.opentelemetry.logback.appender)
+    runtimeOnly(libs.micrometer.registry.otlp)
 
     // Error Prone and NullAway for null safety analysis
     errorprone(libs.errorprone.core)
@@ -176,6 +211,28 @@ dependencies {
 dependencyManagement {
     imports {
         mavenBom("org.springframework.ai:spring-ai-bom:${libs.versions.spring.ai.get()}")
+    }
+}
+
+// Force opentelemetry-proto to a version compiled with protobuf 3.x
+// This resolves NoSuchMethodError with protobuf 4.x
+// See: https://github.com/micrometer-metrics/micrometer/issues/5658
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "io.opentelemetry.proto" && requested.name == "opentelemetry-proto") {
+            useVersion("1.3.2-alpha")
+            because("Version 1.8.0-alpha has protobuf 4.x incompatibility causing NoSuchMethodError")
+        }
+        // Align the OpenTelemetry incubator API with the stable API version managed by
+        // the Spring Boot 4.1.0 BOM (opentelemetry-api:1.62.0). The logback-appender
+        // (opentelemetry-instrumentation 2.21.0-alpha) transitively pins
+        // opentelemetry-api-incubator to 1.55.0-alpha, which lacks
+        // DeclarativeConfigProperties.get(String) used by SB4's OpenTelemetrySdk
+        // autoconfiguration — causing a NoSuchMethodError at context startup.
+        if (requested.group == "io.opentelemetry" && requested.name == "opentelemetry-api-incubator") {
+            useVersion("1.62.0-alpha")
+            because("Must match Spring Boot 4.1.0-managed opentelemetry-api:1.62.0")
+        }
     }
 }
 
@@ -302,6 +359,20 @@ tasks.withType<JavaCompile>().configureEach {
 // follow-up. Production code is fully enforced.
 tasks.named<JavaCompile>("compileTestJava") {
     options.errorprone.disable("NullAway")
+}
+
+// Disable Error Prone / NullAway for AOT-generated sources. The GraalVM native
+// plugin registers compileAotJava and compileAotTestJava tasks that compile
+// Spring Boot AOT-generated bean definitions. These generated sources contain
+// patterns (e.g., args.get(0)) that NullAway flags as nullable, but they are
+// correct code produced by the Spring AOT engine and cannot be modified.
+tasks.matching { it.name == "compileAotJava" || it.name == "compileAotTestJava" }.configureEach {
+    if (this is JavaCompile) {
+        options.errorprone {
+            disableAllChecks.set(true)
+            disable("NullAway")
+        }
+    }
 }
 
 tasks.build {
@@ -449,6 +520,8 @@ jib {
             }
     }
     from {
+        // Use Eclipse Temurin JRE 25 as the base image
+        // Temurin is the open-source build of OpenJDK from Adoptium
         image = "eclipse-temurin:25-jre"
         platforms {
             platform {
@@ -462,7 +535,12 @@ jib {
         }
     }
     to {
+        // Default image name (can be overridden with -Djib.to.image=...)
+        // Format: repository/image-name:tag
         image = "solr-mcp:$version"
+
+        // Tags to apply to the image
+        // The version tag is applied by default, plus "latest" tag
         tags = setOf("latest")
     }
     container {

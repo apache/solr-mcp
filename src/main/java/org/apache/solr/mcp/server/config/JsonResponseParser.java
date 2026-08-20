@@ -16,9 +16,6 @@
  */
 package org.apache.solr.mcp.server.config;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -31,6 +28,9 @@ import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.MediaType;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * SolrJ {@link ResponseParser} that requests JSON wire format ({@code wt=json})
@@ -92,14 +92,14 @@ class JsonResponseParser extends ResponseParser {
 	public NamedList<Object> processResponse(InputStream body, String encoding) {
 		try {
 			return toNamedList(mapper.readTree(body));
-		} catch (IOException e) {
+		} catch (JacksonException e) {
 			throw new SolrException(SolrException.ErrorCode.SERVER_ERROR, "Failed to parse Solr JSON response", e);
 		}
 	}
 
 	private SimpleOrderedMap<Object> toNamedList(JsonNode objectNode) {
 		SimpleOrderedMap<Object> result = new SimpleOrderedMap<>();
-		objectNode.fields().forEachRemaining(entry -> result.add(entry.getKey(), convertValue(entry.getValue())));
+		objectNode.properties().forEach(entry -> result.add(entry.getKey(), convertValue(entry.getValue())));
 		return result;
 	}
 
@@ -191,7 +191,7 @@ class JsonResponseParser extends ResponseParser {
 
 	private SolrDocument toSolrDocument(JsonNode node) {
 		SolrDocument doc = new SolrDocument();
-		node.fields().forEachRemaining(entry -> {
+		node.properties().forEach(entry -> {
 			JsonNode val = entry.getValue();
 			if (val.isArray()) {
 				// Multi-valued field — always a plain list, never a flat NamedList

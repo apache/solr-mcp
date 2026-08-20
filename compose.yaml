@@ -35,27 +35,44 @@ services:
     environment:
       ZOO_4LW_COMMANDS_WHITELIST: "mntr,conf,ruok"
 
-    # =============================================================================
-    # LGTM Stack - Grafana observability backend (Loki, Grafana, Tempo, Mimir)
-    # =============================================================================
-    # This all-in-one container provides:
-    # - Loki: Log aggregation (LogQL queries)
-    # - Grafana: Visualization at http://localhost:3000 (no auth required)
-    # - Tempo: Distributed tracing (TraceQL queries)
-    # - Mimir: Prometheus-compatible metrics storage
-    # - OpenTelemetry Collector: Receives OTLP data on ports 4317 (gRPC) and 4318 (HTTP)
-    #
-    # Spring Boot auto-configures OTLP endpoints when this container is running.
+  # =============================================================================
+  # OpenTelemetry LGTM Stack (HTTP mode only)
+  # =============================================================================
+  # Provides a complete observability stack for local development:
+  # - Grafana: Visualization dashboards (http://localhost:3000)
+  # - Loki: Log aggregation
+  # - Tempo: Distributed tracing
+  # - Prometheus: Metrics storage (the default Grafana datasource)
+  # - Pyroscope: Continuous profiling
+  # - OpenTelemetry Collector: Receives OTLP data on ports 4317 (gRPC) and 4318 (HTTP)
+  #
+  # Usage:
+  #   docker compose up -d lgtm   # Start only the observability stack
+  #   docker compose up -d        # Start everything including Solr
+  #
+  # Access Grafana at http://localhost:3000. Anonymous access is enabled but
+  # read-only (Viewer), and the UI is published on the loopback interface only,
+  # so it is not reachable from other hosts on your network.
+  #
+  # To grant anonymous Admin (e.g. to edit dashboards), opt in explicitly:
+  #   GF_ANON_ROLE=Admin docker compose up -d lgtm
+  # To expose the UI beyond loopback on a trusted network, set the bind address:
+  #   GRAFANA_BIND=0.0.0.0 docker compose up -d lgtm
+  #
+  # Pre-configured datasources: Prometheus (default), Loki, Tempo, Pyroscope.
   lgtm:
-      image: grafana/otel-lgtm:latest
-      ports:
-          - "3000:3000"   # Grafana UI
-          - "4317:4317"   # OTLP gRPC receiver
-          - "4318:4318"   # OTLP HTTP receiver
-      networks: [ search ]
-      labels:
-          # Prevent Spring Boot auto-configuration from trying to manage this service
-          org.springframework.boot.ignore: "true"
+    image: grafana/otel-lgtm:0.30.0
+    ports:
+      # Loopback-only by default: anonymous Grafana on 0.0.0.0 would hand the
+      # dashboards to anyone who can reach this machine.
+      - "${GRAFANA_BIND:-127.0.0.1}:3000:3000"   # Grafana UI
+      - "${OTLP_BIND:-127.0.0.1}:4317:4317"      # OTLP gRPC receiver
+      - "${OTLP_BIND:-127.0.0.1}:4318:4318"      # OTLP HTTP receiver
+    networks: [ search ]
+    environment:
+      # Anonymous access for local development, read-only unless overridden.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "${GF_ANON_ROLE:-Viewer}"
 
 volumes:
   data:

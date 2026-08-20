@@ -8,7 +8,7 @@ Solr MCP Server is a Spring AI Model Context Protocol (MCP) server that enables 
 
 - **Status:** Apache incubating project (v0.0.2-SNAPSHOT)
 - **Java:** 25+ (centralized in build.gradle.kts)
-- **Framework:** Spring Boot 3.5.14, Spring AI 1.1.7
+- **Framework:** Spring Boot 4.1.1, Spring AI 2.0.1
 - **License:** Apache 2.0
 
 ## Common Commands
@@ -120,14 +120,25 @@ Configuration files: `application-stdio.properties`, `application-http.propertie
 
 ### SBOM Architecture
 
-CycloneDX SBOM generation is wired by applying the `org.cyclonedx.bom` plugin
-(version 2.4.1, matching what Spring Initializr ships for Spring Boot 3.5.14).
-Spring Boot's `CycloneDxPluginAction` auto-configures `cyclonedxBom` and makes
-the bootJar embed the result at `META-INF/sbom/application.cdx.json`; the
-actuator serves it at `/actuator/sbom/application` in the `http` profile
-(enabled via `application-http.properties`). Both the Jib JVM image and the
-Paketo native images package the bootJar contents, so every distribution
-artifact ships the SBOM without per-image wiring.
+CycloneDX SBOM generation is wired by applying the `org.cyclonedx.bom` plugin.
+It stays pinned to **2.4.1** even on Spring Boot 4.1.1 (Spring Initializr ships
+3.x for SB4) because cyclonedx 3.x fails at *configuration* time on Gradle 9.4.1
+— a variant-mutation conflict on `:cyclonedxDirectBom`. Spring Boot's
+`CycloneDxPluginAction` only auto-configures the plugin version it recognizes
+(3.x), so with 2.4.1 unrecognized it leaves `cyclonedxBom` at plugin defaults:
+it would write `build/reports/bom.json` and scan the wrong configuration set
+(stale Jackson 2, no Spring Boot 4 modular jars). `build.gradle.kts` therefore
+configures the task explicitly — `outputName = "application.cdx"` and
+`includeConfigs = [productionRuntimeClasspath]` — so the SBOM lands at
+`build/reports/application.cdx.json` and describes exactly the shipped fat-jar
+classpath (matching `generateBinaryLicense`'s completeness gate). The bootJar
+embeds the result at `META-INF/sbom/application.cdx.json`; the actuator serves
+it at `/actuator/sbom/application` in the `http` profile (enabled via
+`application-http.properties`). Both the Jib JVM image and the Paketo native
+images package the bootJar contents, so every distribution artifact ships the
+SBOM without per-image wiring. Dropping the pin and the manual task configuration
+once cyclonedx 3.x configures cleanly is tracked in
+[#186](https://github.com/apache/solr-mcp/issues/186).
 
 ### Logging Architecture
 
@@ -221,6 +232,28 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
   `solr-mcp:<version>-native-http` (with corresponding `:latest-native-*` tags).
 - **CI:** Separate `native.yml` workflow; native failures do not block JVM-path merges.
 - **Spec:** [dev-docs/graalvm-native-image.md](dev-docs/graalvm-native-image.md)
+
+### Spring Boot 4 Notes
+
+This branch targets Spring Boot 4.1.1 and Spring AI 2.0.1
+([release announcement](https://spring.io/blog/2026/06/12/spring-ai-2-0-0-GA-available-now)).
+Key differences from the main (SB 3.x) branch:
+
+- **Jackson 3:** `tools.jackson.databind` replaces `com.fasterxml.jackson.databind`. Annotations
+  remain in `com.fasterxml.jackson.annotation`.
+- **MCP Annotations:** Package moved from `org.springaicommunity.mcp.annotation` to
+  `org.springframework.ai.mcp.annotation` in Spring AI 2.0.
+- **Testcontainers 2.x:** Module names changed (e.g., `testcontainers-junit-jupiter`, `testcontainers-solr`).
+- **JSpecify:** Built into Spring Boot 4 — no separate dependency needed.
+- **`spring-boot-starter-aop` removed:** Replaced by `spring-boot-starter-aspectj` for
+  `@Observed` annotation support.
+- **Observability:** Uses `spring-boot-starter-opentelemetry` (SB4 idiomatic) for traces,
+  metrics, and log export via OTLP. The old `micrometer-tracing-bridge-otel` + manual OTel BOM
+  approach from SB 3.x is no longer needed.
+- **MCP SDK:** Uses `io.modelcontextprotocol.sdk:mcp:2.0.0` with Jackson 3 module
+  (`mcp-json-jackson3`).
+- **Span naming:** `@Observed` spans use `ClassName#methodName` (PascalCase) instead of
+  SB3's `class-name#method-name` (kebab-case).
 
 ## Release LICENSE / NOTICE
 
@@ -355,6 +388,11 @@ Environment variables:
 - `SOLR_URL`: Solr URL (default: `http://localhost:8983/solr/`)
 - `PROFILES`: Transport mode (`stdio` or `http`)
 - `OAUTH2_ISSUER_URI`: OAuth2 issuer URL (HTTP mode only)
+- `OTEL_SAMPLING_PROBABILITY`: trace sampling rate (default `1.0`)
+- `OTEL_TRACES_URL` / `OTEL_METRICS_URL` / `OTEL_LOGS_URL`: OTLP/HTTP endpoints
+  (default `http://localhost:4318/v1/{traces,metrics,logs}`). Each is a complete
+  signal path. On SB 3.x a single `OTEL_TRACES_URL` was a *base* gRPC endpoint on
+  port 4317 — a value carried over from there stops exporting silently.
 
 Dependencies managed in `gradle/libs.versions.toml`.
 

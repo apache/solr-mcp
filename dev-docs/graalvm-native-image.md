@@ -184,12 +184,14 @@ container and value types.
 
 ## OpenTelemetry build-time initialization
 
-The OTel instrumentation BOM is pinned at **2.11.0**, which ships **no**
-native-image reachability metadata. The OTel logback appender's
-`LoggingEventMapper` holds static `AttributeKey` fields (via
-`InternalAttributeKeyImpl`) that land in the image heap, and GraalVM requires
-their types to be initialized at build time. Hence the four
-`--initialize-at-build-time` entries in `nativeImageBuildArgs`:
+Spring Boot 4 provides idiomatic OpenTelemetry via
+`spring-boot-starter-opentelemetry` (traces, metrics, and OTLP log export); the
+OTel logback appender (`opentelemetry-logback-appender-1.0`, `2.21.0-alpha`) is
+declared separately in the version catalog. The appender ships **no**
+native-image reachability metadata, and its `LoggingEventMapper` holds static
+`AttributeKey` fields (via `InternalAttributeKeyImpl`) that land in the image
+heap — GraalVM requires their types to be initialized at build time. Hence the
+four `--initialize-at-build-time` entries in `nativeImageBuildArgs`:
 
 - `io.opentelemetry.api` — `InternalAttributeKeyImpl`, `AttributeType`
 - `io.opentelemetry.context` — context propagation
@@ -200,13 +202,17 @@ their types to be initialized at build time. Hence the four
 proxy classes that cannot be build-time initialized; including it breaks the
 build.
 
-**Why not just bump OTel?** The version catalog declares `2.26.1`, which *does*
-ship native metadata, but bumping fails at AOT time: 2.26.1 expects
-`io.opentelemetry.common.ComponentLoader`, absent from the OTel SDK version
-managed by Spring Boot 3.5.x. The bump is deferred until Spring Boot's managed
-OTel SDK and the instrumentation BOM line up. The OTLP exporter is only wired in
-the `http` profile, so the `stdio` native image never exercises its reflection
-surface anyway.
+**OTel dependency alignment.** Spring Boot 4.1.0 manages the OpenTelemetry SDK
+(`opentelemetry-api:1.62.0`) through the starter, but the logback appender
+(`opentelemetry-instrumentation 2.21.0-alpha`) transitively pins
+`opentelemetry-api-incubator` to `1.55.0-alpha`, which lacks
+`DeclarativeConfigProperties.get(String)` used by SB4's `OpenTelemetrySdk`
+autoconfiguration — a `NoSuchMethodError` at context startup. A
+`resolutionStrategy` in `build.gradle.kts` forces `opentelemetry-api-incubator`
+to `1.62.0-alpha` to match, and pins `opentelemetry-proto` to `1.3.2-alpha`
+(the `1.8.0-alpha` line is incompatible with protobuf 3.x). The OTLP exporter is
+only wired in the `http` profile, so the `stdio` native image never exercises
+its reflection surface anyway.
 
 The **native test binary** needs a few extra entries beyond the shared args
 (see the `named("test")` block): `io.opentelemetry.sdk` (a build-time
@@ -289,9 +295,10 @@ JVM-only and fast.
 ## Known limitations and follow-ups
 
 - **NOT CURRENTLY SHIPPING.**  Right now we don't as a project yet use the native code (or any code) to ship Docker based image.
-- **OTel BOM bump blocked.** Stuck on 2.11.0 (no native metadata, worked around
-  with build-time init) until Spring Boot's managed OTel SDK aligns with the
-  2.26.x instrumentation BOM. Revisit on Spring Boot upgrades.
+- **OTel appender lacks native metadata.** The `opentelemetry-logback-appender-1.0`
+  still ships no native-image reachability metadata, so the build-time-init
+  workaround above remains necessary. Revisit if a future OTel instrumentation
+  release ships native metadata.
 - **Native compile is resource-hungry.** Expect ~4–8 GB RAM per compile; ensure
   CI runners and dev boxes have headroom.
 - **Paketo builder download.** First `bootBuildImage` run pulls a ~1 GB builder;

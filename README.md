@@ -147,7 +147,7 @@ The server reads configuration from environment variables. The essentials:
 | `SOLR_URL` | Solr base URL | `http://localhost:8983/solr/` |
 | `PROFILES` | Transport mode: `stdio` (default, for Claude Desktop) or `http` (remote / multi-client) | `stdio` |
 
-Running in **HTTP mode** — OAuth2, CORS, and the `HTTP_SECURITY_ENABLED` toggle (secured by default) — is covered in the [security docs](docs/security/). Tracing and metrics env vars (`OTEL_SAMPLING_PROBABILITY`, `OTEL_TRACES_URL`) are covered in [Observability](docs/observability.md).
+Running in **HTTP mode** — OAuth2, CORS, and the `HTTP_SECURITY_ENABLED` toggle (secured by default) — is covered in the [security docs](docs/security/). Tracing, metrics and log-export env vars (`OTEL_SAMPLING_PROBABILITY`, `OTEL_TRACES_URL`, `OTEL_METRICS_URL`, `OTEL_LOGS_URL`) are covered in [Observability](docs/observability.md).
 
 ## Documentation
 
