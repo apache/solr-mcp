@@ -76,4 +76,11 @@ class SolrNativeHintsTest {
 		// stays silent on stdout (MCP STDIO framing).
 		assertTrue(RuntimeHintsPredicates.resource().forResource("logback.xml").test(hints));
 	}
+
+	@Test
+	void registersLogbackSpringXmlResourceHint() {
+		// The configuration Spring Boot loads via logging.config; it carries the
+		// per-profile appenders and must survive AOT.
+		assertTrue(RuntimeHintsPredicates.resource().forResource("logback-spring.xml").test(hints));
+	}
 }

@@ -122,12 +122,20 @@ public class SolrNativeHints {
 					"org.springaicommunity.mcp.context.DefaultMetaProvider",
 					MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
 
-			// Include logback.xml in the native image so logback's early
-			// initialization (before Spring Boot) finds it and applies the
-			// NopStatusListener. Without this, logback falls through to
-			// BasicConfigurator and writes status messages to stdout,
-			// corrupting the MCP STDIO JSON-RPC framing.
+			// Both logging configurations must be reachable in the native image;
+			// they serve different initialization phases.
+			//
+			// logback.xml is read by logback's own ContextInitializer before
+			// Spring Boot exists. In a native image getResource() only sees
+			// registered resources, so without this hint logback finds nothing,
+			// falls back to BasicConfigurator and dumps its |-INFO status lines
+			// to stdout — which corrupts the MCP STDIO JSON-RPC framing.
+			//
+			// logback-spring.xml is what Spring Boot loads (application.properties
+			// sets logging.config to it) and carries the <springProfile>
+			// appenders. See LoggingConfigurationTest.
 			hints.resources().registerPattern("logback.xml");
+			hints.resources().registerPattern("logback-spring.xml");
 		}
 	}
 }
