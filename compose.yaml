@@ -57,6 +57,40 @@ services:
           # Prevent Spring Boot auto-configuration from trying to manage this service
           org.springframework.boot.ignore: "true"
 
+  # =============================================================================
+  # Keycloak - the identity provider the http profile authenticates against
+  # =============================================================================
+  # Started only by the http profile, which sets spring.docker.compose.enabled=true. The realm is
+  # imported from keycloak/solr-mcp-realm.json, so the clients and — critically — the audience
+  # protocol mapper exist before the server ever asks for a token.
+  #
+  # The mapper is what makes tokens acceptable here. Keycloak does not honour the RFC 8707
+  # `resource=` parameter, so without it a token is issued normally and then rejected by
+  # validateAudienceClaim(true) with a 401. See docs/security/keycloak.md.
+  #
+  # The healthcheck is not decoration: the server resolves the issuer at startup and fails to boot
+  # if the realm is not yet answering, so Spring Boot must wait for this container to be healthy
+  # before the application context starts. Keycloak's image ships neither curl nor wget, hence
+  # bash's /dev/tcp.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    ports:
+      - "8180:8080"
+    networks: [ search ]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HEALTH_ENABLED: "true"
+    command: [ "start-dev", "--import-realm" ]
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && cat <&3 | grep -q '\"status\": \"UP\"'" ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
 volumes:
   data:
 
