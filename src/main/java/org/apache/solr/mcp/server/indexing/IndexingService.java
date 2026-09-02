@@ -457,7 +457,9 @@ public class IndexingService {
 	@McpTool(
 			name = "index-markdown-documents",
 			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index a document from markdown String into Solr collection, extracting front matter, title, headings, and body text")
+			description = "Index a document from markdown String into Solr collection, extracting front matter, title, headings, and body text. "
+					+ "Do NOT use for JSON/CSV/XML input; use index-json-documents, index-csv-documents, or index-xml-documents instead. "
+					+ "Only convert source content to markdown when there is no dedicated tool for the source format, and supply a stable 'id' in the YAML front matter when doing so.")
 	public String indexMarkdownDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(
 					description = "Markdown string to index, optionally starting with YAML front matter") String markdown)
