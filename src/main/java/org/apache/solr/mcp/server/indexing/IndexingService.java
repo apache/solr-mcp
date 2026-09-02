@@ -42,11 +42,11 @@ import org.xml.sax.SAXException;
  * Apache Solr collections through Model Context Protocol (MCP) integration.
  *
  * <p>
- * This service handles the conversion of JSON, CSV, and XML documents into
- * Solr-compatible format and manages the indexing process with robust error
- * handling and batch processing capabilities. It employs a schema-less approach
- * where Solr automatically detects field types, eliminating the need for
- * predefined schema configuration.
+ * This service handles the conversion of JSON, CSV, XML, and markdown documents
+ * into Solr-compatible format and manages the indexing process with robust
+ * error handling and batch processing capabilities. It employs a schema-less
+ * approach where Solr automatically detects field types, eliminating the need
+ * for predefined schema configuration.
  *
  * <p>
  * <strong>Core Features:</strong>
@@ -60,6 +60,8 @@ import org.xml.sax.SAXException;
  * with headers
  * <li><strong>XML Processing</strong>: Support for XML documents with element
  * flattening and attribute handling
+ * <li><strong>Markdown Processing</strong>: Support for markdown documents with
+ * front matter, title, and heading extraction
  * <li><strong>Batch Processing</strong>: Efficient bulk indexing with
  * configurable batch sizes
  * <li><strong>Error Resilience</strong>: Individual document fallback when
@@ -394,6 +396,79 @@ public class IndexingService {
 	}
 
 	/**
+	 * Indexes a document from a markdown string into a specified Solr collection.
+	 *
+	 * <p>
+	 * This method serves as the primary entry point for markdown document indexing
+	 * operations and is exposed as an MCP tool for AI client interactions. Unlike
+	 * the structured formats (JSON, CSV, XML), markdown is a prose format, so
+	 * searchable structure is extracted from the document content itself.
+	 *
+	 * <p>
+	 * <strong>Field Extraction:</strong>
+	 *
+	 * <ul>
+	 * <li><strong>YAML Front Matter</strong>: Each entry becomes a document field
+	 * with a sanitized name (multi-valued where applicable)
+	 * <li><strong>title</strong>: From the {@code title} front matter entry, or the
+	 * first level-1 heading
+	 * <li><strong>headings</strong>: Multi-valued field with the text of every
+	 * heading (the document outline)
+	 * <li><strong>content</strong>: Plain text body for full-text search (front
+	 * matter excluded)
+	 * </ul>
+	 *
+	 * <p>
+	 * <strong>MCP Tool Usage:</strong>
+	 *
+	 * <p>
+	 * AI clients can invoke this method with natural language requests like "index
+	 * this markdown file into my_collection" or "add this README to the search
+	 * index".
+	 *
+	 * <p>
+	 * <strong>Example Markdown Processing:</strong>
+	 *
+	 * <pre>{@code
+	 * Input:
+	 * ---
+	 * author: Jane Doe
+	 * ---
+	 * # Getting Started
+	 * Run the installer.
+	 *
+	 * Result: {author:"Jane Doe", title:"Getting Started",
+	 *          headings:["Getting Started"], content:"Getting Started\nRun the installer."}
+	 * }</pre>
+	 *
+	 * @param collection
+	 *            the name of the Solr collection to index documents into
+	 * @param markdown
+	 *            markdown string to index, optionally starting with YAML front
+	 *            matter
+	 * @throws IOException
+	 *             if there are critical errors in Solr communication
+	 * @throws SolrServerException
+	 *             if Solr server encounters errors during indexing
+	 * @see IndexingDocumentCreator#createSchemalessDocumentsFromMarkdown(String)
+	 * @see #indexDocuments(String, List)
+	 */
+	@PreAuthorize("isAuthenticated()")
+	@McpTool(
+			name = "index-markdown-documents",
+			annotations = @McpTool.McpAnnotations(idempotentHint = true),
+			description = "Index a document from markdown String into Solr collection, extracting front matter, title, headings, and body text")
+	public String indexMarkdownDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
+			@McpToolParam(
+					description = "Markdown string to index, optionally starting with YAML front matter") String markdown)
+			throws IOException, SolrServerException {
+		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
+		int successCount = indexDocuments(collection, schemalessDoc);
+		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
+				+ collection + "'";
+	}
+
+	/**
 	 * Indexes a list of SolrInputDocument objects into a Solr collection using
 	 * batch processing.
 	 *
@@ -532,7 +607,9 @@ public class IndexingService {
 			case "json" -> new IndexTool("index-json-documents", "json");
 			case "csv" -> new IndexTool("index-csv-documents", "csv");
 			case "xml" -> new IndexTool("index-xml-documents", "xml");
-			default -> throw new IllegalArgumentException("format must be one of json/csv/xml, got: " + format);
+			case "markdown", "md" -> new IndexTool("index-markdown-documents", "markdown");
+			default ->
+				throw new IllegalArgumentException("format must be one of json/csv/xml/markdown, got: " + format);
 		};
 	}
 
@@ -563,7 +640,7 @@ public class IndexingService {
 					required = true) String collection,
 			@McpArg(
 					name = "format",
-					description = "Document format: 'json', 'csv', or 'xml'",
+					description = "Document format: 'json', 'csv', 'xml', or 'markdown'",
 					required = true) String format,
 			@McpArg(
 					name = "sample",

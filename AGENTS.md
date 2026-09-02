@@ -99,7 +99,7 @@ docker run -p 8080:8080 --rm -e PROFILES=http \
 Four service classes expose MCP tools via `@McpTool` annotations:
 
 - **SearchService** (`search/`) - Full-text search with filtering, faceting, sorting, pagination
-- **IndexingService** (`indexing/`) - Document indexing supporting JSON, CSV, XML formats
+- **IndexingService** (`indexing/`) - Document indexing supporting JSON, CSV, XML, and markdown formats
 - **CollectionService** (`collection/`) - List collections, get stats, health checks
 - **SchemaService** (`schema/`) - Schema introspection and additive modification (add-fields, add-field-types)
 
@@ -107,7 +107,7 @@ Four service classes expose MCP tools via `@McpTool` annotations:
 
 `indexing/documentcreator/` uses strategy pattern for format parsing:
 - `SolrDocumentCreator` - Common interface
-- `JsonDocumentCreator`, `CsvDocumentCreator`, `XmlDocumentCreator` - Format implementations
+- `JsonDocumentCreator`, `CsvDocumentCreator`, `XmlDocumentCreator`, `MarkdownDocumentCreator` - Format implementations
 - `IndexingDocumentCreator` - Orchestrator that delegates to format-specific creators
 - `FieldNameSanitizer` - Automatic field name validation for Solr compatibility
 
