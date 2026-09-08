@@ -91,25 +91,31 @@ java {
 // the bootJar — bundling the base files here too would duplicate META-INF/LICENSE.
 // See https://www.apache.org/legal/release-policy.html#licensing-documentation
 
-// CycloneDX SBOM scope and output name
-// ====================================
-// Spring Boot's `CycloneDxPluginAction` only auto-configures `cyclonedxBom` for the
-// cyclonedx plugin version it recognizes (3.x ships with Spring Boot 4.1.0). We pin
-// `org.cyclonedx.bom` to 2.4.1 because cyclonedx 3.x fails at *configuration* time on
-// Gradle 9.4.1 (a variant-mutation conflict on `:cyclonedxDirectBom`). With 2.4.1
-// unrecognized, Spring Boot does not adjust the task, so it falls back to plugin defaults:
-// it writes `build/reports/bom.json` (not `application.cdx.json`) and scans cyclonedx's
-// default configuration set rather than the shipped classpath — yielding an SBOM with the
-// wrong components (stale Jackson 2, none of the Spring Boot 4 modular jars). Configure
-// both explicitly so the SBOM lands where the license-notice plugin and the actuator
-// endpoint expect it, and describes exactly what ships:
-//   - `outputName = "application.cdx"`  -> build/reports/application.cdx.json
-//   - `includeConfigs = [productionRuntimeClasspath]` -> only the fat-jar classpath,
-//     matching `generateBinaryLicense`'s completeness gate (shippedCoordinates).
-// Both the pin and this block should be dropped once cyclonedx 3.x configures cleanly —
-// tracked in https://github.com/apache/solr-mcp/issues/186.
-tasks.named<org.cyclonedx.gradle.CycloneDxTask>("cyclonedxBom") {
-    setOutputName("application.cdx")
+// CycloneDX SBOM
+// ==============
+// What we no longer configure: *output*. Spring Boot 4.1.1's `CyclonedxPluginAction`
+// auto-configures the `cyclonedxBom` task (type `org.cyclonedx.gradle.CyclonedxAggregateTask`)
+// for cyclonedx 3.x -- it sets the output to `build/reports/cyclonedx/application.cdx.json`
+// and makes the bootJar embed it at `META-INF/sbom/application.cdx.json`. The
+// `org.apache.solr.mcp.license-notice` plugin reads the SBOM from that same path.
+//
+// What still needs configuring: *scope*. cyclonedx 3.x splits the work in two --
+// `cyclonedxDirectBom` (`CyclonedxDirectTask`) resolves the dependency graph and owns
+// `includeConfigs`; `cyclonedxBom` (`CyclonedxAggregateTask`) only aggregates its output.
+// Left at defaults, the direct task scans every configuration, which puts JUnit, AssertJ,
+// ByteBuddy, docker-java, JaCoCo, Error Prone and NullAway into the SBOM -- ~100 components
+// that are not in the fat jar. That is invisible to our checks (the LICENSE appendix filters
+// to shipped coordinates, and the completeness gate only fails on *missing* entries), but the
+// SBOM ships at `META-INF/sbom/application.cdx.json` and is served from
+// `/actuator/sbom/application`, where scanners read it as a claim about the artifact's
+// contents -- test-only entries there become false-positive CVEs against a release.
+// So scope the direct task to the shipped classpath, matching `generateBinaryLicense`.
+//
+// Historical note: this used to pin cyclonedx to 2.4.1 and set `outputName` by hand as well,
+// because 3.x failed at configuration time on Gradle 9.4.1 (a variant-mutation conflict on
+// `:cyclonedxDirectBom`). That is fixed as of 3.4.1, so the pin and the output-name wiring
+// are gone -- see https://github.com/apache/solr-mcp/issues/186.
+tasks.named<org.cyclonedx.gradle.CyclonedxDirectTask>("cyclonedxDirectBom") {
     includeConfigs.set(listOf("productionRuntimeClasspath"))
 }
 
