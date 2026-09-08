@@ -29,6 +29,12 @@ spring-ai = "2.0.1"
 solr = "10.0.0"
 commons-csv = "1.14.1"
 mcp-server-security = "0.1.14"
+# MCP Java SDK. Spring AI 2.0.1 pulls 2.0.0 transitively; 2.0.1 fixes error
+# handling when a handler is not registered on a stateless server (our HTTP
+# profile), empty-completion handling for unmatched refs, and adds bounded
+# reads on the HTTP and STDIO transports. Drop this pin once a Spring AI
+# release ships 2.0.1 or later itself.
+mcp-sdk = "2.0.1"
 
 # OpenTelemetry
 opentelemetry-logback-appender = "2.21.0-alpha"
@@ -62,6 +68,9 @@ spring-ai-starter-mcp-client = { module = "org.springframework.ai:spring-ai-star
 spring-ai-autoconfigure-mcp-client-common = { module = "org.springframework.ai:spring-ai-autoconfigure-mcp-client-common" }
 spring-ai-spring-boot-docker-compose = { module = "org.springframework.ai:spring-ai-spring-boot-docker-compose" }
 spring-ai-spring-boot-testcontainers = { module = "org.springframework.ai:spring-ai-spring-boot-testcontainers" }
+
+# MCP Java SDK (pinned ahead of what Spring AI 2.0.1 resolves; see [versions])
+mcp-bom = { module = "io.modelcontextprotocol.sdk:mcp-bom", version.ref = "mcp-sdk" }
 
 # MCP Security
 mcp-server-security = { module = "org.springaicommunity:mcp-server-security", version.ref = "mcp-server-security" }

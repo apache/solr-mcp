@@ -210,6 +210,12 @@ dependencies {
 
 dependencyManagement {
     imports {
+        // Declared before spring-ai-bom: the dependency-management plugin uses
+        // Maven "first declaration wins" semantics. spring-ai-bom does not manage
+        // the MCP SDK at all -- Spring AI 2.0.1 depends on mcp 2.0.0 directly --
+        // so this BOM is what lifts the whole SDK to 2.0.1 as one coherent set
+        // rather than pinning mcp-core and leaving mcp-json-jackson3 behind.
+        mavenBom("io.modelcontextprotocol.sdk:mcp-bom:${libs.versions.mcp.sdk.get()}")
         mavenBom("org.springframework.ai:spring-ai-bom:${libs.versions.spring.ai.get()}")
     }
 }
