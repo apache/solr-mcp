@@ -77,7 +77,7 @@ public class SolrNativeHints {
 		@Override
 		public void registerHints(RuntimeHints hints, @Nullable ClassLoader classLoader) {
 			MemberCategory[] categories = {MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
-					MemberCategory.INVOKE_DECLARED_METHODS, MemberCategory.DECLARED_FIELDS};
+					MemberCategory.INVOKE_DECLARED_METHODS, MemberCategory.ACCESS_DECLARED_FIELDS};
 
 			// SolrJ response types
 			hints.reflection().registerType(QueryResponse.class, categories);

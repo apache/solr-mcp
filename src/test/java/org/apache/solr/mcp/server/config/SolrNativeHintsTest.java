@@ -62,10 +62,11 @@ class SolrNativeHintsTest {
 
 	@Test
 	void registersSolrjResponseTypeHints() {
-		assertTrue(RuntimeHintsPredicates.reflection().onType(QueryResponse.class)
-				.withMemberCategories(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
-						MemberCategory.INVOKE_DECLARED_METHODS, MemberCategory.DECLARED_FIELDS)
-				.test(hints));
+		assertTrue(
+				RuntimeHintsPredicates.reflection().onType(QueryResponse.class)
+						.withMemberCategories(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
+								MemberCategory.INVOKE_DECLARED_METHODS, MemberCategory.ACCESS_DECLARED_FIELDS)
+						.test(hints));
 	}
 
 	@Test
