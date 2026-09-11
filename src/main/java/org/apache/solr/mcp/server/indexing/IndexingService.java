@@ -18,6 +18,8 @@ package org.apache.solr.mcp.server.indexing;
 
 import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
+import java.io.Reader;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -220,7 +222,7 @@ public class IndexingService {
 			name = "index-json-documents",
 			annotations = @McpTool.McpAnnotations(idempotentHint = true),
 			description = SCHEMA_FIRST_GUIDANCE
-					+ "For JSON already saved on the MCP server, prefer index-json-file when file ingestion is enabled. "
+					+ "For JSON already saved on the local STDIO server, prefer index-file. "
 					+ "Index documents from json String into Solr collection. Field names are"
 					+ " sanitized for Solr compatibility (lowercased, special characters replaced"
 					+ " with underscores); the response lists the field names as indexed")
@@ -587,25 +589,7 @@ public class IndexingService {
 		for (int i = 0; i < documents.size(); i += batchSize) {
 			final int endIndex = Math.min(i + batchSize, documents.size());
 			final List<SolrInputDocument> batch = documents.subList(i, endIndex);
-
-			try {
-				solrClient.add(collection, batch);
-				successCount += batch.size();
-			} catch (SolrServerException | IOException | RuntimeException e) {
-				logger.warn("Batch indexing failed, retrying individually", e);
-				// Try indexing documents individually to identify problematic ones
-				for (SolrInputDocument doc : batch) {
-					try {
-						solrClient.add(collection, doc);
-						successCount++;
-					} catch (SolrServerException | IOException | RuntimeException e2) {
-						logger.debug("Failed to index individual document", e2);
-						// Document failed to index - this is expected behavior for problematic
-						// documents
-						// We continue processing the rest of the batch
-					}
-				}
-			}
+			successCount += indexBatch(collection, batch);
 		}
 
 		try {
@@ -615,6 +599,76 @@ public class IndexingService {
 			throw e;
 		}
 		return successCount;
+	}
+
+	private int indexBatch(String collection, List<SolrInputDocument> batch) {
+		try {
+			solrClient.add(collection, batch);
+			return batch.size();
+		} catch (SolrServerException | IOException | RuntimeException e) {
+			logger.warn("Batch indexing failed, retrying individually", e);
+			int successCount = 0;
+			for (SolrInputDocument doc : batch) {
+				try {
+					solrClient.add(collection, doc);
+					successCount++;
+				} catch (SolrServerException | IOException | RuntimeException e2) {
+					logger.debug("Failed to index individual document", e2);
+				}
+			}
+			return successCount;
+		}
+	}
+
+	String indexFileDocuments(String collection, Reader input, String format) throws IOException, SolrServerException {
+		var progress = new FileIndexingProgress(collection);
+		indexingDocumentCreator.stream(input, format, progress::accept);
+		progress.flush();
+		solrClient.commit(collection);
+		return "Successfully indexed " + progress.successCount + " of " + progress.totalCount
+				+ " documents into collection '" + collection + "'"
+				+ (progress.fieldNames.isEmpty()
+						? ""
+						: ". Indexed field names (input names are sanitized for Solr compatibility): "
+								+ String.join(", ", progress.fieldNames) + (progress.fieldsElided ? " and more" : ""))
+				+ (progress.successCount == progress.totalCount
+						? ""
+						: ". Some documents failed; check field types with get-schema and verify the indexed count before retrying.");
+	}
+
+	private final class FileIndexingProgress {
+		private final String collection;
+		private final List<SolrInputDocument> batch = new ArrayList<>(DEFAULT_BATCH_SIZE);
+		private final Set<String> fieldNames = new TreeSet<>();
+		private long totalCount;
+		private long successCount;
+		private boolean fieldsElided;
+
+		private FileIndexingProgress(String collection) {
+			this.collection = collection;
+		}
+
+		private void accept(SolrInputDocument document) {
+			for (String field : document.getFieldNames()) {
+				if (fieldNames.size() < MAX_REPORTED_FIELDS) {
+					fieldNames.add(field);
+				} else if (!fieldNames.contains(field)) {
+					fieldsElided = true;
+				}
+			}
+			totalCount++;
+			batch.add(document);
+			if (batch.size() == DEFAULT_BATCH_SIZE) {
+				flush();
+			}
+		}
+
+		private void flush() {
+			if (!batch.isEmpty()) {
+				successCount += indexBatch(collection, List.copyOf(batch));
+				batch.clear();
+			}
+		}
 	}
 
 	/**
@@ -690,10 +744,10 @@ public class IndexingService {
 				%s
 
 				3. Index the documents.
-				   - For JSON saved on the MCP server, prefer `index-json-file` with `collection` and
-				     `path` when the operator has enabled SOLR_MCP_INGEST_ROOT. Paths are server-side;
-				     a remote client's file is not automatically accessible. Fetch URLs client-side
-				     into that shared directory, then reuse the path rather than re-emitting the payload.
+				   - For JSON, CSV, XML or Markdown saved on the local STDIO server, prefer `index-file`
+				     with `collection` and `path`; optionally override the detected `format`. Use an absolute
+				     server-side path (a container path when using Docker). Download URLs client-side,
+				     then reuse the path rather than re-emitting the payload. HTTP has no file tool.
 				   - Otherwise, call `%s` with `collection=%s` and `%s=<the document payload>`.
 				     Choose one ingestion path; do not also send inline data after a successful file call.
 				   - The tool batches internally and commits at the end. The return value is the count

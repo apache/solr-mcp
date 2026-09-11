@@ -21,8 +21,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
-import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
-import java.util.Map;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -39,7 +37,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  */
 @SpringBootTest(
 		webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-		properties = {"http.security.enabled=false", "spring.docker.compose.enabled=false", "solr.mcp.ingest.root="})
+		properties = {"http.security.enabled=false", "spring.docker.compose.enabled=false"})
 @ActiveProfiles("http")
 @Import(TestcontainersConfiguration.class)
 @Tag("integration")
@@ -58,10 +56,10 @@ class McpClientIntegrationTest extends McpClientIntegrationTestBase {
 	@Test
 	@Order(39)
 	void fileIngestionWithoutConfiguredRootIsAnMcpToolError() {
-		var result = mcpClient.callTool(
-				new CallToolRequest("index-json-file", Map.of("collection", SHOWS_COLLECTION, "path", "shows.json")));
-		assertEquals(Boolean.TRUE, result.isError());
-		assertTrue(extractText(result).contains("File ingestion is disabled"), extractText(result));
+		assertTrue(
+				mcpClient.listTools().tools().stream()
+						.noneMatch(tool -> tool.name().equals("index-file") || tool.name().equals("index-json-file")),
+				"HTTP must never advertise local filesystem ingestion");
 	}
 
 }

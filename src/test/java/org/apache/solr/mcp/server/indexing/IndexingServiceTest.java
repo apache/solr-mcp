@@ -337,7 +337,7 @@ class IndexingServiceTest {
 		assertTrue(body.contains("design-schema"),
 				"Prompt should reference design-schema as fallback when fields are missing");
 		assertTrue(body.contains(sample), "Prompt should embed the sample payload");
-		assertTrue(body.contains("index-json-file"));
+		assertTrue(body.contains("index-file"));
 		assertTrue(body.contains("docValues"));
 		assertTrue(body.contains("actual successful and total counts"));
 	}

@@ -201,14 +201,16 @@ reaching the backend Solr directly, bypassing this server, is out of model (§3)
   Solr always; opens a servlet listener only in HTTP mode; exports OTLP
   telemetry when a collector is configured; and, in HTTP `bootRun`, may start
   `docker compose`-declared services in local dev. It does not spawn child
-  processes for tool execution. File reads from tool input are disabled by default;
-  `index-json-file` is opt-in via `SOLR_MCP_INGEST_ROOT` and reads regular UTF-8
-  JSON files within that operator-controlled directory, up to 10 MiB. It resolves
-  real paths and rejects traversal or symlinks whose target is outside the root.
-  The directory and its ancestors must not be concurrently modified by untrusted
-  local writers; this is not a filesystem sandbox against local race attacks.
-  Authorized clients can cause any JSON in the root to be indexed, so operators
-  must not expose secrets there. No URL fetching is added.
+  processes for tool execution. In local STDIO mode, `index-file` reads regular
+  UTF-8 JSON, CSV, XML and Markdown files without an ingest-root setting or file-size
+  cap. The connected client can ingest any file readable by the process, including
+  sensitive content; OS permissions and container isolation define the boundary.
+  This is not a filesystem sandbox against concurrent local writers. Operators
+  should use least privilege and read-only mounts containing only intended data.
+  Structured records stream in batches; a single record or Markdown document still
+  requires sufficient memory. Interrupted or malformed input may leave partial
+  writes. The tool is absent in HTTP/web mode, including mixed stdio/http profiles.
+  No URL fetching or remote uploads are added.
   *(documented — `FileIndexingService`; README.)*
 
 ## §5a Configuration variants — the security-relevant knobs
@@ -220,7 +222,6 @@ reaching the backend Solr directly, bypassing this server, is out of model (§3)
 | `OAUTH2_ISSUER_URI` | empty (placeholder) | With HTTP security on and no issuer, the chain still returns 401/403 on every non-permitted endpoint (locked down, no token validator). A real issuer enables JWT signature/issuer/exp/**audience** validation. | Q-httpsec |
 | `MCP_CORS_ALLOWED_ORIGINS` | MCP Inspector localhost proxy | Explicit CORS allowlist; wildcard-with-credentials is rejected by construction (`setAllowedOrigins`, not patterns). | *(documented)* |
 | `SOLR_USERNAME` / `SOLR_PASSWORD` | unset | When both set, static HTTP Basic Auth to backend Solr on every request; when unset, unauthenticated backend calls. | Q-backendcreds |
-| `SOLR_MCP_INGEST_ROOT` | unset | Opts into server-side JSON file reads under a dedicated data root; authorized callers can ingest its contents. No per-caller file permissions. | See README file-ingestion boundary |
 
 **How HTTP mode enforces auth** *(maintainer — Q-transport.)*: the transport
 is streamable HTTP running in **stateless** mode
@@ -254,7 +255,7 @@ trust table:
 | `search` | `query` (`q`), `filterQueries` (`fq`) | **yes** | passed into `SolrQuery`; Solr query-parser semantics apply — Q-queryinj |
 | `search` | `facetFields`, `sortClauses`, `start`, `rows` | **yes** | forwarded to Solr; `rows` unbounded? — Q-resource |
 | `index-*` | `collection`, `json`/`csv`/`xml` body | **yes** | parsed then written to index; XML parser is XXE-hardened *(documented)* |
-| `index-json-file` | `collection`, `path` | **yes** | disabled without an operator-configured root; real-path containment, regular files only, bounded 10 MiB UTF-8 read; uses the existing JSON indexing pipeline |
+| `index-file` (local STDIO only) | `collection`, `path`, optional `format` | **yes** | any process-readable regular UTF-8 file; JSON/CSV/XML stream in batches, Markdown stays one document; no file-size cap; OS/container boundary, unavailable over HTTP |
 | `create-collection` | `name`, `configSet`, `numShards`, `replicationFactor` | **yes** | issues `CollectionAdminRequest.createCollection` to backend — Q-adminexposure |
 | `add-fields` / `add-field-types` | `collection`, field/type defs | **yes** | additive schema change (existing fields cannot be modified per README) |
 | config (startup only) | `SOLR_URL`, `SOLR_USERNAME`, `SOLR_PASSWORD` | **no — deployer config** | never wire from a tool argument *(documented)* |
@@ -581,9 +582,9 @@ into the body above; the corresponding claims now carry *(maintainer)* tags.
   reason. (§6/§9.)
 - **Q-sideeffects / Q-otel.** Is the outbound side-effect inventory complete? →
   **Confirmed.** SolrJ connection (always), servlet listener (HTTP mode only),
-  OTLP export (when configured). No child processes. The original no-file-read
-  posture remains the default; opt-in `index-json-file` adds the bounded,
-  operator-scoped read described in §5/§5a. Securing OTLP and TLS is operator
+  OTLP export (when configured). No child processes. Local STDIO `index-file`
+  adds process-readable file ingestion as described in §5/§6; HTTP does not
+  expose file ingestion. Securing OTLP and TLS is operator
   infrastructure. The `docker compose`
   autostart exists only in the http-profile `bootRun` local-dev path. (§5/§9.)
 

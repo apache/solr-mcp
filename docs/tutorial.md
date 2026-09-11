@@ -79,18 +79,20 @@ curl -O https://raw.githubusercontent.com/apache/solr-mcp/main/src/test/resource
 }
 ```
 
-For file ingestion, set `SOLR_MCP_INGEST_ROOT` in the **MCP server's environment**
-to the absolute directory containing `shows.json`, then restart that server.
-Use a dedicated data directory, not your home directory. The `index-json-file`
-tool accepts paths relative to this root (such as `shows.json`) or absolute
-paths inside it. It reads UTF-8 JSON up to 10 MiB and returns counts, not content.
+In local STDIO mode, use `index-file` with the absolute path to `shows.json`.
+No extra environment variable is needed. The tool supports JSON, CSV, XML and
+Markdown, detects the extension (or accepts an explicit `format`), and has no
+file-size cap. It returns counts, not content. JSON/CSV/XML stream in batches;
+Markdown stays one document and must fit in memory.
 
 The path is on the **server**, not necessarily on your client. For Docker, mount
-the data directory read-only, set the root to its container path, and pass that
-path to the tool. For a remote server without a shared directory, use
-`index-json-documents` with inline JSON instead. The server does not fetch URLs;
-download once on the client into the shared directory. Do not ask the model to
-reconstruct the entire dataset from memory.
+only the data directory read-only and pass its container path, such as
+`/data/shows.json`. The local client can ingest any file readable by the server
+process, so use OS permissions or container isolation to keep secrets inaccessible.
+Relative paths use the server's working directory, which may differ from your shell.
+HTTP has no file-ingestion tool; use `index-json-documents` with inline JSON there.
+The server does not fetch URLs; download once into a location the local server can
+read. Do not ask the model to reconstruct the entire dataset from memory.
 
 ---
 
@@ -126,13 +128,15 @@ in this schema. The difference is matching the type to how the field will be
 
 ## Step 2 — Index and verify
 
-> *"Use index-json-file with collection shows and path shows.json. Report the
+> *"Use index-file with collection shows and the absolute path to shows.json. Report the
 > tool's actual successful and total counts."*
 
 Expect `Successfully indexed 61 of 61`. Confirm with `search`, `query=*:*`,
 `rows=0`: `numFound` should be 61. You can reuse the same file path to index
 another prepared collection without resending the JSON. Reusing IDs in the same
 collection updates documents, so a second call still leaves 61 documents.
+If a call fails partway through, earlier batches may already be indexed; verify
+the collection before retrying with the same stable document IDs.
 
 Then ask:
 

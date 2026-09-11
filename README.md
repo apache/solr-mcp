@@ -97,7 +97,7 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 |------|-------------|
 | `search` | Full-text search with filtering, faceting, sorting, and pagination |
 | `index-json-documents` | Index documents from a JSON string into a collection |
-| `index-json-file` | Index a server-side UTF-8 JSON file (opt-in via `SOLR_MCP_INGEST_ROOT`, up to 10 MiB) |
+| `index-file` | Index a local UTF-8 JSON, CSV, XML or Markdown file (STDIO only; no file-size cap) |
 | `index-csv-documents` | Index documents from a CSV string into a collection |
 | `index-xml-documents` | Index documents from an XML string into a collection |
 | `index-markdown-documents` | Index a markdown document into a collection, extracting front matter, title, headings, and body text |
@@ -116,21 +116,36 @@ prompt) to prepare field types, `docValues`, and `multiValued` settings. Use
 `string` for facet categories and `text_general` for prose; schemaless guesses
 are not a substitute for schema design.
 
-**Index a saved JSON file without repeating its payload:** configure
-`SOLR_MCP_INGEST_ROOT` in the server environment to an absolute, dedicated data
-directory and restart the server. Call `index-json-file` with
-`{"collection":"shows","path":"shows.json"}`; the path is relative to that root
-or an absolute path inside it. Reuse the same path for another prepared collection.
-The result reports actual counts and field names, never the file contents.
+**Index a saved file without repeating its payload:** in local STDIO mode, call
+`index-file` with `{"collection":"shows","path":"/data/shows.json"}`. No extra
+environment variable is required. JSON, CSV, XML and Markdown are detected from
+`.json`, `.csv`, `.xml`, `.md` or `.markdown` (case-insensitive). For an extensionless
+download or to override detection, add `"format":"json"` (or `csv`, `xml`,
+`markdown`/`md`). Reuse the same path for another prepared collection. The result
+reports actual counts and field names, never the file contents.
 
-File reads are disabled by default. Paths refer to the **MCP server filesystem**:
-for Docker, mount the directory read-only and use its container path; a remote
-client's local path is not automatically shared. URLs and `~` expansion are not
-supported. Only expose data intended for indexing — not a home directory or a
-directory with credentials. Keep the directory and its ancestors controlled by
-trusted local users; path checks do not sandbox hostile concurrent filesystem
-writers. In HTTP mode, every authorized caller can ingest files from this root,
-using the same authentication gate as the other indexing tools.
+There is **no application-imposed file-size cap**. JSON/CSV/XML records are parsed
+incrementally and sent in batches of 1,000; Markdown remains one document with its
+front matter, title, headings and body intact. A large individual record or
+Markdown file still needs enough memory, and backend limits/timeouts still apply.
+Indexing is not transactional: a parse error or interrupted call can leave earlier
+batches in Solr. Check counts before retrying and supply stable IDs to avoid duplicates.
+The inline tools remain available with their existing input validation.
+Field mapping matches the inline parsers. In particular, XML uses repeated sibling
+element names to recognize multiple documents; otherwise it flattens the root,
+including its name in field paths. Check the returned field names when preparing
+the schema and assigning stable IDs.
+
+Paths refer to the **MCP server filesystem**, not a remote client's machine.
+Absolute paths are recommended; relative paths use the server's working directory.
+URLs and `~` expansion are not supported. For Docker, mount a data directory
+read-only (for example `--mount type=bind,source=/absolute/data,target=/data,readonly`)
+and use `/data/shows.json`. **The connected local client can ingest any regular file
+readable by the server process, including sensitive files.** OS permissions and
+container isolation provide the boundary; mount only intended data and do not run
+the server with elevated privileges. File ingestion is absent in HTTP/web mode,
+even when both `stdio` and `http` profiles are active. Remote uploads are not part
+of this feature; HTTP clients continue using the inline tools.
 
 ### Resources
 
@@ -168,7 +183,6 @@ The server reads configuration from environment variables. The essentials:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `SOLR_URL` | Solr base URL | `http://localhost:8983/solr/` |
-| `SOLR_MCP_INGEST_ROOT` | Dedicated server-side directory allowed for `index-json-file` | Unset (file reads disabled) |
 | `PROFILES` | Transport mode: `stdio` (default, for Claude Desktop) or `http` (remote / multi-client) | `stdio` |
 
 Running in **HTTP mode** — OAuth2, CORS, and the `HTTP_SECURITY_ENABLED` toggle (secured by default) — is covered in the [security docs](docs/security/). Tracing and metrics env vars (`OTEL_SAMPLING_PROBABILITY`, `OTEL_TRACES_URL`) are covered in [Observability](docs/observability.md).

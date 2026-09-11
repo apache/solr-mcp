@@ -104,7 +104,6 @@ public abstract class McpClientIntegrationTestBase {
 
 		assertTrue(toolNames.contains("create-collection"), "Should have create-collection tool");
 		assertTrue(toolNames.contains("index-json-documents"), "Should have index-json-documents tool");
-		assertTrue(toolNames.contains("index-json-file"), "Should have index-json-file tool");
 		assertTrue(toolNames.contains("index-markdown-documents"), "Should have index-markdown-documents tool");
 		assertTrue(toolNames.contains("search"), "Should have search tool");
 		assertTrue(toolNames.contains("list-collections"), "Should have list-collections tool");
@@ -135,7 +134,6 @@ public abstract class McpClientIntegrationTestBase {
 		// Indexing: destructive (Solr overwrites by uniqueKey) but idempotent —
 		// posting the same JSON/CSV/XML twice leaves the index in the same state.
 		assertHint(tools, "index-json-documents", false, true, true);
-		assertHint(tools, "index-json-file", false, true, true);
 		assertHint(tools, "index-csv-documents", false, true, true);
 		assertHint(tools, "index-xml-documents", false, true, true);
 		assertHint(tools, "index-markdown-documents", false, true, true);

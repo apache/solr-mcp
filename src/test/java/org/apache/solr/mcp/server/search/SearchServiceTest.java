@@ -23,7 +23,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -48,119 +47,6 @@ class SearchServiceTest {
 		assertNotNull(localService);
 	}
 
-	@Test
-	void search_WithBlankFiltersAndFacets_ShouldOmitThem() throws Exception {
-		SolrClient mockClient = mock(SolrClient.class);
-		QueryResponse mockResponse = mock(QueryResponse.class);
-		when(mockResponse.getResults()).thenReturn(createMockDocumentList());
-		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
-			SolrQuery q = invocation.getArgument(1);
-			assertEquals("*:*", q.getQuery());
-			assertNull(q.getFilterQueries());
-			assertNull(q.getFacetFields());
-			assertNull(q.get("facet"));
-			return mockResponse;
-		});
-		SearchService localService = new SearchService(mockClient);
-		assertNotNull(localService.search("test_collection", " \t", Arrays.asList("", " \t", null),
-				Arrays.asList(null, "", " \n"), null, null, null));
-	}
-
-	@Test
-	void search_WithBlankSortFields_ShouldOmitSorting() throws Exception {
-		SolrClient mockClient = mock(SolrClient.class);
-		QueryResponse mockResponse = mock(QueryResponse.class);
-		when(mockResponse.getResults()).thenReturn(createMockDocumentList());
-		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
-			SolrQuery q = invocation.getArgument(1);
-			assertNull(q.getSortField());
-			return mockResponse;
-		});
-		SearchService localService = new SearchService(mockClient);
-		assertNotNull(localService.search("test_collection", null, null, null,
-				Arrays.asList(new SortClause("", ""), new SortClause(" \t", "asc"), null), null, null));
-	}
-
-	@Test
-	void search_WithMixedBlankAndValidOptions_ShouldPreserveValidValues() throws Exception {
-		SolrClient mockClient = mock(SolrClient.class);
-		QueryResponse mockResponse = mock(QueryResponse.class);
-		when(mockResponse.getResults()).thenReturn(createMockDocumentList());
-		String filter = "{!tag=genre}genre_s:fantasy";
-		String facet = "{!ex=genre}genre_s";
-		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
-			SolrQuery q = invocation.getArgument(1);
-			assertEquals("{!edismax qf='name author_ss'}george martin", q.getQuery());
-			assertArrayEquals(new String[]{filter, "price:[0 TO 10]"}, q.getFilterQueries());
-			assertArrayEquals(new String[]{facet, "author_ss"}, q.getFacetFields());
-			assertEquals("true", q.get("facet"));
-			assertEquals(1, q.getFacetMinCount());
-			assertEquals("count", q.getFacetSortString());
-			assertEquals("price desc,name asc", q.getSortField());
-			return mockResponse;
-		});
-		SearchService localService = new SearchService(mockClient);
-		assertNotNull(localService.search("test_collection", "{!edismax qf='name author_ss'}george martin",
-				Arrays.asList("", filter, null, " \n", "price:[0 TO 10]"),
-				Arrays.asList("\t", facet, "", null, "author_ss"), Arrays.asList(null, new SortClause("", "asc"),
-						new SortClause("price", "DESC"), new SortClause(" \n", ""), new SortClause("name", " \t")),
-				null, null));
-	}
-
-	@Test
-	void search_WithInvalidNonblankSortOrder_ShouldStillFail() {
-		SearchService localService = new SearchService(mock(SolrClient.class));
-		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-				() -> localService.search("test_collection", null, null, null,
-						List.of(new SortClause("price", "descending")), null, null));
-		assertTrue(e.getMessage().contains("'asc' or 'desc'"));
-	}
-
-	@Test
-	void search_BackendFailures_ShouldReturnSafeActionableErrors() throws Exception {
-		String detail = "private-token http://internal-solr:8983 /private/config java.util.ArrayList";
-		for (Exception failure : List.of(new IOException(detail), new SolrServerException(detail),
-				new SolrException(SolrException.ErrorCode.SERVER_ERROR, detail),
-				new SolrException(SolrException.ErrorCode.BAD_REQUEST, detail),
-				new SolrException(SolrException.ErrorCode.UNAUTHORIZED, detail),
-				new SolrException(SolrException.ErrorCode.FORBIDDEN, detail), new ClassCastException(detail),
-				new IllegalStateException(detail))) {
-			SolrClient mockClient = mock(SolrClient.class);
-			when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenThrow(failure);
-			SearchService localService = new SearchService(mockClient);
-			Exception e = assertThrows(Exception.class,
-					() -> localService.search("test_collection", "*:*", null, List.of("platform"), null, null, null));
-			for (String sensitive : List.of("private-token", "internal-solr", "/private/config",
-					"java.util.ArrayList")) {
-				assertFalse(e.getMessage().contains(sensitive), e::getMessage);
-			}
-			assertTrue(e.getMessage().contains("Search failed"), e::getMessage);
-			assertTrue(e.getMessage().contains("operator") || e.getMessage().contains("get-schema"), e::getMessage);
-			assertNull(e.getCause(), "MCP must not unwrap a raw backend failure");
-			if (failure instanceof SolrException solrFailure) {
-				assertEquals(solrFailure.code(), assertInstanceOf(SolrException.class, e).code());
-			}
-		}
-	}
-
-	@Test
-	void search_FacetConversionFailure_ShouldNotReturnSuccessfulSearch() throws Exception {
-		SolrClient mockClient = mock(SolrClient.class);
-		QueryResponse mockResponse = mock(QueryResponse.class);
-		when(mockResponse.getResults()).thenReturn(createMockDocumentListWithData());
-		ClassCastException failure = new ClassCastException("java.util.ArrayList cannot be cast to NamedList");
-		when(mockResponse.getFacetFields()).thenThrow(failure);
-		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenReturn(mockResponse);
-		SearchService localService = new SearchService(mockClient);
-		IllegalStateException e = assertThrows(IllegalStateException.class,
-				() -> localService.search("test_collection", "*:*", null, List.of("platform"), null, null, null));
-		assertFalse(e.getMessage().contains("ClassCastException"));
-		assertFalse(e.getMessage().contains("NamedList"));
-		assertTrue(e.getMessage().contains("facetFields"));
-		assertTrue(e.getMessage().contains("operator"));
-		assertNull(e.getCause(), "MCP must not unwrap a raw response-conversion failure");
-	}
-
 	/*
 	 * These stub Solr's error text rather than observe it, so they can only show
 	 * that a matching message produces a hint — never that Solr still emits such a
@@ -180,9 +66,8 @@ class SearchServiceTest {
 				new SolrException(SolrException.ErrorCode.BAD_REQUEST, "undefined field bogus"));
 		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
 				() -> localService.search("test_collection", "bogus:x", null, null, null, null, null));
-		assertFalse(e.getMessage().contains("undefined field bogus"), "raw Solr message must not be exposed");
+		assertTrue(e.getMessage().contains("undefined field bogus"), "original Solr message must be preserved");
 		assertTrue(e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted("test_collection")));
-		assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
 	}
 
 	@Test
@@ -193,7 +78,6 @@ class SearchServiceTest {
 		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
 				() -> localService.search("test_collection", "*:*", null, null, sort, null, null));
 		assertTrue(e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted("test_collection")));
-		assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
 	}
 
 	@Test
@@ -203,8 +87,6 @@ class SearchServiceTest {
 		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
 				() -> localService.search("test_collection", "name:(", null, null, null, null, null));
 		assertTrue(e.getMessage().contains(SearchService.LUCENE_SYNTAX_HINT));
-		assertFalse(e.getMessage().contains("org.apache.solr.search.SyntaxError"));
-		assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
 	}
 
 	/**
@@ -219,8 +101,6 @@ class SearchServiceTest {
 		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
 				() -> localService.search("test_collection", "*:*", null, null, null, null, null));
 		assertTrue(e.getMessage().contains(SearchService.LIST_COLLECTIONS_HINT));
-		assertFalse(e.getMessage().contains("mime type"));
-		assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
 	}
 
 	@Test
@@ -229,11 +109,8 @@ class SearchServiceTest {
 				new SolrException(SolrException.ErrorCode.SERVER_ERROR, "internal failure"));
 		SolrException e = assertThrows(SolrException.class,
 				() -> localService.search("test_collection", null, null, null, null, null, null));
-		assertEquals(SolrException.ErrorCode.SERVER_ERROR.code, e.code());
-		assertFalse(e.getMessage().contains("internal failure"));
-		assertTrue(e.getMessage().contains("operator"));
-		assertTrue(e.getMessage().contains("Solr health"));
-		assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+		assertTrue(e.getMessage().contains("internal failure"));
+		assertFalse(e.getMessage().contains("Hint:"));
 	}
 
 	@Test

@@ -16,14 +16,19 @@
  */
 package org.apache.solr.mcp.server.indexing.documentcreator;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import org.apache.solr.common.SolrInputDocument;
 import org.springframework.stereotype.Component;
 
@@ -43,6 +48,8 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
 
 	private final ObjectMapper objectMapper;
 
+	private final JsonFactory fileJsonFactory;
+
 	/**
 	 * Constructs the creator with the Jackson {@link ObjectMapper} used to parse
 	 * incoming JSON.
@@ -52,6 +59,12 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
 	 */
 	public JsonDocumentCreator(ObjectMapper objectMapper) {
 		this.objectMapper = objectMapper;
+		// File parsing has no size cap. Do not relax the shared mapper used by
+		// remote inline tools; retain its structural nesting protection.
+		this.fileJsonFactory = objectMapper.getFactory().copy();
+		this.fileJsonFactory.setStreamReadConstraints(fileJsonFactory.streamReadConstraints().rebuild()
+				.maxStringLength(Integer.MAX_VALUE).maxNameLength(Integer.MAX_VALUE).maxNumberLength(Integer.MAX_VALUE)
+				.maxDocumentLength(-1).build());
 	}
 
 	/**
@@ -151,6 +164,36 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
 		}
 
 		return documents;
+	}
+
+	void stream(Reader input, Consumer<SolrInputDocument> consumer) {
+		try (JsonParser parser = fileJsonFactory.createParser(new BorrowedReader(input))) {
+			JsonToken token = parser.nextToken();
+			if (token == JsonToken.START_ARRAY) {
+				while (parser.nextToken() != JsonToken.END_ARRAY) {
+					if (parser.currentToken() == null) {
+						throw new DocumentProcessingException("Unexpected end of JSON array");
+					}
+					consumer.accept(readDocument(parser));
+				}
+			} else if (token == JsonToken.START_OBJECT) {
+				consumer.accept(readDocument(parser));
+			} else {
+				throw new DocumentProcessingException("JSON input must be an object or an array of objects");
+			}
+			if (parser.nextToken() != null) {
+				throw new DocumentProcessingException("Unexpected content after JSON document");
+			}
+		} catch (IOException e) {
+			throw new DocumentProcessingException("Failed to parse JSON document", e);
+		}
+	}
+
+	private SolrInputDocument readDocument(JsonParser parser) throws IOException {
+		JsonNode node = objectMapper.readTree(parser);
+		SolrInputDocument doc = new SolrInputDocument();
+		addAllFieldsFlat(doc, node, "");
+		return doc;
 	}
 
 	/**

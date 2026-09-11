@@ -17,10 +17,14 @@
 package org.apache.solr.mcp.server.indexing.documentcreator;
 
 import java.io.IOException;
+import java.io.Reader;
 import java.io.StringReader;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.function.Consumer;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -118,13 +122,30 @@ public class CsvDocumentCreator implements SolrDocumentCreator {
 		}
 
 		List<SolrInputDocument> documents = new ArrayList<>();
+		stream(new StringReader(csv), documents::add);
+		return documents;
+	}
 
-		try (CSVParser parser = new CSVParser(new StringReader(csv),
+	void stream(Reader input, Consumer<SolrInputDocument> consumer) {
+		try (CSVParser parser = new CSVParser(new BorrowedReader(input),
 				CSVFormat.Builder.create().setHeader().setTrim(true).build())) {
 			List<String> headers = new ArrayList<>(parser.getHeaderNames());
+			if (headers.isEmpty()) {
+				throw new DocumentProcessingException("CSV input cannot be empty");
+			}
 			headers.replaceAll(FieldNameSanitizer::sanitizeFieldName);
 
-			for (CSVRecord csvRecord : parser) {
+			Iterator<CSVRecord> records = parser.iterator();
+			while (true) {
+				CSVRecord csvRecord;
+				try {
+					if (!records.hasNext()) {
+						break;
+					}
+					csvRecord = records.next();
+				} catch (UncheckedIOException e) {
+					throw new DocumentProcessingException("Failed to parse CSV document", e);
+				}
 				if (csvRecord.size() == 0) {
 					continue; // Skip empty lines
 				}
@@ -138,12 +159,10 @@ public class CsvDocumentCreator implements SolrDocumentCreator {
 					}
 				}
 
-				documents.add(doc);
+				consumer.accept(doc);
 			}
 		} catch (IOException e) {
 			throw new DocumentProcessingException("Failed to parse CSV document", e);
 		}
-
-		return documents;
 	}
 }

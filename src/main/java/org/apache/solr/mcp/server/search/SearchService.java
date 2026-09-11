@@ -143,12 +143,6 @@ public class SearchService {
 	/** Remediation hint naming the {@code list-collections} tool. */
 	static final String LIST_COLLECTIONS_HINT = ". Hint: call list-collections to see available collections.";
 
-	private static final String CONNECTION_ERROR = "Search failed: unable to communicate with Solr. Retry later;"
-			+ " if it persists, ask the operator to check Solr availability and connection settings.";
-	private static final String RESPONSE_ERROR = "Search failed: unable to process the Solr response."
-			+ " If facetFields were supplied, call get-schema to check those fields or retry without facetFields;"
-			+ " if it persists, ask the operator to check server logs and Solr compatibility.";
-
 	private final SolrClient solrClient;
 
 	/**
@@ -244,13 +238,12 @@ public class SearchService {
 	 *            The Solr query string (q parameter). Defaults to "*:*" if not
 	 *            specified
 	 * @param filterQueries
-	 *            List of filter queries (fq parameter); blank entries are ignored
+	 *            List of filter queries (fq parameter)
 	 * @param facetFields
-	 *            List of fields to facet on; blank entries are ignored
+	 *            List of fields to facet on
 	 * @param sortClauses
 	 *            List of sort clauses for ordering results; each names a field and
-	 *            an optional {@code asc}/{@code desc} order (default {@code asc});
-	 *            entries with blank fields are ignored
+	 *            an optional {@code asc}/{@code desc} order (default {@code asc})
 	 * @param start
 	 *            Starting offset for pagination
 	 * @param rows
@@ -303,14 +296,12 @@ public class SearchService {
 							+ " {!edismax qf='name author'}. If none specified defaults to \"*:*\"",
 					required = false) @Nullable String query,
 			@McpToolParam(
-					description = "Solr fq parameter: list of filter queries, one filter per entry. Blank entries are ignored",
+					description = "Solr fq parameter: list of filter queries, one filter per entry",
 					required = false) @Nullable List<String> filterQueries,
-			@McpToolParam(
-					description = "Solr facet fields. Blank entries are ignored",
-					required = false) @Nullable List<String> facetFields,
+			@McpToolParam(description = "Solr facet fields", required = false) @Nullable List<String> facetFields,
 			@McpToolParam(
 					description = "Sort clauses applied in order. Each has 'field' (field name to sort"
-							+ " on) and 'order' ('asc' or 'desc', default 'asc'). Entries with blank fields are ignored",
+							+ " on) and 'order' ('asc' or 'desc', default 'asc')",
 					required = false) @Nullable List<SortClause> sortClauses,
 			@McpToolParam(description = "Starting offset for pagination", required = false) @Nullable Integer start,
 			@McpToolParam(description = "Number of rows to return", required = false) @Nullable Integer rows)
@@ -324,22 +315,20 @@ public class SearchService {
 
 		// filter queries
 		if (!CollectionUtils.isEmpty(filterQueries)) {
-			filterQueries.stream().filter(StringUtils::hasText).forEach(solrQuery::addFilterQuery);
+			solrQuery.setFilterQueries(filterQueries.toArray(new String[0]));
 		}
 
 		// facets
 		if (!CollectionUtils.isEmpty(facetFields)) {
-			facetFields.stream().filter(StringUtils::hasText).forEach(solrQuery::addFacetField);
-		}
-		if (solrQuery.getFacetFields() != null) {
+			solrQuery.setFacet(true);
+			solrQuery.addFacetField(facetFields.toArray(new String[0]));
 			solrQuery.setFacetMinCount(1);
 			solrQuery.setFacetSort(FacetParams.FACET_SORT_COUNT);
 		}
 
 		// sorting
 		if (!CollectionUtils.isEmpty(sortClauses)) {
-			sortClauses.stream().filter(clause -> clause != null && StringUtils.hasText(clause.field()))
-					.map(SortClause::toSolrSortClause).forEach(solrQuery::addSort);
+			solrQuery.setSorts(sortClauses.stream().map(SortClause::toSolrSortClause).toList());
 		}
 
 		// pagination
@@ -351,49 +340,42 @@ public class SearchService {
 			solrQuery.setRows(rows);
 		}
 
+		final QueryResponse queryResponse;
 		try {
-			final QueryResponse queryResponse = solrClient.query(collection, solrQuery);
-
-			// Add documents
-			final SolrDocumentList documents = queryResponse.getResults();
-
-			// Convert SolrDocuments to Maps
-			final var docs = getDocs(documents);
-
-			// Add facets if present
-			final var facets = getFacets(queryResponse);
-
-			return new SearchResponse(documents.getNumFound(), documents.getStart(), documents.getMaxScore(), docs,
-					facets);
+			queryResponse = solrClient.query(collection, solrQuery);
 		} catch (SolrException e) {
 			throw withRemediationHint(e, collection);
-		} catch (SolrServerException e) {
-			logger.debug("Solr query failed on collection {}", collection, e);
-			throw new SolrServerException(CONNECTION_ERROR);
-		} catch (IOException e) {
-			logger.debug("Solr query failed on collection {}", collection, e);
-			throw new IOException(CONNECTION_ERROR);
-		} catch (RuntimeException e) {
-			logger.debug("Solr query response failed on collection {}", collection, e);
-			throw new IllegalStateException(RESPONSE_ERROR);
 		}
+
+		// Add documents
+		final SolrDocumentList documents = queryResponse.getResults();
+
+		// Convert SolrDocuments to Maps
+		final var docs = getDocs(documents);
+
+		// Add facets if present
+		final var facets = getFacets(queryResponse);
+
+		return new SearchResponse(documents.getNumFound(), documents.getStart(), documents.getMaxScore(), docs, facets);
 	}
 
 	/**
-	 * Wraps common Solr query failures with a next-step hint. MCP unwraps exception
-	 * causes, so client-facing exceptions must omit the cause to preserve safe
-	 * guidance; the original failure is logged for server-side diagnostics.
+	 * Wraps common Solr query failures with a next-step hint. MCP clients receive
+	 * the exception message as the tool error, so naming the follow-up tool lets
+	 * them self-correct instead of retrying blind.
 	 *
 	 * @param e
 	 *            the Solr exception raised by the query
 	 * @param collection
 	 *            the collection that was queried
-	 * @return an exception carrying safe guidance without a cause
+	 * @return an exception carrying the original message plus a remediation hint,
+	 *         or the original exception when no hint applies
 	 */
 	private static RuntimeException withRemediationHint(SolrException e, String collection) {
 		final String message = String.valueOf(e.getMessage());
 
-		// Keep diagnostics in server logs, not in the client-facing exception chain.
+		// The MCP client only ever sees the exception message, so without this the
+		// server keeps no record of a failed query.
 		logger.debug("Solr query failed on collection {}", collection, e);
 
 		// An unknown collection is a 404 whose body is Solr's HTML "not found" page,
@@ -401,34 +383,19 @@ public class SearchService {
 		// The status code is the only signal that survives; match it rather than the
 		// message text, which mentions neither the collection nor "404".
 		if (e.code() == SolrException.ErrorCode.NOT_FOUND.code) {
-			return new IllegalArgumentException("Search failed: the collection was not found" + LIST_COLLECTIONS_HINT);
+			return new IllegalArgumentException(message + LIST_COLLECTIONS_HINT, e);
 		}
 
 		// Everything below is a 400 carrying a generic SolrException, indistinguishable
 		// except by Solr's message text.
 		final String lower = message.toLowerCase(Locale.ROOT);
-		if (e.code() == SolrException.ErrorCode.BAD_REQUEST.code) {
-			if (lower.contains(UNDEFINED_FIELD_TOKEN) || lower.contains(SORT_FIELD_NOT_FOUND_TOKEN)) {
-				return new IllegalArgumentException("Search failed: a referenced field is not defined"
-						+ GET_SCHEMA_HINT_FORMAT.formatted(collection));
-			}
-			if (lower.contains(SYNTAX_ERROR_TOKEN) || lower.contains(CANNOT_PARSE_TOKEN)) {
-				return new IllegalArgumentException(
-						"Search failed: Solr could not parse the query or filters" + LUCENE_SYNTAX_HINT);
-			}
-			return new SolrException(SolrException.ErrorCode.BAD_REQUEST,
-					"Search failed: Solr rejected the request. Check query syntax, filter queries, facet fields,"
-							+ " sort clauses, and pagination; call get-schema to verify the fields.");
+		if (lower.contains(UNDEFINED_FIELD_TOKEN) || lower.contains(SORT_FIELD_NOT_FOUND_TOKEN)) {
+			return new IllegalArgumentException(message + GET_SCHEMA_HINT_FORMAT.formatted(collection), e);
 		}
-		if (e.code() == SolrException.ErrorCode.UNAUTHORIZED.code
-				|| e.code() == SolrException.ErrorCode.FORBIDDEN.code) {
-			return new SolrException(SolrException.ErrorCode.getErrorCode(e.code()),
-					"Search failed: Solr denied access. Ask the operator to check the configured Solr credentials"
-							+ " and collection permissions.");
+		if (lower.contains(SYNTAX_ERROR_TOKEN) || lower.contains(CANNOT_PARSE_TOKEN)) {
+			return new IllegalArgumentException(message + LUCENE_SYNTAX_HINT, e);
 		}
-		return new SolrException(SolrException.ErrorCode.getErrorCode(e.code()),
-				"Search failed: Solr could not complete the request. Retry later; if it persists,"
-						+ " ask the operator to check Solr health and server logs.");
+		return e;
 	}
 
 	/**

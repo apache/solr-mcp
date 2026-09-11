@@ -16,12 +16,16 @@
  */
 package org.apache.solr.mcp.server.indexing.documentcreator;
 
+import java.io.IOException;
+import java.io.Reader;
+import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.function.Consumer;
 import org.apache.solr.common.SolrInputDocument;
 import org.commonmark.Extension;
 import org.commonmark.ext.front.matter.YamlFrontMatterExtension;
@@ -136,7 +140,24 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
 			throw new DocumentProcessingException(
 					"Input too large: exceeds maximum size of " + MAX_INPUT_SIZE_BYTES + " bytes");
 		}
+		return parseMarkdown(markdown);
+	}
 
+	void stream(Reader input, Consumer<SolrInputDocument> consumer) {
+		StringWriter content = new StringWriter();
+		try {
+			input.transferTo(content);
+		} catch (IOException e) {
+			throw new DocumentProcessingException("Failed to read markdown document", e);
+		}
+		String markdown = content.toString();
+		if (markdown.trim().isEmpty()) {
+			throw new DocumentProcessingException("Markdown input cannot be empty");
+		}
+		parseMarkdown(markdown).forEach(consumer);
+	}
+
+	private List<SolrInputDocument> parseMarkdown(String markdown) {
 		if (markdown.trim().isEmpty()) {
 			return List.of();
 		}

@@ -18,13 +18,12 @@ package org.apache.solr.mcp.server.indexing;
 
 import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.CharacterCodingException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.util.Locale;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException;
@@ -32,121 +31,131 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnNotWebApplication;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 /**
- * Opt-in JSON ingestion from an operator-controlled directory on the MCP
- * server. File contents use the same parsing, batching and commit path as
- * inline JSON.
+ * Local STDIO file ingestion. The connected client can ingest any regular file
+ * readable by this process; operating-system permissions and container mounts
+ * define the boundary. This service is never registered in HTTP mode.
  */
 @Service
 @Observed
+@Profile("stdio & !http")
+@ConditionalOnNotWebApplication
 public class FileIndexingService {
 
 	private static final Logger logger = LoggerFactory.getLogger(FileIndexingService.class);
 
-	private static final int MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
-
 	private final IndexingService indexingService;
 
-	private final String ingestRoot;
-
 	/**
-	 * Creates the file-ingestion boundary around the existing indexing pipeline.
+	 * Creates the local file-ingestion adapter.
 	 *
 	 * @param indexingService
-	 *            the existing JSON indexing pipeline
-	 * @param ingestRoot
-	 *            operator-configured directory; blank disables file reads
+	 *            the indexing pipeline
 	 */
-	public FileIndexingService(IndexingService indexingService, @Value("${solr.mcp.ingest.root:}") String ingestRoot) {
+	public FileIndexingService(IndexingService indexingService) {
 		this.indexingService = indexingService;
-		this.ingestRoot = ingestRoot;
 	}
 
 	/**
-	 * Reads a permitted JSON file and indexes it without returning its contents.
+	 * Java convenience entry point for JSON files; MCP clients use
+	 * {@code index-file}.
+	 *
+	 * @param collection
+	 *            target collection
+	 * @param path
+	 *            local file path
+	 * @return indexed document counts and field names
+	 */
+	@PreAuthorize("isAuthenticated()")
+	public String indexJsonFile(String collection, String path) {
+		return indexFile(collection, path, "json");
+	}
+
+	/**
+	 * Streams a local file into Solr without returning its contents.
 	 *
 	 * @param collection
 	 *            target collection with a prepared schema
 	 * @param path
-	 *            absolute server-side path or path relative to the ingest root
-	 * @return the same count and indexed-field summary as inline JSON ingestion
+	 *            absolute path or path relative to the server working directory
+	 * @param format
+	 *            optional format override; otherwise inferred from the extension
+	 * @return indexed document counts and field names
 	 */
 	@PreAuthorize("isAuthenticated()")
 	@McpTool(
-			name = "index-json-file",
+			name = "index-file",
 			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index a UTF-8 JSON file without sending its contents through the model. "
-					+ "Requires the operator to set SOLR_MCP_INGEST_ROOT; disabled by default. "
-					+ "The path must be on the MCP server's filesystem under that directory (maximum 10 MiB), "
-					+ "not a URL or a file only available on a remote client. Reuse the path for another collection. "
+			description = "Index a local UTF-8 JSON, CSV, XML or Markdown file without sending its contents through the model. "
+					+ "Available only in local STDIO mode. No ingest-root setting or file-size cap. "
+					+ "Structured records stream in batches; Markdown remains one document. "
+					+ "The path must be readable by the MCP server, not a URL or remote-client-only path. "
+					+ "Reuse the path for another collection. Failures can leave partially indexed data; verify counts before retrying. "
 					+ IndexingService.SCHEMA_FIRST_GUIDANCE)
-	public String indexJsonFile(@McpToolParam(description = "Solr collection to index into") String collection,
+	public String indexFile(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(
-					description = "JSON file path on the MCP server, absolute or relative to SOLR_MCP_INGEST_ROOT; no URLs or ~ expansion") String path) {
-		if (ingestRoot.isBlank()) {
-			throw new IllegalArgumentException(
-					"File ingestion is disabled. Ask the operator to set SOLR_MCP_INGEST_ROOT "
-							+ "to a dedicated data directory, or use index-json-documents with inline JSON.");
-		}
+					description = "Local server file path, absolute or relative to its working directory; no URLs or ~ expansion") String path,
+			@McpToolParam(
+					description = "Optional format: json, csv, xml, markdown or md; defaults to the file extension",
+					required = false) String format) {
 		if (collection == null || collection.isBlank()) {
 			throw new IllegalArgumentException("Provide a non-empty collection name.");
 		}
 		if (path == null || path.isBlank()) {
-			throw new IllegalArgumentException(
-					"Provide a JSON file path on the MCP server under SOLR_MCP_INGEST_ROOT.");
+			throw new IllegalArgumentException("Provide a local file path on the MCP server.");
 		}
-		String json = readJsonFile(path);
-		try {
-			return indexingService.indexJsonDocuments(collection, json);
+		Path file = resolveFile(path);
+		String selectedFormat = resolveFormat(file, format);
+		try (var input = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+			return indexingService.indexFileDocuments(collection, input, selectedFormat);
 		} catch (DocumentProcessingException e) {
-			logger.debug("Could not parse JSON file for indexing", e);
-			throw new IllegalArgumentException("The file must contain a JSON object or array of objects. "
-					+ "Check the JSON syntax and retry; no documents were sent to Solr.");
-		} catch (SolrServerException | IOException | SolrException e) {
+			logger.debug("Could not parse file for indexing", e);
+			throw new IllegalArgumentException("Cannot parse the file as UTF-8 " + selectedFormat
+					+ ". Check its syntax and format. Some documents may already be indexed; verify the collection before retrying.");
+		} catch (SolrServerException | SolrException e) {
 			logger.warn("File indexing failed for collection {}", collection, e);
 			throw new IllegalStateException("Solr could not complete file indexing. Check collection availability and "
 					+ "field types with get-schema, then verify the indexed count before retrying; some documents may already be indexed.");
+		} catch (IOException | SecurityException e) {
+			logger.debug("File read or indexing I/O failed", e);
+			throw new IllegalStateException(
+					"Cannot finish file indexing. Check that the UTF-8 file remains readable and "
+							+ "Solr is available; some documents may already be indexed. Verify the collection before retrying.");
 		}
 	}
 
-	private String readJsonFile(String path) {
+	private static String resolveFormat(Path file, String format) {
+		String name = file.getFileName().toString();
+		String selected = format == null || format.isBlank() ? name.substring(name.lastIndexOf('.') + 1) : format;
+		return switch (selected.trim().toLowerCase(Locale.ROOT)) {
+			case "json" -> "json";
+			case "csv" -> "csv";
+			case "xml" -> "xml";
+			case "md", "markdown" -> "markdown";
+			default -> throw new IllegalArgumentException(
+					"Cannot determine the file format. Supply format=json, csv, xml or markdown.");
+		};
+	}
+
+	private static Path resolveFile(String path) {
 		try {
-			Path root = Path.of(ingestRoot).toRealPath();
-			Path candidate = root.resolve(path);
-			Path file = candidate.toRealPath();
-			if (!file.startsWith(root)) {
-				throw new IllegalArgumentException(
-						"The file must be inside SOLR_MCP_INGEST_ROOT; symlinks outside it are not allowed.");
-			}
+			Path file = Path.of(path).toRealPath();
 			if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
-				throw new IllegalArgumentException(
-						"The path must refer to a regular JSON file, not a directory or device.");
+				throw new IllegalArgumentException("The path must refer to a regular file, not a directory or device.");
 			}
-			if (Files.size(file) > MAX_FILE_SIZE_BYTES) {
-				throw new IllegalArgumentException(
-						"The JSON file exceeds the 10 MiB limit. Split it into smaller files.");
-			}
-			try (var input = Files.newInputStream(file, LinkOption.NOFOLLOW_LINKS)) {
-				byte[] bytes = input.readNBytes(MAX_FILE_SIZE_BYTES + 1);
-				if (bytes.length > MAX_FILE_SIZE_BYTES) {
-					throw new IllegalArgumentException(
-							"The JSON file exceeds the 10 MiB limit. Split it into smaller files.");
-				}
-				return StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(bytes)).toString();
-			}
+			return file;
 		} catch (InvalidPathException e) {
 			throw new IllegalArgumentException("Invalid file path. Use a local server-side path, not a URL.");
-		} catch (CharacterCodingException e) {
-			throw new IllegalArgumentException("The JSON file must be UTF-8 encoded.");
 		} catch (IOException | SecurityException e) {
-			logger.debug("Could not read JSON file for indexing", e);
+			logger.debug("Could not read file for indexing", e);
 			throw new IllegalArgumentException(
-					"Cannot read the JSON file. Check that the file and SOLR_MCP_INGEST_ROOT "
-							+ "exist and are readable on the MCP server; for Docker, mount the data directory and use its container path.");
+					"Cannot read the file. Check that it exists and is readable on the MCP server; "
+							+ "for Docker, mount the data directory and use its container path.");
 		}
 	}
 }

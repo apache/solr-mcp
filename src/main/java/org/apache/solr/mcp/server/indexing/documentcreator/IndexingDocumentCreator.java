@@ -16,8 +16,11 @@
  */
 package org.apache.solr.mcp.server.indexing.documentcreator;
 
+import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Objects;
+import java.util.function.Consumer;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.springframework.stereotype.Service;
@@ -84,6 +87,35 @@ public class IndexingDocumentCreator {
 		this.csvDocumentCreator = csvDocumentCreator;
 		this.jsonDocumentCreator = jsonDocumentCreator;
 		this.markdownDocumentCreator = markdownDocumentCreator;
+	}
+
+	/**
+	 * Parses file content and emits documents synchronously, without inline size
+	 * limits. The reader is borrowed and is never closed. JSON and CSV retain one
+	 * record at a time; XML retains a tentative single document until a repeated
+	 * root-child tag selects its multi-document representation. Markdown is one
+	 * document and is read in full. Earlier documents may have been emitted when a
+	 * later parse error occurs. Exceptions from the consumer propagate unchanged.
+	 *
+	 * @param input
+	 *            the caller-owned character reader
+	 * @param format
+	 *            normalized format: json, csv, xml, or markdown
+	 * @param consumer
+	 *            receives each document before parsing continues
+	 * @throws DocumentProcessingException
+	 *             if reading or parsing fails
+	 */
+	public void stream(Reader input, String format, Consumer<SolrInputDocument> consumer) {
+		Objects.requireNonNull(input, "input");
+		Objects.requireNonNull(consumer, "consumer");
+		switch (format) {
+			case "json" -> jsonDocumentCreator.stream(input, consumer);
+			case "csv" -> csvDocumentCreator.stream(input, consumer);
+			case "xml" -> xmlDocumentCreator.stream(input, consumer);
+			case "markdown" -> markdownDocumentCreator.stream(input, consumer);
+			default -> throw new IllegalArgumentException("Unsupported document format: " + format);
+		}
 	}
 
 	/**

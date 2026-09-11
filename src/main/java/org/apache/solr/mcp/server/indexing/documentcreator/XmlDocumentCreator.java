@@ -18,15 +18,23 @@ package org.apache.solr.mcp.server.indexing.documentcreator;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Consumer;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamConstants;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamReader;
 import org.apache.solr.common.SolrInputDocument;
 import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
@@ -81,6 +89,153 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
 			throw new DocumentProcessingException("Failed to parse XML document: structural error", e);
 		} catch (IOException e) {
 			throw new DocumentProcessingException("Failed to read XML document", e);
+		}
+	}
+
+	void stream(Reader input, Consumer<SolrInputDocument> consumer) {
+		try (XmlStream stream = new XmlStream(input)) {
+			XMLStreamReader reader = stream.reader;
+			while (reader.hasNext() && reader.next() != XMLStreamConstants.START_ELEMENT) {
+				rejectDtd(reader);
+			}
+			if (reader.getEventType() != XMLStreamConstants.START_ELEMENT) {
+				throw new DocumentProcessingException("XML input cannot be empty");
+			}
+			Document document = createSecureDocumentBuilderFactory().newDocumentBuilder().newDocument();
+			Element root = readStartElement(reader, document);
+			Set<String> childNames = new HashSet<>();
+			boolean multipleDocuments = false;
+			StringBuilder text = new StringBuilder();
+			while (reader.hasNext()) {
+				int event = reader.next();
+				if (event == XMLStreamConstants.CHARACTERS || event == XMLStreamConstants.SPACE) {
+					if (!multipleDocuments) {
+						text.append(reader.getText());
+					}
+					continue;
+				}
+				appendText(root, text);
+				if (event == XMLStreamConstants.START_ELEMENT) {
+					if (!multipleDocuments && !childNames.add(reader.getLocalName())) {
+						multipleDocuments = true;
+						// The first repeated root-child tag selects the same strategy as
+						// the inline DOM parser, even when unlike siblings precede it.
+						while (root.hasChildNodes()) {
+							Node child = root.getFirstChild();
+							root.removeChild(child);
+							if (child instanceof Element element) {
+								emitElement(element, consumer);
+							}
+						}
+						childNames.clear();
+					}
+					Element child = readElement(reader, document);
+					if (multipleDocuments) {
+						emitElement(child, consumer);
+					} else {
+						root.appendChild(child);
+					}
+				} else if (event == XMLStreamConstants.END_ELEMENT) {
+					if (!multipleDocuments) {
+						emitElement(root, consumer);
+					}
+					break;
+				} else {
+					rejectDtd(reader);
+				}
+			}
+			// Validate the suffix as well; a second root or malformed trailing data
+			// must not silently succeed after the final document has been emitted.
+			while (reader.hasNext()) {
+				reader.next();
+				rejectDtd(reader);
+			}
+		} catch (XMLStreamException e) {
+			throw new DocumentProcessingException("Failed to parse XML document", e);
+		} catch (ParserConfigurationException e) {
+			throw new DocumentProcessingException("Failed to configure XML parser", e);
+		}
+	}
+
+	private void emitElement(Element element, Consumer<SolrInputDocument> consumer) {
+		SolrInputDocument doc = new SolrInputDocument();
+		addXmlElementFields(doc, element, "");
+		if (!doc.isEmpty()) {
+			consumer.accept(doc);
+		}
+	}
+
+	private Element readElement(XMLStreamReader reader, Document document) throws XMLStreamException {
+		Element element = readStartElement(reader, document);
+		StringBuilder text = new StringBuilder();
+		while (reader.hasNext()) {
+			int event = reader.next();
+			if (event == XMLStreamConstants.CHARACTERS || event == XMLStreamConstants.SPACE) {
+				text.append(reader.getText());
+				continue;
+			}
+			appendText(element, text);
+			if (event == XMLStreamConstants.START_ELEMENT) {
+				element.appendChild(readElement(reader, document));
+			} else if (event == XMLStreamConstants.END_ELEMENT) {
+				return element;
+			} else {
+				// CDATA is deliberately not indexed: the existing DOM mapper reads
+				// TEXT_NODEs only. Comments and PIs also separate adjacent text nodes.
+				rejectDtd(reader);
+			}
+		}
+		throw new DocumentProcessingException("Unexpected end of XML element");
+	}
+
+	private Element readStartElement(XMLStreamReader reader, Document document) {
+		Element element = document.createElement(reader.getLocalName());
+		for (int i = 0; i < reader.getAttributeCount(); i++) {
+			String prefix = reader.getAttributePrefix(i);
+			String name = reader.getAttributeLocalName(i);
+			if (prefix != null && !prefix.isEmpty()) {
+				name = prefix + ":" + name;
+			}
+			element.setAttribute(name, reader.getAttributeValue(i));
+		}
+		return element;
+	}
+
+	private void appendText(Element element, StringBuilder text) {
+		if (!text.isEmpty()) {
+			element.appendChild(element.getOwnerDocument().createTextNode(text.toString()));
+			text.setLength(0);
+		}
+	}
+
+	private static void rejectDtd(XMLStreamReader reader) {
+		if (reader.getEventType() == XMLStreamConstants.DTD
+				|| reader.getEventType() == XMLStreamConstants.ENTITY_REFERENCE) {
+			throw new DocumentProcessingException("XML DTDs and entity references are not allowed");
+		}
+	}
+
+	private static final class XmlStream implements AutoCloseable {
+
+		private final XMLStreamReader reader;
+
+		private XmlStream(Reader input) throws XMLStreamException {
+			XMLInputFactory factory = XMLInputFactory.newDefaultFactory();
+			factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
+			factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
+			factory.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+			factory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, false);
+			factory.setProperty(XMLInputFactory.IS_COALESCING, false);
+			factory.setProperty("http://java.sun.com/xml/stream/properties/report-cdata-event", true);
+			factory.setXMLResolver((publicId, systemId, baseUri, namespace) -> {
+				throw new XMLStreamException("External XML resources are not allowed");
+			});
+			reader = factory.createXMLStreamReader(new BorrowedReader(input));
+		}
+
+		@Override
+		public void close() throws XMLStreamException {
+			reader.close();
 		}
 	}
 
