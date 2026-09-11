@@ -20,13 +20,18 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
 import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
+import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.common.SolrException;
+import org.apache.solr.common.params.ModifiableSolrParams;
+import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.junit.jupiter.api.BeforeEach;
@@ -69,6 +74,8 @@ class SearchServiceIntegrationTest {
 					[
 					  {
 					    "id": "book001",
+					    "platform": ["netflix"],
+					    "platform_ss": ["netflix"],
 					    "name": ["A Game of Thrones"],
 					    "author_ss": ["George R.R. Martin"],
 					    "price": [7.99],
@@ -79,6 +86,8 @@ class SearchServiceIntegrationTest {
 					  },
 					  {
 					    "id": "book002",
+					    "platform": ["netflix"],
+					    "platform_ss": ["netflix"],
 					    "name": ["A Clash of Kings"],
 					    "author_ss": ["George R.R. Martin"],
 					    "price": [8.99],
@@ -89,6 +98,8 @@ class SearchServiceIntegrationTest {
 					  },
 					  {
 					    "id": "book003",
+					    "platform": ["hulu"],
+					    "platform_ss": ["hulu"],
 					    "name": ["A Storm of Swords"],
 					    "author_ss": ["George R.R. Martin"],
 					    "price": [9.99],
@@ -210,6 +221,41 @@ class SearchServiceIntegrationTest {
 				() -> "expected no facet buckets, got: " + result.facets().get("genre_s"));
 	}
 
+	@Test
+	void searchWithSchemalessPlatformFacetsReturnsCounts() throws Exception {
+		// Solr 9's _default infers text_general without docValues or uninversion,
+		// so its default faceting returns [] for platform despite matching documents.
+		// Preserve Solr's response (also across Solr versions), not a different facet
+		// algorithm.
+		NamedList<Object> raw = solrClient.request(
+				new GenericSolrRequest(SolrRequest.METHOD.GET, "/" + COLLECTION_NAME + "/select",
+						new ModifiableSolrParams().set("q", "id:book*").set("rows", 0).set("facet", true)
+								.set("facet.field", "platform").set("facet.mincount", 1).set("facet.sort", "count")),
+				COLLECTION_NAME);
+		NamedList<?> facetCounts = assertInstanceOf(NamedList.class, raw.get("facet_counts"));
+		NamedList<?> facetFields = assertInstanceOf(NamedList.class, facetCounts.get("facet_fields"));
+		NamedList<?> platform = assertInstanceOf(NamedList.class, facetFields.get("platform"));
+		Map<String, Long> expectedPlatform = new HashMap<>();
+		platform.forEach((term, count) -> expectedPlatform.put(term, ((Number) count).longValue()));
+		SearchResponse document = searchService.search(COLLECTION_NAME, "id:book001", null, null, null, null, null);
+		assertEquals(List.of("netflix"), document.documents().getFirst().get("platform"));
+		SearchResponse result = searchService.search(COLLECTION_NAME, "id:book*", null,
+				List.of("platform", "platform_ss", "genre_s"), null, null, 0);
+		assertEquals(10, result.numFound());
+		assertTrue(result.documents().isEmpty());
+		assertEquals(Map.of("platform", expectedPlatform, "platform_ss", Map.of("netflix", 2L, "hulu", 1L), "genre_s",
+				Map.of("fantasy", 7L, "scifi", 3L)), result.facets());
+	}
+
+	@Test
+	void searchWithBlankOptionsPreservesFiltersFacetsAndSort() throws Exception {
+		SearchResponse result = searchService.search(COLLECTION_NAME, " \t", List.of("", "platform:netflix", " "),
+				List.of(" ", "platform_ss", ""), List.of(new SortClause("", ""), new SortClause("id", "desc")), 0, 10);
+		assertEquals(2, result.numFound());
+		assertEquals(List.of("book002", "book001"), getDocumentIds(result.documents()));
+		assertEquals(Map.of("netflix", 2L), result.facets().get("platform_ss"));
+	}
+
 	/**
 	 * Remediation hints classify Solr's error text, which this server cannot see at
 	 * compile time — the strings are produced by solr-core, and only solr-solrj is
@@ -228,6 +274,7 @@ class SearchServiceIntegrationTest {
 				.search(COLLECTION_NAME, "definitely_not_a_field:value", null, null, null, null, null));
 		assertTrue(e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
 				() -> "expected get-schema hint, got: " + e.getMessage());
+		assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
 	}
 
 	@Test
@@ -236,6 +283,7 @@ class SearchServiceIntegrationTest {
 				.search(COLLECTION_NAME, "*:*", List.of("definitely_not_a_field:value"), null, null, null, null));
 		assertTrue(e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
 				() -> "expected get-schema hint, got: " + e.getMessage());
+		assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
 	}
 
 	/** Faceting words it differently: {@code undefined field: "name"}. */
@@ -245,6 +293,7 @@ class SearchServiceIntegrationTest {
 				.search(COLLECTION_NAME, "*:*", null, List.of("definitely_not_a_field"), null, null, null));
 		assertTrue(e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
 				() -> "expected get-schema hint, got: " + e.getMessage());
+		assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
 	}
 
 	/**
@@ -258,6 +307,7 @@ class SearchServiceIntegrationTest {
 				() -> searchService.search(COLLECTION_NAME, "*:*", null, null, sort, null, null));
 		assertTrue(e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
 				() -> "expected get-schema hint, got: " + e.getMessage());
+		assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
 	}
 
 	@Test
@@ -266,6 +316,7 @@ class SearchServiceIntegrationTest {
 				() -> searchService.search(COLLECTION_NAME, "name:(", null, null, null, null, null));
 		assertTrue(e.getMessage().contains(SearchService.LUCENE_SYNTAX_HINT),
 				() -> "expected Lucene syntax hint, got: " + e.getMessage());
+		assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
 	}
 
 	/**
@@ -281,19 +332,24 @@ class SearchServiceIntegrationTest {
 				() -> searchService.search("definitely_not_a_collection", "*:*", null, null, null, null, null));
 		assertTrue(e.getMessage().contains(SearchService.LIST_COLLECTIONS_HINT),
 				() -> "expected list-collections hint, got: " + e.getMessage());
+		assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
 	}
 
 	/**
-	 * A Solr error we have no advice for must reach the client untouched. Negative
-	 * {@code rows} is structurally identical to the undefined-field failures — a
-	 * 400 carrying a generic {@code SolrException} — so it also pins that the text
-	 * matching is not over-broad.
+	 * An unclassified Solr error keeps its status but replaces backend text with
+	 * safe request guidance. Negative {@code rows} is structurally identical to the
+	 * undefined-field failures, so it also pins that text matching is not
+	 * over-broad.
 	 */
 	@Test
 	void searchWithUnrecognizedSolrErrorPropagatesWithoutHint() {
 		SolrException e = assertThrows(SolrException.class,
 				() -> searchService.search(COLLECTION_NAME, "*:*", null, null, null, null, -5));
 		assertFalse(e.getMessage().contains("Hint:"), () -> "expected no hint, got: " + e.getMessage());
+		assertEquals(SolrException.ErrorCode.BAD_REQUEST.code, e.code());
+		assertTrue(e.getMessage().contains("pagination"));
+		assertTrue(e.getMessage().contains("get-schema"));
+		assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
 	}
 
 	@Test

@@ -16,13 +16,22 @@
  */
 package org.apache.solr.mcp.server;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.client.transport.StdioClientTransport;
 import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
+import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.SolrContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -47,10 +56,57 @@ class McpClientStdioIntegrationTest extends McpClientIntegrationTestBase {
 		String jarPath = "build/libs/" + BuildInfoReader.getJarFileName();
 
 		var params = ServerParameters.builder("java").args("-jar", jarPath).addEnvVar("SOLR_URL", solrUrl)
+				.addEnvVar("SOLR_MCP_INGEST_ROOT", Path.of("src/test/resources").toAbsolutePath().toString())
 				.addEnvVar("SPRING_DOCKER_COMPOSE_ENABLED", "false").build();
 
 		var transport = new StdioClientTransport(params, new JacksonMcpJsonMapper(new ObjectMapper()));
 		return McpClient.sync(transport).build();
+	}
+
+	@Test
+	@Order(39)
+	void reusesJsonFileThroughMcpAndVerifiesCountsAndFacets() throws Exception {
+		String copyCollection = "shows-file-copy";
+		assertNotError(mcpClient.callTool(new CallToolRequest("create-collection", Map.of("name", copyCollection))));
+		// Both collections share the explicitly prepared shows schema from the base
+		// workflow.
+		for (String collection : List.of(SHOWS_COLLECTION, copyCollection, copyCollection)) {
+			var indexed = mcpClient.callTool(
+					new CallToolRequest("index-json-file", Map.of("collection", collection, "path", "shows.json")));
+			assertNotError(indexed);
+			assertTrue(extractText(indexed).contains("61 of 61"), extractText(indexed));
+			assertFalse(extractText(indexed).contains("Stranger Things"));
+			var searched = mcpClient.callTool(new CallToolRequest("search",
+					Map.of("collection", collection, "query", "*:*", "rows", 0, "facetFields", List.of("platform"),
+							"sortClauses", List.of(Map.of("field", "", "order", "")))));
+			assertNotError(searched);
+			Map<String, Object> response = OBJECT_MAPPER.readValue(extractText(searched), new TypeReference<>() {
+			});
+			assertEquals(SHOWS_DOC_COUNT, getNumFound(response));
+			Map<?, ?> facets = (Map<?, ?>) response.get("facets");
+			Map<?, ?> platforms = (Map<?, ?>) facets.get("platform");
+			assertEquals(20, ((Number) platforms.get("Netflix")).intValue());
+		}
+	}
+
+	@Test
+	@Order(40)
+	void fileReadFailureIsAnMcpToolError() {
+		var result = mcpClient.callTool(
+				new CallToolRequest("index-json-file", Map.of("collection", SHOWS_COLLECTION, "path", "missing.json")));
+		assertEquals(Boolean.TRUE, result.isError());
+		assertTrue(extractText(result).contains("Cannot read the JSON file"));
+		assertFalse(extractText(result).contains("NoSuchFileException"));
+	}
+
+	@Test
+	@Order(41)
+	void searchFailureIsAnActionableMcpToolError() {
+		var result = mcpClient.callTool(new CallToolRequest("search",
+				Map.of("collection", SHOWS_COLLECTION, "facetFields", List.of("nonexistent_field_xyz"))));
+		assertEquals(Boolean.TRUE, result.isError());
+		assertTrue(extractText(result).contains("get-schema"), extractText(result));
+		assertFalse(extractText(result).contains("Exception"), extractText(result));
 	}
 
 }

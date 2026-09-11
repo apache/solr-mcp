@@ -5,16 +5,17 @@ queryable collection — entirely through natural-language conversation with an
 AI assistant.
 
 The point of this tutorial is not just *how* to index data. It's **why field
-types matter**. You will index a dataset twice: once letting Solr guess, once
-choosing types deliberately, and see exactly what the difference buys you.
+types matter**. Define the schema first, index a saved file, and ask useful
+questions immediately. Schemaless pitfalls are explained below, not required
+as a detour through a broken collection.
 
 **Time:** about 15 minutes.
 
 ```
   1. Start Solr           empty SolrCloud, one container
-  2. Index blind          61 documents, zero schema work        <- it just works
-  3. Inspect the guess    what Solr decided on your behalf      <- and here's the catch
-  4. Design a schema      types chosen for the questions you ask
+  2. Save the dataset     reuse the file without repeating its contents
+  3. Design a schema      types chosen for the questions you ask
+  4. Index and verify     use the tool's actual document count
   5. Search               filters, facets, ranges, sorting
   6. Introspect           stats, health, schema
 ```
@@ -78,94 +79,22 @@ curl -O https://raw.githubusercontent.com/apache/solr-mcp/main/src/test/resource
 }
 ```
 
-If your client cannot read local files, paste the JSON contents directly into the
-conversation instead of referencing the path.
+For file ingestion, set `SOLR_MCP_INGEST_ROOT` in the **MCP server's environment**
+to the absolute directory containing `shows.json`, then restart that server.
+Use a dedicated data directory, not your home directory. The `index-json-file`
+tool accepts paths relative to this root (such as `shows.json`) or absolute
+paths inside it. It reads UTF-8 JSON up to 10 MiB and returns counts, not content.
+
+The path is on the **server**, not necessarily on your client. For Docker, mount
+the data directory read-only, set the root to its container path, and pass that
+path to the tool. For a remote server without a shared directory, use
+`index-json-documents` with inline JSON instead. The server does not fetch URLs;
+download once on the client into the shared directory. Do not ask the model to
+reconstruct the entire dataset from memory.
 
 ---
 
-## Step 1 — Index without a schema
-
-Solr's `_default` configset runs in **schemaless** (data-driven) mode: send it
-documents containing fields it has never seen, and it will invent types for them.
-
-> *"Create a Solr collection called shows-auto."*
-
-> *"Index the contents of ./shows.json into the shows-auto collection."*
-
-You should get `61 of 61 documents`. No schema, no field definitions, no
-configuration — and it worked.
-
-This is genuinely useful. Schemaless mode exists so you can get data in and start
-exploring before you know what questions you'll ask. The trouble starts when you
-ask them.
-
----
-
-## Step 2 — Ask a real question
-
-> *"Show me the breakdown of shows-auto by platform."*
-
-This is the most ordinary business question imaginable, and the answer comes back
-empty:
-
-```json
-{ "numFound": 61, "documents": [], "facets": { "platform": {} } }
-```
-
-Read that carefully, because it is worse than an error. Sixty-one documents
-matched. The query succeeded. Solr simply has no breakdown to give you, and it
-says so without complaining. Nothing here tells you that the *data* is fine and
-the *field type* is the problem — which is exactly the failure mode that makes
-schemaless deceptive.
-
-To see the cause, look at what Solr decided on your behalf:
-
-> *"Show me the schema for shows-auto."*
-
-| Field | Solr guessed | What that costs you |
-|-------|-------------|---------------------|
-| `platform` | `text_general` | Tokenized and analyzed, so it is no longer one value. Searching `platform:prime` matches all 20 Amazon Prime Video shows — nonsense for a category — and faceting it yields **no buckets at all**. |
-| `title` | `text_general` | Searchable, but not sortable or exact-matchable. |
-| `imdb_rating` | `pdoubles` | Note the trailing `s` — that plural means **multi-valued**. Every rating is a list, so "highest rated" is not a well-defined question. |
-| `release_year` | `plongs` | Multi-valued too, which makes range filtering awkward. |
-
-Look at any document that comes back and the giveaway is visible — every field is
-wrapped in an array:
-
-```json
-"title": ["Stranger Things"], "imdb_rating": [8.7]
-```
-
-Solr saw one sample of each field and had no reason to assume it would not repeat,
-so it hedged on all of them.
-
-**The lesson:** schemaless is an on-ramp, not a destination. Solr guessed from a
-single document with no knowledge of what you would later want to ask. Faceting,
-range filtering and sorting all depend on types chosen with those questions in
-mind.
-
----
-
-## Step 3 — Reset
-
-Field types **cannot be changed once created**. Worse, at present every collection
-created through `create-collection` shares the same `_default` configset, so the
-guesses from Step 1 are already baked in and a new collection would inherit them
-(see [Known issues](#known-issues)).
-
-So start from a clean slate:
-
-```bash
-docker rm -f solr-tutorial
-docker run -d --name solr-tutorial -p 8983:8983 solr:9-slim solr start -c -f
-```
-
-This takes a few seconds. Wait for the collections endpoint to answer before
-continuing.
-
----
-
-## Step 4 — Design the schema first
+## Step 1 — Design the schema first
 
 Now create the collection and define its fields **before** any documents arrive.
 
@@ -188,18 +117,24 @@ each choice:
 | `string` rather than `text_general` | Exact values. "Amazon Prime Video" stays one facet bucket instead of disappearing into tokens. |
 | `docValues: true` | The column-oriented structure that makes faceting and sorting efficient. |
 | `pint` / `pdouble` | Real numbers, so range filters like `[2020 TO *]` and numeric sorting work. |
-| Single-valued where the data is single-valued | You can sort on it. Sorting by a multi-valued field is not meaningful. |
+| Single-valued where the data is single-valued | A rating is a scalar, not a list; sorting needs no implicit minimum/maximum selection. |
 | `text_general` kept for prose | Analysis and tokenizing is exactly right for `title` and `description`. |
 
 Note that the difference is not "strings are better than text". Both types appear
 in this schema. The difference is matching the type to how the field will be
 *queried* — categories get exact matching, prose gets analysis.
 
-Now index the same data into the new collection:
+## Step 2 — Index and verify
 
-> *"Index the contents of ./shows.json into the shows collection."*
+> *"Use index-json-file with collection shows and path shows.json. Report the
+> tool's actual successful and total counts."*
 
-And ask the question that failed in Step 2:
+Expect `Successfully indexed 61 of 61`. Confirm with `search`, `query=*:*`,
+`rows=0`: `numFound` should be 61. You can reuse the same file path to index
+another prepared collection without resending the JSON. Reusing IDs in the same
+collection updates documents, so a second call still leaves 61 documents.
+
+Then ask:
 
 > *"Show me the breakdown of shows by platform."*
 
@@ -208,12 +143,12 @@ Netflix 20, Amazon Prime Video 20, HBO Max 7, Apple TV+ 4,
 Disney+ 4, Hulu 3, Paramount+ 2, Peacock 1
 ```
 
-Same data, same question, same tool. The only thing that changed is that someone
-decided what the fields meant.
+The category field preserves exact platform names, so the breakdown answers the
+question rather than counting analyzed word tokens.
 
 ---
 
-## Step 5 — Search
+## Step 3 — Search
 
 Each of these exercises a different Solr capability. The parameter each one drives
 is noted so you can connect the natural-language request to what actually runs.
@@ -240,7 +175,7 @@ what the server exists to provide.
 
 ---
 
-## Step 6 — Ask about the index itself
+## Step 4 — Ask about the index itself
 
 Search is the headline, but the operational tools are what make this useful in a
 real workflow.
@@ -259,10 +194,24 @@ otherwise mean reading `managed-schema` and knowing what `docValues` implies.
 
 ---
 
+## Why not index schemaless first?
+
+The `_default` configset can guess types for unknown fields, but it does not know
+your intended queries. It may infer `text_general` without docValues for
+`platform`, and multi-valued `pdoubles`/`plongs` for scalar numbers. Faceting an
+analyzed category can return token buckets, no buckets, or an error depending on
+the configuration and Solr version — not reliable exact-category counts.
+
+If you already indexed this way, inspect the relevant fields and copy-field
+rules. An existing string copy such as `platform_str` can provide exact facets;
+do not assume the sibling exists without checking. For a durable fix, use a
+clean configset, define the schema, and reindex from the saved file. These MCP
+tools only **add** fields and cannot change an existing field's type. There is
+no need to deliberately break and reset Solr to complete this tutorial.
+
 ## Known issues
 
-Two rough edges worth knowing about. The first is a tracked defect you will meet
-while following this tutorial; neither is a mistake on your part.
+Two rough edges worth knowing about, especially when reusing an existing Solr.
 
 **Collections share the `_default` configset**
 ([#183](https://github.com/apache/solr-mcp/issues/183)). `create-collection` binds
@@ -270,7 +219,8 @@ each collection to the shared `_default` configset rather than copying it, so
 schemaless field guesses leak into every collection created afterwards. Symptoms
 are `add-fields` failing with `Field 'x' already exists` on a brand-new collection,
 or a "schemaless" collection silently inheriting another collection's explicit
-types. Restarting Solr resets it, which is why Step 3 exists.
+types. Use a fresh, isolated configset for a different schema; simply restarting
+a persistent Solr instance does not reset its managed schema.
 
 **Unknown search parameters are dropped silently.** Arguments the `search` tool does
 not declare are ignored rather than rejected, so a misnamed one looks like a query
@@ -291,7 +241,7 @@ names via your client's tool inspector before assuming the data is wrong.
 
 Things worth trying with what you have running:
 
-- Index your own JSON, CSV or XML and see what the schema guesser makes of it.
+- Design a schema for your own JSON, CSV or XML, then index and verify it.
 - Add a `DenseVectorField` with `add-field-types` and try vector search.
 - Describe a dataset in words and ask the assistant to design a schema for it.
 - Point the server at a Solr you already run — `SOLR_URL` is the only setting.

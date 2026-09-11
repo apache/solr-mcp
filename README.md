@@ -97,6 +97,7 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 |------|-------------|
 | `search` | Full-text search with filtering, faceting, sorting, and pagination |
 | `index-json-documents` | Index documents from a JSON string into a collection |
+| `index-json-file` | Index a server-side UTF-8 JSON file (opt-in via `SOLR_MCP_INGEST_ROOT`, up to 10 MiB) |
 | `index-csv-documents` | Index documents from a CSV string into a collection |
 | `index-xml-documents` | Index documents from an XML string into a collection |
 | `index-markdown-documents` | Index a markdown document into a collection, extracting front matter, title, headings, and body text |
@@ -109,6 +110,27 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 | `get-schema` | Retrieve schema information for a collection |
 
 Every tool advertises MCP behavior hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`) so clients can build sensible approval UX — `search` and the metadata tools are read-only, indexing is destructive but idempotent, schema modification is additive.
+
+**Before indexing:** use `get-schema` and `add-fields` (or the `design-schema`
+prompt) to prepare field types, `docValues`, and `multiValued` settings. Use
+`string` for facet categories and `text_general` for prose; schemaless guesses
+are not a substitute for schema design.
+
+**Index a saved JSON file without repeating its payload:** configure
+`SOLR_MCP_INGEST_ROOT` in the server environment to an absolute, dedicated data
+directory and restart the server. Call `index-json-file` with
+`{"collection":"shows","path":"shows.json"}`; the path is relative to that root
+or an absolute path inside it. Reuse the same path for another prepared collection.
+The result reports actual counts and field names, never the file contents.
+
+File reads are disabled by default. Paths refer to the **MCP server filesystem**:
+for Docker, mount the directory read-only and use its container path; a remote
+client's local path is not automatically shared. URLs and `~` expansion are not
+supported. Only expose data intended for indexing — not a home directory or a
+directory with credentials. Keep the directory and its ancestors controlled by
+trusted local users; path checks do not sandbox hostile concurrent filesystem
+writers. In HTTP mode, every authorized caller can ingest files from this root,
+using the same authentication gate as the other indexing tools.
 
 ### Resources
 
@@ -146,6 +168,7 @@ The server reads configuration from environment variables. The essentials:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `SOLR_URL` | Solr base URL | `http://localhost:8983/solr/` |
+| `SOLR_MCP_INGEST_ROOT` | Dedicated server-side directory allowed for `index-json-file` | Unset (file reads disabled) |
 | `PROFILES` | Transport mode: `stdio` (default, for Claude Desktop) or `http` (remote / multi-client) | `stdio` |
 
 Running in **HTTP mode** — OAuth2, CORS, and the `HTTP_SECURITY_ENABLED` toggle (secured by default) — is covered in the [security docs](docs/security/). Tracing and metrics env vars (`OTEL_SAMPLING_PROBABILITY`, `OTEL_TRACES_URL`) are covered in [Observability](docs/observability.md).
@@ -154,7 +177,7 @@ Running in **HTTP mode** — OAuth2, CORS, and the `HTTP_SECURITY_ENABLED` toggl
 
 **Using it**
 - [Quick start](#quick-start) · [Client setup](docs/clients/) — Claude Desktop, Claude Code, VS Code, Cursor, JetBrains, MCP Inspector
-- [Tutorial: your first collection](docs/tutorial.md) — index a dataset twice, schemaless then with a designed schema, and see why field types matter
+- [Tutorial: your first collection](docs/tutorial.md) — design a schema first, index a saved dataset, and explore it
 - [Observability](docs/observability.md) — OpenTelemetry traces, metrics, logs
 - Security: [Deployment model (single-tenant)](docs/security/deployment-model.md) · [STDIO model](docs/security/stdio.md) · [HTTP model](docs/security/http.md) · OAuth2 setup: [Auth0](docs/security/auth0.md) · [Keycloak](docs/security/keycloak.md)
 

@@ -16,10 +16,16 @@
  */
 package org.apache.solr.mcp.server;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
+import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
+import java.util.Map;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
@@ -33,7 +39,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  */
 @SpringBootTest(
 		webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-		properties = {"http.security.enabled=false", "spring.docker.compose.enabled=false"})
+		properties = {"http.security.enabled=false", "spring.docker.compose.enabled=false", "solr.mcp.ingest.root="})
 @ActiveProfiles("http")
 @Import(TestcontainersConfiguration.class)
 @Tag("integration")
@@ -47,6 +53,15 @@ class McpClientIntegrationTest extends McpClientIntegrationTestBase {
 	protected McpSyncClient createClient() {
 		var transport = HttpClientStreamableHttpTransport.builder("http://localhost:" + port).build();
 		return McpClient.sync(transport).build();
+	}
+
+	@Test
+	@Order(39)
+	void fileIngestionWithoutConfiguredRootIsAnMcpToolError() {
+		var result = mcpClient.callTool(
+				new CallToolRequest("index-json-file", Map.of("collection", SHOWS_COLLECTION, "path", "shows.json")));
+		assertEquals(Boolean.TRUE, result.isError());
+		assertTrue(extractText(result).contains("File ingestion is disabled"), extractText(result));
 	}
 
 }

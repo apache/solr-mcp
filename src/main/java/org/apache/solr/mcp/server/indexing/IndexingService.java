@@ -46,16 +46,17 @@ import org.xml.sax.SAXException;
  * <p>
  * This service handles the conversion of JSON, CSV, XML, and markdown documents
  * into Solr-compatible format and manages the indexing process with robust
- * error handling and batch processing capabilities. It employs a schema-less
- * approach where Solr automatically detects field types, eliminating the need
- * for predefined schema configuration.
+ * error handling and batch processing capabilities. Define the target schema
+ * before indexing: automatic type detection can choose analyzed text for
+ * categories and multi-valued numeric fields, compromising faceting and
+ * sorting.
  *
  * <p>
  * <strong>Core Features:</strong>
  *
  * <ul>
- * <li><strong>Schema-less Indexing</strong>: Automatic field type detection by
- * Solr
+ * <li><strong>Schema-first Indexing</strong>: Prepare field types, docValues
+ * and cardinality before sending documents to Solr
  * <li><strong>JSON Processing</strong>: Support for complex nested JSON
  * documents
  * <li><strong>CSV Processing</strong>: Support for comma-separated value files
@@ -122,6 +123,11 @@ public class IndexingService {
 
 	private static final int DEFAULT_BATCH_SIZE = 1000;
 
+	static final String SCHEMA_FIRST_GUIDANCE = "Before indexing, use get-schema and add-fields (or design-schema) "
+			+ "to define compatible fields. Use string with docValues for categories/facets, text_general for prose, "
+			+ "and explicit numeric types and multiValued settings. Do not rely on schemaless type guessing; "
+			+ "existing field types cannot be changed with these tools. ";
+
 	/** SolrJ client for communicating with Solr server */
 	private final SolrClient solrClient;
 
@@ -155,7 +161,7 @@ public class IndexingService {
 	 * This method serves as the primary entry point for document indexing
 	 * operations and is exposed as an MCP tool for AI client interactions. It
 	 * processes JSON data containing document arrays and indexes them using a
-	 * schema-less approach.
+	 * prepared schema.
 	 *
 	 * <p>
 	 * <strong>Supported JSON Formats:</strong>
@@ -213,7 +219,9 @@ public class IndexingService {
 	@McpTool(
 			name = "index-json-documents",
 			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index documents from json String into Solr collection. Field names are"
+			description = SCHEMA_FIRST_GUIDANCE
+					+ "For JSON already saved on the MCP server, prefer index-json-file when file ingestion is enabled. "
+					+ "Index documents from json String into Solr collection. Field names are"
 					+ " sanitized for Solr compatibility (lowercased, special characters replaced"
 					+ " with underscores); the response lists the field names as indexed")
 	public String indexJsonDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
@@ -231,8 +239,7 @@ public class IndexingService {
 	 * <p>
 	 * This method serves as the primary entry point for CSV document indexing
 	 * operations and is exposed as an MCP tool for AI client interactions. It
-	 * processes CSV data with headers and indexes them using a schema-less
-	 * approach.
+	 * processes CSV data with headers and indexes them using the target schema.
 	 *
 	 * <p>
 	 * <strong>Supported CSV Formats:</strong>
@@ -288,7 +295,8 @@ public class IndexingService {
 	@McpTool(
 			name = "index-csv-documents",
 			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index documents from CSV string into Solr collection. Column names are"
+			description = SCHEMA_FIRST_GUIDANCE
+					+ "Index documents from CSV string into Solr collection. Column names are"
 					+ " sanitized for Solr compatibility (lowercased, special characters replaced"
 					+ " with underscores); the response lists the field names as indexed")
 	public String indexCsvDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
@@ -306,8 +314,8 @@ public class IndexingService {
 	 * <p>
 	 * This method serves as the primary entry point for XML document indexing
 	 * operations and is exposed as an MCP tool for AI client interactions. It
-	 * processes XML data with nested elements and attributes, indexing them using a
-	 * schema-less approach.
+	 * processes XML data with nested elements and attributes using the target
+	 * schema.
 	 *
 	 * <p>
 	 * <strong>Supported XML Formats:</strong>
@@ -387,7 +395,8 @@ public class IndexingService {
 	@McpTool(
 			name = "index-xml-documents",
 			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index documents from XML string into Solr collection. Element names are"
+			description = SCHEMA_FIRST_GUIDANCE
+					+ "Index documents from XML string into Solr collection. Element names are"
 					+ " sanitized for Solr compatibility (lowercased, special characters replaced"
 					+ " with underscores); the response lists the field names as indexed")
 	public String indexXmlDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
@@ -461,7 +470,8 @@ public class IndexingService {
 	@McpTool(
 			name = "index-markdown-documents",
 			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index a document from markdown String into Solr collection, extracting front matter, title, headings, and body text. "
+			description = SCHEMA_FIRST_GUIDANCE
+					+ "Index a document from markdown String into Solr collection, extracting front matter, title, headings, and body text. "
 					+ "Do NOT use for JSON/CSV/XML input; use index-json-documents, index-csv-documents, or index-xml-documents instead. "
 					+ "Only convert source content to markdown when there is no dedicated tool for the source format, and supply a stable 'id' in the YAML front matter when doing so.")
 	public String indexMarkdownDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
@@ -661,23 +671,31 @@ public class IndexingService {
 					required = false) String sample) {
 		IndexTool indexTool = resolveIndexTool(format);
 		String sampleSection = PromptText.optionalCodeBlock(sample, "Sample input:",
-				"No sample was provided. If the user has not pasted the documents yet, ask for them (or a representative subset) before indexing.");
+				"No sample was provided. Inspect a small representative subset for schema design; do not paste an entire file into context.");
 		return """
 				You are indexing %s data into collection `%s` via MCP tools. Work incrementally and
 				verify after each step.
 
 				1. Confirm the schema is ready.
 				   - Call `get-schema` on `%s`. Confirm the fields the input references exist with
-				     compatible types. If fields are missing or typed wrong, pause and run the
-				     `design-schema` prompt to add them — indexing into a collection without the right
+				     compatible types. If fields are missing, pause and run the
+				     `design-schema` prompt, then `add-fields` — indexing into a collection without the right
 				     fields either fails or silently falls back to schemaless behavior, which can
 				     pollute the configset.
+				   - Use string fields with docValues for categories/facets, text_general for prose,
+				     and explicit numeric types. Set multiValued to match the data, not Solr's guesses.
+				     Existing field types cannot be altered by these tools: use a clean schema and reindex.
 
 				2. Inspect the input.
 				%s
 
 				3. Index the documents.
-				   - Call `%s` with `collection=%s` and `%s=<the document payload>`.
+				   - For JSON saved on the MCP server, prefer `index-json-file` with `collection` and
+				     `path` when the operator has enabled SOLR_MCP_INGEST_ROOT. Paths are server-side;
+				     a remote client's file is not automatically accessible. Fetch URLs client-side
+				     into that shared directory, then reuse the path rather than re-emitting the payload.
+				   - Otherwise, call `%s` with `collection=%s` and `%s=<the document payload>`.
+				     Choose one ingestion path; do not also send inline data after a successful file call.
 				   - The tool batches internally and commits at the end. The return value is the count
 				     of successfully indexed documents.
 				   - On error, read the message carefully: an "unknown field" error means the schema is
@@ -685,8 +703,10 @@ public class IndexingService {
 				     the input format does not match the chosen tool — fix the payload and retry.
 
 				4. Verify the count.
-				   - Call `check-health` on `%s` and confirm the reported doc count increased by the
-				     expected amount, OR call `search` with `query=*:*` and `rows=0` and read
+				   - Report the tool's actual successful and total counts, not an estimate from the sample.
+				     Reusing document IDs updates documents, so reindexing need not increase numFound.
+				   - Call `check-health` on `%s` and confirm the total matches the expected final state,
+				     OR call `search` with `query=*:*` and `rows=0` and read
 				     `numFound`.
 
 				Next step suggestion: once data is indexed, the `search-collection` prompt drives
