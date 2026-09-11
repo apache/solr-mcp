@@ -355,6 +355,22 @@ class IndexingServiceTest {
 	}
 
 	@Test
+	void indexDataPrompt_markdownPath_referencesIndexMarkdownDocuments() {
+		String body = indexingService.indexDataPrompt("library", "markdown", null);
+
+		assertTrue(body.contains("index-markdown-documents"),
+				"Markdown path should reference index-markdown-documents tool");
+	}
+
+	@Test
+	void indexDataPrompt_mdAliasResolvesToMarkdownTool() {
+		String body = indexingService.indexDataPrompt("library", "md", null);
+
+		assertTrue(body.contains("index-markdown-documents"),
+				"'md' alias should reference index-markdown-documents tool");
+	}
+
+	@Test
 	void indexDataPrompt_unknownFormat_throwsIllegalArgumentException() {
 		IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
 				() -> indexingService.indexDataPrompt("library", "yaml", null));
