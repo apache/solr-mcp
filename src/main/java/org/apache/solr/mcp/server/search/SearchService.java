@@ -34,6 +34,8 @@ import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.FacetParams;
 import org.apache.solr.mcp.server.util.PromptNames;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.annotation.McpArg;
 import org.springaicommunity.mcp.annotation.McpPrompt;
 import org.springaicommunity.mcp.annotation.McpTool;
@@ -107,6 +109,8 @@ import org.springframework.util.StringUtils;
 @Service
 @Observed
 public class SearchService {
+
+	private static final Logger logger = LoggerFactory.getLogger(SearchService.class);
 
 	/**
 	 * Fragments of Solr's own error text that identify a failure we can advise on.
@@ -369,6 +373,10 @@ public class SearchService {
 	 */
 	private static RuntimeException withRemediationHint(SolrException e, String collection) {
 		final String message = String.valueOf(e.getMessage());
+
+		// The MCP client only ever sees the exception message, so without this the
+		// server keeps no record of a failed query.
+		logger.debug("Solr query failed on collection {}", collection, e);
 
 		// An unknown collection is a 404 whose body is Solr's HTML "not found" page,
 		// so SolrJ reports it as a mime-type mismatch and leaves getMetadata() null.
