@@ -24,7 +24,6 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.SolrQuery;
@@ -75,8 +74,7 @@ class SearchServiceTest {
 	void search_WithUndefinedSortField_ShouldHintGetSchema() throws Exception {
 		SearchService localService = serviceThrowing(
 				new SolrException(SolrException.ErrorCode.BAD_REQUEST, "sort param field can't be found: bogus"));
-		List<Map<String, String>> sort = List
-				.of(Map.of(SearchService.SORT_ITEM, "bogus", SearchService.SORT_ORDER, "asc"));
+		List<SortClause> sort = List.of(new SortClause("bogus", "asc"));
 		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
 				() -> localService.search("test_collection", "*:*", null, null, sort, null, null));
 		assertTrue(e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted("test_collection")));
@@ -187,8 +185,7 @@ class SearchServiceTest {
 	void search_WithSortClauses_ShouldApplySorting() throws Exception {
 		SolrClient mockClient = mock(SolrClient.class);
 		QueryResponse mockResponse = mock(QueryResponse.class);
-		List<Map<String, String>> sortClauses = List.of(Map.of("item", "price", "order", "asc"),
-				Map.of("item", "name", "order", "desc"));
+		List<SortClause> sortClauses = List.of(new SortClause("price", "asc"), new SortClause("name", "desc"));
 		SolrDocumentList mockDocuments = createMockDocumentList();
 		when(mockResponse.getResults()).thenReturn(mockDocuments);
 		when(mockResponse.getFacetFields()).thenReturn(null);
@@ -225,7 +222,7 @@ class SearchServiceTest {
 		String query = "title:Java";
 		List<String> filterQueries = List.of("inStock:true");
 		List<String> facetFields = List.of("category");
-		List<Map<String, String>> sortClauses = List.of(Map.of("item", "price", "order", "asc"));
+		List<SortClause> sortClauses = List.of(new SortClause("price", "asc"));
 		Integer start = 0;
 		Integer rows = 10;
 		SolrDocumentList mockDocuments = createMockDocumentList();
