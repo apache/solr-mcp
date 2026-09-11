@@ -374,6 +374,10 @@ public class SearchService {
 	private static RuntimeException withRemediationHint(SolrException e, String collection) {
 		final String message = String.valueOf(e.getMessage());
 
+		// The MCP client only ever sees the exception message, so without this the
+		// server keeps no record of a failed query.
+		logger.debug("Solr query failed on collection {}", collection, e);
+
 		// An unknown collection is a 404 whose body is Solr's HTML "not found" page,
 		// so SolrJ reports it as a mime-type mismatch and leaves getMetadata() null.
 		// The status code is the only signal that survives; match it rather than the
