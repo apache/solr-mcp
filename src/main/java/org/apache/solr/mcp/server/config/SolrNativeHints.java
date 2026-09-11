@@ -65,6 +65,7 @@ public class SolrNativeHints {
 	 * image.
 	 */
 	private static final List<String> MCP_RESPONSE_RECORDS = List.of(
+			"org.apache.solr.mcp.server.collection.AliasResult",
 			"org.apache.solr.mcp.server.collection.CollectionCreationResult",
 			"org.apache.solr.mcp.server.collection.SolrHealthStatus",
 			"org.apache.solr.mcp.server.collection.SolrMetrics", "org.apache.solr.mcp.server.collection.IndexStats",
