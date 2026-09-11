@@ -869,11 +869,9 @@ public String getSchema(String collection) { ... }
 
 ### `bootRun` exits with code 1 and prints nothing
 
-This is the most common failure, and the hardest to read, because **HTTP mode
-currently produces no application log output**: `logback.xml` is picked up by
-logback's own self-initialization, so Spring Boot never applies
-`logback-spring.xml`, where the `http` profile's console appender is defined.
-Gradle reports only:
+This is the most common failure. HTTP mode logs to the console through the
+`http` profile's appender in `logback-spring.xml`, so the real exception is
+normally in the Gradle output just above the summary:
 
 ```
 > Task :bootRun FAILED
@@ -881,11 +879,9 @@ Execution failed for task ':bootRun'.
 > Process 'command '.../bin/java'' finished with non-zero exit value 1
 ```
 
-Re-run with logging forced on to see the real exception:
-
-```bash
-LOGGING_CONFIG=classpath:logback-spring.xml ./gradlew bootRun
-```
+If there is genuinely no application output, something has disabled logging
+(for example a stray `logback.xml` on the classpath, which
+`LoggingConfigurationTest` guards against); check that first.
 
 The usual cause is that the realm does not exist yet:
 
