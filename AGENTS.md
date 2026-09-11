@@ -209,8 +209,14 @@ Contents of `logback-spring.xml`:
     and `captureKeyValuePairAttributes` enabled).
   - **STDIO**: No appenders defined, so nothing can reach stdout. The OTEL appender is
     intentionally excluded too.
-- `application-stdio.properties` additionally sets `logging.pattern.console=` (empty
-  pattern) as a second line of defence.
+- `application-stdio.properties` must **not** set `logging.pattern.console=` (empty
+  pattern) as a "second line of defence". Boot copies it into the JVM-wide
+  `CONSOLE_LOG_PATTERN` system property (first writer wins) and logback rejects an
+  empty pattern (`Empty or null pattern`) instead of silencing output. Spring
+  Framework 7 pauses a test's ApplicationContext on context switch, which stops
+  Boot's logging lifecycle bean and makes the next context re-initialise logback, so
+  a stdio-profile test running first would break every later http-profile context in
+  the same JVM (`DistributedTracingTest`). `LoggingConfigurationTest` enforces this.
 
 `SolrNativeHints` registers **both** files as native-image resources — in a native image
 `getResource()` only sees registered resources, so an unregistered `logback.xml` is
