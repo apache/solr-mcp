@@ -186,6 +186,31 @@ class SearchServiceIntegrationTest {
 	}
 
 	/**
+	 * Zero matches is an ordinary search outcome, not an error. Solr writes an
+	 * empty facet as {@code []}, which must still reach SolrJ as a NamedList —
+	 * {@code QueryResponse.getFacetFields()} casts to one, so a plain list surfaces
+	 * as {@code ClassCastException: ArrayList cannot be cast to
+	 * NamedList} instead of an empty result.
+	 *
+	 * <p>
+	 * {@link org.apache.solr.mcp.server.config.JsonResponseParserTest} pins the
+	 * same behaviour at the parser boundary against a hand-written payload. This
+	 * test is the end-to-end counterpart: it proves a real Solr actually emits
+	 * {@code []} for a zero-hit facet, which is the premise the unit tests assume.
+	 */
+	@Test
+	void facetingAQueryThatMatchesNothingReturnsEmptyFacets() throws SolrServerException, IOException {
+		SearchResponse result = searchService.search(COLLECTION_NAME, "genre_s:no_such_genre_exists", null,
+				List.of("genre_s"), null, null, 0);
+
+		assertNotNull(result);
+		assertEquals(0, result.numFound(), "the filter is designed to match nothing");
+		assertNotNull(result.facets(), "facets must be present even when nothing matched");
+		assertTrue(result.facets().getOrDefault("genre_s", Map.of()).isEmpty(),
+				() -> "expected no facet buckets, got: " + result.facets().get("genre_s"));
+	}
+
+	/**
 	 * Remediation hints classify Solr's error text, which this server cannot see at
 	 * compile time — the strings are produced by solr-core, and only solr-solrj is
 	 * on the classpath. These tests therefore provoke each failure on a real Solr
