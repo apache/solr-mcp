@@ -16,23 +16,15 @@
   limitations under the License.
 -->
 <!--
-    The application's real logging configuration: everything Spring Boot-managed
-    lives here, including the per-profile appenders.
+    The one and only logback configuration. Spring Boot resolves the "-spring"
+    variant by convention, and that suffix is required: <springProfile> "cannot
+    be used in the standard logback.xml file because it is loaded too early"
+    (Spring Boot reference documentation). Do not add a logback.xml next to it:
+    Boot would initialize from that file and never load this one.
 
-    It must keep the "-spring" name - <springProfile> "cannot be used in the
-    standard logback.xml file because it is loaded too early" (Spring Boot
-    reference documentation).
-
-    It is reached only because application.properties sets
-    logging.config=classpath:logback-spring.xml. Without that property Spring
-    Boot runs AbstractLoggingSystem.initializeWithConventions(), which resolves
-    the standard Logback locations first, finds logback.xml, reinitializes from
-    it and returns - this file would never be loaded and every <springProfile>
-    appender below would silently disappear.
-
-    logback.xml is a separate, deliberate file covering the phase before Spring
-    Boot exists; see its comment. LoggingConfigurationTest enforces that the two
-    stay paired with logging.config.
+    Logback's own status output during its pre-Spring self-initialization is
+    silenced by Main (logback.statusListenerClass), which is why no early
+    configuration file is needed. See LoggingConfigurationTest.
 -->
 <configuration>
     <!--

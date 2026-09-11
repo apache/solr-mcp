@@ -158,50 +158,41 @@ is why this went unnoticed. Resolved along with
 ### Logging Architecture
 
 The STDIO transport uses stdout for JSON-RPC messages, so any stray stdout output
-corrupts the protocol. Logging is configured in **two phases**, and both files are
-load-bearing:
+corrupts the protocol. The setup follows Spring Boot's conventions: **one** logback
+configuration, `logback-spring.xml`, resolved by Boot by convention, plus one line of
+code in `Main` for the window before Boot exists.
 
-| Phase | Who configures | File | Why |
-|---|---|---|---|
-| 1 | logback's own `ContextInitializer`, on the first `LoggerFactory` touch | `logback.xml` | `NopStatusListener`, no appenders |
-| 2 | Spring Boot's `LoggingApplicationListener` | `logback-spring.xml` | `<springProfile>` appenders |
+**Why the `-spring` name and nothing else.** Boot's rule: `<springProfile>` "cannot be
+used in the standard `logback.xml` file because it is loaded too early." A standard-
+location file is worse than useless here: `AbstractLoggingSystem.initializeWithConventions()`
+finds it first, reinitializes from it and **returns**, so the `-spring` variant is never
+loaded and every `<springProfile>` appender is silently dropped. HTTP mode would run with
+no console logs and no OTLP log export, and startup failures would exit 1 showing only
+the banner. `LoggingConfigurationTest` fails the build if a `logback.xml` (or
+`logback-test.xml`) ever reappears, or if `logging.config` is set in
+`application.properties` to paper over one. `LOGGING_CONFIG` in the environment still
+works as Boot's normal operator override for an *external* file.
 
-**Phase 1 — why `logback.xml` must exist.** `ContextInitializer` only ever scans the
-*standard* locations (`logback-test.xml`, `logback.xml`). It has never heard of
-`logback-spring.xml`; that name is a Spring Boot convention. With no standard-location
-file it falls back to `BasicConfigurator`. In a **native image** logback cannot read its
-own manifest, so it always raises `|-WARN … Versions of logback-classic and ? are
-different or unknown`, which trips `StatusPrinter.printInCaseOfErrorsOrWarnings()` and
-flushes the whole `|-INFO` status list to **stdout** — landing in the middle of the MCP
-JSON-RPC stream. On the JVM the version lookup succeeds, there is no WARN and nothing is
-printed, so this is reproducible *only* in the native image:
+**Why `Main` sets `logback.statusListenerClass`.** Logback initializes itself on the
+first `LoggerFactory` touch, before Boot's `LoggingApplicationListener` runs. In a
+**native image** it cannot read its own manifest, so `ContextInitializer.checkVersions()`
+always raises `|-WARN … Versions of logback-classic and ? are different or unknown`, and
+`LogbackServiceProvider` then calls `StatusPrinter.printInCaseOfErrorsOrWarnings()`,
+flushing the whole `|-INFO` status list to **stdout** — in the middle of the MCP
+JSON-RPC stream. That provider skips the print whenever a status listener is installed,
+and `ContextInitializer.autoConfig()` installs one from the `logback.statusListenerClass`
+system property *after* the version check but *before* the print. `Main.main()` therefore
+sets that property to `NopStatusListener` as its first statement, unless an operator has
+already set it (so `-Dlogback.statusListenerClass=ch.qos.logback.core.status.OnConsoleStatusListener`
+still works for debugging logback itself). On the JVM the version lookup succeeds and
+nothing is printed, so this is reproducible *only* in the native image:
 `DockerImageMcpClientStdioIntegrationTest` under `./gradlew dockerIntegrationTest
--Pnative` is the sole test that covers it.
-
-**Phase 2 — why `logging.config` must be set.** `AbstractLoggingSystem.initialize()`
-resolves `logging.config` first and returns; only when it is empty does it fall through
-to `initializeWithConventions()`, which finds the standard-location `logback.xml`,
-reinitializes from it and **returns** — never loading the `-spring` variant. That is not
-"one overrides the other", it **disables** the `-spring` file, taking every
-`<springProfile>` appender with it. Boot's documented rule: `<springProfile>` "cannot be
-used in the standard `logback.xml` file because it is loaded too early."
-
-That trap was live in this repo (both files, no `logging.config`): HTTP mode ran with no
-appenders at all — no console logs, no OTLP log export, and startup failures exited 1
-showing only the Spring banner. `application.properties` now sets
-
-```properties
-logging.config=${LOGGING_CONFIG:classpath:logback-spring.xml}
-```
-
-which takes the `initializeWithSpecificConfig` branch and skips the standard locations
-altogether. `LoggingConfigurationTest` fails the build if either half of the pairing is
-removed, or if an appender is ever added to the phase-1 file.
+-Pnative` is the sole test that covers it end to end.
 
 Contents of `logback-spring.xml`:
 
-- A `NopStatusListener` suppressing logback's internal status messages (`|-INFO`,
-  `|-WARN`), which are written straight to stdout and bypass the appenders.
+- A `NopStatusListener` suppressing logback's internal status messages during Boot's
+  own (re)configuration, which are written straight to stdout and bypass the appenders.
 - `<springProfile>` blocks scoping appenders per transport mode:
   - **HTTP**: Boot's own `console-appender.xml` (so `logging.pattern.console` /
     `logging.charset.console` / `logging.threshold.console` behave as in a stock Boot
@@ -209,38 +200,33 @@ Contents of `logback-spring.xml`:
     and `captureKeyValuePairAttributes` enabled).
   - **STDIO**: No appenders defined, so nothing can reach stdout. The OTEL appender is
     intentionally excluded too.
-- `application-stdio.properties` must **not** set `logging.pattern.console=` (empty
-  pattern) as a "second line of defence". Boot copies it into the JVM-wide
-  `CONSOLE_LOG_PATTERN` system property (first writer wins) and logback rejects an
-  empty pattern (`Empty or null pattern`) instead of silencing output. Spring
-  Framework 7 pauses a test's ApplicationContext on context switch, which stops
-  Boot's logging lifecycle bean and makes the next context re-initialise logback, so
-  a stdio-profile test running first would break every later http-profile context in
-  the same JVM (`DistributedTracingTest`). `LoggingConfigurationTest` enforces this.
+- `application-stdio.properties` must **not** set `logging.pattern.console=` (the
+  empty-pattern idiom Spring AI documents for STDIO servers). Boot copies it into the
+  JVM-wide `CONSOLE_LOG_PATTERN` system property (first writer wins) and logback rejects
+  an empty pattern (`Empty or null pattern`) instead of silencing output. Spring
+  Framework 7 pauses a test's ApplicationContext on context switch, which stops Boot's
+  logging lifecycle bean and makes the next context re-initialise logback, so a
+  stdio-profile test running first would break every later http-profile context in the
+  same JVM (`DistributedTracingTest`). `LoggingConfigurationTest` enforces this.
 
-`SolrNativeHints` registers **both** files as native-image resources — in a native image
-`getResource()` only sees registered resources, so an unregistered `logback.xml` is
-exactly as absent as a deleted one, and phase 1 falls straight back to
-`BasicConfigurator`.
-
-Phase 2 works differently under AOT: `LogbackLoggingSystem` checks
-`initializeFromAotGeneratedArtifactsIfPossible()` *before* reading `logging.config`, and
-replays `META-INF/spring/logback-model` — the model `processAot` serialized from whatever
-configuration Boot loaded at AOT time. So `logging.config` has to be set for the AOT run
-too, which it is, being in `application.properties`. Verify with:
+Under AOT, `LogbackLoggingSystem` replays `META-INF/spring/logback-model` — the model
+`processAot` serialized from `logback-spring.xml` — before looking at the classpath.
+Verify with:
 
 ```bash
 strings build/resources/aot/META-INF/spring/logback-model | grep -E 'SpringProfile|OpenTelemetry'
 ```
 
 `SpringProfileModel` is serialized unresolved, so profiles are still evaluated at runtime;
-the `logback-spring.xml` resource hint is belt-and-braces for the non-AOT path.
+the `logback-spring.xml` resource hint in `SolrNativeHints` is belt-and-braces for the
+non-AOT path.
 
-**Init order**: logback.xml → Spring Boot starts → `logging.config` → logback-spring.xml
-→ application-{profile}.properties
+**Init order**: `Main` sets `logback.statusListenerClass` → first logger touch (logback
+self-init, silent) → Spring Boot starts → logback-spring.xml → application-{profile}.properties
 
-**Debugging tip**: if an HTTP-mode startup fails with no output, logging config is the
-first suspect — check that `logging.config` still resolves to `logback-spring.xml`.
+**Debugging tip**: if an HTTP-mode startup fails with no output, check that no
+`logback.xml` has crept onto the classpath; `LoggingConfigurationTest` should already
+have caught it.
 
 ### Docker image strategy
 
@@ -304,7 +290,7 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
     generic `Object` dispatch): `CollectionCreationResult`, `SolrHealthStatus`,
     `SolrMetrics`, `IndexStats`, `QueryStats`, `CacheStats`, `CacheInfo`,
     `HandlerStats`, `HandlerInfo`, `SearchResponse`
-  - **Resource**: `logback.xml` (see Logging Architecture above)
+  - **Resource**: `logback-spring.xml` (see Logging Architecture above)
 - **Wire format:** `SolrConfig` uses `XMLRequestWriter` instead of the default
   `JavaBinRequestWriter`. The JavaBin binary codec uses deep reflection that would
   require extensive additional native image hints.

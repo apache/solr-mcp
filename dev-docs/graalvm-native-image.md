@@ -162,11 +162,13 @@ container and value types.
   are package-private records the MCP framework dispatches via generic
   `Object`, so AOT can't see them. They're registered by name with
   `registerTypeIfPresent`.
-- **`logback.xml` resource.** Registered as a resource pattern so logback's
-  early (pre-Spring) initialization finds it and installs the `NopStatusListener`.
-  Without it, logback falls through to `BasicConfigurator` and writes status
-  lines to stdout, corrupting STDIO framing. (See the Logging Architecture
-  section of `AGENTS.md`.)
+- **`logback-spring.xml` resource.** Registered as a resource pattern as
+  belt-and-braces for the non-AOT path; under AOT Boot replays the serialized
+  logback model instead. Logback's own pre-Spring status output, which would
+  otherwise land on stdout in the native image and corrupt STDIO framing, is
+  silenced by `Main` via the `logback.statusListenerClass` system property, so
+  no early `logback.xml` is needed. (See the Logging Architecture section of
+  `AGENTS.md`.)
 
 ### Adding a hint when a native run fails
 
