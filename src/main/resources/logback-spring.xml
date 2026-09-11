@@ -15,40 +15,56 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
+<!--
+    The application's real logging configuration: everything Spring Boot-managed
+    lives here, including the per-profile appenders.
+
+    It must keep the "-spring" name - <springProfile> "cannot be used in the
+    standard logback.xml file because it is loaded too early" (Spring Boot
+    reference documentation).
+
+    It is reached only because application.properties sets
+    logging.config=classpath:logback-spring.xml. Without that property Spring
+    Boot runs AbstractLoggingSystem.initializeWithConventions(), which resolves
+    the standard Logback locations first, finds logback.xml, reinitializes from
+    it and returns - this file would never be loaded and every <springProfile>
+    appender below would silently disappear.
+
+    logback.xml is a separate, deliberate file covering the phase before Spring
+    Boot exists; see its comment. LoggingConfigurationTest enforces that the two
+    stay paired with logging.config.
+-->
 <configuration>
     <!--
-        Suppress logback internal status messages (|-INFO, |-WARN lines).
-        Without this, logback writes status output directly to stdout during
-        initialization, BEFORE the profile-specific root logger is configured.
-        In STDIO mode this corrupts the MCP JSON-RPC framing.
+        Suppress logback's internal status messages (|-INFO, |-WARN lines),
+        which are written straight to stdout and bypass the appenders below.
+        In STDIO mode that output would corrupt the MCP JSON-RPC framing.
     -->
     <statusListener class="ch.qos.logback.core.status.NopStatusListener"/>
 
-    <!-- Import Spring Boot's default logging configuration -->
+    <!-- Spring Boot's conversion rules and CONSOLE_LOG_* properties -->
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
 
     <!--
-        HTTP mode - Full observability with console logging and OTEL export
-        Used when running as HTTP server with PROFILES=http
+        HTTP mode - console logging plus OTLP log export.
 
-        Appenders are defined inside the profile block so they do not exist
-        under the STDIO profile. This avoids logback "not referenced" warnings
-        and keeps STDIO stdout completely clean.
-    -->
-    <!--
-        "http & !stdio": if both profiles are activated at once (PROFILES=stdio,http)
-        the CONSOLE appender would write diagnostics to stdout, corrupting the MCP
-        JSON-RPC stream that STDIO transports over it. Keeping stdio dominant here
-        means the combination degrades safely instead of silently breaking.
+        Appenders are declared inside the profile block so they do not exist
+        under the STDIO profile at all, which keeps STDIO stdout clean without
+        relying on a filter or an empty pattern.
+
+        "http & !stdio": if both profiles are activated at once
+        (PROFILES=stdio,http) the CONSOLE appender would write diagnostics to
+        stdout and corrupt the JSON-RPC stream that STDIO transports over it.
+        Keeping stdio dominant means the combination degrades safely instead of
+        silently breaking.
     -->
     <springProfile name="http &amp; !stdio">
-        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-            <encoder>
-                <pattern>${CONSOLE_LOG_PATTERN:-%d{yyyy-MM-dd HH:mm:ss.SSS} %5p --- [%15.15t] %-40.40logger{39} : %m%n}
-                </pattern>
-                <charset>UTF-8</charset>
-            </encoder>
-        </appender>
+        <!--
+            Spring Boot's own CONSOLE appender, so the logging.pattern.console,
+            logging.charset.console and logging.threshold.console properties
+            behave exactly as they do in a stock Boot application.
+        -->
+        <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
 
         <!--
             OpenTelemetry appender for log export.
@@ -68,10 +84,8 @@
     </springProfile>
 
     <!--
-        STDIO mode (default) - stdout suppressed via logging.pattern.console=
-        in application-stdio.properties. No logback-level overrides needed;
-        Spring Boot's empty console pattern keeps stdout clean for MCP
-        JSON-RPC framing.
+        STDIO mode (default) - deliberately no appenders, so nothing can reach
+        stdout and break the MCP JSON-RPC framing. application-stdio.properties
+        additionally sets logging.pattern.console= as a second line of defence.
     -->
-
 </configuration>
