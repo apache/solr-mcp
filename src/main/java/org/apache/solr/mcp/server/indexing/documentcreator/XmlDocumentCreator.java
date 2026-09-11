@@ -72,6 +72,7 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
 	 *             errors occur
 	 */
 	public List<SolrInputDocument> create(String xml) throws DocumentProcessingException {
+		SolrDocumentCreator.requireContent(xml, "XML");
 		try {
 			Element rootElement = parseXmlDocument(xml);
 			return processRootElement(rootElement);

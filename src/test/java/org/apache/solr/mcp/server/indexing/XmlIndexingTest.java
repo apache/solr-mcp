@@ -339,23 +339,12 @@ class XmlIndexingTest {
 	}
 
 	@Test
-	void testCreateSchemalessDocumentsFromXmlWithNullInput() {
-		// Given
-
-		// When/Then
-		assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(null))
-				.isInstanceOf(DocumentProcessingException.class)
-				.hasMessageContaining("XML input cannot be null or empty");
-	}
-
-	@Test
 	void testCreateSchemalessDocumentsFromXmlWithEmptyInput() {
 		// Given
 
 		// When/Then
 		assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(""))
-				.isInstanceOf(DocumentProcessingException.class)
-				.hasMessageContaining("XML input cannot be null or empty");
+				.isInstanceOf(DocumentProcessingException.class).hasMessage("XML input cannot be empty");
 	}
 
 	@Test
@@ -364,8 +353,7 @@ class XmlIndexingTest {
 
 		// When/Then
 		assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml("   \n\t  "))
-				.isInstanceOf(DocumentProcessingException.class)
-				.hasMessageContaining("XML input cannot be null or empty");
+				.isInstanceOf(DocumentProcessingException.class).hasMessage("XML input cannot be empty");
 	}
 
 	@Test

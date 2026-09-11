@@ -132,13 +132,10 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
 	 */
 	@Override
 	public List<SolrInputDocument> create(String markdown) throws DocumentProcessingException {
+		SolrDocumentCreator.requireContent(markdown, "Markdown");
 		if (markdown.getBytes(StandardCharsets.UTF_8).length > MAX_INPUT_SIZE_BYTES) {
 			throw new DocumentProcessingException(
 					"Input too large: exceeds maximum size of " + MAX_INPUT_SIZE_BYTES + " bytes");
-		}
-
-		if (markdown.trim().isEmpty()) {
-			return List.of();
 		}
 
 		Node document;
