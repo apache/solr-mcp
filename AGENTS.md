@@ -99,7 +99,7 @@ docker run -p 8080:8080 --rm -e PROFILES=http \
 Four service classes expose MCP tools via `@McpTool` annotations:
 
 - **SearchService** (`search/`) - Full-text search with filtering, faceting, sorting, pagination
-- **IndexingService** (`indexing/`) - Document indexing supporting JSON, CSV, XML formats
+- **IndexingService** (`indexing/`) - Document indexing supporting JSON, CSV, XML, and markdown formats
 - **CollectionService** (`collection/`) - List collections, get stats, health checks
 - **SchemaService** (`schema/`) - Schema introspection and additive modification (add-fields, add-field-types)
 
@@ -107,7 +107,7 @@ Four service classes expose MCP tools via `@McpTool` annotations:
 
 `indexing/documentcreator/` uses strategy pattern for format parsing:
 - `SolrDocumentCreator` - Common interface
-- `JsonDocumentCreator`, `CsvDocumentCreator`, `XmlDocumentCreator` - Format implementations
+- `JsonDocumentCreator`, `CsvDocumentCreator`, `XmlDocumentCreator`, `MarkdownDocumentCreator` - Format implementations
 - `IndexingDocumentCreator` - Orchestrator that delegates to format-specific creators
 - `FieldNameSanitizer` - Automatic field name validation for Solr compatibility
 
@@ -158,23 +158,83 @@ is why this went unnoticed. Resolved along with
 ### Logging Architecture
 
 The STDIO transport uses stdout for JSON-RPC messages, so any stray stdout output
-corrupts the protocol. Logging is configured in two layers:
+corrupts the protocol. Logging is configured in **two phases**, and both files are
+load-bearing:
 
-- **`logback.xml`** — Loaded by logback BEFORE Spring Boot initializes. Contains only
-  a `NopStatusListener` to suppress logback's internal status messages (`|-INFO`,
-  `|-WARN`) that would otherwise be written directly to stdout. Required for native
-  image where logback falls through to `BasicConfigurator` without it.
-- **`logback-spring.xml`** — Loaded by Spring Boot, overrides `logback.xml`. Uses
-  `<springProfile>` blocks to scope appenders per transport mode:
-  - **HTTP**: CONSOLE appender (stdout) + OpenTelemetry appender (OTLP log export with
-    `captureExperimentalAttributes` and `captureKeyValuePairAttributes` enabled).
-  - **STDIO**: No appenders defined. Relies on `logging.pattern.console=` in
-    `application-stdio.properties` to produce empty output from Spring Boot's default
-    console appender. The OTEL appender is intentionally excluded to keep stdout clean.
-- **`application-stdio.properties`** — Sets `logging.pattern.console=` (empty pattern)
-  which suppresses all Spring-managed console logging after Spring Boot initializes.
+| Phase | Who configures | File | Why |
+|---|---|---|---|
+| 1 | logback's own `ContextInitializer`, on the first `LoggerFactory` touch | `logback.xml` | `NopStatusListener`, no appenders |
+| 2 | Spring Boot's `LoggingApplicationListener` | `logback-spring.xml` | `<springProfile>` appenders |
 
-**Init order**: logback.xml → Spring Boot starts → logback-spring.xml → application-{profile}.properties
+**Phase 1 — why `logback.xml` must exist.** `ContextInitializer` only ever scans the
+*standard* locations (`logback-test.xml`, `logback.xml`). It has never heard of
+`logback-spring.xml`; that name is a Spring Boot convention. With no standard-location
+file it falls back to `BasicConfigurator`. In a **native image** logback cannot read its
+own manifest, so it always raises `|-WARN … Versions of logback-classic and ? are
+different or unknown`, which trips `StatusPrinter.printInCaseOfErrorsOrWarnings()` and
+flushes the whole `|-INFO` status list to **stdout** — landing in the middle of the MCP
+JSON-RPC stream. On the JVM the version lookup succeeds, there is no WARN and nothing is
+printed, so this is reproducible *only* in the native image:
+`DockerImageMcpClientStdioIntegrationTest` under `./gradlew dockerIntegrationTest
+-Pnative` is the sole test that covers it.
+
+**Phase 2 — why `logging.config` must be set.** `AbstractLoggingSystem.initialize()`
+resolves `logging.config` first and returns; only when it is empty does it fall through
+to `initializeWithConventions()`, which finds the standard-location `logback.xml`,
+reinitializes from it and **returns** — never loading the `-spring` variant. That is not
+"one overrides the other", it **disables** the `-spring` file, taking every
+`<springProfile>` appender with it. Boot's documented rule: `<springProfile>` "cannot be
+used in the standard `logback.xml` file because it is loaded too early."
+
+That trap was live in this repo (both files, no `logging.config`): HTTP mode ran with no
+appenders at all — no console logs, no OTLP log export, and startup failures exited 1
+showing only the Spring banner. `application.properties` now sets
+
+```properties
+logging.config=${LOGGING_CONFIG:classpath:logback-spring.xml}
+```
+
+which takes the `initializeWithSpecificConfig` branch and skips the standard locations
+altogether. `LoggingConfigurationTest` fails the build if either half of the pairing is
+removed, or if an appender is ever added to the phase-1 file.
+
+Contents of `logback-spring.xml`:
+
+- A `NopStatusListener` suppressing logback's internal status messages (`|-INFO`,
+  `|-WARN`), which are written straight to stdout and bypass the appenders.
+- `<springProfile>` blocks scoping appenders per transport mode:
+  - **HTTP**: Boot's own `console-appender.xml` (so `logging.pattern.console` /
+    `logging.charset.console` / `logging.threshold.console` behave as in a stock Boot
+    app) + OpenTelemetry appender (OTLP log export with `captureExperimentalAttributes`
+    and `captureKeyValuePairAttributes` enabled).
+  - **STDIO**: No appenders defined, so nothing can reach stdout. The OTEL appender is
+    intentionally excluded too.
+- `application-stdio.properties` additionally sets `logging.pattern.console=` (empty
+  pattern) as a second line of defence.
+
+`SolrNativeHints` registers **both** files as native-image resources — in a native image
+`getResource()` only sees registered resources, so an unregistered `logback.xml` is
+exactly as absent as a deleted one, and phase 1 falls straight back to
+`BasicConfigurator`.
+
+Phase 2 works differently under AOT: `LogbackLoggingSystem` checks
+`initializeFromAotGeneratedArtifactsIfPossible()` *before* reading `logging.config`, and
+replays `META-INF/spring/logback-model` — the model `processAot` serialized from whatever
+configuration Boot loaded at AOT time. So `logging.config` has to be set for the AOT run
+too, which it is, being in `application.properties`. Verify with:
+
+```bash
+strings build/resources/aot/META-INF/spring/logback-model | grep -E 'SpringProfile|OpenTelemetry'
+```
+
+`SpringProfileModel` is serialized unresolved, so profiles are still evaluated at runtime;
+the `logback-spring.xml` resource hint is belt-and-braces for the non-AOT path.
+
+**Init order**: logback.xml → Spring Boot starts → `logging.config` → logback-spring.xml
+→ application-{profile}.properties
+
+**Debugging tip**: if an HTTP-mode startup fails with no output, logging config is the
+first suspect — check that `logging.config` still resolves to `logback-spring.xml`.
 
 ### Docker image strategy
 
@@ -416,3 +476,12 @@ Dependencies managed in `gradle/libs.versions.toml`.
 Uses [Conventional Commits](https://www.conventionalcommits.org/): `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
 Example: `feat(search): add fuzzy search support`
+
+## Security
+
+Security model: [SECURITY.md](./SECURITY.md)
+
+Agents that scan this repository should consult `SECURITY.md` and the
+threat model it links before reporting issues.
+
+This repo is the Solr MCP server; its threat model is distinct from the Apache Solr search server (cross-referenced within).

@@ -32,6 +32,8 @@ import org.apache.solr.client.solrj.request.schema.FieldTypeDefinition;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
 import org.apache.solr.mcp.server.util.PromptNames;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.mcp.annotation.McpArg;
 import org.springframework.ai.mcp.annotation.McpPrompt;
 import org.springframework.ai.mcp.annotation.McpResource;
@@ -137,6 +139,8 @@ import tools.jackson.databind.ObjectMapper;
 @Observed
 public class SchemaService {
 
+	private static final Logger logger = LoggerFactory.getLogger(SchemaService.class);
+
 	/** SolrJ client for communicating with Solr server */
 	private final SolrClient solrClient;
 
@@ -185,6 +189,7 @@ public class SchemaService {
 		try {
 			return toJson(objectMapper, getSchema(collection));
 		} catch (Exception e) {
+			logger.error("Failed to get schema for collection: {}", collection, e);
 			// Serialise via Jackson rather than concatenating: an exception message
 			// containing a quote, backslash or newline would otherwise emit invalid
 			// JSON to the MCP client.

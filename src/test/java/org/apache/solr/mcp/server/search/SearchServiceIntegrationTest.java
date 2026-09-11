@@ -188,6 +188,31 @@ class SearchServiceIntegrationTest {
 	}
 
 	/**
+	 * Zero matches is an ordinary search outcome, not an error. Solr writes an
+	 * empty facet as {@code []}, which must still reach SolrJ as a NamedList —
+	 * {@code QueryResponse.getFacetFields()} casts to one, so a plain list surfaces
+	 * as {@code ClassCastException: ArrayList cannot be cast to
+	 * NamedList} instead of an empty result.
+	 *
+	 * <p>
+	 * {@link org.apache.solr.mcp.server.config.JsonResponseParserTest} pins the
+	 * same behaviour at the parser boundary against a hand-written payload. This
+	 * test is the end-to-end counterpart: it proves a real Solr actually emits
+	 * {@code []} for a zero-hit facet, which is the premise the unit tests assume.
+	 */
+	@Test
+	void facetingAQueryThatMatchesNothingReturnsEmptyFacets() throws SolrServerException, IOException {
+		SearchResponse result = searchService.search(COLLECTION_NAME, "genre_s:no_such_genre_exists", null,
+				List.of("genre_s"), null, null, 0);
+
+		assertNotNull(result);
+		assertEquals(0, result.numFound(), "the filter is designed to match nothing");
+		assertNotNull(result.facets(), "facets must be present even when nothing matched");
+		assertTrue(result.facets().getOrDefault("genre_s", Map.of()).isEmpty(),
+				() -> "expected no facet buckets, got: " + result.facets().get("genre_s"));
+	}
+
+	/**
 	 * Remediation hints classify Solr's error text, which this server cannot see at
 	 * compile time — the strings are produced by solr-core, and only solr-solrj is
 	 * on the classpath. These tests therefore provoke each failure on a real Solr
@@ -230,8 +255,7 @@ class SearchServiceIntegrationTest {
 	 */
 	@Test
 	void searchWithUndefinedSortFieldReturnsGetSchemaHint() {
-		List<Map<String, String>> sort = List
-				.of(Map.of(SearchService.SORT_ITEM, "definitely_not_a_field", SearchService.SORT_ORDER, "asc"));
+		List<SortClause> sort = List.of(new SortClause("definitely_not_a_field", "asc"));
 		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
 				() -> searchService.search(COLLECTION_NAME, "*:*", null, null, sort, null, null));
 		assertTrue(e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
@@ -320,7 +344,7 @@ class SearchServiceIntegrationTest {
 
 	@Test
 	void testSortByPriceAscending() throws Exception {
-		List<Map<String, String>> sortClauses = List.of(Map.of("item", "price", "order", "asc"));
+		List<SortClause> sortClauses = List.of(new SortClause("price", "asc"));
 		SearchResponse result = searchService.search(COLLECTION_NAME, null, null, null, sortClauses, null, null);
 		assertNotNull(result);
 		List<Map<String, Object>> documents = result.documents();
@@ -338,7 +362,7 @@ class SearchServiceIntegrationTest {
 
 	@Test
 	void testSortByPriceDescending() throws Exception {
-		List<Map<String, String>> sortClauses = List.of(Map.of("item", "price", "order", "desc"));
+		List<SortClause> sortClauses = List.of(new SortClause("price", "desc"));
 		SearchResponse result = searchService.search(COLLECTION_NAME, null, null, null, sortClauses, null, null);
 		assertNotNull(result);
 		List<Map<String, Object>> documents = result.documents();
@@ -356,7 +380,7 @@ class SearchServiceIntegrationTest {
 
 	@Test
 	void testSortBySequence() throws Exception {
-		List<Map<String, String>> sortClauses = List.of(Map.of("item", "sequence_i", "order", "asc"));
+		List<SortClause> sortClauses = List.of(new SortClause("sequence_i", "asc"));
 		List<String> filterQueries = List.of("series_s:\"A Song of Ice and Fire\"");
 		SearchResponse result = searchService.search(COLLECTION_NAME, null, filterQueries, null, sortClauses, null,
 				null);
@@ -404,7 +428,7 @@ class SearchServiceIntegrationTest {
 
 	@Test
 	void testCombinedSortingAndFiltering() throws Exception {
-		List<Map<String, String>> sortClauses = List.of(Map.of("item", "price", "order", "desc"));
+		List<SortClause> sortClauses = List.of(new SortClause("price", "desc"));
 		List<String> filterQueries = List.of("genre_s:fantasy");
 		SearchResponse result = searchService.search(COLLECTION_NAME, null, filterQueries, null, sortClauses, null,
 				null);

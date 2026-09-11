@@ -39,6 +39,8 @@ mcp-sdk = "2.0.1"
 # OpenTelemetry
 opentelemetry-logback-appender = "2.21.0-alpha"
 
+commonmark = "0.28.0"
+
 # Error Prone and analysis tools
 errorprone-core = "2.48.0"
 nullaway = "0.13.1"
@@ -88,6 +90,10 @@ micrometer-registry-otlp = { module = "io.micrometer:micrometer-registry-otlp" }
 
 # AspectJ (required for @Observed annotation support)
 spring-boot-starter-aspectj = { module = "org.springframework.boot:spring-boot-starter-aspectj" }
+
+# CommonMark (markdown parsing)
+commonmark = { module = "org.commonmark:commonmark", version.ref = "commonmark" }
+commonmark-ext-yaml-front-matter = { module = "org.commonmark:commonmark-ext-yaml-front-matter", version.ref = "commonmark" }
 
 # Error Prone
 errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorprone-core" }

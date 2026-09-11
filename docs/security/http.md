@@ -26,7 +26,7 @@ that legitimately runs without auth.
 | Property | Env var | Default | Effect |
 |---|---|---|---|
 | `http.security.enabled` | `HTTP_SECURITY_ENABLED` | `true` | When `false`, the unsecured filter chain is active and every MCP/actuator endpoint is anonymous. Use only for local development. |
-| `spring.security.oauth2.resourceserver.jwt.issuer-uri` | `OAUTH2_ISSUER_URI` | `https://your-auth0-domain.auth0.com/` (placeholder — replace) | OpenID Provider issuer URL. Used to fetch JWKS for signature validation. The MCP server fails to start if this URL is unreachable. |
+| `spring.security.oauth2.resourceserver.jwt.issuer-uri` | `OAUTH2_ISSUER_URI` | *(empty)* | OpenID Provider issuer URL. Used to fetch JWKS for signature validation. Empty means "no OAuth2 wiring" — the filter chain still gates every non-`permitAll` endpoint with 401/403. Once set to a non-empty value it is resolved **eagerly at startup**, so the MCP server fails to start if that URL is unreachable. |
 | `mcp.cors.allowed-origins` | `MCP_CORS_ALLOWED_ORIGINS` | `http://localhost:6274,http://127.0.0.1:6274` | Explicit CORS allowlist. Wildcards are rejected because the filter chain uses credentials. |
 | `solr.url` | `SOLR_URL` | `http://localhost:8983/solr/` | Same as STDIO. |
 
