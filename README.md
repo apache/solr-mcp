@@ -153,6 +153,7 @@ Running in **HTTP mode** — OAuth2, CORS, and the `HTTP_SECURITY_ENABLED` toggl
 
 **Using it**
 - [Quick start](#quick-start) · [Client setup](docs/clients/) — Claude Desktop, Claude Code, VS Code, Cursor, JetBrains, MCP Inspector
+- [Tutorial: your first collection](docs/tutorial.md) — index a dataset twice, schemaless then with a designed schema, and see why field types matter
 - [Observability](docs/observability.md) — OpenTelemetry traces, metrics, logs
 - Security: [Deployment model (single-tenant)](docs/security/deployment-model.md) · [STDIO model](docs/security/stdio.md) · [HTTP model](docs/security/http.md) · OAuth2 setup: [Auth0](docs/security/auth0.md) · [Keycloak](docs/security/keycloak.md)
 
