@@ -363,3 +363,12 @@ Dependencies managed in `gradle/libs.versions.toml`.
 Uses [Conventional Commits](https://www.conventionalcommits.org/): `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
 Example: `feat(search): add fuzzy search support`
+
+## Security
+
+Security model: [SECURITY.md](./SECURITY.md)
+
+Agents that scan this repository should consult `SECURITY.md` and the
+threat model it links before reporting issues.
+
+This repo is the Solr MCP server; its threat model is distinct from the Apache Solr search server (cross-referenced within).
