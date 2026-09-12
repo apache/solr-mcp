@@ -315,7 +315,7 @@ Two adversaries are in scope; several are explicitly not.
 6. **XML indexing is XXE-hardened.** `XmlDocumentCreator` builds a
    `DocumentBuilderFactory` with secure processing on, DOCTYPE disallowed,
    external general/parameter entities off, XInclude off, entity-expansion off.
-   *Violation:* an XXE/entity-expansion payload in an `index-xml-documents` body
+   *Violation:* an XXE/entity-expansion payload in an `index-documents` body with `format=xml`
    reads a local file or hangs the parser. *Severity:* high. *(documented —
    `XmlDocumentCreator.createSecureDocumentBuilderFactory`.)*
 7. **Tool behaviour hints are advertised honestly.** Every tool carries MCP

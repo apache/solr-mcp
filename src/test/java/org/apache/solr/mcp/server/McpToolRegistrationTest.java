@@ -222,6 +222,37 @@ class McpToolRegistrationTest {
 	}
 
 	/**
+	 * Inline indexing is one tool with a {@code format} argument rather than one
+	 * tool per format: it mirrors the file-ingestion tool's shape, keeps a single
+	 * home for indexing guidance, and removes three near-identical schemas from
+	 * every session's tool catalog.
+	 */
+	@Test
+	void inlineIndexingIsExposedAsASingleTool() {
+		List<String> indexingTools = Arrays.stream(IndexingService.class.getDeclaredMethods())
+				.filter(m -> m.isAnnotationPresent(McpTool.class)).map(m -> m.getAnnotation(McpTool.class).name())
+				.filter(name -> name.startsWith("index-")).sorted().toList();
+
+		assertEquals(List.of("index-documents"), indexingTools);
+	}
+
+	@Test
+	void indexDocumentsToolDeclaresCollectionContentAndFormat() throws NoSuchMethodException {
+		Method method = IndexingService.class.getMethod("indexDocuments", String.class, String.class, String.class);
+		McpTool tool = method.getAnnotation(McpTool.class);
+		assertEquals("index-documents", tool.name());
+
+		List<String> params = Arrays.stream(method.getParameters()).map(p -> p.getAnnotation(McpToolParam.class))
+				.map(a -> a.required() ? "required" : "optional").toList();
+		assertEquals(List.of("required", "required", "required"), params,
+				"collection, content and format must all be required");
+		assertTrue(
+				tool.description().contains("json") && tool.description().contains("csv")
+						&& tool.description().contains("xml") && tool.description().contains("markdown"),
+				"Description should name every accepted format: " + tool.description());
+	}
+
+	/**
 	 * Invariant: every public MCP entry point — tool, resource, prompt, or
 	 * completion — must carry {@code @PreAuthorize}. Annotating a shared helper is
 	 * not sufficient because Spring's proxy-based method security is bypassed by

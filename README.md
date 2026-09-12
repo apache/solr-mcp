@@ -96,10 +96,7 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 | Tool | Description |
 |------|-------------|
 | `search` | Full-text search with filtering, faceting, sorting, and pagination |
-| `index-json-documents` | Index documents from a JSON string into a collection |
-| `index-csv-documents` | Index documents from a CSV string into a collection |
-| `index-xml-documents` | Index documents from an XML string into a collection |
-| `index-markdown-documents` | Index a markdown document into a collection, extracting front matter, title, headings, and body text |
+| `index-documents` | Index documents supplied inline into a collection; `format` selects `json`, `csv`, `xml` or `markdown` (front matter, title, headings and body extracted) |
 | `create-collection` | Create a collection (configSet, numShards, replicationFactor optional — default `_default`, `1`, `1`) |
 | `list-collections` | List all available Solr collections |
 | `get-collection-stats` | Get statistics and metrics for a collection |
@@ -127,7 +124,7 @@ Slash-command-style workflow templates that walk the assistant through a canonic
 | `setup-collection` | `name`, `purpose` (optional) | Pick configset / shards / replication factor, create the collection, verify it |
 | `view-schema` | `collection` | Read-only schema walkthrough |
 | `design-schema` | `collection`, `datasetDescription`, `sampleDocument` (optional) | Choose field types and apply additive schema changes |
-| `index-data` | `collection`, `format` (`json` / `csv` / `xml`), `sample` (optional) | Pick the right indexing tool and confirm the result |
+| `index-data` | `collection`, `format` (`json` / `csv` / `xml` / `markdown`), `sample` (optional) | Verify the schema, call `index-documents` with the right format, and confirm the result |
 | `search-collection` | `collection`, `question` | Translate a natural-language question into a Solr query |
 
 ### Completions

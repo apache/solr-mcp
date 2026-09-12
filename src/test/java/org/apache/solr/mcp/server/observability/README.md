@@ -142,9 +142,7 @@ For local development, you can verify tracing works by:
 All service methods annotated with `@Observed` automatically create spans:
 
 - **SearchService.search()** - Search operations
-- **IndexingService.indexJsonDocuments()** - Document indexing
-- **IndexingService.indexCsvDocuments()** - CSV indexing
-- **IndexingService.indexXmlDocuments()** - XML indexing
+- **IndexingService.indexDocuments()** - Inline document indexing (JSON, CSV, XML, Markdown)
 - **CollectionService.listCollections()** - Collection listing
 - **SchemaService.getSchema()** - Schema retrieval
 

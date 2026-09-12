@@ -19,6 +19,7 @@ package org.apache.solr.mcp.server.indexing;
 import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
@@ -149,13 +150,67 @@ public class IndexingService {
 	}
 
 	/**
+	 * Indexes documents supplied inline as a string, selecting the parser by
+	 * {@code format}. This is the single inline indexing MCP tool; it mirrors the
+	 * shape of file ingestion (collection, payload, format) so clients learn one
+	 * calling convention, and it keeps one home for indexing guidance instead of
+	 * four near-identical tool schemas in every session's catalog.
+	 *
+	 * <p>
+	 * The format is an explicit argument rather than sniffed from the content:
+	 * inline payloads have no filename, and CSV and Markdown are both plain text
+	 * with no safe distinguishing prefix.
+	 *
+	 * @param collection
+	 *            the name of the Solr collection to index into
+	 * @param content
+	 *            the documents, as a string in the given format
+	 * @param format
+	 *            one of {@code json}, {@code csv}, {@code xml}, {@code markdown}
+	 *            (alias {@code md}); case-insensitive
+	 * @return a summary of how many documents were indexed and the field names as
+	 *         indexed
+	 * @throws IllegalArgumentException
+	 *             if the format is missing or not one of the accepted values
+	 * @throws IOException
+	 *             if there are I/O errors during Solr communication
+	 * @throws SolrServerException
+	 *             if there are Solr-specific errors during indexing
+	 * @throws ParserConfigurationException
+	 *             if the XML parser cannot be configured
+	 * @throws SAXException
+	 *             if the XML content is malformed
+	 */
+	@PreAuthorize("isAuthenticated()")
+	@McpTool(
+			name = "index-documents",
+			annotations = @McpTool.McpAnnotations(idempotentHint = true),
+			description = "Index documents supplied inline into a Solr collection. Set format to json (array of objects or a single object), "
+					+ "csv (first row is the header), xml (Solr <add><doc> or generic elements), or markdown (one document; front matter, "
+					+ "title, headings and body are extracted; supply a stable 'id' in the YAML front matter). "
+					+ "Only convert source content to markdown when it is not already JSON, CSV or XML. "
+					+ "Field names are sanitized for Solr compatibility (lowercased, special characters replaced with underscores); "
+					+ "the response lists the field names as indexed.")
+	public String indexDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
+			@McpToolParam(description = "The documents, as a string in the given format") String content,
+			@McpToolParam(description = "Format of content: json, csv, xml or markdown (alias md)") String format)
+			throws IOException, SolrServerException, ParserConfigurationException, SAXException {
+		return switch (normalizeFormat(format)) {
+			case "json" -> indexJsonDocuments(collection, content);
+			case "csv" -> indexCsvDocuments(collection, content);
+			case "xml" -> indexXmlDocuments(collection, content);
+			default -> indexMarkdownDocuments(collection, content);
+		};
+	}
+
+	/**
 	 * Indexes documents from a JSON string into a specified Solr collection.
 	 *
 	 * <p>
 	 * This method serves as the primary entry point for document indexing
-	 * operations and is exposed as an MCP tool for AI client interactions. It
-	 * processes JSON data containing document arrays and indexes them using a
-	 * schema-less approach.
+	 * operations from Java; MCP clients use the {@code index-documents} tool with
+	 * the matching {@code format}. It processes JSON data containing document
+	 * arrays and indexes them using a schema-less approach.
 	 *
 	 * <p>
 	 * <strong>Supported JSON Formats:</strong>
@@ -210,15 +265,7 @@ public class IndexingService {
 	 * @see #indexDocuments(String, List)
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(
-			name = "index-json-documents",
-			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index documents from json String into Solr collection. Field names are"
-					+ " sanitized for Solr compatibility (lowercased, special characters replaced"
-					+ " with underscores); the response lists the field names as indexed")
-	public String indexJsonDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
-			@McpToolParam(description = "JSON string containing documents to index") String json)
-			throws IOException, SolrServerException {
+	public String indexJsonDocuments(String collection, String json) throws IOException, SolrServerException {
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
 		int successCount = indexDocuments(collection, schemalessDoc);
 		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
@@ -230,9 +277,9 @@ public class IndexingService {
 	 *
 	 * <p>
 	 * This method serves as the primary entry point for CSV document indexing
-	 * operations and is exposed as an MCP tool for AI client interactions. It
-	 * processes CSV data with headers and indexes them using a schema-less
-	 * approach.
+	 * operations from Java; MCP clients use the {@code index-documents} tool with
+	 * the matching {@code format}. It processes CSV data with headers and indexes
+	 * them using a schema-less approach.
 	 *
 	 * <p>
 	 * <strong>Supported CSV Formats:</strong>
@@ -285,15 +332,7 @@ public class IndexingService {
 	 * @see #indexDocuments(String, List)
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(
-			name = "index-csv-documents",
-			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index documents from CSV string into Solr collection. Column names are"
-					+ " sanitized for Solr compatibility (lowercased, special characters replaced"
-					+ " with underscores); the response lists the field names as indexed")
-	public String indexCsvDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
-			@McpToolParam(description = "CSV string containing documents to index") String csv)
-			throws IOException, SolrServerException {
+	public String indexCsvDocuments(String collection, String csv) throws IOException, SolrServerException {
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromCsv(csv);
 		int successCount = indexDocuments(collection, schemalessDoc);
 		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
@@ -305,9 +344,9 @@ public class IndexingService {
 	 *
 	 * <p>
 	 * This method serves as the primary entry point for XML document indexing
-	 * operations and is exposed as an MCP tool for AI client interactions. It
-	 * processes XML data with nested elements and attributes, indexing them using a
-	 * schema-less approach.
+	 * operations from Java; MCP clients use the {@code index-documents} tool with
+	 * the matching {@code format}. It processes XML data with nested elements and
+	 * attributes, indexing them using a schema-less approach.
 	 *
 	 * <p>
 	 * <strong>Supported XML Formats:</strong>
@@ -384,14 +423,7 @@ public class IndexingService {
 	 * @see #indexDocuments(String, List)
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(
-			name = "index-xml-documents",
-			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index documents from XML string into Solr collection. Element names are"
-					+ " sanitized for Solr compatibility (lowercased, special characters replaced"
-					+ " with underscores); the response lists the field names as indexed")
-	public String indexXmlDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
-			@McpToolParam(description = "XML string containing documents to index") String xml)
+	public String indexXmlDocuments(String collection, String xml)
 			throws ParserConfigurationException, SAXException, IOException, SolrServerException {
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromXml(xml);
 		int successCount = indexDocuments(collection, schemalessDoc);
@@ -404,9 +436,10 @@ public class IndexingService {
 	 *
 	 * <p>
 	 * This method serves as the primary entry point for markdown document indexing
-	 * operations and is exposed as an MCP tool for AI client interactions. Unlike
-	 * the structured formats (JSON, CSV, XML), markdown is a prose format, so
-	 * searchable structure is extracted from the document content itself.
+	 * operations from Java; MCP clients use the {@code index-documents} tool with
+	 * {@code format=markdown}. Unlike the structured formats (JSON, CSV, XML),
+	 * markdown is a prose format, so searchable structure is extracted from the
+	 * document content itself.
 	 *
 	 * <p>
 	 * <strong>Field Extraction:</strong>
@@ -458,16 +491,7 @@ public class IndexingService {
 	 * @see #indexDocuments(String, List)
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(
-			name = "index-markdown-documents",
-			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index a document from markdown String into Solr collection, extracting front matter, title, headings, and body text. "
-					+ "Do NOT use for JSON/CSV/XML input; use index-json-documents, index-csv-documents, or index-xml-documents instead. "
-					+ "Only convert source content to markdown when there is no dedicated tool for the source format, and supply a stable 'id' in the YAML front matter when doing so.")
-	public String indexMarkdownDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
-			@McpToolParam(
-					description = "Markdown string to index, optionally starting with YAML front matter") String markdown)
-			throws IOException, SolrServerException {
+	public String indexMarkdownDocuments(String collection, String markdown) throws IOException, SolrServerException {
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
 		int successCount = indexDocuments(collection, schemalessDoc);
 		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
@@ -608,19 +632,21 @@ public class IndexingService {
 	}
 
 	/**
-	 * Maps an input-format keyword to the MCP tool and payload parameter for that
-	 * format.
+	 * Normalizes a user-supplied format keyword to the canonical value accepted by
+	 * {@code index-documents}.
+	 *
+	 * @param format
+	 *            {@code json}, {@code csv}, {@code xml}, {@code markdown} or
+	 *            {@code md}, in any case, with surrounding whitespace ignored
+	 * @return {@code json}, {@code csv}, {@code xml} or {@code markdown}
+	 * @throws IllegalArgumentException
+	 *             if the format is null, blank or unrecognized
 	 */
-	private record IndexTool(String name, String paramName) {
-	}
-
-	private static IndexTool resolveIndexTool(String format) {
-		String normalized = (format == null) ? "" : format.trim().toLowerCase();
+	static String normalizeFormat(String format) {
+		String normalized = (format == null) ? "" : format.trim().toLowerCase(Locale.ROOT);
 		return switch (normalized) {
-			case "json" -> new IndexTool("index-json-documents", "json");
-			case "csv" -> new IndexTool("index-csv-documents", "csv");
-			case "xml" -> new IndexTool("index-xml-documents", "xml");
-			case "markdown", "md" -> new IndexTool("index-markdown-documents", "markdown");
+			case "json", "csv", "xml" -> normalized;
+			case "markdown", "md" -> "markdown";
 			default ->
 				throw new IllegalArgumentException("format must be one of json/csv/xml/markdown, got: " + format);
 		};
@@ -659,7 +685,7 @@ public class IndexingService {
 					name = "sample",
 					description = "Optional small sample of the input document(s) to ground field-shape decisions",
 					required = false) String sample) {
-		IndexTool indexTool = resolveIndexTool(format);
+		String normalizedFormat = normalizeFormat(format);
 		String sampleSection = PromptText.optionalCodeBlock(sample, "Sample input:",
 				"No sample was provided. If the user has not pasted the documents yet, ask for them (or a representative subset) before indexing.");
 		return """
@@ -677,12 +703,13 @@ public class IndexingService {
 				%s
 
 				3. Index the documents.
-				   - Call `%s` with `collection=%s` and `%s=<the document payload>`.
+				   - Call `index-documents` with `collection=%s`, `format=%s` and
+				     `content=<the document payload>`.
 				   - The tool batches internally and commits at the end. The return value is the count
 				     of successfully indexed documents.
 				   - On error, read the message carefully: an "unknown field" error means the schema is
 				     missing a field — go back to step 1 and run `design-schema`. A parse error means
-				     the input format does not match the chosen tool — fix the payload and retry.
+				     the input does not match `format` — fix the payload or the format and retry.
 
 				4. Verify the count.
 				   - Call `check-health` on `%s` and confirm the reported doc count increased by the
@@ -691,7 +718,7 @@ public class IndexingService {
 
 				Next step suggestion: once data is indexed, the `search-collection` prompt drives
 				searching it.
-				""".formatted(indexTool.paramName(), collection, collection, sampleSection, indexTool.name(),
-				collection, indexTool.paramName(), collection);
+				""".formatted(normalizedFormat, collection, collection, sampleSection, collection, normalizedFormat,
+				collection);
 	}
 }

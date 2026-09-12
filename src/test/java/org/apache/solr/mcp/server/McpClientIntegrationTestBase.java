@@ -103,8 +103,9 @@ public abstract class McpClientIntegrationTestBase {
 		List<String> toolNames = toolsResult.tools().stream().map(t -> t.name()).toList();
 
 		assertTrue(toolNames.contains("create-collection"), "Should have create-collection tool");
-		assertTrue(toolNames.contains("index-json-documents"), "Should have index-json-documents tool");
-		assertTrue(toolNames.contains("index-markdown-documents"), "Should have index-markdown-documents tool");
+		assertTrue(toolNames.contains("index-documents"), "Should have index-documents tool");
+		assertFalse(toolNames.contains("index-json-documents"),
+				"Per-format indexing tools were folded into index-documents");
 		assertTrue(toolNames.contains("search"), "Should have search tool");
 		assertTrue(toolNames.contains("list-collections"), "Should have list-collections tool");
 		assertTrue(toolNames.contains("check-health"), "Should have check-health tool");
@@ -132,11 +133,8 @@ public abstract class McpClientIntegrationTestBase {
 		assertHint(tools, "create-collection", /* readOnly */ false, /* destructive */ false, /* idempotent */ false);
 
 		// Indexing: destructive (Solr overwrites by uniqueKey) but idempotent —
-		// posting the same JSON/CSV/XML twice leaves the index in the same state.
-		assertHint(tools, "index-json-documents", false, true, true);
-		assertHint(tools, "index-csv-documents", false, true, true);
-		assertHint(tools, "index-xml-documents", false, true, true);
-		assertHint(tools, "index-markdown-documents", false, true, true);
+		// posting the same payload twice leaves the index in the same state.
+		assertHint(tools, "index-documents", false, true, true);
 	}
 
 	private static void assertReadOnly(Map<String, Tool> tools, String name) {
@@ -192,8 +190,8 @@ public abstract class McpClientIntegrationTestBase {
 				]
 				""";
 
-		CallToolResult result = mcpClient
-				.callTool(new CallToolRequest("index-json-documents", Map.of("collection", COLLECTION, "json", json)));
+		CallToolResult result = mcpClient.callTool(new CallToolRequest("index-documents",
+				Map.of("collection", COLLECTION, "content", json, "format", "json")));
 
 		assertNotNull(result);
 		assertNotError(result);
@@ -329,8 +327,8 @@ public abstract class McpClientIntegrationTestBase {
 				7,CSV Document Two,Frank,csv-test
 				""";
 
-		CallToolResult result = mcpClient
-				.callTool(new CallToolRequest("index-csv-documents", Map.of("collection", COLLECTION, "csv", csv)));
+		CallToolResult result = mcpClient.callTool(new CallToolRequest("index-documents",
+				Map.of("collection", COLLECTION, "content", csv, "format", "csv")));
 
 		assertNotNull(result);
 		assertNotError(result);
@@ -377,8 +375,8 @@ public abstract class McpClientIntegrationTestBase {
 				]
 				""";
 
-		CallToolResult result = mcpClient
-				.callTool(new CallToolRequest("index-json-documents", Map.of("collection", COLLECTION, "json", json)));
+		CallToolResult result = mcpClient.callTool(new CallToolRequest("index-documents",
+				Map.of("collection", COLLECTION, "content", json, "format", "json")));
 
 		assertNotNull(result);
 		assertNotError(result);
@@ -417,8 +415,8 @@ public abstract class McpClientIntegrationTestBase {
 				Index markdown documents through the MCP server.
 				""";
 
-		CallToolResult indexResult = mcpClient.callTool(new CallToolRequest("index-markdown-documents",
-				Map.of("collection", COLLECTION, "markdown", markdown)));
+		CallToolResult indexResult = mcpClient.callTool(new CallToolRequest("index-documents",
+				Map.of("collection", COLLECTION, "content", markdown, "format", "markdown")));
 
 		assertNotNull(indexResult);
 		assertNotError(indexResult);
@@ -539,8 +537,8 @@ public abstract class McpClientIntegrationTestBase {
 		String showsJson = loadClasspathResource("/shows.json");
 		assertFalse(showsJson.isBlank(), "shows.json resource must not be blank");
 
-		CallToolResult result = mcpClient.callTool(
-				new CallToolRequest("index-json-documents", Map.of("collection", SHOWS_COLLECTION, "json", showsJson)));
+		CallToolResult result = mcpClient.callTool(new CallToolRequest("index-documents",
+				Map.of("collection", SHOWS_COLLECTION, "content", showsJson, "format", "json")));
 
 		assertNotNull(result);
 		assertNotError(result);
@@ -736,8 +734,8 @@ public abstract class McpClientIntegrationTestBase {
 				new GetPromptRequest("index-data", Map.of("collection", SHOWS_COLLECTION, "format", "json")));
 
 		String text = extractFirstMessageText(result);
-		assertTrue(text.contains("index-json-documents"),
-				"Prompt body should select index-json-documents for json format: " + text);
+		assertTrue(text.contains("index-documents") && text.contains("format=json"),
+				"Prompt body should select index-documents with format=json: " + text);
 		assertTrue(text.contains("get-schema"), "Prompt body should reference get-schema verification: " + text);
 	}
 

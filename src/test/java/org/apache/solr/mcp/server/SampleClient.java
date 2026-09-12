@@ -156,9 +156,9 @@ public class SampleClient {
 			// bound plus per-name checks so adding a tool does not break this
 			// client - an exact count went stale as soon as create-collection,
 			// add-fields and add-field-types were added.
-			Set<String> expectedToolNames = Set.of("index-json-documents", "index-csv-documents",
-					"get-collection-stats", "search", "list-collections", "check-health", "index-xml-documents",
-					"get-schema", "create-collection", "add-fields", "add-field-types");
+			Set<String> expectedToolNames = Set.of("index-documents", "get-collection-stats", "search",
+					"list-collections", "check-health", "get-schema", "create-collection", "add-fields",
+					"add-field-types");
 
 			assertTrue(toolsList.tools().size() >= expectedToolNames.size(),
 					"Expected at least " + expectedToolNames.size() + " tools, got " + toolsList.tools().size());
@@ -181,13 +181,11 @@ public class SampleClient {
 
 				// Validate specific tools based on expected behavior
 				switch (tool.name()) {
-					case "index-json-documents" :
-						assertTrue(tool.description().toLowerCase().contains("json"),
-								"JSON indexing tool should mention JSON in" + " description");
-						break;
-					case "index-csv-documents" :
-						assertTrue(tool.description().toLowerCase().contains("csv"),
-								"CSV indexing tool should mention CSV in" + " description");
+					case "index-documents" :
+						assertTrue(
+								tool.description().toLowerCase().contains("json")
+										&& tool.description().toLowerCase().contains("csv"),
+								"Indexing tool should name the accepted formats in its description");
 						break;
 					case "search" : // single word, no hyphen needed
 						assertTrue(tool.description().toLowerCase().contains("search"),
