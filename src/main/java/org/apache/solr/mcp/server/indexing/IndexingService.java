@@ -182,15 +182,14 @@ public class IndexingService {
 	 *             if the XML content is malformed
 	 */
 	@PreAuthorize("isAuthenticated()")
-	@McpTool(
-			name = "index-documents",
-			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index documents supplied inline into a Solr collection. Set format to json (array of objects or a single object), "
-					+ "csv (first row is the header), xml (Solr <add><doc> or generic elements), or markdown (one document; front matter, "
-					+ "title, headings and body are extracted; supply a stable 'id' in the YAML front matter). "
-					+ "Only convert source content to markdown when it is not already JSON, CSV or XML. "
-					+ "Field names are sanitized for Solr compatibility (lowercased, special characters replaced with underscores); "
-					+ "the response lists the field names as indexed.")
+	@McpTool(name = "index-documents", annotations = @McpTool.McpAnnotations(idempotentHint = true), description = """
+			Index documents supplied inline into a Solr collection. Set format to json (an array of objects
+			or a single object), csv (first row is the header), xml (Solr <add><doc> or generic elements),
+			or markdown (one document; front matter, title, headings and body are extracted; supply a
+			stable 'id' in the YAML front matter). Only convert source content to markdown when it is not
+			already JSON, CSV or XML. Field names are sanitized for Solr compatibility (lowercased, special
+			characters replaced with underscores); the response lists the field names as indexed.
+			""")
 	public String indexDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "The documents, as a string in the given format") String content,
 			@McpToolParam(description = "Format of content: json, csv, xml or markdown (alias md)") String format)
