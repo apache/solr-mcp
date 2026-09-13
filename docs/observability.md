@@ -99,7 +99,6 @@ The following health and metrics endpoints are exposed in HTTP mode:
 curl http://localhost:8080/actuator/health       # Health check
 curl http://localhost:8080/actuator/info          # Build info
 curl http://localhost:8080/actuator/metrics       # Available metrics
-curl http://localhost:8080/actuator/prometheus    # Prometheus scrape endpoint
 curl http://localhost:8080/actuator/loggers       # Logger levels
 ```
 

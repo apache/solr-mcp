@@ -535,8 +535,6 @@ jib {
             }
     }
     from {
-        // Use Eclipse Temurin JRE 25 as the base image
-        // Temurin is the open-source build of OpenJDK from Adoptium
         image = "eclipse-temurin:25-jre"
         platforms {
             platform {
@@ -550,12 +548,8 @@ jib {
         }
     }
     to {
-        // Default image name (can be overridden with -Djib.to.image=...)
-        // Format: repository/image-name:tag
         image = "solr-mcp:$version"
 
-        // Tags to apply to the image
-        // The version tag is applied by default, plus "latest" tag
         tags = setOf("latest")
     }
     container {

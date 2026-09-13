@@ -62,6 +62,9 @@ services:
   # Pre-configured datasources: Prometheus (default), Loki, Tempo, Pyroscope.
   lgtm:
     image: grafana/otel-lgtm:0.30.0
+    labels:
+      # Prevent Spring Boot auto-configuration from trying to manage this service
+      org.springframework.boot.ignore: "true"
     ports:
       # Loopback-only by default: anonymous Grafana on 0.0.0.0 would hand the
       # dashboards to anyone who can reach this machine.

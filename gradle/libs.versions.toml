@@ -48,7 +48,6 @@ nullaway = "0.13.1"
 # Test dependencies
 testcontainers = "2.0.2"
 awaitility = "4.3.0"
-opentelemetry-instrumentation-bom = "2.26.1"
 
 [libraries]
 # Spring
@@ -100,7 +99,6 @@ errorprone-core = { module = "com.google.errorprone:error_prone_core", version.r
 nullaway = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }
 
 # Micrometer Tracing
-micrometer-tracing-bridge-otel = { module = "io.micrometer:micrometer-tracing-bridge-otel" }
 
 # Test dependencies
 testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter", version.ref = "testcontainers" }
@@ -121,10 +119,6 @@ spring-ai-mcp = [
     "spring-ai-starter-mcp-server-webmvc"
 ]
 
-spring-boot-dev = [
-    "spring-boot-docker-compose",
-    "spring-ai-spring-boot-docker-compose"
-]
 
 test = [
     "spring-boot-starter-test",

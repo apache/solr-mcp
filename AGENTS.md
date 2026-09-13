@@ -302,9 +302,9 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
 
 ### Spring Boot 4 Notes
 
-This branch targets Spring Boot 4.1.1 and Spring AI 2.0.1
-([release announcement](https://spring.io/blog/2026/06/12/spring-ai-2-0-0-GA-available-now)).
-Key differences from the main (SB 3.x) branch:
+The move from Spring Boot 3.5 / Spring AI 1.1 to Spring Boot 4.1.1 / Spring AI 2.0.1
+([release announcement](https://spring.io/blog/2026/06/12/spring-ai-2-0-0-GA-available-now))
+changed these things; keep them in mind when reading older docs or PRs:
 
 - **Jackson 3:** `tools.jackson.databind` replaces `com.fasterxml.jackson.databind`. Annotations
   remain in `com.fasterxml.jackson.annotation`.
@@ -314,13 +314,13 @@ Key differences from the main (SB 3.x) branch:
 - **JSpecify:** Built into Spring Boot 4 — no separate dependency needed.
 - **`spring-boot-starter-aop` removed:** Replaced by `spring-boot-starter-aspectj` for
   `@Observed` annotation support.
-- **Observability:** Uses `spring-boot-starter-opentelemetry` (SB4 idiomatic) for traces,
-  metrics, and log export via OTLP. The old `micrometer-tracing-bridge-otel` + manual OTel BOM
-  approach from SB 3.x is no longer needed.
-- **MCP SDK:** Uses `io.modelcontextprotocol.sdk:mcp:2.0.0` with Jackson 3 module
-  (`mcp-json-jackson3`).
+- **Observability:** Uses `spring-boot-starter-opentelemetry` for traces, metrics, and log
+  export via OTLP. The `micrometer-tracing-bridge-otel` + manual OTel BOM approach and the
+  Prometheus registry (`/actuator/prometheus`) are gone.
+- **MCP SDK:** `io.modelcontextprotocol.sdk:mcp` 2.0.1 via `mcp-bom`, with the Jackson 3
+  module (`mcp-json-jackson3`).
 - **Span naming:** `@Observed` spans use `ClassName#methodName` (PascalCase) instead of
-  SB3's `class-name#method-name` (kebab-case).
+  the earlier `class-name#method-name` (kebab-case).
 
 ## Release LICENSE / NOTICE
 

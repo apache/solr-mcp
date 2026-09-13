@@ -61,7 +61,7 @@
         <!--
             OpenTelemetry appender for log export.
             Sends logs to the OpenTelemetry Collector via OTLP.
-            The appender is installed programmatically by OpenTelemetryAppenderInstaller
+            The appender is installed programmatically by InstallOpenTelemetryAppender
             which connects it to the Spring-managed OpenTelemetry SDK instance.
         -->
         <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">

@@ -42,7 +42,7 @@ import org.springframework.context.annotation.ImportRuntimeHints;
  * {@code HttpJdkSolrClient}), avoiding the JavaBin/XML codec paths that
  * historically drive most SolrJ native-image issues. The hints below cover the
  * narrow remaining surface: response containers and the {@code NamedList} admin
- * shape returned by the Metrics API path.
+ * shape returned by the mbeans path.
  *
  * <p>
  * This class is registered unconditionally — on the JVM path it is a no-op
