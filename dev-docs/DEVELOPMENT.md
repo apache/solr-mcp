@@ -189,12 +189,12 @@ This runs tests tagged with `@Tag("docker-integration")` which verify:
 
 ### Solr Version Compatibility
 
-Tests run against `solr:9.9-slim` by default. Point them at another Solr version with the `solr.test.image` system property:
+Tests run against the Solr image pinned as `test-image-solr` in `gradle/libs.versions.toml` by default (the LGTM image for the OTLP test is pinned there too, as `test-image-lgtm`). Point them at another Solr version with the `solr.test.image` system property:
 
 ```bash
 ./gradlew test -Dsolr.test.image=solr:8.11-slim   # Solr 8.11
 ./gradlew test -Dsolr.test.image=solr:9.4-slim    # Solr 9.4
-./gradlew test -Dsolr.test.image=solr:9.9-slim    # Solr 9.9 (default)
+./gradlew test -Dsolr.test.image=solr:9.9.0-slim    # Solr 9.9 (the pinned default)
 ./gradlew test -Dsolr.test.image=solr:9.10-slim   # Solr 9.10
 ./gradlew test -Dsolr.test.image=solr:10-slim     # Solr 10
 ```
@@ -205,7 +205,7 @@ Tests run against `solr:9.9-slim` by default. Point them at another Solr version
 endpoint was removed in Solr 10, so `getCacheMetrics()`/`getHandlerMetrics()` catch
 `RuntimeException` and return `null` — `cacheStats`/`handlerStats` from `get-collection-stats`
 are therefore always `null` on Solr 10 (a future migration to `/admin/metrics` will restore
-them). SolrJ is on 10.0.0; since `solr.test.image` defaults to `solr:9.9-slim`, the standard
+them). SolrJ is on 10.0.0; since the pinned test image is Solr 9.9, the standard
 build runs a SolrJ 10 client against a Solr 9.9 server.
 
 ### Test with MCP Inspector

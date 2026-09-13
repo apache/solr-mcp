@@ -39,6 +39,12 @@ nullaway = "0.13.1"
 
 # Test dependencies
 testcontainers = "1.21.3"
+# Docker images started by Testcontainers. Exact tags only (never "latest" or a
+# moving minor): TestImagesTest fails the build otherwise. Forwarded to tests by
+# processTestResources (test-images.properties) and as system properties; the
+# solr.test.image / lgtm.test.image system properties override them per run.
+test-image-solr = "solr:9.9.0-slim"
+test-image-lgtm = "grafana/otel-lgtm:0.33.0"
 awaitility = "4.3.0"
 opentelemetry-instrumentation-bom = "2.26.1"
 
