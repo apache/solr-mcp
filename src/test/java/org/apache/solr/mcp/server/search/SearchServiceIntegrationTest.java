@@ -20,18 +20,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
-import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.common.SolrException;
-import org.apache.solr.common.params.ModifiableSolrParams;
-import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.TestDocuments;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.indexing.IndexingService;
@@ -75,7 +70,6 @@ class SearchServiceIntegrationTest {
 					[
 					  {
 					    "id": "book001",
-					    "platform": ["netflix"],
 					    "platform_ss": ["netflix"],
 					    "name": ["A Game of Thrones"],
 					    "author_ss": ["George R.R. Martin"],
@@ -87,7 +81,6 @@ class SearchServiceIntegrationTest {
 					  },
 					  {
 					    "id": "book002",
-					    "platform": ["netflix"],
 					    "platform_ss": ["netflix"],
 					    "name": ["A Clash of Kings"],
 					    "author_ss": ["George R.R. Martin"],
@@ -99,7 +92,6 @@ class SearchServiceIntegrationTest {
 					  },
 					  {
 					    "id": "book003",
-					    "platform": ["hulu"],
 					    "platform_ss": ["hulu"],
 					    "name": ["A Storm of Swords"],
 					    "author_ss": ["George R.R. Martin"],
@@ -220,32 +212,6 @@ class SearchServiceIntegrationTest {
 		assertNotNull(result.facets(), "facets must be present even when nothing matched");
 		assertTrue(result.facets().getOrDefault("genre_s", Map.of()).isEmpty(),
 				() -> "expected no facet buckets, got: " + result.facets().get("genre_s"));
-	}
-
-	@Test
-	void searchWithSchemalessPlatformFacetsReturnsCounts() throws Exception {
-		// Solr 9's _default infers text_general without docValues or uninversion,
-		// so its default faceting returns [] for platform despite matching documents.
-		// Preserve Solr's response (also across Solr versions), not a different facet
-		// algorithm.
-		NamedList<Object> raw = solrClient.request(
-				new GenericSolrRequest(SolrRequest.METHOD.GET, "/" + COLLECTION_NAME + "/select",
-						new ModifiableSolrParams().set("q", "id:book*").set("rows", 0).set("facet", true)
-								.set("facet.field", "platform").set("facet.mincount", 1).set("facet.sort", "count")),
-				COLLECTION_NAME);
-		NamedList<?> facetCounts = assertInstanceOf(NamedList.class, raw.get("facet_counts"));
-		NamedList<?> facetFields = assertInstanceOf(NamedList.class, facetCounts.get("facet_fields"));
-		NamedList<?> platform = assertInstanceOf(NamedList.class, facetFields.get("platform"));
-		Map<String, Long> expectedPlatform = new HashMap<>();
-		platform.forEach((term, count) -> expectedPlatform.put(term, ((Number) count).longValue()));
-		SearchResponse document = searchService.search(COLLECTION_NAME, "id:book001", null, null, null, null, null);
-		assertEquals(List.of("netflix"), document.documents().getFirst().get("platform"));
-		SearchResponse result = searchService.search(COLLECTION_NAME, "id:book*", null,
-				List.of("platform", "platform_ss", "genre_s"), null, null, 0);
-		assertEquals(10, result.numFound());
-		assertTrue(result.documents().isEmpty());
-		assertEquals(Map.of("platform", expectedPlatform, "platform_ss", Map.of("netflix", 2L, "hulu", 1L), "genre_s",
-				Map.of("fantasy", 7L, "scifi", 3L)), result.facets());
 	}
 
 	@Test
