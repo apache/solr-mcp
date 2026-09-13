@@ -16,6 +16,7 @@
  */
 package org.apache.solr.mcp.server;
 
+import ch.qos.logback.core.status.NopStatusListener;
 import org.apache.solr.mcp.server.collection.CollectionService;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.apache.solr.mcp.server.schema.SchemaService;
@@ -110,7 +111,39 @@ public class Main {
 	public Main() {
 	}
 
+	/**
+	 * Logback's own system property naming the status listener to install during
+	 * its self-initialization.
+	 */
+	static final String LOGBACK_STATUS_LISTENER_PROPERTY = "logback.statusListenerClass";
+
 	public static void main(String[] args) {
+		silenceLogbackStatusOutput();
 		SpringApplication.run(Main.class, args);
+	}
+
+	/**
+	 * Keeps logback's internal status messages off stdout, which the STDIO
+	 * transport reserves for JSON-RPC.
+	 *
+	 * <p>
+	 * Logback initializes itself on the first {@code LoggerFactory} touch, long
+	 * before Spring Boot's logging system runs. In a native image it cannot read
+	 * its version from the manifest, raises a {@code |-WARN}, and
+	 * {@code LogbackServiceProvider} then prints its whole status list to stdout -
+	 * unless a status listener is already installed. It installs one from this
+	 * system property before deciding whether to print, so setting it here, before
+	 * anything can touch a logger, is the earliest and only hook. Spring Boot's
+	 * later configuration ({@code logback-spring.xml}) is unaffected.
+	 *
+	 * <p>
+	 * An explicit {@code -Dlogback.statusListenerClass=...} on the command line
+	 * wins, so logback's own configuration can still be debugged with
+	 * {@code OnConsoleStatusListener}.
+	 */
+	static void silenceLogbackStatusOutput() {
+		if (System.getProperty(LOGBACK_STATUS_LISTENER_PROPERTY) == null) {
+			System.setProperty(LOGBACK_STATUS_LISTENER_PROPERTY, NopStatusListener.class.getName());
+		}
 	}
 }

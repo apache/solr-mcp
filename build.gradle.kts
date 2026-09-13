@@ -151,6 +151,9 @@ dependencies {
     implementation(libs.spring.ai.starter.mcp.server.webmvc)
     implementation(libs.solr.solrj)
     implementation(libs.commons.csv)
+    // CommonMark for markdown parsing
+    implementation(libs.commonmark)
+    implementation(libs.commonmark.ext.yaml.front.matter)
     // JSpecify for nullability annotations
     implementation(libs.jspecify)
 

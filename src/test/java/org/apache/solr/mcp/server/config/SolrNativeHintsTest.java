@@ -71,9 +71,9 @@ class SolrNativeHintsTest {
 	}
 
 	@Test
-	void registersLogbackXmlResourceHint() {
-		// Required so logback's pre-Spring initialization finds logback.xml and
-		// stays silent on stdout (MCP STDIO framing).
-		assertTrue(RuntimeHintsPredicates.resource().forResource("logback.xml").test(hints));
+	void registersLogbackSpringXmlResourceHint() {
+		// The configuration Spring Boot loads by convention; it carries the
+		// per-profile appenders and must survive AOT.
+		assertTrue(RuntimeHintsPredicates.resource().forResource("logback-spring.xml").test(hints));
 	}
 }
