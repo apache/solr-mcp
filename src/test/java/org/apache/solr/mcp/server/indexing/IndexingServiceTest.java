@@ -329,7 +329,6 @@ class IndexingServiceTest {
 		String json = "[{\"id\":\"1\",\"title\":\"Test\"}]";
 		when(indexingDocumentCreator.createSchemalessDocumentsFromJson(json)).thenReturn(createMockDocuments(1));
 		when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
-		when(solrClient.commit("test_collection")).thenReturn(null);
 
 		String result = indexingService.indexDocuments("test_collection", json, "json");
 
@@ -342,7 +341,6 @@ class IndexingServiceTest {
 		String csv = "id,title\n1,Test";
 		when(indexingDocumentCreator.createSchemalessDocumentsFromCsv(csv)).thenReturn(createMockDocuments(1));
 		when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
-		when(solrClient.commit("test_collection")).thenReturn(null);
 
 		indexingService.indexDocuments("test_collection", csv, "CSV");
 
@@ -354,7 +352,6 @@ class IndexingServiceTest {
 		String xml = "<add><doc><field name=\"id\">1</field></doc></add>";
 		when(indexingDocumentCreator.createSchemalessDocumentsFromXml(xml)).thenReturn(createMockDocuments(1));
 		when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
-		when(solrClient.commit("test_collection")).thenReturn(null);
 
 		indexingService.indexDocuments("test_collection", xml, " xml ");
 
@@ -367,7 +364,6 @@ class IndexingServiceTest {
 		when(indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown))
 				.thenReturn(createMockDocuments(1));
 		when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
-		when(solrClient.commit("test_collection")).thenReturn(null);
 
 		indexingService.indexDocuments("test_collection", markdown, "md");
 
@@ -394,7 +390,7 @@ class IndexingServiceTest {
 	}
 
 	@Test
-	void indexDataPrompt_jsonPath_referencesIndexJsonDocuments() {
+	void indexDataPrompt_jsonPath_passesFormatJson() {
 		String sample = """
 				[{"id":"1","title":"Test"}]""";
 
@@ -410,7 +406,7 @@ class IndexingServiceTest {
 	}
 
 	@Test
-	void indexDataPrompt_csvPath_referencesIndexCsvDocuments() {
+	void indexDataPrompt_csvPath_passesFormatCsv() {
 		String body = indexingService.indexDataPrompt("library", "csv", null);
 
 		assertTrue(body.contains("format=csv"), "CSV path should pass format=csv: " + body);
@@ -418,21 +414,21 @@ class IndexingServiceTest {
 	}
 
 	@Test
-	void indexDataPrompt_xmlPath_referencesIndexXmlDocuments() {
+	void indexDataPrompt_xmlPath_passesFormatXml() {
 		String body = indexingService.indexDataPrompt("library", "xml", null);
 
 		assertTrue(body.contains("format=xml"), "XML path should pass format=xml: " + body);
 	}
 
 	@Test
-	void indexDataPrompt_markdownPath_referencesIndexMarkdownDocuments() {
+	void indexDataPrompt_markdownPath_passesFormatMarkdown() {
 		String body = indexingService.indexDataPrompt("library", "markdown", null);
 
 		assertTrue(body.contains("format=markdown"), "Markdown path should pass format=markdown: " + body);
 	}
 
 	@Test
-	void indexDataPrompt_mdAliasResolvesToMarkdownTool() {
+	void indexDataPrompt_mdAlias_passesFormatMarkdown() {
 		String body = indexingService.indexDataPrompt("library", "md", null);
 
 		assertTrue(body.contains("format=markdown"), "'md' alias should resolve to format=markdown: " + body);

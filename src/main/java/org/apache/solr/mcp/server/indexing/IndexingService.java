@@ -151,15 +151,10 @@ public class IndexingService {
 
 	/**
 	 * Indexes documents supplied inline as a string, selecting the parser by
-	 * {@code format}. This is the single inline indexing MCP tool; it mirrors the
-	 * shape of file ingestion (collection, payload, format) so clients learn one
-	 * calling convention, and it keeps one home for indexing guidance instead of
-	 * four near-identical tool schemas in every session's catalog.
-	 *
-	 * <p>
-	 * The format is an explicit argument rather than sniffed from the content:
-	 * inline payloads have no filename, and CSV and Markdown are both plain text
-	 * with no safe distinguishing prefix.
+	 * {@code format}. One tool with a format argument replaces four near-identical
+	 * tool schemas in every session's catalog. The format is explicit rather than
+	 * sniffed: inline payloads have no filename, and CSV and Markdown are both
+	 * plain text with no safe distinguishing prefix.
 	 *
 	 * @param collection
 	 *            the name of the Solr collection to index into
@@ -263,7 +258,6 @@ public class IndexingService {
 	 * @see IndexingDocumentCreator#createSchemalessDocumentsFromJson(String)
 	 * @see #indexDocuments(String, List)
 	 */
-	@PreAuthorize("isAuthenticated()")
 	public String indexJsonDocuments(String collection, String json) throws IOException, SolrServerException {
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
 		int successCount = indexDocuments(collection, schemalessDoc);
@@ -330,7 +324,6 @@ public class IndexingService {
 	 * @see IndexingDocumentCreator#createSchemalessDocumentsFromCsv(String)
 	 * @see #indexDocuments(String, List)
 	 */
-	@PreAuthorize("isAuthenticated()")
 	public String indexCsvDocuments(String collection, String csv) throws IOException, SolrServerException {
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromCsv(csv);
 		int successCount = indexDocuments(collection, schemalessDoc);
@@ -421,7 +414,6 @@ public class IndexingService {
 	 * @see IndexingDocumentCreator#createSchemalessDocumentsFromXml(String)
 	 * @see #indexDocuments(String, List)
 	 */
-	@PreAuthorize("isAuthenticated()")
 	public String indexXmlDocuments(String collection, String xml)
 			throws ParserConfigurationException, SAXException, IOException, SolrServerException {
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromXml(xml);
@@ -489,7 +481,6 @@ public class IndexingService {
 	 * @see IndexingDocumentCreator#createSchemalessDocumentsFromMarkdown(String)
 	 * @see #indexDocuments(String, List)
 	 */
-	@PreAuthorize("isAuthenticated()")
 	public String indexMarkdownDocuments(String collection, String markdown) throws IOException, SolrServerException {
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
 		int successCount = indexDocuments(collection, schemalessDoc);

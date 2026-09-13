@@ -61,7 +61,7 @@ it speaks MCP (JSON-RPC) to an AI client over one of two transports — **STDIO*
 (streamable-HTTP; a network listener). On the other side it speaks SolrJ HTTP to
 **one** backend Solr instance whose location and credentials the operator fixes
 at startup via environment (`SOLR_URL`, optional `SOLR_USERNAME`/`SOLR_PASSWORD`).
-It exposes eleven tools (search, three indexing formats, collection create/list/
+It exposes nine tools (search, inline indexing, collection create/list/
 stats/health, schema get/add-fields/add-field-types), two resources
 (`solr://collections`, `solr://{collection}/schema`), and prompt/completion
 helpers. It translates natural-language requests — as structured by the calling
@@ -245,7 +245,7 @@ trust table:
 | `search` | `collection` | **yes** | used only as a path segment against the fixed `SOLR_URL` base; **cannot redirect to another host**. What a path reaches *within* that Solr is the backend's authorization call. *(maintainer — Q-collection.)* |
 | `search` | `query` (`q`), `filterQueries` (`fq`) | **yes** | passed into `SolrQuery`; Solr query-parser semantics apply — Q-queryinj |
 | `search` | `facetFields`, `sortClauses`, `start`, `rows` | **yes** | forwarded to Solr; `rows` unbounded? — Q-resource |
-| `index-*` | `collection`, `json`/`csv`/`xml` body | **yes** | parsed then written to index; XML parser is XXE-hardened *(documented)* |
+| `index-documents` | `collection`, `content`, `format` | **yes** | parsed then written to index; XML parser is XXE-hardened *(documented)* |
 | `create-collection` | `name`, `configSet`, `numShards`, `replicationFactor` | **yes** | issues `CollectionAdminRequest.createCollection` to backend — Q-adminexposure |
 | `add-fields` / `add-field-types` | `collection`, field/type defs | **yes** | additive schema change (existing fields cannot be modified per README) |
 | config (startup only) | `SOLR_URL`, `SOLR_USERNAME`, `SOLR_PASSWORD` | **no — deployer config** | never wire from a tool argument *(documented)* |
@@ -320,7 +320,7 @@ Two adversaries are in scope; several are explicitly not.
    `XmlDocumentCreator.createSecureDocumentBuilderFactory`.)*
 7. **Tool behaviour hints are advertised honestly.** Every tool carries MCP
    annotations (`readOnlyHint` on the five read tools, `idempotentHint` on the
-   three index tools, `destructiveHint=false` on schema/create tools) so clients
+   index tool, `destructiveHint=false` on schema/create tools) so clients
    can build approval UX. *Violation:* a tool that mutates state advertises
    `readOnlyHint=true`. *Severity:* medium (client-UX safety). *(documented —
    README; `@McpTool.McpAnnotations` on each service method.)*

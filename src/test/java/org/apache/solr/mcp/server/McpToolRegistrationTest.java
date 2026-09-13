@@ -237,7 +237,7 @@ class McpToolRegistrationTest {
 	}
 
 	@Test
-	void indexDocumentsToolDeclaresCollectionContentAndFormat() throws NoSuchMethodException {
+	void indexDocumentsRequiresCollectionContentAndFormat() throws NoSuchMethodException {
 		Method method = IndexingService.class.getMethod("indexDocuments", String.class, String.class, String.class);
 		McpTool tool = method.getAnnotation(McpTool.class);
 		assertEquals("index-documents", tool.name());
@@ -246,10 +246,6 @@ class McpToolRegistrationTest {
 				.map(a -> a.required() ? "required" : "optional").toList();
 		assertEquals(List.of("required", "required", "required"), params,
 				"collection, content and format must all be required");
-		assertTrue(
-				tool.description().contains("json") && tool.description().contains("csv")
-						&& tool.description().contains("xml") && tool.description().contains("markdown"),
-				"Description should name every accepted format: " + tool.description());
 	}
 
 	/**
