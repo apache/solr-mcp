@@ -1,0 +1,64 @@
+{
+  "realm": "solr-mcp",
+  "enabled": true,
+  "displayName": "Solr MCP (development)",
+  "clients": [
+    {
+      "clientId": "solr-mcp-service",
+      "name": "Machine-to-machine caller",
+      "description": "Confidential client for services that call the MCP server on their own behalf.",
+      "enabled": true,
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "secret": "dev-only-not-a-secret",
+      "protocolMappers": [
+        {
+          "name": "mcp-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "http://localhost:8080/mcp",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "solr-mcp-client",
+      "name": "MCP Inspector and browser clients",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [ "http://localhost:6274/*", "http://localhost:*" ],
+      "webOrigins": [ "http://localhost:6274" ],
+      "protocolMappers": [
+        {
+          "name": "mcp-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "http://localhost:8080/mcp",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "testuser",
+      "email": "test@example.com",
+      "firstName": "Test",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [ { "type": "password", "value": "testpassword", "temporary": false } ]
+    }
+  ]
+}
