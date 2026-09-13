@@ -51,12 +51,16 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * No issuer is configured here, which is the point — with OAuth2 unwired the
  * chain must still deny anonymous access rather than fall open.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+		webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+		properties = "spring.docker.compose.enabled=false")
 @Import(TestcontainersConfiguration.class)
 @ActiveProfiles("http")
 @Tag("integration")
 @Testcontainers(disabledWithoutDocker = true)
 class HttpSecurityFilterChainTest {
+
+	private static final HttpClient HTTP = HttpClient.newHttpClient();
 
 	/** Open for liveness/readiness probes — the one anonymous actuator path. */
 	private static final String HEALTH_PROBE = "/actuator/health";
@@ -72,7 +76,7 @@ class HttpSecurityFilterChainTest {
 
 	private int statusOf(String path) throws Exception {
 		HttpRequest request = HttpRequest.newBuilder().uri(URI.create("http://localhost:" + port + path)).GET().build();
-		return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString()).statusCode();
+		return HTTP.send(request, HttpResponse.BodyHandlers.ofString()).statusCode();
 	}
 
 	@Test

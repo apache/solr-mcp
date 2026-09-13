@@ -51,7 +51,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * (enabled) and invokes a secured method through the Spring proxy with an empty
  * SecurityContext. Enforcement means an {@link AccessDeniedException}.
  */
-@SpringBootTest
+@SpringBootTest(
+		webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+		properties = "spring.docker.compose.enabled=false")
 @Import(TestcontainersConfiguration.class)
 @ActiveProfiles("http")
 @Tag("integration")

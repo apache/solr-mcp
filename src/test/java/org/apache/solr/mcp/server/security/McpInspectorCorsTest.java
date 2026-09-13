@@ -56,12 +56,16 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * This replays the exact preflight a browser sends on the Inspector's behalf
  * and asserts the response permits the request.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+		webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+		properties = "spring.docker.compose.enabled=false")
 @Import(TestcontainersConfiguration.class)
 @ActiveProfiles("http")
 @Tag("integration")
 @Testcontainers(disabledWithoutDocker = true)
 class McpInspectorCorsTest {
+
+	private static final HttpClient HTTP = HttpClient.newHttpClient();
 
 	/** The MCP Inspector UI origin, and the shipped default allowlist entry. */
 	private static final String INSPECTOR_ORIGIN = "http://localhost:6274";
@@ -87,7 +91,7 @@ class McpInspectorCorsTest {
 		if (requestHeaders != null) {
 			builder.header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, requestHeaders);
 		}
-		return HttpClient.newHttpClient().send(builder.build(), HttpResponse.BodyHandlers.ofString());
+		return HTTP.send(builder.build(), HttpResponse.BodyHandlers.ofString());
 	}
 
 	@Test
