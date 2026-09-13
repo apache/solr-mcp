@@ -513,8 +513,45 @@ curl -s -X POST "$KC/admin/realms/solr-mcp/clients" \
 
 The audience mapper is **not** optional here either — a service-account token
 without it is rejected with `The aud claim is not valid`, exactly like a user
-token. Retrieve the generated secret from **Clients** → `spring-ai-app` →
-**Credentials**.
+token. The generated secret is at **Clients** → `spring-ai-app` →
+**Credentials** in the console, or over the Admin API:
+
+```bash
+CLIENT_UUID=$(curl -s "$KC/admin/realms/solr-mcp/clients?clientId=spring-ai-app" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq -r '.[0].id')
+
+CLIENT_SECRET=$(curl -s "$KC/admin/realms/solr-mcp/clients/$CLIENT_UUID/client-secret" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq -r '.value')
+```
+
+Requesting a token by hand — the same `client_credentials` grant the Spring
+client will use — confirms the registration before any application code is
+involved, and populates the `$TOKEN` that [step 4](#4-verify) checks:
+
+```bash
+TOKEN=$(curl -s -X POST "$KC/realms/solr-mcp/protocol/openid-connect/token" \
+  -d grant_type=client_credentials \
+  -d client_id=spring-ai-app \
+  -d "client_secret=$CLIENT_SECRET" | jq -r .access_token)
+
+jwt_payload "$TOKEN" | jq .aud
+# [ "http://localhost:8080/mcp", "account" ]
+```
+
+If `aud` is only `"account"`, the `protocolMappers` block above did not take —
+re-check it before moving on, because the failure surfaces much later as a
+`401` from the transport.
+
+Both tokens expire in 300s by default, `$ADMIN_TOKEN` included, and carrying
+this `$TOKEN` as far as [step 4](#4-verify) will usually outlive it. An expired
+token is rejected with the same `401` as a misconfigured one, so read the reason
+before suspecting the mapper:
+
+```bash
+curl -s -i -H "Authorization: Bearer $TOKEN" http://localhost:8080/actuator/metrics \
+  | grep -i www-authenticate
+# ... error_description="... Jwt expired at ..."   -> just request a new token
+```
 
 ### 2. Configure the transport
 
