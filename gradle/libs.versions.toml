@@ -51,6 +51,7 @@ spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-
 spring-boot-starter-oauth2-resource-server = { module = "org.springframework.boot:spring-boot-starter-oauth2-resource-server" }
 spring-boot-docker-compose = { module = "org.springframework.boot:spring-boot-docker-compose" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+spring-security-test = { module = "org.springframework.security:spring-security-test" }
 spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
 # Spring AI
 spring-ai-starter-mcp-server-webmvc = { module = "org.springframework.ai:spring-ai-starter-mcp-server-webmvc" }
@@ -107,6 +108,7 @@ spring-boot-dev = [
 
 test = [
     "spring-boot-starter-test",
+    "spring-security-test",
     "spring-boot-testcontainers",
     "spring-ai-spring-boot-testcontainers",
     "testcontainers-junit-jupiter",
