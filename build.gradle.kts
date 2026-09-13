@@ -207,26 +207,16 @@ springBoot {
 // Testcontainers image pins live in gradle/libs.versions.toml; -Dsolr.test.image
 // and -Dlgtm.test.image override them for a single run (e.g. the Solr
 // compatibility matrix in CI).
-val solrTestImage =
-    System.getProperty(
-        "solr.test.image",
-        libs.versions.test.image.solr
-            .get(),
-    )
-val lgtmTestImage =
-    System.getProperty(
-        "lgtm.test.image",
-        libs.versions.test.image.lgtm
-            .get(),
-    )
+val solrPin =
+    libs.versions.test.image.solr
+        .get()
+val lgtmPin =
+    libs.versions.test.image.lgtm
+        .get()
+val solrTestImage = System.getProperty("solr.test.image", solrPin)
+val lgtmTestImage = System.getProperty("lgtm.test.image", lgtmPin)
 
 tasks.processTestResources {
-    val solrPin =
-        libs.versions.test.image.solr
-            .get()
-    val lgtmPin =
-        libs.versions.test.image.lgtm
-            .get()
     inputs.property("solrTestImage", solrPin)
     inputs.property("lgtmTestImage", lgtmPin)
     filesMatching("test-images.properties") {
@@ -285,9 +275,6 @@ tasks.register<Test>("integrationTest") {
 
     testClassesDirs = sourceSets["test"].output.classesDirs
     classpath = sourceSets["test"].runtimeClasspath
-
-    systemProperty("solr.test.image", solrTestImage)
-    systemProperty("lgtm.test.image", lgtmTestImage)
 
     mustRunAfter(tasks.named("unitTest"))
     finalizedBy(tasks.jacocoTestReport)

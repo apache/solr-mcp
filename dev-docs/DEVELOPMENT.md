@@ -194,7 +194,7 @@ Tests run against the Solr image pinned as `test-image-solr` in `gradle/libs.ver
 ```bash
 ./gradlew test -Dsolr.test.image=solr:8.11-slim   # Solr 8.11
 ./gradlew test -Dsolr.test.image=solr:9.4-slim    # Solr 9.4
-./gradlew test -Dsolr.test.image=solr:9.9-slim    # Solr 9.9 (the pinned default is 9.9.0-slim)
+./gradlew test -Dsolr.test.image=solr:9.9.0-slim    # Solr 9.9 (the pinned default)
 ./gradlew test -Dsolr.test.image=solr:9.10-slim   # Solr 9.10
 ./gradlew test -Dsolr.test.image=solr:10-slim     # Solr 10
 ```

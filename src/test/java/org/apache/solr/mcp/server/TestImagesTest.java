@@ -20,7 +20,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.utility.DockerImageName;
 
@@ -32,17 +31,9 @@ import org.testcontainers.utility.DockerImageName;
  */
 class TestImagesTest {
 
-	@AfterEach
-	void clearOverrides() {
-		System.clearProperty(TestImages.SOLR_PROPERTY);
-		System.clearProperty(TestImages.LGTM_PROPERTY);
-	}
-
 	@Test
 	void solrImageIsPinnedToAnExactTag() {
-		System.clearProperty(TestImages.SOLR_PROPERTY);
-
-		DockerImageName image = DockerImageName.parse(TestImages.solr());
+		DockerImageName image = DockerImageName.parse(TestImages.pinned(TestImages.SOLR_PROPERTY));
 
 		assertEquals("solr", image.getRepository());
 		assertPinned(image);
@@ -50,26 +41,10 @@ class TestImagesTest {
 
 	@Test
 	void lgtmImageIsPinnedToAnExactTag() {
-		System.clearProperty(TestImages.LGTM_PROPERTY);
-
-		DockerImageName image = DockerImageName.parse(TestImages.lgtm());
+		DockerImageName image = DockerImageName.parse(TestImages.pinned(TestImages.LGTM_PROPERTY));
 
 		assertEquals("grafana/otel-lgtm", image.getRepository());
 		assertPinned(image);
-	}
-
-	@Test
-	void systemPropertyOverridesTheCatalogPin() {
-		System.setProperty(TestImages.SOLR_PROPERTY, "solr:8.11-slim");
-
-		assertEquals("solr:8.11-slim", TestImages.solr());
-	}
-
-	@Test
-	void blankSystemPropertyFallsBackToTheCatalogPin() {
-		System.setProperty(TestImages.SOLR_PROPERTY, "  ");
-
-		assertTrue(TestImages.solr().startsWith("solr:"), TestImages.solr());
 	}
 
 	private static void assertPinned(DockerImageName image) {

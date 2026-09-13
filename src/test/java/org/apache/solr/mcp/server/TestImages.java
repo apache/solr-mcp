@@ -62,6 +62,11 @@ public final class TestImages {
 		if (override != null && !override.isBlank()) {
 			return override.trim();
 		}
+		return pinned(key);
+	}
+
+	/** The catalog pin for {@code key}, ignoring any {@code -D} override. */
+	static String pinned(String key) {
 		String pinned = pins().getProperty(key, "").trim();
 		if (pinned.isBlank() || pinned.startsWith("${")) {
 			throw new IllegalStateException(key + " is not set. Run the tests through Gradle so " + RESOURCE
