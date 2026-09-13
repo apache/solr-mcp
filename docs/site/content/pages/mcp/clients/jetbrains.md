@@ -61,6 +61,8 @@ Create `.junie/mcp/mcp.json` in your project root:
 
 Start the server first (see [Running the Server](https://github.com/apache/solr-mcp#running-the-server)), then:
 
+The HTTP transport is secured by default and answers 401 until an OAuth2 issuer is configured. For a local experiment on your own machine only, add `HTTP_SECURITY_ENABLED=false` to the server's environment; see [Security](/mcp/security.html) before exposing it to anyone else.
+
 ```json
 {
   "mcpServers": {

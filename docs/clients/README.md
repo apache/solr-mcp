@@ -12,6 +12,7 @@ server's streamable HTTP endpoint at `http://localhost:8080/mcp`).
 | VS Code / GitHub Copilot | [vs-code.md](vs-code.md) |
 | Cursor | [cursor.md](cursor.md) |
 | JetBrains IDEs | [jetbrains.md](jetbrains.md) |
+| Zed | [zed.md](zed.md) |
 | MCP Inspector | [mcp-inspector.md](mcp-inspector.md) |
 
 Before connecting, start Solr and build the server — see the
