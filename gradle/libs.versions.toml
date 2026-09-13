@@ -28,6 +28,7 @@ cyclonedx-plugin = "2.4.1"
 spring-ai = "1.1.7"
 solr = "10.0.0"
 commons-csv = "1.14.1"
+commonmark = "0.28.0"
 jspecify = "1.0.0"
 mcp-server-security = "0.0.6"
 
@@ -65,6 +66,10 @@ solr-solrj = { module = "org.apache.solr:solr-solrj", version.ref = "solr" }
 
 # Apache Commons
 commons-csv = { module = "org.apache.commons:commons-csv", version.ref = "commons-csv" }
+
+# CommonMark (markdown parsing)
+commonmark = { module = "org.commonmark:commonmark", version.ref = "commonmark" }
+commonmark-ext-yaml-front-matter = { module = "org.commonmark:commonmark-ext-yaml-front-matter", version.ref = "commonmark" }
 
 # Null safety
 jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }

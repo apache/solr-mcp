@@ -99,6 +99,7 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 | `index-json-documents` | Index documents from a JSON string into a collection |
 | `index-csv-documents` | Index documents from a CSV string into a collection |
 | `index-xml-documents` | Index documents from an XML string into a collection |
+| `index-markdown-documents` | Index a markdown document into a collection, extracting front matter, title, headings, and body text |
 | `create-collection` | Create a collection (configSet, numShards, replicationFactor optional — default `_default`, `1`, `1`) |
 | `list-collections` | List all available Solr collections |
 | `get-collection-stats` | Get statistics and metrics for a collection |
@@ -153,6 +154,7 @@ Running in **HTTP mode** — OAuth2, CORS, and the `HTTP_SECURITY_ENABLED` toggl
 
 **Using it**
 - [Quick start](#quick-start) · [Client setup](docs/clients/) — Claude Desktop, Claude Code, VS Code, Cursor, JetBrains, MCP Inspector
+- [Tutorial: your first collection](docs/tutorial.md) — index a dataset twice, schemaless then with a designed schema, and see why field types matter
 - [Observability](docs/observability.md) — OpenTelemetry traces, metrics, logs
 - Security: [Deployment model (single-tenant)](docs/security/deployment-model.md) · [STDIO model](docs/security/stdio.md) · [HTTP model](docs/security/http.md) · OAuth2 setup: [Auth0](docs/security/auth0.md) · [Keycloak](docs/security/keycloak.md)
 

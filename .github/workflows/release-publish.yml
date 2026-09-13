@@ -191,7 +191,7 @@ jobs:
         run: |
           # Ensure the Gradle project version matches the GA version (removes any -SNAPSHOT)
           # This keeps image tags and any generated artifacts consistent with the voted release
-          sed -i "s/version = \".*\"/version = \"${RELEASE_VERSION}\"/" build.gradle.kts
+          sed -i "0,/^version = \".*\"/s//version = \"${RELEASE_VERSION}\"/" build.gradle.kts
 
       - name: Build project
         run: ./gradlew build
@@ -206,33 +206,33 @@ jobs:
           echo "Contact INFRA for setup requirements"
 
       - name: Build and publish to Docker Hub (apache/solr-mcp)
+        env:
+          # Jib reads these directly; passing them as -Djib.to.auth.* would put
+          # the token in the process argument list, visible to anything on the runner.
+          JIB_TO_AUTH_USERNAME: ${{ secrets.DOCKERHUB_APACHE_USERNAME }}
+          JIB_TO_AUTH_PASSWORD: ${{ secrets.DOCKERHUB_APACHE_TOKEN }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
-          # Publish official release to apache/solr-mcp
-          # This requires Apache PMC credentials
-          if [[ -n "${{ secrets.DOCKERHUB_APACHE_USERNAME }}" ]]; then
-            # Build and push with multiple tags
-            ./gradlew jib \
-              -Djib.to.image=apache/solr-mcp:${{ inputs.release_version }} \
-              -Djib.to.auth.username=${{ secrets.DOCKERHUB_APACHE_USERNAME }} \
-              -Djib.to.auth.password=${{ secrets.DOCKERHUB_APACHE_TOKEN }} \
-              -Djib.to.tags=${{ inputs.release_version }},latest
-
-            # Also tag with major and minor versions
-            MAJOR_VERSION=$(echo "${{ inputs.release_version }}" | cut -d. -f1)
-            MINOR_VERSION=$(echo "${{ inputs.release_version }}" | cut -d. -f1-2)
-
-            ./gradlew jib \
-              -Djib.to.image=apache/solr-mcp:${MAJOR_VERSION} \
-              -Djib.to.auth.username=${{ secrets.DOCKERHUB_APACHE_USERNAME }} \
-              -Djib.to.auth.password=${{ secrets.DOCKERHUB_APACHE_TOKEN }}
-
-            ./gradlew jib \
-              -Djib.to.image=apache/solr-mcp:${MINOR_VERSION} \
-              -Djib.to.auth.username=${{ secrets.DOCKERHUB_APACHE_USERNAME }} \
-              -Djib.to.auth.password=${{ secrets.DOCKERHUB_APACHE_TOKEN }}
-          else
-            echo "WARNING: Apache Docker Hub credentials not configured"
+          set -euo pipefail
+          # Publish official release to apache/solr-mcp. This requires Apache PMC
+          # credentials; a release that cannot publish must fail loudly rather than
+          # reporting success while shipping nothing.
+          if [[ -z "${JIB_TO_AUTH_USERNAME}" || -z "${JIB_TO_AUTH_PASSWORD}" ]]; then
+            echo "ERROR: Apache Docker Hub credentials (DOCKERHUB_APACHE_USERNAME / DOCKERHUB_APACHE_TOKEN) are not configured" >&2
+            exit 1
           fi
+
+          # Build and push with multiple tags
+          ./gradlew jib \
+            -Djib.to.image="apache/solr-mcp:${RELEASE_VERSION}" \
+            -Djib.to.tags="${RELEASE_VERSION},latest"
+
+          # Also tag with major and minor versions
+          MAJOR_VERSION="${RELEASE_VERSION%%.*}"
+          MINOR_VERSION="$(echo "${RELEASE_VERSION}" | cut -d. -f1-2)"
+
+          ./gradlew jib -Djib.to.image="apache/solr-mcp:${MAJOR_VERSION}"
+          ./gradlew jib -Djib.to.image="apache/solr-mcp:${MINOR_VERSION}"
 
       - name: Build and publish to GitHub Container Registry
         run: |
@@ -332,7 +332,6 @@ jobs:
           ## Vote Thread
 
           This release was approved by the Apache Solr PMC.
-          ${VOTE_THREAD_NOTE}
           EOF
 
           if [[ -n "${{ inputs.vote_thread_url }}" ]]; then
@@ -400,7 +399,7 @@ jobs:
         env:
           RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
-          sed -i "s/version = \".*\"/version = \"${RELEASE_VERSION}\"/" build.gradle.kts
+          sed -i "0,/^version = \".*\"/s//version = \"${RELEASE_VERSION}\"/" build.gradle.kts
 
       # Inline `docker login` rather than docker/login-action: that third-party
       # action is not on the ASF GitHub Actions allow-list, which fails the whole
@@ -515,7 +514,10 @@ jobs:
     runs-on: ubuntu-latest
     # Wait for both JVM (publish-docker) and native (publish-native-manifests)
     # images so the MCP Registry entry references a fully-published release.
-    needs: [publish-docker, publish-native-manifests]
+    # validate-release must be listed here too: the if: below reads its output,
+    # and a needs.<job> reference to a job not in needs: resolves to empty,
+    # which would silently make this job never run.
+    needs: [validate-release, publish-docker, publish-native-manifests]
     if: ${{ needs.validate-release.outputs.proceed == 'true' }}
 
       # Permissions required for OIDC-based auth to the MCP Registry and read access
@@ -543,16 +545,40 @@ jobs:
                 VERSION="${{ steps.mcp_version.outputs.version }}"
                 # Update the top-level server version (e.g., 1.2.3)
                 jq --arg v "$VERSION" '.version = $v' server.json > server.json.tmp
-                # Update package version to match GA release (no -SNAPSHOT suffix)
-                jq --arg v "$VERSION" '.packages[0].version = $v' server.json.tmp > server.json
+                # Update EVERY package version to match the GA release. Rewriting
+                # only packages[0] left the other package on -SNAPSHOT, so the
+                # registry entry advertised an image tag that is never published.
+                jq --arg v "$VERSION" '.packages[].version = $v' server.json.tmp > server.json
                 rm server.json.tmp
+                # Fail if any -SNAPSHOT version survived the rewrite
+                if grep -q 'SNAPSHOT' server.json; then
+                  echo "ERROR: server.json still contains a SNAPSHOT version after rewrite" >&2
+                  cat server.json >&2
+                  exit 1
+                fi
                 # Show the final server.json for auditing
                 cat server.json
 
-        # Download the MCP Publisher CLI from its latest GitHub release
+        # Download the MCP Publisher CLI, pinned to an explicit release and
+        # verified against that release's published checksum file. Piping an
+        # unverified `curl -L` straight into tar would silently extract a
+        # GitHub error page on a 404, so download, verify, then extract.
         -   name: Download MCP Publisher
+            env:
+                MCP_PUBLISHER_VERSION: v1.8.0
             run: |
-                curl -L https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher-linux-amd64.tar.gz | tar xz
+                set -euo pipefail
+                base="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}"
+                asset="mcp-publisher_linux_amd64.tar.gz"
+                checksums="registry_${MCP_PUBLISHER_VERSION#v}_checksums.txt"
+
+                curl -fsSL -o "${asset}" "${base}/${asset}"
+                curl -fsSL -o "${checksums}" "${base}/${checksums}"
+
+                # Abort if the archive does not match the release's published digest
+                grep " ${asset}\$" "${checksums}" | sha256sum -c -
+
+                tar xzf "${asset}"
                 chmod +x mcp-publisher
                 ./mcp-publisher --version
 
