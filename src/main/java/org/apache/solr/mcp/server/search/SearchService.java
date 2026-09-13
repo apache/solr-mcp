@@ -36,6 +36,8 @@ import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.FacetParams;
 import org.apache.solr.mcp.server.util.PromptNames;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.annotation.McpArg;
 import org.springaicommunity.mcp.annotation.McpPrompt;
 import org.springaicommunity.mcp.annotation.McpTool;
@@ -110,13 +112,7 @@ import org.springframework.util.StringUtils;
 @Observed
 public class SearchService {
 
-	/** Key for the field name within a sort clause map. */
-	public static final String SORT_ITEM = "item";
-	/**
-	 * Key for the sort direction ({@code asc} / {@code desc}) within a sort clause
-	 * map.
-	 */
-	public static final String SORT_ORDER = "order";
+	private static final Logger logger = LoggerFactory.getLogger(SearchService.class);
 
 	/**
 	 * Fragments of Solr's own error text that identify a failure we can advise on.
@@ -248,7 +244,8 @@ public class SearchService {
 	 * @param facetFields
 	 *            List of fields to facet on
 	 * @param sortClauses
-	 *            List of sort clauses for ordering results
+	 *            List of sort clauses for ordering results; each names a field and
+	 *            an optional {@code asc}/{@code desc} order (default {@code asc})
 	 * @param start
 	 *            Starting offset for pagination
 	 * @param rows
@@ -305,8 +302,9 @@ public class SearchService {
 					required = false) @Nullable List<String> filterQueries,
 			@McpToolParam(description = "Solr facet fields", required = false) @Nullable List<String> facetFields,
 			@McpToolParam(
-					description = "Solr sort parameter",
-					required = false) @Nullable List<Map<String, String>> sortClauses,
+					description = "Sort clauses applied in order. Each has 'field' (field name to sort"
+							+ " on) and 'order' ('asc' or 'desc', default 'asc')",
+					required = false) @Nullable List<SortClause> sortClauses,
 			@McpToolParam(description = "Starting offset for pagination", required = false) @Nullable Integer start,
 			@McpToolParam(description = "Number of rows to return", required = false) @Nullable Integer rows)
 			throws SolrServerException, IOException {
@@ -334,7 +332,7 @@ public class SearchService {
 
 		// sorting
 		if (!CollectionUtils.isEmpty(sortClauses)) {
-			solrQuery.setSorts(sortClauses.stream().map(SearchService::toSortClause).toList());
+			solrQuery.setSorts(sortClauses.stream().map(SortClause::toSolrSortClause).toList());
 		}
 
 		// pagination
@@ -366,35 +364,6 @@ public class SearchService {
 	}
 
 	/**
-	 * Builds a {@link SolrQuery.SortClause} from one caller-supplied map.
-	 *
-	 * <p>
-	 * Both keys are validated up front: {@code SortClause}'s constructor calls
-	 * {@code ORDER.valueOf(order)}, which throws {@link NullPointerException} on a
-	 * missing order and an opaque {@link IllegalArgumentException} on an
-	 * unrecognised one. Callers are LLMs, so the message needs to say what to send.
-	 */
-	private static SolrQuery.SortClause toSortClause(Map<String, String> sortClause) {
-		String field = sortClause.get(SORT_ITEM);
-		String order = sortClause.get(SORT_ORDER);
-		if (field == null || field.isBlank()) {
-			throw new IllegalArgumentException("Each sort clause requires a non-empty '" + SORT_ITEM + "' key");
-		}
-		if (order == null || order.isBlank()) {
-			throw new IllegalArgumentException(
-					"Sort clause for '" + field + "' requires a '" + SORT_ORDER + "' key of 'asc' or 'desc'");
-		}
-		SolrQuery.ORDER parsed;
-		try {
-			parsed = SolrQuery.ORDER.valueOf(order.toLowerCase(Locale.ROOT));
-		} catch (IllegalArgumentException e) {
-			throw new IllegalArgumentException(
-					"Unsupported sort order '" + order + "' for '" + field + "'; expected 'asc' or 'desc'", e);
-		}
-		return new SolrQuery.SortClause(field, parsed);
-	}
-
-	/**
 	 * Wraps common Solr query failures with a next-step hint. MCP clients receive
 	 * the exception message as the tool error, so naming the follow-up tool lets
 	 * them self-correct instead of retrying blind.
@@ -408,6 +377,10 @@ public class SearchService {
 	 */
 	private static RuntimeException withRemediationHint(SolrException e, String collection) {
 		final String message = String.valueOf(e.getMessage());
+
+		// The MCP client only ever sees the exception message, so without this the
+		// server keeps no record of a failed query.
+		logger.debug("Solr query failed on collection {}", collection, e);
 
 		// An unknown collection is a 404 whose body is Solr's HTML "not found" page,
 		// so SolrJ reports it as a mime-type mismatch and leaves getMetadata() null.
