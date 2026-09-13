@@ -259,7 +259,7 @@ class MarkdownIndexingTest {
 	@Test
 	void testEmptyMarkdownThrowsException() {
 		assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(""))
-				.isInstanceOf(DocumentProcessingException.class).hasMessageContaining("cannot be null or empty");
+				.isInstanceOf(DocumentProcessingException.class).hasMessage("Markdown input cannot be empty");
 	}
 
 	@Test

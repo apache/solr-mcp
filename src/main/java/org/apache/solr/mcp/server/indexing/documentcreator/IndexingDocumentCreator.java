@@ -137,12 +137,6 @@ public class IndexingDocumentCreator {
 	 * @see XmlDocumentCreator
 	 */
 	public List<SolrInputDocument> createSchemalessDocumentsFromXml(String xml) throws DocumentProcessingException {
-
-		// Input validation
-		if (xml == null || xml.trim().isEmpty()) {
-			throw new DocumentProcessingException("XML input cannot be null or empty");
-		}
-
 		byte[] xmlBytes = xml.getBytes(StandardCharsets.UTF_8);
 		if (xmlBytes.length > MAX_XML_SIZE_BYTES) {
 			throw new DocumentProcessingException(
@@ -170,12 +164,6 @@ public class IndexingDocumentCreator {
 	 */
 	public List<SolrInputDocument> createSchemalessDocumentsFromMarkdown(String markdown)
 			throws DocumentProcessingException {
-
-		// Input validation
-		if (markdown == null || markdown.trim().isEmpty()) {
-			throw new DocumentProcessingException("Markdown input cannot be null or empty");
-		}
-
 		return markdownDocumentCreator.create(markdown);
 	}
 }

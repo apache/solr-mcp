@@ -125,20 +125,16 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
 	 *
 	 * @param markdown
 	 *            markdown string, optionally starting with YAML front matter
-	 * @return a single-element list containing the created document, or an empty
-	 *         list if the input is blank
+	 * @return a single-element list containing the created document
 	 * @throws DocumentProcessingException
-	 *             if the input exceeds the size limit or parsing fails
+	 *             if the input is blank, exceeds the size limit or fails to parse
 	 */
 	@Override
 	public List<SolrInputDocument> create(String markdown) throws DocumentProcessingException {
+		SolrDocumentCreator.requireContent(markdown, "Markdown");
 		if (markdown.getBytes(StandardCharsets.UTF_8).length > MAX_INPUT_SIZE_BYTES) {
 			throw new DocumentProcessingException(
 					"Input too large: exceeds maximum size of " + MAX_INPUT_SIZE_BYTES + " bytes");
-		}
-
-		if (markdown.trim().isEmpty()) {
-			return List.of();
 		}
 
 		Node document;

@@ -46,7 +46,8 @@ import org.apache.solr.common.SolrInputDocument;
  * <strong>Implementation Guidelines:</strong>
  *
  * <ul>
- * <li>Handle null or empty input gracefully
+ * <li>Reject blank input via {@link #requireContent(String, String)} before
+ * parsing
  * <li>Sanitize field names using {@link FieldNameSanitizer}
  * <li>Preserve original data types where possible
  * <li>Throw {@link DocumentProcessingException} for processing errors
@@ -93,22 +94,39 @@ public interface SolrDocumentCreator {
 	 * <strong>Input Validation:</strong>
 	 *
 	 * <ul>
-	 * <li>Null input should be handled gracefully (implementation-dependent)
-	 * <li>Empty input should return empty list
-	 * <li>Malformed content should throw DocumentProcessingException
+	 * <li>Blank content throws DocumentProcessingException (see
+	 * {@link #requireContent(String, String)})
+	 * <li>Malformed content throws DocumentProcessingException
 	 * </ul>
 	 *
 	 * @param content
 	 *            the content string to be parsed and converted to SolrInputDocument
 	 *            objects. The format depends on the implementing class (JSON array,
 	 *            CSV data, XML, etc.)
-	 * @return a list of SolrInputDocument objects created from the parsed content.
-	 *         Returns empty list if content is empty or contains no valid documents
+	 * @return a list of SolrInputDocument objects created from the parsed content
 	 * @throws DocumentProcessingException
-	 *             if the content cannot be parsed or converted due to format
-	 *             errors, invalid structure, or processing failures
-	 * @throws IllegalArgumentException
-	 *             if content is null (implementation-dependent)
+	 *             if the content is blank, or cannot be parsed or converted due to
+	 *             format errors, invalid structure, or processing failures
 	 */
 	List<SolrInputDocument> create(String content) throws DocumentProcessingException;
+
+	/**
+	 * Rejects blank content with one message shape shared by every format.
+	 *
+	 * <p>
+	 * Only blankness is checked. The creators are {@code @NullMarked}, so a null
+	 * argument is a caller's contract violation, not an input to validate.
+	 *
+	 * @param content
+	 *            the raw input
+	 * @param format
+	 *            the format name used in the message, for example {@code "JSON"}
+	 * @throws DocumentProcessingException
+	 *             if {@code content} is empty or whitespace only
+	 */
+	static void requireContent(String content, String format) throws DocumentProcessingException {
+		if (content.isBlank()) {
+			throw new DocumentProcessingException(format + " input cannot be empty");
+		}
+	}
 }
