@@ -215,7 +215,7 @@ class SearchServiceIntegrationTest {
 
 	@Test
 	void searchWithBlankOptionsPreservesFiltersFacetsAndSort() throws Exception {
-		SearchResponse result = searchService.search(COLLECTION_NAME, " \t", List.of("", "platform:netflix", " "),
+		SearchResponse result = searchService.search(COLLECTION_NAME, " \t", List.of("", "platform_ss:netflix", " "),
 				List.of(" ", "platform_ss", ""), List.of(new SortClause("", ""), new SortClause("id", "desc")), 0, 10);
 		assertEquals(2, result.numFound());
 		assertEquals(List.of("book002", "book001"), getDocumentIds(result.documents()));
