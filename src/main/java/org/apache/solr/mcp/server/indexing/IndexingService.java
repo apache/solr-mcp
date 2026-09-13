@@ -476,6 +476,7 @@ public class IndexingService {
 			@McpToolParam(
 					description = "Markdown string to index, optionally starting with YAML front matter") String markdown)
 			throws IOException, SolrServerException {
+		requireCollection(collection);
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
 		int successCount = indexDocuments(collection, schemalessDoc);
 		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"

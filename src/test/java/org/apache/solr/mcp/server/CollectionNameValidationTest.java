@@ -116,6 +116,12 @@ class CollectionNameValidationTest {
 	}
 
 	@Test
+	void indexMarkdownDocumentsRejectsBlankCollectionName() {
+		assertRejectsBlankCollection(() -> indexingService.indexMarkdownDocuments(null, "# Title"),
+				() -> indexingService.indexMarkdownDocuments(BLANK, "# Title"));
+	}
+
+	@Test
 	void getSchemaRejectsBlankCollectionName() {
 		assertRejectsBlankCollection(() -> schemaService.getSchema(null), () -> schemaService.getSchema(BLANK));
 	}

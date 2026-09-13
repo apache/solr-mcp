@@ -494,7 +494,7 @@ public class SchemaService {
 
 	private static void requireNonEmpty(List<?> list, String name) {
 		if (list == null || list.isEmpty()) {
-			throw new IllegalArgumentException(name + " cannot be null or empty");
+			throw new IllegalArgumentException(name + " must not be empty");
 		}
 	}
 
