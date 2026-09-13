@@ -34,7 +34,7 @@ dependencies {
     // here (mirroring how the junit dep below is pinned) since buildSrc does not read the
     // root project's version catalog. Latest release as of writing; bump in lockstep with
     // the plugin's upstream releases.
-    implementation("org.nosphere.apache.rat:org.nosphere.apache.rat.gradle.plugin:0.8.1")
+    implementation("org.nosphere.apache.rat:org.nosphere.apache.rat.gradle.plugin:0.8.2")
 
     // Only used by the task unit tests under src/test (the main code needs no extra deps;
     // the Gradle API is provided by the kotlin-dsl plugin).

@@ -149,10 +149,36 @@ class LoggingConfigurationTest {
 		assertThat(System.getProperty(Main.LOGBACK_STATUS_LISTENER_PROPERTY)).isEqualTo(operatorChoice);
 	}
 
+	/**
+	 * The STDIO profile must not export an empty console pattern. Spring Boot
+	 * copies {@code logging.pattern.console} into the JVM-wide
+	 * {@code CONSOLE_LOG_PATTERN} system property (first writer wins), and logback
+	 * rejects an empty pattern with {@code Empty or null pattern} instead of
+	 * silencing output. Spring Framework 7 pauses a test's ApplicationContext on
+	 * context switch, which stops Boot's logging lifecycle bean and makes the next
+	 * context re-initialise logback under its own profile - so a stdio-profile test
+	 * running first would break every later http-profile context in the same JVM.
+	 * STDIO stays silent because {@code logback-spring.xml} declares no appenders
+	 * for it, not because of the pattern.
+	 */
+	@Test
+	void stdioProfileDoesNotExportAnEmptyConsolePattern() {
+		String pattern = properties("application-stdio.properties").getProperty("logging.pattern.console");
+		if (pattern != null) {
+			assertThat(pattern).as("application-stdio.properties sets logging.pattern.console to an empty value. Boot "
+					+ "exports it JVM-wide as CONSOLE_LOG_PATTERN (first writer wins) and logback rejects an empty "
+					+ "pattern, breaking any http-profile context started later in the same JVM").isNotBlank();
+		}
+	}
+
 	private Properties applicationProperties() {
+		return properties("application.properties");
+	}
+
+	private Properties properties(String resource) {
 		Properties properties = new Properties();
-		try (InputStream in = getClass().getClassLoader().getResourceAsStream("application.properties")) {
-			assertThat(in).as("application.properties must be on the classpath").isNotNull();
+		try (InputStream in = getClass().getClassLoader().getResourceAsStream(resource)) {
+			assertThat(in).as("%s must be on the classpath", resource).isNotNull();
 			properties.load(in);
 		} catch (IOException ex) {
 			throw new UncheckedIOException(ex);

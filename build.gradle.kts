@@ -91,6 +91,34 @@ java {
 // the bootJar — bundling the base files here too would duplicate META-INF/LICENSE.
 // See https://www.apache.org/legal/release-policy.html#licensing-documentation
 
+// CycloneDX SBOM
+// ==============
+// What we no longer configure: *output*. Spring Boot 4.1.1's `CyclonedxPluginAction`
+// auto-configures the `cyclonedxBom` task (type `org.cyclonedx.gradle.CyclonedxAggregateTask`)
+// for cyclonedx 3.x -- it sets the output to `build/reports/cyclonedx/application.cdx.json`
+// and makes the bootJar embed it at `META-INF/sbom/application.cdx.json`. The
+// `org.apache.solr.mcp.license-notice` plugin reads the SBOM from that same path.
+//
+// What still needs configuring: *scope*. cyclonedx 3.x splits the work in two --
+// `cyclonedxDirectBom` (`CyclonedxDirectTask`) resolves the dependency graph and owns
+// `includeConfigs`; `cyclonedxBom` (`CyclonedxAggregateTask`) only aggregates its output.
+// Left at defaults, the direct task scans every configuration, which puts JUnit, AssertJ,
+// ByteBuddy, docker-java, JaCoCo, Error Prone and NullAway into the SBOM -- ~100 components
+// that are not in the fat jar. That is invisible to our checks (the LICENSE appendix filters
+// to shipped coordinates, and the completeness gate only fails on *missing* entries), but the
+// SBOM ships at `META-INF/sbom/application.cdx.json` and is served from
+// `/actuator/sbom/application`, where scanners read it as a claim about the artifact's
+// contents -- test-only entries there become false-positive CVEs against a release.
+// So scope the direct task to the shipped classpath, matching `generateBinaryLicense`.
+//
+// Historical note: this used to pin cyclonedx to 2.4.1 and set `outputName` by hand as well,
+// because 3.x failed at configuration time on Gradle 9.4.1 (a variant-mutation conflict on
+// `:cyclonedxDirectBom`). That is fixed as of 3.4.1, so the pin and the output-name wiring
+// are gone -- see https://github.com/apache/solr-mcp/issues/186.
+tasks.named<org.cyclonedx.gradle.CyclonedxDirectTask>("cyclonedxDirectBom") {
+    includeConfigs.set(listOf("productionRuntimeClasspath"))
+}
+
 // Maven Publishing Configuration
 // ==============================
 // This configuration enables publishing the project artifacts to Maven repositories.
@@ -143,30 +171,43 @@ repositories {
 
 dependencies {
 
-    developmentOnly(libs.bundles.spring.boot.dev)
+    developmentOnly(libs.spring.boot.docker.compose)
+    // Spring AI's docker-compose module declares starters for every vector store it can
+    // detect, so it drags in spring-boot-starter-mongodb transitively. That starter's
+    // autoconfiguration then tries to build a Mongo client at startup even though this
+    // application has no Mongo. Excluded rather than tolerated: it is developmentOnly, so
+    // the failure would surface as a confusing local `bootRun` error and never in CI.
+    developmentOnly(libs.spring.ai.spring.boot.docker.compose) {
+        exclude(group = "org.springframework.boot", module = "spring-boot-starter-mongodb")
+    }
 
-    implementation(libs.spring.boot.starter.web)
+    implementation(libs.spring.boot.starter.webmvc)
+    implementation(libs.spring.boot.starter.json)
     implementation(libs.spring.boot.starter.actuator)
-    implementation(libs.spring.boot.starter.aop)
     implementation(libs.spring.ai.starter.mcp.server.webmvc)
+    // Spring AI 2.0.0-M7 marked the common autoconfigure module as optional in the
+    // webmvc starter POM (#6088), so it is no longer pulled transitively even though
+    // the webmvc autoconfig classes still reference McpServerStdioDisabledCondition
+    // and other types from it.
+    implementation(libs.spring.ai.autoconfigure.mcp.server.common)
     implementation(libs.solr.solrj)
     implementation(libs.commons.csv)
     // CommonMark for markdown parsing
     implementation(libs.commonmark)
     implementation(libs.commonmark.ext.yaml.front.matter)
-    // JSpecify for nullability annotations
-    implementation(libs.jspecify)
-
-    implementation(platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.11.0"))
-    implementation("io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter")
-    implementation(libs.micrometer.tracing.bridge.otel)
-
-    implementation("io.micrometer:micrometer-registry-prometheus")
 
     // Security
     implementation(libs.mcp.server.security)
     implementation(libs.spring.boot.starter.security)
     implementation(libs.spring.boot.starter.oauth2.resource.server)
+
+    // Observability: Spring Boot 4 idiomatic OpenTelemetry support
+    // spring-boot-starter-opentelemetry provides traces, metrics, and log export via OTLP
+    // spring-boot-starter-aspectj enables @Observed annotation support (replaces starter-aop in SB4)
+    implementation(libs.spring.boot.starter.opentelemetry)
+    implementation(libs.spring.boot.starter.aspectj)
+    implementation(libs.opentelemetry.logback.appender)
+    runtimeOnly(libs.micrometer.registry.otlp)
 
     // Error Prone and NullAway for null safety analysis
     errorprone(libs.errorprone.core)
@@ -178,7 +219,35 @@ dependencies {
 
 dependencyManagement {
     imports {
+        // Declared before spring-ai-bom: the dependency-management plugin uses
+        // Maven "first declaration wins" semantics. spring-ai-bom does not manage
+        // the MCP SDK at all -- Spring AI 2.0.1 depends on mcp 2.0.0 directly --
+        // so this BOM is what lifts the whole SDK to 2.0.1 as one coherent set
+        // rather than pinning mcp-core and leaving mcp-json-jackson3 behind.
+        mavenBom("io.modelcontextprotocol.sdk:mcp-bom:${libs.versions.mcp.sdk.get()}")
         mavenBom("org.springframework.ai:spring-ai-bom:${libs.versions.spring.ai.get()}")
+    }
+}
+
+// Force opentelemetry-proto to a version compiled with protobuf 3.x
+// This resolves NoSuchMethodError with protobuf 4.x
+// See: https://github.com/micrometer-metrics/micrometer/issues/5658
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "io.opentelemetry.proto" && requested.name == "opentelemetry-proto") {
+            useVersion("1.3.2-alpha")
+            because("Version 1.8.0-alpha has protobuf 4.x incompatibility causing NoSuchMethodError")
+        }
+        // Align the OpenTelemetry incubator API with the stable API version managed by
+        // the Spring Boot 4.1.0 BOM (opentelemetry-api:1.62.0). The logback-appender
+        // (opentelemetry-instrumentation 2.21.0-alpha) transitively pins
+        // opentelemetry-api-incubator to 1.55.0-alpha, which lacks
+        // DeclarativeConfigProperties.get(String) used by SB4's OpenTelemetrySdk
+        // autoconfiguration — causing a NoSuchMethodError at context startup.
+        if (requested.group == "io.opentelemetry" && requested.name == "opentelemetry-api-incubator") {
+            useVersion("1.62.0-alpha")
+            because("Must match Spring Boot 4.1.0-managed opentelemetry-api:1.62.0")
+        }
     }
 }
 
@@ -305,6 +374,20 @@ tasks.withType<JavaCompile>().configureEach {
 // follow-up. Production code is fully enforced.
 tasks.named<JavaCompile>("compileTestJava") {
     options.errorprone.disable("NullAway")
+}
+
+// Disable Error Prone / NullAway for AOT-generated sources. The GraalVM native
+// plugin registers compileAotJava and compileAotTestJava tasks that compile
+// Spring Boot AOT-generated bean definitions. These generated sources contain
+// patterns (e.g., args.get(0)) that NullAway flags as nullable, but they are
+// correct code produced by the Spring AOT engine and cannot be modified.
+tasks.matching { it.name == "compileAotJava" || it.name == "compileAotTestJava" }.configureEach {
+    if (this is JavaCompile) {
+        options.errorprone {
+            disableAllChecks.set(true)
+            disable("NullAway")
+        }
+    }
 }
 
 tasks.build {
@@ -466,6 +549,7 @@ jib {
     }
     to {
         image = "solr-mcp:$version"
+
         tags = setOf("latest")
     }
     container {

@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,6 +40,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import tools.jackson.databind.json.JsonMapper;
 
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
@@ -65,7 +65,7 @@ class CollectionServiceIntegrationTest {
 	private SearchService searchService;
 
 	@Autowired
-	private ObjectMapper objectMapper;
+	private JsonMapper jsonMapper;
 
 	@BeforeAll
 	void setupCollectionWithData() throws Exception {
@@ -84,7 +84,7 @@ class CollectionServiceIntegrationTest {
 			doc.put("count_i", i);
 			docs.add(doc);
 		}
-		String json = objectMapper.writeValueAsString(docs);
+		String json = jsonMapper.writeValueAsString(docs);
 		indexingService.indexJsonDocuments(TEST_COLLECTION, json);
 		log.debug("Indexed {} documents via IndexingService", DOC_COUNT);
 

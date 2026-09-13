@@ -19,8 +19,6 @@ package org.apache.solr.mcp.server.observability;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
@@ -39,6 +37,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.grafana.LgtmStackContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Integration test verifying that observability signals (traces, metrics, logs)
@@ -47,8 +47,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * <p>
  * This test uses Spring Boot 3.5's {@code @ServiceConnection} with
  * {@code LgtmStackContainer} to integrate with the Grafana LGTM stack (Loki for
- * logs, Grafana for visualization, Tempo for traces, Mimir/Prometheus for
- * metrics).
+ * logs, Grafana for visualization, Tempo for traces, Prometheus for metrics).
  *
  * <p>
  * <b>What this test verifies:</b>

@@ -16,10 +16,10 @@
  */
 package org.apache.solr.mcp.server;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.client.transport.StdioClientTransport;
-import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
+import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 // run after project has been built with "./gradlew build -x test and the mcp server jar is
 // connected to a running solr"
@@ -31,7 +31,7 @@ public class ClientStdio {
 
 		var stdioParams = ServerParameters.builder("java").args("-jar", jarName).build();
 
-		var transport = new StdioClientTransport(stdioParams, new JacksonMcpJsonMapper(new ObjectMapper()));
+		var transport = new StdioClientTransport(stdioParams, new JacksonMcpJsonMapper(JsonMapper.builder().build()));
 
 		new SampleClient(transport).run();
 	}
