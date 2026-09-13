@@ -56,7 +56,9 @@ Build the image first: `./gradlew jibDockerBuild`
 
 ## HTTP Mode ##
 
-HTTP mode connects to a running MCP server via REST endpoints. Start the server first, then configure Claude Desktop to connect using `mcp-remote`.
+HTTP mode connects to a running MCP server over streamable HTTP. Start the server first, then configure Claude Desktop to connect through the `mcp-remote` bridge.
+
+Do not use Claude Desktop's **Settings → Connectors → Add custom connector** for a local server: custom connectors are contacted from Anthropic's cloud, not from your machine, so a `localhost` URL is unreachable there and would need a public HTTPS endpoint with OAuth2 enabled. `mcp-remote` runs locally as a STDIO server and forwards to the HTTP endpoint on your machine, so no tunnel is needed.
 
 ### Start the Server ###
 
@@ -73,6 +75,8 @@ docker run -p 8080:8080 --rm \
     -e SOLR_URL=http://host.docker.internal:8983/solr/ \
     solr-mcp:latest
 ```
+
+The HTTP transport is secured by default and answers 401 until an OAuth2 issuer is configured. For a local experiment on your own machine only, add `HTTP_SECURITY_ENABLED=false` to the server's environment; see the [HTTP security model](../security/http.md) before exposing it to anyone else.
 
 ### Configure Claude Desktop ###
 

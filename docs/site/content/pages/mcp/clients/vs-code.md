@@ -89,6 +89,8 @@ docker run -p 8080:8080 --rm \
 
 ### Configure VS Code ###
 
+The HTTP transport is secured by default and answers 401 until an OAuth2 issuer is configured. For a local experiment on your own machine only, add `HTTP_SECURITY_ENABLED=false` to the server's environment; see [Security](/mcp/security.html) before exposing it to anyone else.
+
 ```json
 {
   "servers": {
