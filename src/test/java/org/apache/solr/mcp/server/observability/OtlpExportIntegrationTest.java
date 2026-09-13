@@ -68,14 +68,9 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * container integration which auto-configures OTLP export endpoints.
  *
  * <p>
- * <b>NOTE:</b> This test is currently disabled due to a Jetty HTTP client
- * ClassNotFoundException when using LgtmStackContainer. The
- * testcontainers-grafana module requires
- * {@code org.eclipse.jetty.client.transport.HttpClientTransportOverHTTP} which
- * is not properly resolved with the current Jetty BOM configuration. This is a
- * known issue and can be addressed separately. The core distributed tracing
- * functionality is tested by {@link DistributedTracingTest} which uses
- * SimpleTracer and passes all tests successfully.
+ * Runs against a real LGTM container and authenticates its own thread, because
+ * the http profile keeps method security on. {@link DistributedTracingTest}
+ * covers the same tracing paths in-memory without a container.
  */
 @SpringBootTest(
 		webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -130,7 +125,6 @@ class OtlpExportIntegrationTest {
 	@BeforeEach
 	void authenticateTestThread() {
 		var authentication = new TestingAuthenticationToken("otlp-test", null, "ROLE_USER");
-		authentication.setAuthenticated(true);
 		SecurityContextHolder.getContext().setAuthentication(authentication);
 	}
 
