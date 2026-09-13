@@ -331,6 +331,7 @@ public class SearchService {
 		if (!CollectionUtils.isEmpty(facetFields)) {
 			facetFields.stream().filter(StringUtils::hasText).forEach(solrQuery::addFacetField);
 		}
+		// addFacetField sets facet=true; getFacetFields() is null until the first one
 		if (solrQuery.getFacetFields() != null) {
 			solrQuery.setFacetMinCount(1);
 			solrQuery.setFacetSort(FacetParams.FACET_SORT_COUNT);
@@ -368,13 +369,14 @@ public class SearchService {
 		} catch (SolrException e) {
 			throw withRemediationHint(e, collection);
 		} catch (SolrServerException e) {
-			logger.debug("Solr query failed on collection {}", collection, e);
+			logger.warn("Solr query failed on collection {}", collection, e);
 			throw new SolrServerException(CONNECTION_ERROR);
 		} catch (IOException e) {
-			logger.debug("Solr query failed on collection {}", collection, e);
+			logger.warn("Solr query failed on collection {}", collection, e);
 			throw new IOException(CONNECTION_ERROR);
 		} catch (RuntimeException e) {
-			logger.debug("Solr query response failed on collection {}", collection, e);
+			// The client only sees RESPONSE_ERROR; the log is the sole record of the cause.
+			logger.warn("Solr query response failed on collection {}", collection, e);
 			throw new IllegalStateException(RESPONSE_ERROR);
 		}
 	}
