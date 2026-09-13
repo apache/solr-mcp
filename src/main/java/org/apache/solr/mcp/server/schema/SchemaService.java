@@ -270,8 +270,8 @@ public class SchemaService {
 	 * @return complete schema representation containing all field and type
 	 *         definitions
 	 * @throws SolrServerException
-	 *             if the Solr server returns an error or the collection does not
-	 *             exist
+	 *             if the Solr server returns an error; a missing collection
+	 *             surfaces as an unchecked {@code SolrException} (404)
 	 * @throws IOException
 	 *             if communication with the Solr server fails
 	 * @see SchemaRepresentation
