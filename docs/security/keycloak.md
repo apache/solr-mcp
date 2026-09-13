@@ -85,8 +85,10 @@ application context comes up.
 > **The `http` profile now brings its own Keycloak.** `compose.yaml` defines a `keycloak` service
 > that imports `keycloak/solr-mcp-realm.json` on startup, so the realm, both clients and the
 > audience mapper exist before the server asks for a token — and because the service declares a
-> healthcheck, Spring Boot waits for it rather than failing on an unresolvable issuer. Running
-> `PROFILES=http ./gradlew bootRun` is enough:
+> healthcheck, Spring Boot waits for it rather than failing on an unresolvable issuer. Point the
+> server at the imported realm and start it; Spring Boot's Docker Compose support brings Keycloak up
+> (it sits behind the `http` compose profile, so start it by hand with
+> `docker compose --profile http up -d` if you are not using `bootRun`):
 >
 > ```bash
 > export PROFILES=http
@@ -97,7 +99,8 @@ application context comes up.
 > The imported realm provides `solr-mcp-service` (confidential, service accounts, secret
 > `dev-only-not-a-secret`) for machine-to-machine callers, `solr-mcp-client` (public) for MCP
 > Inspector, and `testuser` / `testpassword`. These are development credentials committed on
-> purpose; a real deployment provisions its own.
+> purpose; a real deployment provisions its own. With this realm, skip the client-creation steps
+> below and use `solr-mcp-service` / `dev-only-not-a-secret` wherever a confidential client is needed.
 >
 > The manual walkthrough below remains the reference for what that import contains, and for setting
 > the same thing up against an existing Keycloak. It binds its own container to the same port,

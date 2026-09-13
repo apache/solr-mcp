@@ -60,7 +60,8 @@ services:
   # =============================================================================
   # Keycloak - the identity provider the http profile authenticates against
   # =============================================================================
-  # Started only by the http profile, which sets spring.docker.compose.enabled=true. The realm is
+  # Gated behind the `http` compose profile so a plain `docker compose up -d` (STDIO users) does not
+  # start it; the http Spring profile activates it via spring.docker.compose.profiles.active. The realm is
   # imported from keycloak/solr-mcp-realm.json, so the clients and — critically — the audience
   # protocol mapper exist before the server ever asks for a token.
   #
@@ -73,6 +74,7 @@ services:
   # before the application context starts. Keycloak's image ships neither curl nor wget, hence
   # bash's /dev/tcp.
   keycloak:
+    profiles: [ http ]
     image: quay.io/keycloak/keycloak:26.0
     ports:
       - "8180:8080"
