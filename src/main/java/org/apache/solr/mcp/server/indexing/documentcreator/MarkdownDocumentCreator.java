@@ -125,10 +125,9 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
 	 *
 	 * @param markdown
 	 *            markdown string, optionally starting with YAML front matter
-	 * @return a single-element list containing the created document, or an empty
-	 *         list if the input is blank
+	 * @return a single-element list containing the created document
 	 * @throws DocumentProcessingException
-	 *             if the input exceeds the size limit or parsing fails
+	 *             if the input is blank, exceeds the size limit or fails to parse
 	 */
 	@Override
 	public List<SolrInputDocument> create(String markdown) throws DocumentProcessingException {

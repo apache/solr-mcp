@@ -33,24 +33,20 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 class DocumentCreatorBlankInputTest {
 
-	static Stream<Arguments> creators() {
-		return Stream.of(Arguments.of(Named.of("JSON", new JsonDocumentCreator(new ObjectMapper())), "JSON"),
-				Arguments.of(Named.of("CSV", new CsvDocumentCreator()), "CSV"),
-				Arguments.of(Named.of("XML", new XmlDocumentCreator()), "XML"),
-				Arguments.of(Named.of("Markdown", new MarkdownDocumentCreator()), "Markdown"));
+	static Stream<Arguments> blankInputs() {
+		return Stream
+				.of(Arguments.of(Named.of("JSON", new JsonDocumentCreator(new ObjectMapper())), "JSON"),
+						Arguments.of(Named.of("CSV", new CsvDocumentCreator()), "CSV"),
+						Arguments.of(Named.of("XML", new XmlDocumentCreator()), "XML"),
+						Arguments.of(Named.of("Markdown", new MarkdownDocumentCreator()), "Markdown"))
+				.flatMap(creator -> Stream.of(Named.of("empty", ""), Named.of("whitespace", "   \n\t  "))
+						.map(input -> Arguments.of(creator.get()[0], creator.get()[1], input)));
 	}
 
 	@ParameterizedTest
-	@MethodSource("creators")
-	void emptyInputIsRejectedWithTheFormatName(SolrDocumentCreator creator, String format) {
-		assertThatThrownBy(() -> creator.create("")).isInstanceOf(DocumentProcessingException.class)
-				.hasMessage(format + " input cannot be empty");
-	}
-
-	@ParameterizedTest
-	@MethodSource("creators")
-	void whitespaceOnlyInputIsRejectedWithTheFormatName(SolrDocumentCreator creator, String format) {
-		assertThatThrownBy(() -> creator.create("   \n\t  ")).isInstanceOf(DocumentProcessingException.class)
+	@MethodSource("blankInputs")
+	void blankInputIsRejectedWithTheFormatName(SolrDocumentCreator creator, String format, String input) {
+		assertThatThrownBy(() -> creator.create(input)).isInstanceOf(DocumentProcessingException.class)
 				.hasMessage(format + " input cannot be empty");
 	}
 }
