@@ -47,10 +47,9 @@ import org.junit.jupiter.api.Test;
  * <li>CSV carries multi-valued fields as <em>repeated column headers</em>
  * ({@code genres,genres,genres}); the parser adds one value per non-empty cell
  * under the same field name.</li>
- * <li>XML fields arrive prefixed with the record element name
- * ({@code show_title}), because the XML creator flattens nested elements by
- * path, and there is no plain {@code id} field; Solr assigns one. The test
- * documents that mapping rather than hiding it.</li>
+ * <li>XML uses one {@code <show>} element per record; the record element is a
+ * wrapper, so its children become the fields ({@code id}, {@code title}, a
+ * repeated {@code <genres>} is multi-valued), the same names as JSON.</li>
  * </ul>
  */
 class ShowsSampleDataTest {
@@ -100,19 +99,11 @@ class ShowsSampleDataTest {
 	}
 
 	@Test
-	void xmlParsesToTheSameDocumentsUnderTheRecordPrefix() throws Exception {
+	void xmlParsesToTheSameDocumentsAsJson() throws Exception {
 		Map<String, Map<String, List<String>>> expected = byId(json.create(resource("/shows.json")), "id");
-		List<SolrInputDocument> docs = new XmlDocumentCreator().create(resource("/shows.xml"));
+		Map<String, Map<String, List<String>>> actual = byId(new XmlDocumentCreator().create(resource("/shows.xml")),
+				"id");
 
-		assertThat(docs).hasSize(SHOWS);
-		assertThat(docs).allSatisfy(
-				doc -> assertThat(doc.getFieldNames()).allMatch(name -> name.startsWith("show_")).doesNotContain("id"));
-		assertThat(byId(docs, "show_id")).extractingByKey("netflix-001").isNotNull();
-		Map<String, Map<String, List<String>>> actual = new TreeMap<>();
-		for (SolrInputDocument doc : docs) {
-			Map<String, List<String>> fields = fields(doc, "show_");
-			actual.put(fields.get("id").getFirst(), fields);
-		}
 		assertThat(actual).containsExactlyEntriesOf(expected);
 	}
 
