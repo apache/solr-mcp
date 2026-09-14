@@ -20,9 +20,11 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.apache.solr.common.SolrInputDocument;
 import org.commonmark.Extension;
 import org.commonmark.ext.front.matter.YamlFrontMatterBlock;
@@ -98,6 +100,11 @@ import org.yaml.snakeyaml.resolver.Resolver;
 @Component
 public class MarkdownDocumentCreator implements SolrDocumentCreator {
 
+	/** Opens and closes a YAML front matter block. */
+	private static final String DELIMITER = "---";
+
+	/** A line that starts a YAML mapping entry, e.g. {@code id: netflix-001}. */
+	private static final Pattern YAML_KEY = Pattern.compile("^[A-Za-z_][A-Za-z0-9_.-]*\\s*:");
 	/** Solr field holding the document's unique key. */
 	public static final String FIELD_ID = "id";
 
@@ -133,18 +140,24 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
 	}
 
 	/**
-	 * Creates a SolrInputDocument from a markdown string.
+	 * Creates SolrInputDocuments from a markdown string.
 	 *
 	 * <p>
-	 * The whole input is treated as a single document: front matter entries map to
-	 * fields, the title is resolved from front matter or the first level-1 heading,
-	 * all heading texts are collected into a multi-valued {@code headings} field,
-	 * and the plain text body is stored in {@code content}.
+	 * A record is one front matter block and the body that follows it: front matter
+	 * entries map to fields, the title is resolved from front matter or the first
+	 * level-1 heading, all heading texts are collected into a multi-valued
+	 * {@code headings} field, and the plain text body is stored in {@code content}.
+	 *
+	 * <p>
+	 * A file may hold several records, so that one markdown file can carry a
+	 * dataset rather than only a single document. Splitting is deliberately
+	 * conservative — see {@link #splitRecords(String)} — so any input that is not
+	 * unambiguously several records yields exactly one document, as it always has.
 	 *
 	 * @param markdown
 	 *            markdown string, optionally starting with YAML front matter
-	 * @return a single-element list containing the created document, or an empty
-	 *         list if the input is blank
+	 * @return one document per record, in file order, or an empty list if the input
+	 *         is blank
 	 * @throws DocumentProcessingException
 	 *             if parsing fails
 	 */
@@ -154,6 +167,15 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
 			return List.of();
 		}
 
+		List<SolrInputDocument> documents = new ArrayList<>();
+		for (String record : splitRecords(markdown)) {
+			documents.add(createOne(record));
+		}
+		return List.copyOf(documents);
+	}
+
+	/** Creates the single document described by one record. */
+	private SolrInputDocument createOne(String markdown) throws DocumentProcessingException {
 		Node document;
 		try {
 			document = parser.parse(markdown);
@@ -187,7 +209,85 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
 			doc.addField(FIELD_CONTENT, content);
 		}
 
-		return List.of(doc);
+		return doc;
+	}
+
+	/**
+	 * Splits a markdown file into records, each starting with its own front matter
+	 * block.
+	 *
+	 * <p>
+	 * Markdown has no record separator of its own, and {@code ---} already means
+	 * two other things — a thematic break, and a setext heading underline. The rule
+	 * is therefore narrow on purpose, so that a document which is not a dataset can
+	 * never be split apart:
+	 *
+	 * <ul>
+	 * <li>the file must itself open with a front matter block, so ordinary prose
+	 * containing a thematic break is never considered;
+	 * <li>a boundary is a {@code ---} line preceded by a blank line and followed by
+	 * a YAML key, so a thematic break followed by prose is not a boundary;
+	 * <li>that block must be closed by a later {@code ---} line, so an unterminated
+	 * block is not a boundary either.
+	 * </ul>
+	 *
+	 * <p>
+	 * The remaining ambiguity is a document that both opens with front matter and
+	 * uses a thematic break immediately followed by a {@code key: value} line; that
+	 * one splits when it should not.
+	 *
+	 * @param markdown
+	 *            the whole file
+	 * @return the records in file order; a single-element list when the input is
+	 *         not unambiguously several records
+	 */
+	private static List<String> splitRecords(String markdown) {
+		String[] lines = markdown.split("\n", -1);
+		if (lines.length == 0 || !DELIMITER.equals(lines[0].strip())) {
+			return List.of(markdown);
+		}
+
+		List<Integer> boundaries = new ArrayList<>();
+		for (int i = 1; i < lines.length; i++) {
+			if (isRecordStart(lines, i)) {
+				boundaries.add(i);
+			}
+		}
+		if (boundaries.isEmpty()) {
+			return List.of(markdown);
+		}
+
+		List<String> records = new ArrayList<>();
+		int start = 0;
+		for (int boundary : boundaries) {
+			records.add(join(lines, start, boundary));
+			start = boundary;
+		}
+		records.add(join(lines, start, lines.length));
+		return List.copyOf(records);
+	}
+
+	/**
+	 * A record starts at a {@code ---} line that is preceded by a blank line,
+	 * followed by a YAML key, and closed by a later {@code ---} line.
+	 */
+	private static boolean isRecordStart(String[] lines, int index) {
+		if (!DELIMITER.equals(lines[index].strip()) || !lines[index - 1].isBlank()) {
+			return false;
+		}
+		if (index + 1 >= lines.length || !YAML_KEY.matcher(lines[index + 1]).find()) {
+			return false;
+		}
+		for (int i = index + 2; i < lines.length; i++) {
+			if (DELIMITER.equals(lines[i].strip())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static String join(String[] lines, int from, int to) {
+		return String.join("\n", Arrays.asList(lines).subList(from, to));
 	}
 
 	/**
