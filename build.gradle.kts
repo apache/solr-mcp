@@ -550,6 +550,10 @@ if (nativeBuild) {
                     "--initialize-at-build-time=org.junit.platform.launcher",
                     "--initialize-at-build-time=org.junit.platform.engine",
                     "--initialize-at-build-time=org.junit.jupiter.engine.descriptor",
+                    // ShowsSampleDataTest reads this fixture from the classpath. It is a
+                    // test resource, so it belongs here and not in nativeImageBuildArgs,
+                    // which feeds the shipped binary and the published images.
+                    "-H:IncludeResources=shows-markdown\\.md",
                 )
             }
         }
