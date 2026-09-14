@@ -46,9 +46,9 @@ import org.junit.jupiter.api.Test;
  * <li>CSV carries multi-valued fields as <em>repeated column headers</em>
  * ({@code genres,genres,genres}); Solr's CSV handler adds one value per
  * non-empty cell under the same field name.</li>
- * <li>XML is Solr's own update format ({@code <add><doc><field name=...>});
- * it is forwarded to Solr rather than parsed here, so its equality with the
- * JSON documents is checked end to end in
+ * <li>XML is Solr's own update format ({@code <add><doc><field name=...>}); it
+ * is forwarded to Solr rather than parsed here, so its equality with the JSON
+ * documents is checked end to end in
  * {@code ShowsSampleDataIntegrationTest}.</li>
  * </ul>
  */

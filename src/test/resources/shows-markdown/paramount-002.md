@@ -1,6 +1,6 @@
 ---
 id: paramount-002
-title: Star Trek: Strange New Worlds
+title: 'Star Trek: Strange New Worlds'
 platform: Paramount+
 genres:
   - Sci-Fi

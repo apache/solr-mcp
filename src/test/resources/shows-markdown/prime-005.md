@@ -1,6 +1,6 @@
 ---
 id: prime-005
-title: The Lord of the Rings: The Rings of Power
+title: 'The Lord of the Rings: The Rings of Power'
 platform: Amazon Prime Video
 genres:
   - Fantasy
