@@ -161,15 +161,17 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
 
 	/**
 	 * Adds the fields of one record element. The record element itself (the root
-	 * for a single document, or each repeated child) is a wrapper, not a field:
-	 * its child elements become fields named after themselves ({@code <title>}
-	 * is {@code title}, a repeated {@code <genres>} is multi-valued), nested
-	 * elements flatten below that with underscores, and the record's own
-	 * attributes keep the {@code _attr} suffix.
+	 * for a single document, or each repeated child) is a wrapper, not a field: its
+	 * child elements become fields named after themselves ({@code <title>} is
+	 * {@code title}, a repeated {@code <genres>} is multi-valued), nested elements
+	 * flatten below that with underscores, and the record's own attributes keep the
+	 * {@code _attr} suffix.
 	 */
 	private void addRecordFields(SolrInputDocument doc, Element record) {
 		String recordName = FieldNameSanitizer.sanitizeFieldName(record.getTagName());
-		processXmlAttributes(doc, record, "", recordName);
+		// The record's own attributes are unqualified (id_attr); a child element's
+		// attributes are qualified by that element (name_lang_attr).
+		processXmlAttributes(doc, record, "", "");
 		NodeList children = record.getChildNodes();
 		processXmlTextContent(doc, recordName, recordName, "", hasChildElements(children), children);
 		for (int i = 0; i < children.getLength(); i++) {
@@ -253,7 +255,7 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
 		for (int i = 0; i < element.getAttributes().getLength(); i++) {
 			Node attr = element.getAttributes().item(i);
 			String attrName = FieldNameSanitizer.sanitizeFieldName(attr.getNodeName()) + "_attr";
-			String fieldName = prefix.isEmpty() ? attrName : currentPrefix + "_" + attrName;
+			String fieldName = currentPrefix.isEmpty() ? attrName : currentPrefix + "_" + attrName;
 			String attrValue = attr.getNodeValue();
 
 			if (attrValue != null && !attrValue.trim().isEmpty()) {

@@ -486,11 +486,11 @@ class XmlIndexingTest {
 
 		// Verify field name sanitization
 		assertThat(doc.getFieldValue("id_attr")).isEqualTo("123");
-		assertThat(doc.getFieldValue("data_product_name")).isEqualTo("Test Product");
-		assertThat(doc.getFieldValue("data_price_usd")).isEqualTo("99.99");
-		assertThat(doc.getFieldValue("data_category_type")).isEqualTo("electronics");
-		assertThat(doc.getFieldValue("data_field_with_multiple_underscores")).isEqualTo("value");
-		assertThat(doc.getFieldValue("data_field_with_dashes")).isEqualTo("dashed value");
-		assertThat(doc.getFieldValue("data_uppercase_field")).isEqualTo("uppercase value");
+		assertThat(doc.getFieldValue("product_name")).isEqualTo("Test Product");
+		assertThat(doc.getFieldValue("price_usd")).isEqualTo("99.99");
+		assertThat(doc.getFieldValue("category_type")).isEqualTo("electronics");
+		assertThat(doc.getFieldValue("field_with_multiple_underscores")).isEqualTo("value");
+		assertThat(doc.getFieldValue("field_with_dashes")).isEqualTo("dashed value");
+		assertThat(doc.getFieldValue("uppercase_field")).isEqualTo("uppercase value");
 	}
 }
