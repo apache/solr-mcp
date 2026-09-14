@@ -19,7 +19,6 @@ package org.apache.solr.mcp.server.indexing.documentcreator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -38,8 +37,6 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class JsonDocumentCreator implements SolrDocumentCreator {
-
-	private static final int MAX_INPUT_SIZE_BYTES = 10 * 1024 * 1024;
 
 	private final ObjectMapper objectMapper;
 
@@ -118,10 +115,6 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
 	public List<SolrInputDocument> create(String json) throws DocumentProcessingException {
 		if (json.isBlank()) {
 			throw new DocumentProcessingException("JSON input cannot be empty");
-		}
-		if (json.getBytes(StandardCharsets.UTF_8).length > MAX_INPUT_SIZE_BYTES) {
-			throw new DocumentProcessingException(
-					"Input too large: exceeds maximum size of " + MAX_INPUT_SIZE_BYTES + " bytes");
 		}
 
 		JsonNode rootNode;
