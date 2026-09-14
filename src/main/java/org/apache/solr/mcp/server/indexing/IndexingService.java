@@ -22,10 +22,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
-import javax.xml.parsers.ParserConfigurationException;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.client.solrj.request.ContentStreamUpdateRequest;
 import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.common.util.ContentStreamBase;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
 import org.apache.solr.mcp.server.util.PromptNames;
 import org.apache.solr.mcp.server.util.PromptText;
@@ -37,7 +38,6 @@ import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
-import org.xml.sax.SAXException;
 
 /**
  * Spring Service providing comprehensive document indexing capabilities for
@@ -226,181 +226,89 @@ public class IndexingService {
 	}
 
 	/**
-	 * Indexes documents from a CSV string into a specified Solr collection.
-	 *
-	 * <p>
-	 * This method serves as the primary entry point for CSV document indexing
-	 * operations and is exposed as an MCP tool for AI client interactions. It
-	 * processes CSV data with headers and indexes them using a schema-less
-	 * approach.
-	 *
-	 * <p>
-	 * <strong>Supported CSV Formats:</strong>
-	 *
-	 * <ul>
-	 * <li><strong>Header Row Required</strong>: First row must contain column names
-	 * <li><strong>Comma Delimited</strong>: Standard CSV format with comma
-	 * separators
-	 * <li><strong>Mixed Data Types</strong>: Automatic type detection by Solr
-	 * </ul>
-	 *
-	 * <p>
-	 * <strong>Processing Workflow:</strong>
-	 *
-	 * <ol>
-	 * <li>Parse CSV string to extract headers and data rows
-	 * <li>Convert to schema-less SolrInputDocument objects
-	 * <li>Execute batch indexing with error handling
-	 * <li>Commit changes to make documents searchable
-	 * </ol>
-	 *
-	 * <p>
-	 * <strong>MCP Tool Usage:</strong>
-	 *
-	 * <p>
-	 * AI clients can invoke this method with natural language requests like "index
-	 * this CSV data into my_collection" or "add these CSV records to the search
-	 * index".
-	 *
-	 * <p>
-	 * <strong>Error Handling:</strong>
-	 *
-	 * <p>
-	 * If indexing fails, the method attempts individual document processing to
-	 * maximize the number of successfully indexed documents. Detailed error
-	 * information is logged for troubleshooting purposes.
+	 * Indexes CSV rows into a Solr collection through Solr's own CSV update
+	 * handler. The server reads only the header (to sanitize the column names and
+	 * pass them to Solr as {@code fieldnames}) and counts the rows for the
+	 * response; Solr parses the CSV itself. A column name repeated in the header
+	 * yields a multi-valued field, and empty cells are skipped. Solr accepts or
+	 * rejects the payload as a whole.
 	 *
 	 * @param collection
 	 *            the name of the Solr collection to index documents into
 	 * @param csv
-	 *            CSV string containing documents to index (first row must be
-	 *            headers)
-	 * @return a human-readable summary reporting how many documents were
-	 *         successfully indexed
+	 *            CSV text with a header row
+	 * @return a human-readable summary of how many rows were indexed and the field
+	 *         names as indexed
 	 * @throws IOException
-	 *             if there are critical errors in CSV parsing or Solr communication
+	 *             if communication with Solr fails
 	 * @throws SolrServerException
-	 *             if Solr server encounters errors during indexing
-	 * @see IndexingDocumentCreator#createSchemalessDocumentsFromCsv(String)
-	 * @see #indexDocuments(String, List)
+	 *             if Solr rejects the payload
 	 */
 	@PreAuthorize("isAuthenticated()")
 	@McpTool(
 			name = "index-csv-documents",
 			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index documents from CSV string into Solr collection. Column names are"
-					+ " sanitized for Solr compatibility (lowercased, special characters replaced"
+			description = "Index documents from CSV string into Solr collection via Solr's CSV handler. The first row"
+					+ " is the header; repeat a column name to make that field multi-valued; empty cells are skipped."
+					+ " Column names are sanitized for Solr compatibility (lowercased, special characters replaced"
 					+ " with underscores); the response lists the field names as indexed")
 	public String indexCsvDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "CSV string containing documents to index") String csv)
 			throws IOException, SolrServerException {
-		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromCsv(csv);
-		int successCount = indexDocuments(collection, schemalessDoc);
-		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
-				+ collection + "'" + describeIndexedFields(schemalessDoc);
+		UpdatePayloads.Summary summary = UpdatePayloads.inspectCsv(csv);
+		ContentStreamUpdateRequest request = new ContentStreamUpdateRequest("/update");
+		request.setParam("header", "true");
+		request.setParam("fieldnames", String.join(",", summary.fieldNames()));
+		request.addContentStream(new ContentStreamBase.StringStream(csv, "text/csv; charset=UTF-8"));
+		return forward(collection, request, summary);
 	}
 
 	/**
-	 * Indexes documents from an XML string into a specified Solr collection.
-	 *
-	 * <p>
-	 * This method serves as the primary entry point for XML document indexing
-	 * operations and is exposed as an MCP tool for AI client interactions. It
-	 * processes XML data with nested elements and attributes, indexing them using a
-	 * schema-less approach.
-	 *
-	 * <p>
-	 * <strong>Supported XML Formats:</strong>
-	 *
-	 * <ul>
-	 * <li><strong>Single Document</strong>: Root element treated as one document;
-	 * its child elements are the fields
-	 * <li><strong>Multiple Documents</strong>: Repeated child elements of the root
-	 * (any name) are separate documents; each one's child elements are its fields
-	 * <li><strong>Nested Elements</strong>: Flattened below the field with
-	 * underscore notation ({@code author_name})
-	 * <li><strong>Attributes</strong>: Converted to fields with "_attr" suffix
-	 * <li><strong>Mixed Data Types</strong>: Automatic type detection by Solr
-	 * </ul>
-	 *
-	 * <p>
-	 * <strong>Processing Workflow:</strong>
-	 *
-	 * <ol>
-	 * <li>Parse XML string to extract elements and attributes
-	 * <li>Flatten nested structures using underscore notation
-	 * <li>Convert to schema-less SolrInputDocument objects
-	 * <li>Execute batch indexing with error handling
-	 * <li>Commit changes to make documents searchable
-	 * </ol>
-	 *
-	 * <p>
-	 * <strong>MCP Tool Usage:</strong>
-	 *
-	 * <p>
-	 * AI clients can invoke this method with natural language requests like "index
-	 * this XML data into my_collection" or "add these XML records to the search
-	 * index".
-	 *
-	 * <p>
-	 * <strong>Error Handling:</strong>
-	 *
-	 * <p>
-	 * If indexing fails, the method attempts individual document processing to
-	 * maximize the number of successfully indexed documents. Detailed error
-	 * information is logged for troubleshooting purposes.
-	 *
-	 * <p>
-	 * <strong>Example XML Processing:</strong>
-	 *
-	 * <pre>{@code
-	 * Input:
-	 * <documents>
-	 *   <document id="1">
-	 *     <title>Sample</title>
-	 *     <author>
-	 *       <name>John Doe</name>
-	 *     </author>
-	 *   </document>
-	 * </documents>
-	 *
-	 * Result: {id_attr:"1", title:"Sample", author_name:"John Doe"}
-	 * }</pre>
+	 * Indexes documents supplied in Solr's update XML format
+	 * ({@code <add><doc><field name="...">...</field></doc></add>}) by forwarding
+	 * the payload to Solr's update handler. The server checks with a hardened StAX
+	 * read that the payload is an {@code <add>} block, because the same grammar
+	 * carries {@code <delete>} and {@code <commit>} commands that an indexing tool
+	 * must not forward, and it counts the documents and field names for the
+	 * response. Solr accepts or rejects the payload as a whole.
 	 *
 	 * @param collection
 	 *            the name of the Solr collection to index documents into
 	 * @param xml
-	 *            XML string containing documents to index
-	 * @return a human-readable summary reporting how many documents were
-	 *         successfully indexed
-	 * @throws ParserConfigurationException
-	 *             if XML parser configuration fails
-	 * @throws SAXException
-	 *             if XML parsing fails due to malformed content
+	 *            a Solr {@code <add>} block
+	 * @return a human-readable summary of how many documents were indexed and the
+	 *         field names as indexed
 	 * @throws IOException
-	 *             if I/O errors occur during parsing or Solr communication
+	 *             if communication with Solr fails
 	 * @throws SolrServerException
-	 *             if Solr server encounters errors during indexing
-	 * @see IndexingDocumentCreator#createSchemalessDocumentsFromXml(String)
-	 * @see #indexDocuments(String, List)
+	 *             if Solr rejects the payload
 	 */
 	@PreAuthorize("isAuthenticated()")
 	@McpTool(
 			name = "index-xml-documents",
 			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index documents from XML string into Solr collection: repeated child elements of the"
-					+ " root are the documents and each one's child elements are its fields (<show><id>x</id>"
-					+ "<title>T</title></show> yields id and title; nested elements flatten with underscores,"
-					+ " attributes get an _attr suffix). Element names are sanitized for Solr compatibility"
-					+ " (lowercased, special characters replaced with underscores); the response lists the field"
-					+ " names as indexed")
+			description = "Index documents from Solr update XML into Solr collection: <add><doc><field name=\"id\">1</field>"
+					+ "<field name=\"genres\">a</field><field name=\"genres\">b</field></doc></add>; repeat <field> for"
+					+ " multi-valued fields. Only <add> blocks are accepted; delete and commit commands are rejected."
+					+ " Field names are used as given; the response lists them")
 	public String indexXmlDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
-			@McpToolParam(description = "XML string containing documents to index") String xml)
-			throws ParserConfigurationException, SAXException, IOException, SolrServerException {
-		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromXml(xml);
-		int successCount = indexDocuments(collection, schemalessDoc);
-		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
-				+ collection + "'" + describeIndexedFields(schemalessDoc);
+			@McpToolParam(description = "Solr update XML: an <add> block of <doc> elements") String xml)
+			throws IOException, SolrServerException {
+		UpdatePayloads.Summary summary = UpdatePayloads.inspectXml(xml);
+		ContentStreamUpdateRequest request = new ContentStreamUpdateRequest("/update");
+		request.addContentStream(new ContentStreamBase.StringStream(xml, "application/xml; charset=UTF-8"));
+		return forward(collection, request, summary);
+	}
+
+	/**
+	 * Sends a payload to a Solr update handler, commits, and reports what went in.
+	 */
+	private String forward(String collection, ContentStreamUpdateRequest request, UpdatePayloads.Summary summary)
+			throws IOException, SolrServerException {
+		solrClient.request(request, collection);
+		solrClient.commit(collection);
+		return "Successfully indexed " + summary.documents() + " of " + summary.documents()
+				+ " documents into collection '" + collection + "'" + describeFieldNames(summary.distinctFieldNames());
 	}
 
 	/**
@@ -561,8 +469,11 @@ public class IndexingService {
 	 *         string if there are none
 	 */
 	private static String describeIndexedFields(List<SolrInputDocument> documents) {
-		Set<String> fieldNames = documents.stream().flatMap(document -> document.getFieldNames().stream())
-				.collect(Collectors.toCollection(TreeSet::new));
+		return describeFieldNames(documents.stream().flatMap(document -> document.getFieldNames().stream())
+				.collect(Collectors.toCollection(TreeSet::new)));
+	}
+
+	private static String describeFieldNames(Set<String> fieldNames) {
 		if (fieldNames.isEmpty()) {
 			return "";
 		}
