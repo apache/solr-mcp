@@ -27,7 +27,9 @@ import java.util.List;
 import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.client.solrj.request.ContentStreamUpdateRequest;
 import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -85,76 +87,6 @@ class IndexingServiceTest {
 
 		assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class, () -> {
 			indexingService.indexJsonDocuments("test_collection", invalidJson);
-		});
-		verify(solrClient, never()).add(anyString(), any(Collection.class));
-		verify(solrClient, never()).commit(anyString(), anyBoolean(), anyBoolean(), anyBoolean());
-	}
-
-	@Test
-	void indexCsvDocuments_WithValidCsv_ShouldIndexDocuments() throws Exception {
-		String csv = "id,title\n1,Test\n2,Test2";
-		List<SolrInputDocument> mockDocs = createMockDocuments(2);
-		when(indexingDocumentCreator.createSchemalessDocumentsFromCsv(csv)).thenReturn(mockDocs);
-		when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
-		when(solrClient.commit("test_collection", false, true, true)).thenReturn(null);
-
-		indexingService.indexCsvDocuments("test_collection", csv);
-
-		verify(indexingDocumentCreator).createSchemalessDocumentsFromCsv(csv);
-		verify(solrClient).add(eq("test_collection"), any(Collection.class));
-		verify(solrClient).commit("test_collection", false, true, true);
-	}
-
-	@Test
-	void indexCsvDocuments_WhenDocumentCreatorThrowsException_ShouldPropagateException() throws Exception {
-		String invalidCsv = "malformed csv data";
-		when(indexingDocumentCreator.createSchemalessDocumentsFromCsv(invalidCsv)).thenThrow(
-				new org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException("Invalid CSV"));
-
-		assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class, () -> {
-			indexingService.indexCsvDocuments("test_collection", invalidCsv);
-		});
-		verify(solrClient, never()).add(anyString(), any(Collection.class));
-		verify(solrClient, never()).commit(anyString(), anyBoolean(), anyBoolean(), anyBoolean());
-	}
-
-	@Test
-	void indexXmlDocuments_WithValidXml_ShouldIndexDocuments() throws Exception {
-		String xml = "<documents><doc><id>1</id><title>Test</title></doc></documents>";
-		List<SolrInputDocument> mockDocs = createMockDocuments(1);
-		when(indexingDocumentCreator.createSchemalessDocumentsFromXml(xml)).thenReturn(mockDocs);
-		when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
-		when(solrClient.commit("test_collection", false, true, true)).thenReturn(null);
-
-		indexingService.indexXmlDocuments("test_collection", xml);
-
-		verify(indexingDocumentCreator).createSchemalessDocumentsFromXml(xml);
-		verify(solrClient).add(eq("test_collection"), any(Collection.class));
-		verify(solrClient).commit("test_collection", false, true, true);
-	}
-
-	@Test
-	void indexXmlDocuments_WhenParserConfigurationFails_ShouldPropagateException() throws Exception {
-		String xml = "<invalid>xml</invalid>";
-		when(indexingDocumentCreator.createSchemalessDocumentsFromXml(xml)).thenThrow(
-				new org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException("Parser error"));
-
-		assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class, () -> {
-			indexingService.indexXmlDocuments("test_collection", xml);
-		});
-		verify(solrClient, never()).add(anyString(), any(Collection.class));
-		verify(solrClient, never()).commit(anyString(), anyBoolean(), anyBoolean(), anyBoolean());
-	}
-
-	@Test
-	void indexXmlDocuments_WhenSaxExceptionOccurs_ShouldPropagateException() throws Exception {
-		String xml = "<malformed><unclosed>";
-		when(indexingDocumentCreator.createSchemalessDocumentsFromXml(xml))
-				.thenThrow(new org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException(
-						"SAX parsing error"));
-
-		assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class, () -> {
-			indexingService.indexXmlDocuments("test_collection", xml);
 		});
 		verify(solrClient, never()).add(anyString(), any(Collection.class));
 		verify(solrClient, never()).commit(anyString(), anyBoolean(), anyBoolean(), anyBoolean());
@@ -296,19 +228,63 @@ class IndexingServiceTest {
 	}
 
 	@Test
-	void indexCsvDocuments_WhenSolrClientThrowsIOException_ShouldPropagateException() throws Exception {
-		String csv = "id,title\n1,Test";
-		List<SolrInputDocument> mockDocs = createMockDocuments(1);
-		when(indexingDocumentCreator.createSchemalessDocumentsFromCsv(csv)).thenReturn(mockDocs);
-		when(solrClient.add(eq("test_collection"), any(List.class))).thenThrow(new IOException("Network error"));
-		when(solrClient.add(eq("test_collection"), any(SolrInputDocument.class)))
-				.thenThrow(new IOException("Network error"));
-		when(solrClient.commit("test_collection", false, true, true)).thenReturn(null);
+	void indexCsvDocuments_ForwardsPayloadAsGivenToSolrCsvHandler() throws Exception {
+		when(solrClient.request(any(ContentStreamUpdateRequest.class), eq("test_collection")))
+				.thenReturn(new NamedList<>());
+		when(solrClient.commit("test_collection")).thenReturn(null);
+		String csv = "id,Show Title,genres,genres\n1,A,x,y\n2,B,z,\n";
 
-		indexingService.indexCsvDocuments("test_collection", csv);
+		String result = indexingService.indexCsvDocuments("test_collection", csv);
 
-		verify(solrClient).add(eq("test_collection"), any(List.class));
-		verify(solrClient).add(eq("test_collection"), any(SolrInputDocument.class));
+		ArgumentCaptor<ContentStreamUpdateRequest> captor = ArgumentCaptor.forClass(ContentStreamUpdateRequest.class);
+		verify(solrClient).request(captor.capture(), eq("test_collection"));
+		assertEquals("/update", captor.getValue().getPath());
+		assertEquals("true", captor.getValue().getParams().get("header"));
+		assertNull(captor.getValue().getParams().get("fieldnames"), "column names are Solr's to read, as given");
+		var stream = captor.getValue().getContentStreams().iterator().next();
+		assertTrue(stream.getContentType().startsWith("text/csv"));
+		assertEquals(csv, new String(stream.getStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+		verify(solrClient).commit("test_collection");
+		assertTrue(result.contains("Solr accepted the CSV payload"), result);
+		assertTrue(result.contains("'test_collection'"), result);
+		assertFalse(result.contains(" of "), "no document count is claimed: Solr does not report one: " + result);
+	}
+
+	@Test
+	void indexXmlDocuments_ForwardsAddBlockToSolr() throws Exception {
+		when(solrClient.request(any(ContentStreamUpdateRequest.class), eq("test_collection")))
+				.thenReturn(new NamedList<>());
+		when(solrClient.commit("test_collection")).thenReturn(null);
+		String xml = "<add><doc><field name=\"id\">1</field><field name=\"title\">T</field></doc></add>";
+
+		String result = indexingService.indexXmlDocuments("test_collection", xml);
+
+		ArgumentCaptor<ContentStreamUpdateRequest> captor = ArgumentCaptor.forClass(ContentStreamUpdateRequest.class);
+		verify(solrClient).request(captor.capture(), eq("test_collection"));
+		assertTrue(
+				captor.getValue().getContentStreams().iterator().next().getContentType().startsWith("application/xml"));
+		verify(solrClient).commit("test_collection");
+		assertTrue(result.contains("Solr accepted the XML <add> block"), result);
+		assertTrue(result.contains("'test_collection'"), result);
+	}
+
+	@Test
+	void indexXmlDocuments_RejectsCommandsBeforeSolrSeesThem() {
+		assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class,
+				() -> indexingService.indexXmlDocuments("test_collection", "<delete><query>*:*</query></delete>"));
+		assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class,
+				() -> indexingService.indexXmlDocuments("test_collection", "<commit/>"));
+		verifyNoInteractions(solrClient);
+	}
+
+	@Test
+	void indexCsvDocuments_WhenSolrRejectsThePayload_PropagatesWithoutCommitting() throws Exception {
+		when(solrClient.request(any(ContentStreamUpdateRequest.class), eq("test_collection")))
+				.thenThrow(new SolrServerException("bad row"));
+
+		assertThrows(SolrServerException.class,
+				() -> indexingService.indexCsvDocuments("test_collection", "id,title\n1,Test\n"));
+		verify(solrClient, never()).commit(anyString());
 	}
 
 	@Test
