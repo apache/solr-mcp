@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.solr.mcp.server.TestDocuments;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.apache.solr.mcp.server.search.SearchResponse;
@@ -85,7 +86,7 @@ class CollectionServiceIntegrationTest {
 			docs.add(doc);
 		}
 		String json = objectMapper.writeValueAsString(docs);
-		indexingService.indexJsonDocuments(TEST_COLLECTION, json);
+		indexingService.indexJsonDocuments(TEST_COLLECTION, TestDocuments.json(json));
 		log.debug("Indexed {} documents via IndexingService", DOC_COUNT);
 
 		// 3. Run searches via SearchService MCP tool to populate caches and handler

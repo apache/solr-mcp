@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrInputDocument;
@@ -63,23 +64,23 @@ class IndexingServiceTest {
 
 	@Test
 	void indexJsonDocuments_WithValidJson_ShouldIndexDocuments() throws Exception {
-		String json = "[{\"id\":\"1\",\"title\":\"Test\"}]";
+		List<Map<String, Object>> json = List.of(Map.of("id", "1", "title", "Test"));
 		List<SolrInputDocument> mockDocs = createMockDocuments(1);
-		when(indexingDocumentCreator.createSchemalessDocumentsFromJson(json)).thenReturn(mockDocs);
+		when(indexingDocumentCreator.createSchemalessDocuments(json)).thenReturn(mockDocs);
 		when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
 		when(solrClient.commit("test_collection")).thenReturn(null);
 
 		indexingService.indexJsonDocuments("test_collection", json);
 
-		verify(indexingDocumentCreator).createSchemalessDocumentsFromJson(json);
+		verify(indexingDocumentCreator).createSchemalessDocuments(json);
 		verify(solrClient).add(eq("test_collection"), any(Collection.class));
 		verify(solrClient).commit("test_collection");
 	}
 
 	@Test
 	void indexJsonDocuments_WhenDocumentCreatorThrowsException_ShouldPropagateException() throws Exception {
-		String invalidJson = "not valid json";
-		when(indexingDocumentCreator.createSchemalessDocumentsFromJson(invalidJson)).thenThrow(
+		List<Map<String, Object>> invalidJson = List.of();
+		when(indexingDocumentCreator.createSchemalessDocuments(invalidJson)).thenThrow(
 				new org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException("Invalid JSON"));
 
 		assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class, () -> {
@@ -264,9 +265,9 @@ class IndexingServiceTest {
 
 	@Test
 	void indexJsonDocuments_WhenSolrClientThrowsException_ShouldPropagateException() throws Exception {
-		String json = "[{\"id\":\"1\"}]";
+		List<Map<String, Object>> json = List.of(Map.of("id", "1"));
 		List<SolrInputDocument> mockDocs = createMockDocuments(1);
-		when(indexingDocumentCreator.createSchemalessDocumentsFromJson(json)).thenReturn(mockDocs);
+		when(indexingDocumentCreator.createSchemalessDocuments(json)).thenReturn(mockDocs);
 		when(solrClient.add(eq("test_collection"), any(List.class)))
 				.thenThrow(new SolrServerException("Solr connection error"));
 		when(solrClient.add(eq("test_collection"), any(SolrInputDocument.class)))

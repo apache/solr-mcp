@@ -23,6 +23,7 @@ import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.mcp.server.TestDocuments;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.indexing.documentcreator.CsvDocumentCreator;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
@@ -171,7 +172,7 @@ class IndexingServiceIntegrationTest {
 				]
 				""";
 
-		String result = indexingService.indexJsonDocuments(COLLECTION_NAME, json);
+		String result = indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
 		// The response must list the names as indexed, not as submitted, so MCP
 		// clients query the fields that actually exist.
@@ -208,7 +209,7 @@ class IndexingServiceIntegrationTest {
 				""";
 
 		// Index documents
-		indexingService.indexJsonDocuments(COLLECTION_NAME, json);
+		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
 		// Verify documents were indexed by searching for them
 		SearchResponse result = searchService.search(COLLECTION_NAME, "id:test002 OR id:test003", null, null, null,
@@ -313,7 +314,7 @@ class IndexingServiceIntegrationTest {
 				""";
 
 		// Index documents
-		indexingService.indexJsonDocuments(COLLECTION_NAME, json);
+		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
 		// Verify documents were indexed by searching for them
 		SearchResponse result = searchService.search(COLLECTION_NAME, "id:test004", null, null, null, null, null);
@@ -377,7 +378,7 @@ class IndexingServiceIntegrationTest {
 				""";
 
 		// Index documents
-		indexingService.indexJsonDocuments(COLLECTION_NAME, json);
+		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
 		// Verify documents were indexed with sanitized field names
 		SearchResponse result = searchService.search(COLLECTION_NAME, "id:test005", null, null, null, null, null);
@@ -469,7 +470,7 @@ class IndexingServiceIntegrationTest {
 				""";
 
 		// Index documents
-		indexingService.indexJsonDocuments(COLLECTION_NAME, json);
+		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
 		// Verify documents were indexed by searching for them
 		SearchResponse result = searchService.search(COLLECTION_NAME, "id:nested001", null, null, null, null, null);
@@ -549,7 +550,7 @@ class IndexingServiceIntegrationTest {
 				""";
 
 		// Index documents
-		indexingService.indexJsonDocuments(COLLECTION_NAME, json);
+		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
 		// Verify documents were indexed by searching for them
 		SearchResponse result = searchService.search(COLLECTION_NAME, "id:special_fields_001", null, null, null, null,
@@ -638,7 +639,7 @@ class IndexingServiceIntegrationTest {
 				""";
 
 		// Index documents
-		indexingService.indexJsonDocuments(COLLECTION_NAME, json);
+		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
 		// Verify documents were indexed by searching for them
 		SearchResponse result = searchService.search(COLLECTION_NAME, "id:array_objects_001", null, null, null, null,

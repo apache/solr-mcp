@@ -19,6 +19,7 @@ package org.apache.solr.mcp.server.indexing;
 import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
@@ -213,13 +214,19 @@ public class IndexingService {
 	@McpTool(
 			name = "index-json-documents",
 			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index documents from json String into Solr collection. Field names are"
-					+ " sanitized for Solr compatibility (lowercased, special characters replaced"
-					+ " with underscores); the response lists the field names as indexed")
+			description = "Index documents passed as a JSON array of objects into Solr collection; one object"
+					+ " per document, multi-valued fields as arrays, nested objects flattened with underscores."
+					+ " Pass the array itself, not a JSON string. Field names are sanitized for Solr"
+					+ " compatibility (lowercased, special characters replaced with underscores); the response"
+					+ " lists the field names as indexed")
 	public String indexJsonDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
-			@McpToolParam(description = "JSON string containing documents to index") String json)
+			@McpToolParam(
+					description = "Documents to index: a JSON array with one object per document") List<Map<String, Object>> documents)
 			throws IOException, SolrServerException {
-		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
+		if (documents == null) {
+			throw new IllegalArgumentException("documents cannot be null");
+		}
+		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocuments(documents);
 		int successCount = indexDocuments(collection, schemalessDoc);
 		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
 				+ collection + "'" + describeIndexedFields(schemalessDoc);
@@ -611,16 +618,17 @@ public class IndexingService {
 	 * Maps an input-format keyword to the MCP tool and payload parameter for that
 	 * format.
 	 */
-	private record IndexTool(String name, String paramName) {
+	private record IndexTool(String name, String paramName, String payload) {
 	}
 
 	private static IndexTool resolveIndexTool(String format) {
 		String normalized = (format == null) ? "" : format.trim().toLowerCase();
 		return switch (normalized) {
-			case "json" -> new IndexTool("index-json-documents", "json");
-			case "csv" -> new IndexTool("index-csv-documents", "csv");
-			case "xml" -> new IndexTool("index-xml-documents", "xml");
-			case "markdown", "md" -> new IndexTool("index-markdown-documents", "markdown");
+			case "json" -> new IndexTool("index-json-documents", "documents",
+					"the documents as a JSON array of objects, not as a string");
+			case "csv" -> new IndexTool("index-csv-documents", "csv", "the CSV text");
+			case "xml" -> new IndexTool("index-xml-documents", "xml", "the XML text");
+			case "markdown", "md" -> new IndexTool("index-markdown-documents", "markdown", "the markdown text");
 			default ->
 				throw new IllegalArgumentException("format must be one of json/csv/xml/markdown, got: " + format);
 		};
@@ -677,7 +685,7 @@ public class IndexingService {
 				%s
 
 				3. Index the documents.
-				   - Call `%s` with `collection=%s` and `%s=<the document payload>`.
+				   - Call `%s` with `collection=%s` and `%s=<%s>`.
 				   - The tool batches internally and commits at the end. The return value is the count
 				     of successfully indexed documents.
 				   - On error, read the message carefully: an "unknown field" error means the schema is
@@ -691,7 +699,7 @@ public class IndexingService {
 
 				Next step suggestion: once data is indexed, the `search-collection` prompt drives
 				searching it.
-				""".formatted(indexTool.paramName(), collection, collection, sampleSection, indexTool.name(),
-				collection, indexTool.paramName(), collection);
+				""".formatted(format.trim().toLowerCase(), collection, collection, sampleSection, indexTool.name(),
+				collection, indexTool.paramName(), indexTool.payload(), collection);
 	}
 }

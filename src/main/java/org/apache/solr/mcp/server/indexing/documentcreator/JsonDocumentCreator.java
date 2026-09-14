@@ -115,6 +115,33 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
 	 * @see #addAllFieldsFlat(SolrInputDocument, JsonNode, String)
 	 * @see FieldNameSanitizer#sanitizeFieldName(String)
 	 */
+	/**
+	 * Creates schema-less documents from already-parsed JSON objects, one document
+	 * per map. This is the entry point for the {@code index-json-documents} tool,
+	 * whose {@code documents} argument is a typed JSON array: the MCP client parses
+	 * it, so the model emits native JSON instead of JSON escaped inside a string.
+	 * Nested objects flatten with an underscore path and arrays become multi-valued
+	 * fields, exactly as for {@link #create(String)}.
+	 *
+	 * @param documents
+	 *            the documents, each a map of field name to value
+	 * @return list of SolrInputDocument objects ready for indexing
+	 * @throws DocumentProcessingException
+	 *             if the list is empty
+	 */
+	public List<SolrInputDocument> create(List<Map<String, Object>> documents) throws DocumentProcessingException {
+		if (documents.isEmpty()) {
+			throw new DocumentProcessingException("JSON input cannot be empty");
+		}
+		List<SolrInputDocument> result = new ArrayList<>(documents.size());
+		for (Map<String, Object> document : documents) {
+			SolrInputDocument doc = new SolrInputDocument();
+			addAllFieldsFlat(doc, objectMapper.valueToTree(document), "");
+			result.add(doc);
+		}
+		return result;
+	}
+
 	public List<SolrInputDocument> create(String json) throws DocumentProcessingException {
 		if (json.isBlank()) {
 			throw new DocumentProcessingException("JSON input cannot be empty");

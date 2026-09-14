@@ -18,6 +18,7 @@ package org.apache.solr.mcp.server.indexing.documentcreator;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.springframework.stereotype.Service;
@@ -102,6 +103,21 @@ public class IndexingDocumentCreator {
 	 */
 	public List<SolrInputDocument> createSchemalessDocumentsFromJson(String json) throws DocumentProcessingException {
 		return jsonDocumentCreator.create(json);
+	}
+
+	/**
+	 * Creates schema-less documents from already-parsed JSON objects, one per map.
+	 *
+	 * @param documents
+	 *            the documents as field-name-to-value maps
+	 * @return list of SolrInputDocument objects ready for indexing
+	 * @throws DocumentProcessingException
+	 *             if the list is empty
+	 * @see JsonDocumentCreator#create(List)
+	 */
+	public List<SolrInputDocument> createSchemalessDocuments(List<Map<String, Object>> documents)
+			throws DocumentProcessingException {
+		return jsonDocumentCreator.create(documents);
 	}
 
 	/**
