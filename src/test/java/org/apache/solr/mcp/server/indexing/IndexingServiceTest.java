@@ -325,6 +325,20 @@ class IndexingServiceTest {
 	}
 
 	@Test
+	void indexMarkdownDocuments_IndexesEachElementAsItsOwnDocument() throws Exception {
+		when(indexingDocumentCreator.createSchemalessDocumentsFromMarkdown("# One")).thenReturn(createMockDocuments(1));
+		when(indexingDocumentCreator.createSchemalessDocumentsFromMarkdown("# Two")).thenReturn(createMockDocuments(1));
+		when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
+
+		String result = indexingService.indexMarkdownDocuments("test_collection", List.of("# One", "# Two"));
+
+		assertTrue(result.contains("2 of 2"), result);
+		verify(indexingDocumentCreator).createSchemalessDocumentsFromMarkdown("# One");
+		verify(indexingDocumentCreator).createSchemalessDocumentsFromMarkdown("# Two");
+		verify(solrClient, times(1)).add(eq("test_collection"), any(Collection.class));
+	}
+
+	@Test
 	void indexDataPrompt_jsonPath_referencesIndexJsonDocuments() {
 		String sample = """
 				[{"id":"1","title":"Test"}]""";
