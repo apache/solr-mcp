@@ -27,7 +27,6 @@ cyclonedx-plugin = "2.4.1"
 # Main dependencies
 spring-ai = "1.1.7"
 solr = "10.0.0"
-commons-csv = "1.14.1"
 commonmark = "0.28.0"
 jspecify = "1.0.0"
 mcp-server-security = "0.0.6"
@@ -63,9 +62,6 @@ mcp-server-security = { module = "org.springaicommunity:mcp-server-security", ve
 
 # Solr
 solr-solrj = { module = "org.apache.solr:solr-solrj", version.ref = "solr" }
-
-# Apache Commons
-commons-csv = { module = "org.apache.commons:commons-csv", version.ref = "commons-csv" }
 
 # CommonMark (markdown parsing)
 commonmark = { module = "org.commonmark:commonmark", version.ref = "commonmark" }
