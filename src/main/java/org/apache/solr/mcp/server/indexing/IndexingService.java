@@ -19,6 +19,7 @@ package org.apache.solr.mcp.server.indexing;
 import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
@@ -197,8 +198,8 @@ public class IndexingService {
 	 *
 	 * @param collection
 	 *            the name of the Solr collection to index documents into
-	 * @param json
-	 *            JSON string containing an array of documents to index
+	 * @param documents
+	 *            the documents to index, one map per document
 	 * @return a human-readable summary reporting how many documents were
 	 *         successfully indexed
 	 * @throws IOException
@@ -206,20 +207,23 @@ public class IndexingService {
 	 *             communication
 	 * @throws SolrServerException
 	 *             if Solr server encounters errors during indexing
-	 * @see IndexingDocumentCreator#createSchemalessDocumentsFromJson(String)
+	 * @see IndexingDocumentCreator#createSchemalessDocumentsFromJson(List)
 	 * @see #indexDocuments(String, List)
 	 */
 	@PreAuthorize("isAuthenticated()")
 	@McpTool(
 			name = "index-json-documents",
 			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index documents from json String into Solr collection. Field names are"
-					+ " sanitized for Solr compatibility (lowercased, special characters replaced"
-					+ " with underscores); the response lists the field names as indexed")
+			description = "Index documents passed as a JSON array of objects into Solr collection; one object"
+					+ " per document, multi-valued fields as arrays, nested objects flattened with underscores."
+					+ " Pass the array itself, not a JSON string. Field names are sanitized for Solr"
+					+ " compatibility (lowercased, special characters replaced with underscores); the response"
+					+ " lists the field names as indexed")
 	public String indexJsonDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
-			@McpToolParam(description = "JSON string containing documents to index") String json)
+			@McpToolParam(
+					description = "Documents to index: a JSON array with one object per document") List<Map<String, Object>> documents)
 			throws IOException, SolrServerException {
-		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
+		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromJson(documents);
 		int successCount = indexDocuments(collection, schemalessDoc);
 		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
 				+ collection + "'" + describeIndexedFields(schemalessDoc);
@@ -608,19 +612,31 @@ public class IndexingService {
 	}
 
 	/**
-	 * Maps an input-format keyword to the MCP tool and payload parameter for that
-	 * format.
+	 * Maps an input-format keyword to the canonical format name, the MCP tool, and
+	 * the payload parameter for that format.
+	 *
+	 * @param format
+	 *            canonical format name, so the prompt reads "markdown" even when
+	 *            the caller passed the {@code md} alias
+	 * @param name
+	 *            the MCP tool that indexes this format
+	 * @param paramName
+	 *            the tool's payload parameter name
+	 * @param payload
+	 *            prose describing what to pass for {@code paramName}
 	 */
-	private record IndexTool(String name, String paramName) {
+	private record IndexTool(String format, String name, String paramName, String payload) {
 	}
 
 	private static IndexTool resolveIndexTool(String format) {
 		String normalized = (format == null) ? "" : format.trim().toLowerCase();
 		return switch (normalized) {
-			case "json" -> new IndexTool("index-json-documents", "json");
-			case "csv" -> new IndexTool("index-csv-documents", "csv");
-			case "xml" -> new IndexTool("index-xml-documents", "xml");
-			case "markdown", "md" -> new IndexTool("index-markdown-documents", "markdown");
+			case "json" -> new IndexTool("json", "index-json-documents", "documents",
+					"the documents as a JSON array of objects, not as a string");
+			case "csv" -> new IndexTool("csv", "index-csv-documents", "csv", "the CSV text");
+			case "xml" -> new IndexTool("xml", "index-xml-documents", "xml", "the XML text");
+			case "markdown", "md" ->
+				new IndexTool("markdown", "index-markdown-documents", "markdown", "the markdown text");
 			default ->
 				throw new IllegalArgumentException("format must be one of json/csv/xml/markdown, got: " + format);
 		};
@@ -677,7 +693,7 @@ public class IndexingService {
 				%s
 
 				3. Index the documents.
-				   - Call `%s` with `collection=%s` and `%s=<the document payload>`.
+				   - Call `%s` with `collection=%s` and `%s=<%s>`.
 				   - The tool batches internally and commits at the end. The return value is the count
 				     of successfully indexed documents.
 				   - On error, read the message carefully: an "unknown field" error means the schema is
@@ -691,7 +707,7 @@ public class IndexingService {
 
 				Next step suggestion: once data is indexed, the `search-collection` prompt drives
 				searching it.
-				""".formatted(indexTool.paramName(), collection, collection, sampleSection, indexTool.name(),
-				collection, indexTool.paramName(), collection);
+				""".formatted(indexTool.format(), collection, collection, sampleSection, indexTool.name(), collection,
+				indexTool.paramName(), indexTool.payload(), collection);
 	}
 }

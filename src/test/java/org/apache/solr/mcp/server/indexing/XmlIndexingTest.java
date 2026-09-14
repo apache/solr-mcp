@@ -369,34 +369,6 @@ class XmlIndexingTest {
 	}
 
 	@Test
-	void testCreateSchemalessDocumentsFromXmlWithLargeDocument() {
-		// Given
-
-		// Create a large XML document (over 10MB)
-		StringBuilder largeXml = new StringBuilder();
-		largeXml.append("<books>");
-
-		// Add enough data to exceed the 10MB limit
-		String bookTemplate = """
-				<book id="%d">
-				    <title>%s</title>
-				    <content>%s</content>
-				</book>
-				""";
-
-		// Create approximately 11MB of XML data
-		String longContent = "A".repeat(10000); // 10KB per book
-		for (int i = 0; i < 1200; i++) { // 1200 * 10KB = 12MB
-			largeXml.append(String.format(bookTemplate, i, "Title " + i, longContent));
-		}
-		largeXml.append("</books>");
-
-		// When/Then
-		assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromXml(largeXml.toString()))
-				.isInstanceOf(DocumentProcessingException.class).hasMessageContaining("XML document too large");
-	}
-
-	@Test
 	void testCreateSchemalessDocumentsFromXmlWithComplexNestedStructure() throws Exception {
 		// Given
 

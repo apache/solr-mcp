@@ -27,6 +27,7 @@ import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.common.SolrException;
+import org.apache.solr.mcp.server.TestDocuments;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.junit.jupiter.api.BeforeEach;
@@ -170,7 +171,7 @@ class SearchServiceIntegrationTest {
 					]
 					""";
 
-			indexingService.indexJsonDocuments(COLLECTION_NAME, sampleData);
+			indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(sampleData));
 			solrClient.commit(COLLECTION_NAME);
 			initialized = true;
 		}
@@ -492,7 +493,7 @@ class SearchServiceIntegrationTest {
 				  }
 				]
 				""";
-		indexingService.indexJsonDocuments(COLLECTION_NAME, specialJson);
+		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(specialJson));
 		solrClient.commit(COLLECTION_NAME);
 		String query = "id:special001";
 		SearchResponse result = searchService.search(COLLECTION_NAME, query, null, null, null, null, null);
