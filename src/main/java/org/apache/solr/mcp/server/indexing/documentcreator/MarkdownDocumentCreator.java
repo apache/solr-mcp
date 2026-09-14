@@ -22,20 +22,28 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import org.apache.solr.common.SolrInputDocument;
 import org.commonmark.Extension;
+import org.commonmark.ext.front.matter.YamlFrontMatterBlock;
 import org.commonmark.ext.front.matter.YamlFrontMatterExtension;
-import org.commonmark.ext.front.matter.YamlFrontMatterVisitor;
 import org.commonmark.node.AbstractVisitor;
 import org.commonmark.node.Code;
-import org.commonmark.node.CustomBlock;
 import org.commonmark.node.Heading;
 import org.commonmark.node.Node;
+import org.commonmark.node.SourceSpan;
 import org.commonmark.node.Text;
+import org.commonmark.parser.IncludeSourceSpans;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.text.TextContentRenderer;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
+import org.yaml.snakeyaml.DumperOptions;
+import org.yaml.snakeyaml.LoaderOptions;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
+import org.yaml.snakeyaml.representer.Representer;
+import org.yaml.snakeyaml.resolver.Resolver;
 
 /**
  * Utility class for processing markdown documents and converting them to
@@ -108,9 +116,21 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
 
 	private final TextContentRenderer textContentRenderer;
 
+	private final Yaml yaml;
+
 	public MarkdownDocumentCreator() {
 		List<Extension> extensions = List.of(YamlFrontMatterExtension.create());
-		this.parser = Parser.builder().extensions(extensions).build();
+		// Source spans let the front matter block be sliced out verbatim for SnakeYAML
+		this.parser = Parser.builder().extensions(extensions).includeSourceSpans(IncludeSourceSpans.BLOCKS).build();
+		// No implicit resolvers: every scalar stays the text as written (2026-01-01
+		// is not a Date, 8.4 is not a Double); Solr's schema guessing types them.
+		LoaderOptions options = new LoaderOptions();
+		this.yaml = new Yaml(new SafeConstructor(options), new Representer(new DumperOptions()), new DumperOptions(),
+				options, new Resolver() {
+					@Override
+					protected void addImplicitResolvers() {
+					}
+				});
 		this.textContentRenderer = TextContentRenderer.builder().build();
 	}
 
@@ -150,7 +170,7 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
 
 		SolrInputDocument doc = new SolrInputDocument();
 
-		addFrontMatterFields(document, doc);
+		addFrontMatterFields(markdown, document, doc);
 
 		// Solr's default schema requires a unique key. A content-derived id keeps
 		// re-indexing of the same markdown idempotent (same input, same document)
@@ -178,55 +198,49 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
 	}
 
 	/**
-	 * Extracts YAML front matter entries into document fields and unlinks the front
-	 * matter block so it is excluded from the rendered body content.
+	 * Parses the YAML front matter with SnakeYAML and adds each entry as a field:
+	 * scalars as their text, sequences as multi-valued fields, nested mappings
+	 * flattened with underscores. The block is then unlinked so the rendered body
+	 * contains only the document text.
 	 */
-	private void addFrontMatterFields(Node document, SolrInputDocument doc) {
-		YamlFrontMatterVisitor frontMatterVisitor = new YamlFrontMatterVisitor();
-		document.accept(frontMatterVisitor);
-
-		frontMatterVisitor.getData().forEach((key, values) -> {
-			String fieldName = FieldNameSanitizer.sanitizeFieldName(key);
-			for (String value : flattenFlowSequences(values)) {
-				if (!value.isEmpty()) {
-					doc.addField(fieldName, value);
-				}
-			}
-		});
-
-		// The front matter block is metadata, not body text: remove it so the
-		// TextContentRenderer output contains only the document body
+	private void addFrontMatterFields(String markdown, Node document, SolrInputDocument doc) {
 		Node firstChild = document.getFirstChild();
-		if (firstChild instanceof CustomBlock) {
-			firstChild.unlink();
+		if (!(firstChild instanceof YamlFrontMatterBlock block)) {
+			return;
 		}
+		List<String> lines = new ArrayList<>();
+		for (SourceSpan span : block.getSourceSpans()) {
+			lines.add(markdown.substring(span.getInputIndex(), span.getInputIndex() + span.getLength()));
+		}
+		// The first and last spans are the --- delimiters
+		String text = String.join("\n", lines.subList(1, Math.max(1, lines.size() - 1)));
+		Object data;
+		try {
+			data = yaml.load(text);
+		} catch (RuntimeException e) {
+			throw new DocumentProcessingException("Failed to parse YAML front matter", e);
+		}
+		if (data instanceof Map<?, ?> entries) {
+			entries.forEach(
+					(key, value) -> addValue(doc, FieldNameSanitizer.sanitizeFieldName(String.valueOf(key)), value));
+		}
+		block.unlink();
 	}
 
-	/**
-	 * Expands simple YAML flow sequences into individual values.
-	 *
-	 * <p>
-	 * The CommonMark front matter extension parses block-style lists
-	 * ({@code - item}) into multiple values but passes flow-style lists
-	 * ({@code [a, b, c]}) through as a single literal string. Flow style is common
-	 * for tags in real-world markdown (Jekyll, Hugo), so split it here to produce
-	 * the same multi-valued field either way. Values containing commas inside
-	 * quotes are not supported and are kept as-is.
-	 */
-	private static List<String> flattenFlowSequences(List<String> values) {
-		List<String> result = new ArrayList<>(values.size());
-		for (String value : values) {
-			String trimmed = value.trim();
-			if (trimmed.length() >= 2 && trimmed.startsWith("[") && trimmed.endsWith("]") && !trimmed.contains("\"")
-					&& !trimmed.contains("'")) {
-				for (String element : trimmed.substring(1, trimmed.length() - 1).split(",")) {
-					result.add(element.trim());
+	private static void addValue(SolrInputDocument doc, String fieldName, Object value) {
+		switch (value) {
+			case null -> {
+			}
+			case Map<?, ?> nested -> nested.forEach(
+					(key, inner) -> addValue(doc, FieldNameSanitizer.sanitizeFieldName(fieldName + "_" + key), inner));
+			case Iterable<?> values -> values.forEach(element -> addValue(doc, fieldName, element));
+			default -> {
+				String text = String.valueOf(value);
+				if (!text.isEmpty()) {
+					doc.addField(fieldName, text);
 				}
-			} else {
-				result.add(value);
 			}
 		}
-		return result;
 	}
 
 	private static String contentHash(String markdown) {
