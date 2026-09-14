@@ -66,6 +66,7 @@ val nativeImageBuildArgs =
     listOf(
         "--no-fallback",
         "-H:+ReportExceptionStackTraces",
+        "-H:IncludeResources=shows-markdown/.*\\.md$",
         "--initialize-at-build-time=io.opentelemetry.api",
         "--initialize-at-build-time=io.opentelemetry.context",
         "--initialize-at-build-time=io.opentelemetry.instrumentation.api",
