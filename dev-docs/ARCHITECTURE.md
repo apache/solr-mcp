@@ -150,8 +150,9 @@ src/test/java/org/apache/solr/mcp/server/
 ├── indexing/
 │   ├── IndexingServiceTest.java
 │   ├── IndexingServiceIntegrationTest.java
-│   ├── CsvIndexingTest.java
-│   └── XmlIndexingTest.java
+│   ├── SolrUpdateXmlTest.java             # <add>-only gate
+│   ├── MarkdownIndexingTest.java
+│   └── ShowsSampleDataIntegrationTest.java  # JSON/CSV/XML parity
 ├── collection/
 │   ├── CollectionServiceTest.java
 │   ├── CollectionUtilsTest.java

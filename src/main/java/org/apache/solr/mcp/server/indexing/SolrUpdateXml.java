@@ -21,6 +21,7 @@ import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException;
+import org.springframework.util.xml.StaxUtils;
 
 /**
  * Keeps the XML indexing tool to Solr {@code <add>} blocks. Solr's update XML
@@ -31,6 +32,17 @@ import org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingExc
  * it.
  */
 final class SolrUpdateXml {
+
+	/**
+	 * Spring's defensive factory: DTD support off, external entities off, and a
+	 * no-op {@code XMLResolver}. Shared because
+	 * {@link XMLInputFactory#newFactory()} runs a {@code ServiceLoader} scan of the
+	 * whole classpath on every call. Configured once here and never reconfigured,
+	 * which is the sharing contract StAX requires — see Spring's own
+	 * {@code XmlEventDecoder}, which holds this factory in a static field and reads
+	 * from it concurrently.
+	 */
+	private static final XMLInputFactory INPUT_FACTORY = StaxUtils.createDefensiveInputFactory();
 
 	private SolrUpdateXml() {
 	}
@@ -47,28 +59,22 @@ final class SolrUpdateXml {
 		if (xml.isBlank()) {
 			throw new DocumentProcessingException("XML input cannot be empty");
 		}
-		XMLInputFactory factory = XMLInputFactory.newFactory();
-		factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
-		factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
-		try (var xmlReader = new ClosingReader(factory.createXMLStreamReader(new StringReader(xml)))) {
-			// nextTag() skips the prolog, comments and whitespace and throws on
-			// anything else before the root, a DOCTYPE included.
-			xmlReader.reader().nextTag();
-			String root = xmlReader.reader().getLocalName();
-			if (!"add".equals(root)) {
-				throw new DocumentProcessingException("XML input must be a Solr <add> block containing <doc>"
-						+ " elements; <" + root + "> is not accepted by this tool");
+		try {
+			XMLStreamReader reader = INPUT_FACTORY.createXMLStreamReader(new StringReader(xml));
+			try {
+				// nextTag() skips the prolog, comments and whitespace and throws on
+				// anything else before the root, a DOCTYPE included.
+				reader.nextTag();
+				String root = reader.getLocalName();
+				if (!"add".equals(root)) {
+					throw new DocumentProcessingException("XML input must be a Solr <add> block containing <doc>"
+							+ " elements; <" + root + "> is not accepted by this tool");
+				}
+			} finally {
+				reader.close();
 			}
 		} catch (XMLStreamException e) {
 			throw new DocumentProcessingException("Failed to parse XML document", e);
-		}
-	}
-
-	/** {@link XMLStreamReader} is not {@link AutoCloseable}; this makes it so. */
-	private record ClosingReader(XMLStreamReader reader) implements AutoCloseable {
-		@Override
-		public void close() throws XMLStreamException {
-			reader.close();
 		}
 	}
 }

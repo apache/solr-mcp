@@ -25,9 +25,8 @@ import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.request.SolrQuery;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
+import org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
-import org.apache.solr.mcp.server.indexing.documentcreator.JsonDocumentCreator;
-import org.apache.solr.mcp.server.indexing.documentcreator.MarkdownDocumentCreator;
 import org.apache.solr.mcp.server.search.SearchResponse;
 import org.apache.solr.mcp.server.search.SearchService;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,17 +64,6 @@ class IndexingServiceIntegrationTest {
 
 	@BeforeEach
 	void setUp() throws Exception {
-
-		// Create processor instances and wire them manually since this is not a Spring
-		// Boot test
-		JsonDocumentCreator jsonDocumentCreator = new JsonDocumentCreator(
-				new com.fasterxml.jackson.databind.ObjectMapper());
-		MarkdownDocumentCreator markdownDocumentCreator = new MarkdownDocumentCreator();
-
-		indexingDocumentCreator = new IndexingDocumentCreator(jsonDocumentCreator, markdownDocumentCreator);
-
-		indexingService = new IndexingService(solrClient, indexingDocumentCreator);
-		searchService = new SearchService(solrClient);
 
 		if (!initialized) {
 			// Create collection
@@ -806,7 +794,7 @@ class IndexingServiceIntegrationTest {
 		assertEquals("Gamma", gamma.getFirstValue("title"));
 		assertEquals(List.of("Sci-Fi", "Drama"), gamma.getFieldValues("genres"));
 
-		assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class,
+		assertThrows(DocumentProcessingException.class,
 				() -> indexingService.indexXmlDocuments(COLLECTION_NAME, "<delete><id>xml-001</id></delete>"));
 		assertEquals(1, solrClient.query(COLLECTION_NAME, new SolrQuery("id:xml-001")).getResults().getNumFound());
 	}

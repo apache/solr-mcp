@@ -21,6 +21,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -29,6 +30,7 @@ import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.ContentStreamUpdateRequest;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.util.NamedList;
+import org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -81,10 +83,10 @@ class IndexingServiceTest {
 	@Test
 	void indexJsonDocuments_WhenDocumentCreatorThrowsException_ShouldPropagateException() throws Exception {
 		String invalidJson = "not valid json";
-		when(indexingDocumentCreator.createSchemalessDocumentsFromJson(invalidJson)).thenThrow(
-				new org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException("Invalid JSON"));
+		when(indexingDocumentCreator.createSchemalessDocumentsFromJson(invalidJson))
+				.thenThrow(new DocumentProcessingException("Invalid JSON"));
 
-		assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class, () -> {
+		assertThrows(DocumentProcessingException.class, () -> {
 			indexingService.indexJsonDocuments("test_collection", invalidJson);
 		});
 		verify(solrClient, never()).add(anyString(), any(Collection.class));
@@ -215,7 +217,6 @@ class IndexingServiceTest {
 	void indexCsvDocuments_ForwardsPayloadAsGivenToSolrCsvHandler() throws Exception {
 		when(solrClient.request(any(ContentStreamUpdateRequest.class), eq("test_collection")))
 				.thenReturn(new NamedList<>());
-		when(solrClient.commit("test_collection")).thenReturn(null);
 		String csv = "id,Show Title,genres,genres\n1,A,x,y\n2,B,z,\n";
 
 		String result = indexingService.indexCsvDocuments("test_collection", csv);
@@ -227,8 +228,10 @@ class IndexingServiceTest {
 		assertNull(captor.getValue().getParams().get("fieldnames"), "column names are Solr's to read, as given");
 		var stream = captor.getValue().getContentStreams().iterator().next();
 		assertTrue(stream.getContentType().startsWith("text/csv"));
-		assertEquals(csv, new String(stream.getStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
-		verify(solrClient).commit("test_collection");
+		assertEquals(csv, new String(stream.getStream().readAllBytes(), StandardCharsets.UTF_8));
+		assertEquals("true", captor.getValue().getParams().get("commit"),
+				"the commit rides on the update request, not a second round trip");
+		verify(solrClient, never()).commit(anyString());
 		assertTrue(result.contains("Solr accepted the CSV payload"), result);
 		assertTrue(result.contains("'test_collection'"), result);
 		assertFalse(result.contains(" of "), "no document count is claimed: Solr does not report one: " + result);
@@ -238,7 +241,6 @@ class IndexingServiceTest {
 	void indexXmlDocuments_ForwardsAddBlockToSolr() throws Exception {
 		when(solrClient.request(any(ContentStreamUpdateRequest.class), eq("test_collection")))
 				.thenReturn(new NamedList<>());
-		when(solrClient.commit("test_collection")).thenReturn(null);
 		String xml = "<add><doc><field name=\"id\">1</field><field name=\"title\">T</field></doc></add>";
 
 		String result = indexingService.indexXmlDocuments("test_collection", xml);
@@ -247,16 +249,18 @@ class IndexingServiceTest {
 		verify(solrClient).request(captor.capture(), eq("test_collection"));
 		assertTrue(
 				captor.getValue().getContentStreams().iterator().next().getContentType().startsWith("application/xml"));
-		verify(solrClient).commit("test_collection");
+		assertEquals("true", captor.getValue().getParams().get("commit"),
+				"the commit rides on the update request, not a second round trip");
+		verify(solrClient, never()).commit(anyString());
 		assertTrue(result.contains("Solr accepted the XML <add> block"), result);
 		assertTrue(result.contains("'test_collection'"), result);
 	}
 
 	@Test
 	void indexXmlDocuments_RejectsCommandsBeforeSolrSeesThem() {
-		assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class,
+		assertThrows(DocumentProcessingException.class,
 				() -> indexingService.indexXmlDocuments("test_collection", "<delete><query>*:*</query></delete>"));
-		assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class,
+		assertThrows(DocumentProcessingException.class,
 				() -> indexingService.indexXmlDocuments("test_collection", "<commit/>"));
 		verifyNoInteractions(solrClient);
 	}
@@ -266,8 +270,12 @@ class IndexingServiceTest {
 		when(solrClient.request(any(ContentStreamUpdateRequest.class), eq("test_collection")))
 				.thenThrow(new SolrServerException("bad row"));
 
+		ArgumentCaptor<ContentStreamUpdateRequest> captor = ArgumentCaptor.forClass(ContentStreamUpdateRequest.class);
 		assertThrows(SolrServerException.class,
 				() -> indexingService.indexCsvDocuments("test_collection", "id,title\n1,Test\n"));
+		verify(solrClient).request(captor.capture(), eq("test_collection"));
+		assertEquals("true", captor.getValue().getParams().get("commit"),
+				"the rejected request carried the commit, so nothing was committed separately");
 		verify(solrClient, never()).commit(anyString());
 	}
 

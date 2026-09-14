@@ -26,10 +26,11 @@ import org.springframework.stereotype.Service;
  * various data formats.
  *
  * <p>
- * This service handles the conversion of JSON, CSV, and XML documents into
+ * This service handles the conversion of JSON and Markdown documents into
  * Solr-compatible format using a schema-less approach where Solr automatically
  * detects field types, eliminating the need for predefined schema
- * configuration.
+ * configuration. CSV and XML have no creator: those payloads are forwarded to
+ * Solr's own update handlers.
  *
  * <p>
  * <strong>Core Features:</strong>
@@ -39,10 +40,6 @@ import org.springframework.stereotype.Service;
  * detection by Solr
  * <li><strong>JSON Processing</strong>: Support for complex nested JSON
  * documents
- * <li><strong>CSV Processing</strong>: Support for comma-separated value files
- * with headers
- * <li><strong>XML Processing</strong>: Support for XML documents with element
- * flattening and attribute handling
  * <li><strong>Markdown Processing</strong>: Support for markdown documents with
  * front matter, title, and heading extraction
  * <li><strong>Field Sanitization</strong>: Automatic cleanup of field names for
