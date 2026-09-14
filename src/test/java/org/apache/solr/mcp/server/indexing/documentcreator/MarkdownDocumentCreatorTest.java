@@ -19,6 +19,7 @@ package org.apache.solr.mcp.server.indexing.documentcreator;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.List;
 import org.apache.solr.common.SolrInputDocument;
 import org.junit.jupiter.api.Test;
 
@@ -27,6 +28,11 @@ import org.junit.jupiter.api.Test;
  * ones a line-by-line reader gets wrong: quoted scalars containing the
  * delimiters, flow and block sequences, and nested mappings. Scalars stay the
  * text as written; Solr's schema guessing types them.
+ *
+ * <p>
+ * The remaining cases pin record splitting: a file holding several front matter
+ * blocks yields one document per block, while everything that is not
+ * unambiguously a second record keeps yielding exactly one document.
  */
 class MarkdownDocumentCreatorTest {
 
@@ -81,5 +87,90 @@ class MarkdownDocumentCreatorTest {
 		assertThat(doc.getFieldValue("title")).isEqualTo("Just a heading");
 		assertThat(doc.getFieldValue("content")).asString().contains("Body text");
 		assertThat(doc.getFieldValue("id")).isNotNull();
+	}
+
+	@Test
+	void eachFrontMatterBlockBecomesItsOwnDocument() {
+		List<SolrInputDocument> docs = creator.create("""
+				---
+				id: show-1
+				title: First
+				---
+
+				# First
+
+				Body of the first show.
+
+				---
+				id: show-2
+				title: Second
+				genres: [Drama]
+				---
+
+				# Second
+
+				Body of the second show.
+				""");
+
+		assertThat(docs).hasSize(2);
+		assertThat(docs.getFirst().getFieldValue("id")).isEqualTo("show-1");
+		assertThat(docs.getFirst().getFieldValue("title")).isEqualTo("First");
+		assertThat(docs.getFirst().getFieldValue("content")).asString().contains("first show")
+				.doesNotContain("second show").doesNotContain("show-2");
+		assertThat(docs.getLast().getFieldValue("id")).isEqualTo("show-2");
+		assertThat(docs.getLast().getFieldValues("genres")).containsExactly("Drama");
+		assertThat(docs.getLast().getFieldValue("content")).asString().contains("second show");
+	}
+
+	@Test
+	void aSingleRecordStillYieldsOneDocument() {
+		assertThat(creator.create("---\nid: only\n---\n\n# Only\n\nBody.\n")).hasSize(1);
+	}
+
+	/**
+	 * A thematic break is not a record boundary: splitting only ever engages when a
+	 * {@code ---} line opens something that parses as a YAML mapping.
+	 */
+	@Test
+	void aThematicBreakDoesNotSplitTheDocument() {
+		List<SolrInputDocument> docs = creator.create("""
+				---
+				id: show-1
+				title: First
+				---
+
+				# First
+
+				Body above the rule.
+
+				---
+
+				Body below the rule.
+				""");
+
+		assertThat(docs).hasSize(1);
+		assertThat(docs.getFirst().getFieldValue("content")).asString().contains("above the rule")
+				.contains("below the rule");
+	}
+
+	/**
+	 * Splitting engages only for documents that themselves open with front matter,
+	 * so prose that happens to contain a rule is never split.
+	 */
+	@Test
+	void aDocumentWithoutFrontMatterIsNeverSplit() {
+		List<SolrInputDocument> docs = creator.create("""
+				# Heading
+
+				Body text.
+
+				---
+				id: not-front-matter
+				---
+
+				More body text.
+				""");
+
+		assertThat(docs).hasSize(1);
 	}
 }
