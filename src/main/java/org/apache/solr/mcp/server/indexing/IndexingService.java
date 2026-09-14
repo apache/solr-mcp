@@ -400,7 +400,8 @@ public class IndexingService {
 	}
 
 	/**
-	 * Indexes a document from a markdown string into a specified Solr collection.
+	 * Indexes one or more documents from a markdown string into a specified Solr
+	 * collection; each YAML front matter block starts a new document.
 	 *
 	 * <p>
 	 * This method serves as the primary entry point for markdown document indexing
@@ -461,12 +462,13 @@ public class IndexingService {
 	@McpTool(
 			name = "index-markdown-documents",
 			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index a document from markdown String into Solr collection, extracting front matter, title, headings, and body text. "
+			description = "Index one or more documents from a markdown String into Solr collection, extracting front matter, title, headings, and body text. "
+					+ "A new document starts at each YAML front matter block (--- ... ---), so many documents can be sent in one call. "
 					+ "Do NOT use for JSON/CSV/XML input; use index-json-documents, index-csv-documents, or index-xml-documents instead. "
 					+ "Only convert source content to markdown when there is no dedicated tool for the source format, and supply a stable 'id' in the YAML front matter when doing so.")
 	public String indexMarkdownDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(
-					description = "Markdown string to index, optionally starting with YAML front matter") String markdown)
+					description = "Markdown to index; each YAML front matter block starts a new document") String markdown)
 			throws IOException, SolrServerException {
 		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
 		int successCount = indexDocuments(collection, schemalessDoc);
