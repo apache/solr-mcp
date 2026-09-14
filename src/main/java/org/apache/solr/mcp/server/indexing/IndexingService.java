@@ -207,7 +207,7 @@ public class IndexingService {
 	 *             communication
 	 * @throws SolrServerException
 	 *             if Solr server encounters errors during indexing
-	 * @see IndexingDocumentCreator#createSchemalessDocumentsFromJson(String)
+	 * @see IndexingDocumentCreator#createSchemalessDocumentsFromJson(List)
 	 * @see #indexDocuments(String, List)
 	 */
 	@PreAuthorize("isAuthenticated()")
@@ -223,10 +223,7 @@ public class IndexingService {
 			@McpToolParam(
 					description = "Documents to index: a JSON array with one object per document") List<Map<String, Object>> documents)
 			throws IOException, SolrServerException {
-		if (documents == null) {
-			throw new IllegalArgumentException("documents cannot be null");
-		}
-		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocuments(documents);
+		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromJson(documents);
 		int successCount = indexDocuments(collection, schemalessDoc);
 		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
 				+ collection + "'" + describeIndexedFields(schemalessDoc);
@@ -615,20 +612,31 @@ public class IndexingService {
 	}
 
 	/**
-	 * Maps an input-format keyword to the MCP tool and payload parameter for that
-	 * format.
+	 * Maps an input-format keyword to the canonical format name, the MCP tool, and
+	 * the payload parameter for that format.
+	 *
+	 * @param format
+	 *            canonical format name, so the prompt reads "markdown" even when
+	 *            the caller passed the {@code md} alias
+	 * @param name
+	 *            the MCP tool that indexes this format
+	 * @param paramName
+	 *            the tool's payload parameter name
+	 * @param payload
+	 *            prose describing what to pass for {@code paramName}
 	 */
-	private record IndexTool(String name, String paramName, String payload) {
+	private record IndexTool(String format, String name, String paramName, String payload) {
 	}
 
 	private static IndexTool resolveIndexTool(String format) {
 		String normalized = (format == null) ? "" : format.trim().toLowerCase();
 		return switch (normalized) {
-			case "json" -> new IndexTool("index-json-documents", "documents",
+			case "json" -> new IndexTool("json", "index-json-documents", "documents",
 					"the documents as a JSON array of objects, not as a string");
-			case "csv" -> new IndexTool("index-csv-documents", "csv", "the CSV text");
-			case "xml" -> new IndexTool("index-xml-documents", "xml", "the XML text");
-			case "markdown", "md" -> new IndexTool("index-markdown-documents", "markdown", "the markdown text");
+			case "csv" -> new IndexTool("csv", "index-csv-documents", "csv", "the CSV text");
+			case "xml" -> new IndexTool("xml", "index-xml-documents", "xml", "the XML text");
+			case "markdown", "md" ->
+				new IndexTool("markdown", "index-markdown-documents", "markdown", "the markdown text");
 			default ->
 				throw new IllegalArgumentException("format must be one of json/csv/xml/markdown, got: " + format);
 		};
@@ -699,7 +707,7 @@ public class IndexingService {
 
 				Next step suggestion: once data is indexed, the `search-collection` prompt drives
 				searching it.
-				""".formatted(format.trim().toLowerCase(), collection, collection, sampleSection, indexTool.name(),
-				collection, indexTool.paramName(), indexTool.payload(), collection);
+				""".formatted(indexTool.format(), collection, collection, sampleSection, indexTool.name(), collection,
+				indexTool.paramName(), indexTool.payload(), collection);
 	}
 }

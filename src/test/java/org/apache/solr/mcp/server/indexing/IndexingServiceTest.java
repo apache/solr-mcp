@@ -66,13 +66,13 @@ class IndexingServiceTest {
 	void indexJsonDocuments_WithValidJson_ShouldIndexDocuments() throws Exception {
 		List<Map<String, Object>> json = List.of(Map.of("id", "1", "title", "Test"));
 		List<SolrInputDocument> mockDocs = createMockDocuments(1);
-		when(indexingDocumentCreator.createSchemalessDocuments(json)).thenReturn(mockDocs);
+		when(indexingDocumentCreator.createSchemalessDocumentsFromJson(json)).thenReturn(mockDocs);
 		when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
 		when(solrClient.commit("test_collection")).thenReturn(null);
 
 		indexingService.indexJsonDocuments("test_collection", json);
 
-		verify(indexingDocumentCreator).createSchemalessDocuments(json);
+		verify(indexingDocumentCreator).createSchemalessDocumentsFromJson(json);
 		verify(solrClient).add(eq("test_collection"), any(Collection.class));
 		verify(solrClient).commit("test_collection");
 	}
@@ -80,7 +80,7 @@ class IndexingServiceTest {
 	@Test
 	void indexJsonDocuments_WhenDocumentCreatorThrowsException_ShouldPropagateException() throws Exception {
 		List<Map<String, Object>> invalidJson = List.of();
-		when(indexingDocumentCreator.createSchemalessDocuments(invalidJson)).thenThrow(
+		when(indexingDocumentCreator.createSchemalessDocumentsFromJson(invalidJson)).thenThrow(
 				new org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException("Invalid JSON"));
 
 		assertThrows(org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException.class, () -> {
@@ -267,7 +267,7 @@ class IndexingServiceTest {
 	void indexJsonDocuments_WhenSolrClientThrowsException_ShouldPropagateException() throws Exception {
 		List<Map<String, Object>> json = List.of(Map.of("id", "1"));
 		List<SolrInputDocument> mockDocs = createMockDocuments(1);
-		when(indexingDocumentCreator.createSchemalessDocuments(json)).thenReturn(mockDocs);
+		when(indexingDocumentCreator.createSchemalessDocumentsFromJson(json)).thenReturn(mockDocs);
 		when(solrClient.add(eq("test_collection"), any(List.class)))
 				.thenThrow(new SolrServerException("Solr connection error"));
 		when(solrClient.add(eq("test_collection"), any(SolrInputDocument.class)))

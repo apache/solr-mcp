@@ -16,9 +16,9 @@
  */
 package org.apache.solr.mcp.server;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 
@@ -30,6 +30,9 @@ import java.util.Map;
 public final class TestDocuments {
 
 	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+	private static final TypeReference<List<Map<String, Object>>> DOCUMENTS = new TypeReference<>() {
+	};
 
 	private TestDocuments() {
 	}
@@ -43,10 +46,9 @@ public final class TestDocuments {
 	 */
 	public static List<Map<String, Object>> json(String json) {
 		try {
-			return OBJECT_MAPPER.readValue(json, new TypeReference<List<Map<String, Object>>>() {
-			});
-		} catch (java.io.IOException e) {
-			throw new UncheckedIOException(e);
+			return OBJECT_MAPPER.readValue(json, DOCUMENTS);
+		} catch (JsonProcessingException e) {
+			throw new IllegalArgumentException("not a JSON array of objects: " + json, e);
 		}
 	}
 }

@@ -112,10 +112,10 @@ public class IndexingDocumentCreator {
 	 *            the documents as field-name-to-value maps
 	 * @return list of SolrInputDocument objects ready for indexing
 	 * @throws DocumentProcessingException
-	 *             if the list is empty
+	 *             if the list is {@code null} or empty
 	 * @see JsonDocumentCreator#create(List)
 	 */
-	public List<SolrInputDocument> createSchemalessDocuments(List<Map<String, Object>> documents)
+	public List<SolrInputDocument> createSchemalessDocumentsFromJson(List<Map<String, Object>> documents)
 			throws DocumentProcessingException {
 		return jsonDocumentCreator.create(documents);
 	}

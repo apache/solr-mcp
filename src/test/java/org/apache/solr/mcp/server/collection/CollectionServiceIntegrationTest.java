@@ -22,12 +22,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.solr.mcp.server.TestDocuments;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.apache.solr.mcp.server.search.SearchResponse;
@@ -65,9 +63,6 @@ class CollectionServiceIntegrationTest {
 	@Autowired
 	private SearchService searchService;
 
-	@Autowired
-	private ObjectMapper objectMapper;
-
 	@BeforeAll
 	void setupCollectionWithData() throws Exception {
 		// 1. Create collection via CollectionService MCP tool
@@ -85,8 +80,7 @@ class CollectionServiceIntegrationTest {
 			doc.put("count_i", i);
 			docs.add(doc);
 		}
-		String json = objectMapper.writeValueAsString(docs);
-		indexingService.indexJsonDocuments(TEST_COLLECTION, TestDocuments.json(json));
+		indexingService.indexJsonDocuments(TEST_COLLECTION, docs);
 		log.debug("Indexed {} documents via IndexingService", DOC_COUNT);
 
 		// 3. Run searches via SearchService MCP tool to populate caches and handler

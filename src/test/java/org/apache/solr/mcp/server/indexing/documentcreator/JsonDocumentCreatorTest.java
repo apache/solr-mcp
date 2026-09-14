@@ -76,6 +76,17 @@ class JsonDocumentCreatorTest {
 				.hasMessage("JSON input cannot be empty");
 	}
 
+	/**
+	 * A missing {@code documents} argument arrives as null. The creator owns the
+	 * "nothing to index" policy for both entry points, so it reports null the same
+	 * way it reports empty rather than letting the service NPE.
+	 */
+	@Test
+	void nullListIsRejected() {
+		assertThatThrownBy(() -> creator.create((List<Map<String, Object>>) null))
+				.isInstanceOf(DocumentProcessingException.class).hasMessage("JSON input cannot be empty");
+	}
+
 	private static Map<String, Object> show(String id, String title, double rating, boolean ongoing, String... genres) {
 		Map<String, Object> show = new LinkedHashMap<>();
 		show.put("id", id);
