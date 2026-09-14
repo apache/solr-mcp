@@ -329,7 +329,6 @@ class IndexingServiceTest {
 		when(indexingDocumentCreator.createSchemalessDocumentsFromMarkdown("# One")).thenReturn(createMockDocuments(1));
 		when(indexingDocumentCreator.createSchemalessDocumentsFromMarkdown("# Two")).thenReturn(createMockDocuments(1));
 		when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
-		when(solrClient.commit("test_collection")).thenReturn(null);
 
 		String result = indexingService.indexMarkdownDocuments("test_collection", List.of("# One", "# Two"));
 
