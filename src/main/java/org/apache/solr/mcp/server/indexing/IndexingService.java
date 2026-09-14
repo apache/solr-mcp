@@ -25,8 +25,10 @@ import java.util.TreeSet;
 import java.util.stream.Collectors;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.client.solrj.request.AbstractUpdateRequest;
 import org.apache.solr.client.solrj.request.ContentStreamUpdateRequest;
 import org.apache.solr.client.solrj.response.UpdateResponse;
+import org.apache.solr.client.solrj.util.ClientUtils;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.util.ContentStreamBase;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
@@ -298,19 +300,21 @@ public class IndexingService {
 			throws IOException, SolrServerException {
 		SolrUpdateXml.requireAddBlock(xml);
 		ContentStreamUpdateRequest request = new ContentStreamUpdateRequest("/update");
-		request.addContentStream(new ContentStreamBase.StringStream(xml, "application/xml; charset=UTF-8"));
+		request.addContentStream(new ContentStreamBase.StringStream(xml, ClientUtils.TEXT_XML));
 		return forward(collection, request, "XML <add> block");
 	}
 
 	/**
-	 * Sends a payload to a Solr update handler, commits, and reports Solr's answer.
-	 * Solr's update response carries a status and a query time but no document
-	 * count, so none is claimed.
+	 * Sends a payload to a Solr update handler and reports Solr's answer. The
+	 * commit rides along on the same request rather than following as a second
+	 * round trip, so the status and query time reported here cover the commit this
+	 * message claims. Solr's update response carries no document count, so none is
+	 * claimed.
 	 */
 	private String forward(String collection, ContentStreamUpdateRequest request, String payload)
 			throws IOException, SolrServerException {
+		request.setAction(AbstractUpdateRequest.ACTION.COMMIT, true, true);
 		UpdateResponse response = request.process(solrClient, collection);
-		solrClient.commit(collection);
 		return "Solr accepted the " + payload + " for collection '" + collection + "' and committed it (status "
 				+ response.getStatus() + ", " + response.getQTime() + " ms)";
 	}
@@ -391,6 +395,37 @@ public class IndexingService {
 	}
 
 	/**
+	 * Maximum number of distinct field names listed in an indexing response before
+	 * the remainder is elided.
+	 */
+	private static final int MAX_REPORTED_FIELDS = 50;
+
+	/**
+	 * Summarizes the field names that were actually indexed. Document creators
+	 * sanitize input field names for Solr compatibility (lowercasing, replacing
+	 * special characters with underscores), so the indexed names can differ from
+	 * the input; reporting them lets MCP clients query the right fields instead of
+	 * assuming the input names survived.
+	 *
+	 * @param documents
+	 *            the documents that were submitted for indexing
+	 * @return a sentence listing the distinct indexed field names, or an empty
+	 *         string if there are none
+	 */
+	private static String describeIndexedFields(List<SolrInputDocument> documents) {
+		Set<String> fieldNames = documents.stream().flatMap(document -> document.getFieldNames().stream())
+				.collect(Collectors.toCollection(TreeSet::new));
+		if (fieldNames.isEmpty()) {
+			return "";
+		}
+		String listed = fieldNames.stream().limit(MAX_REPORTED_FIELDS).collect(Collectors.joining(", "));
+		String elided = fieldNames.size() > MAX_REPORTED_FIELDS
+				? " and " + (fieldNames.size() - MAX_REPORTED_FIELDS) + " more"
+				: "";
+		return ". Indexed field names (input names are sanitized for Solr compatibility): " + listed + elided;
+	}
+
+	/**
 	 * Indexes a list of SolrInputDocument objects into a Solr collection using
 	 * batch processing.
 	 *
@@ -454,40 +489,6 @@ public class IndexingService {
 	 * @see SolrClient#add(String, java.util.Collection)
 	 * @see SolrClient#commit(String, boolean, boolean, boolean)
 	 */
-	/**
-	 * Maximum number of distinct field names listed in an indexing response before
-	 * the remainder is elided.
-	 */
-	private static final int MAX_REPORTED_FIELDS = 50;
-
-	/**
-	 * Summarizes the field names that were actually indexed. Document creators
-	 * sanitize input field names for Solr compatibility (lowercasing, replacing
-	 * special characters with underscores), so the indexed names can differ from
-	 * the input; reporting them lets MCP clients query the right fields instead of
-	 * assuming the input names survived.
-	 *
-	 * @param documents
-	 *            the documents that were submitted for indexing
-	 * @return a sentence listing the distinct indexed field names, or an empty
-	 *         string if there are none
-	 */
-	private static String describeIndexedFields(List<SolrInputDocument> documents) {
-		return describeFieldNames(documents.stream().flatMap(document -> document.getFieldNames().stream())
-				.collect(Collectors.toCollection(TreeSet::new)));
-	}
-
-	private static String describeFieldNames(Set<String> fieldNames) {
-		if (fieldNames.isEmpty()) {
-			return "";
-		}
-		String listed = fieldNames.stream().limit(MAX_REPORTED_FIELDS).collect(Collectors.joining(", "));
-		String elided = fieldNames.size() > MAX_REPORTED_FIELDS
-				? " and " + (fieldNames.size() - MAX_REPORTED_FIELDS) + " more"
-				: "";
-		return ". Indexed field names (input names are sanitized for Solr compatibility): " + listed + elided;
-	}
-
 	public int indexDocuments(String collection, List<SolrInputDocument> documents)
 			throws SolrServerException, IOException {
 		int successCount = 0;

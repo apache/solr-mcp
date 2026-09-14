@@ -64,8 +64,6 @@ mcp-server-security = { module = "org.springaicommunity:mcp-server-security", ve
 # Solr
 solr-solrj = { module = "org.apache.solr:solr-solrj", version.ref = "solr" }
 
-# Apache Commons
-
 # CommonMark (markdown parsing)
 commonmark = { module = "org.commonmark:commonmark", version.ref = "commonmark" }
 commonmark-ext-yaml-front-matter = { module = "org.commonmark:commonmark-ext-yaml-front-matter", version.ref = "commonmark" }
