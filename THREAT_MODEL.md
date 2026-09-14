@@ -245,7 +245,7 @@ trust table:
 | `search` | `collection` | **yes** | used only as a path segment against the fixed `SOLR_URL` base; **cannot redirect to another host**. What a path reaches *within* that Solr is the backend's authorization call. *(maintainer — Q-collection.)* |
 | `search` | `query` (`q`), `filterQueries` (`fq`) | **yes** | passed into `SolrQuery`; Solr query-parser semantics apply — Q-queryinj |
 | `search` | `facetFields`, `sortClauses`, `start`, `rows` | **yes** | forwarded to Solr; `rows` unbounded? — Q-resource |
-| `index-*` | `collection`, `json`/`csv`/`xml` body | **yes** | parsed then written to index; XML parser is XXE-hardened *(documented)* |
+| `index-*` | `collection`, `json`/`csv`/`xml` body | **yes** | JSON parsed then written; CSV and XML forwarded to Solr's own update handlers after a hardened StAX check that the XML is an `<add>` block, so `<delete>`/`<commit>` cannot ride on the indexing tool *(documented)* |
 | `create-collection` | `name`, `configSet`, `numShards`, `replicationFactor` | **yes** | issues `CollectionAdminRequest.createCollection` to backend — Q-adminexposure |
 | `add-fields` / `add-field-types` | `collection`, field/type defs | **yes** | additive schema change (existing fields cannot be modified per README) |
 | config (startup only) | `SOLR_URL`, `SOLR_USERNAME`, `SOLR_PASSWORD` | **no — deployer config** | never wire from a tool argument *(documented)* |
@@ -312,12 +312,12 @@ Two adversaries are in scope; several are explicitly not.
    target or credential. *Severity:* critical (SSRF/credential-redirect if
    broken). *(documented — docs/security/stdio.md & http.md; `SolrConfig`,
    `SolrConfigurationProperties`.)*
-6. **XML indexing is XXE-hardened.** `XmlDocumentCreator` builds a
-   `DocumentBuilderFactory` with secure processing on, DOCTYPE disallowed,
-   external general/parameter entities off, XInclude off, entity-expansion off.
+6. **XML indexing is XXE-hardened.** `UpdatePayloads` pre-checks the payload with a
+   StAX reader with DTD support off and external entities off, and Solr's own
+   XML loader behind it applies the same hardening.
    *Violation:* an XXE/entity-expansion payload in an `index-xml-documents` body
    reads a local file or hangs the parser. *Severity:* high. *(documented —
-   `XmlDocumentCreator.createSecureDocumentBuilderFactory`.)*
+   `UpdatePayloads.inspectXml`.)*
 7. **Tool behaviour hints are advertised honestly.** Every tool carries MCP
    annotations (`readOnlyHint` on the five read tools, `idempotentHint` on the
    three index tools, `destructiveHint=false` on schema/create tools) so clients
@@ -444,9 +444,9 @@ Two adversaries are in scope; several are explicitly not.
 - **"`/actuator/health` is anonymous."** Intended for load-balancer/orchestrator
   liveness probes; every other actuator endpoint requires auth.
   `KNOWN-NON-FINDING`. *(documented — `HttpSecurityConfiguration`.)*
-- **"XXE in XML indexing."** The `DocumentBuilderFactory` is hardened (DOCTYPE
-  disallowed, external entities off). `KNOWN-NON-FINDING`. *(documented —
-  `XmlDocumentCreator`.)*
+- **"XXE in XML indexing."** The StAX pre-check runs with DTD support and
+  external entities off, and the payload then goes to Solr's own hardened XML
+  loader. `KNOWN-NON-FINDING`. *(documented — `UpdatePayloads`.)*
 - **"`SOLR_URL` allows SSRF."** It is deployer-only startup config, never taken
   from a tool argument; an SSRF report requires the operator to have violated the
   documented contract. `OUT-OF-MODEL` (operator config) / `BY-DESIGN`.

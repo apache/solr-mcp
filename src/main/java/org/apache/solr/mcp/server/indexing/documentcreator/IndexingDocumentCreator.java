@@ -16,7 +16,6 @@
  */
 package org.apache.solr.mcp.server.indexing.documentcreator;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.indexing.IndexingService;
@@ -56,32 +55,21 @@ import org.springframework.stereotype.Service;
 @Service
 public class IndexingDocumentCreator {
 
-	private static final int MAX_XML_SIZE_BYTES = 10 * 1024 * 1024; // 10MB limit
-
-	private final XmlDocumentCreator xmlDocumentCreator;
-
-	private final CsvDocumentCreator csvDocumentCreator;
-
 	private final JsonDocumentCreator jsonDocumentCreator;
 
 	private final MarkdownDocumentCreator markdownDocumentCreator;
 
 	/**
-	 * Constructs the orchestrator with the per-format document creators.
+	 * Constructs the orchestrator with the per-format document creators. CSV and
+	 * XML have no creator: those payloads go to Solr's own update handlers.
 	 *
-	 * @param xmlDocumentCreator
-	 *            converts XML input into {@code SolrInputDocument} batches
-	 * @param csvDocumentCreator
-	 *            converts CSV input into {@code SolrInputDocument} batches
 	 * @param jsonDocumentCreator
 	 *            converts JSON input into {@code SolrInputDocument} batches
 	 * @param markdownDocumentCreator
 	 *            converts Markdown input into {@code SolrInputDocument} batches
 	 */
-	public IndexingDocumentCreator(XmlDocumentCreator xmlDocumentCreator, CsvDocumentCreator csvDocumentCreator,
-			JsonDocumentCreator jsonDocumentCreator, MarkdownDocumentCreator markdownDocumentCreator) {
-		this.xmlDocumentCreator = xmlDocumentCreator;
-		this.csvDocumentCreator = csvDocumentCreator;
+	public IndexingDocumentCreator(JsonDocumentCreator jsonDocumentCreator,
+			MarkdownDocumentCreator markdownDocumentCreator) {
 		this.jsonDocumentCreator = jsonDocumentCreator;
 		this.markdownDocumentCreator = markdownDocumentCreator;
 	}
@@ -102,54 +90,6 @@ public class IndexingDocumentCreator {
 	 */
 	public List<SolrInputDocument> createSchemalessDocumentsFromJson(String json) throws DocumentProcessingException {
 		return jsonDocumentCreator.create(json);
-	}
-
-	/**
-	 * Creates a list of schema-less SolrInputDocument objects from a CSV string.
-	 *
-	 * <p>
-	 * This method delegates CSV processing to the CsvDocumentProcessor utility
-	 * class.
-	 *
-	 * @param csv
-	 *            CSV string containing document data (first row must be headers)
-	 * @return list of SolrInputDocument objects ready for indexing
-	 * @throws DocumentProcessingException
-	 *             if CSV parsing fails or the structure is invalid
-	 * @see CsvDocumentCreator
-	 */
-	public List<SolrInputDocument> createSchemalessDocumentsFromCsv(String csv) throws DocumentProcessingException {
-		return csvDocumentCreator.create(csv);
-	}
-
-	/**
-	 * Creates a list of schema-less SolrInputDocument objects from an XML string.
-	 *
-	 * <p>
-	 * This method delegates XML processing to the XmlDocumentProcessor utility
-	 * class.
-	 *
-	 * @param xml
-	 *            XML string containing document data
-	 * @return list of SolrInputDocument objects ready for indexing
-	 * @throws DocumentProcessingException
-	 *             if XML parser configuration fails
-	 * @see XmlDocumentCreator
-	 */
-	public List<SolrInputDocument> createSchemalessDocumentsFromXml(String xml) throws DocumentProcessingException {
-
-		// Input validation
-		if (xml == null || xml.trim().isEmpty()) {
-			throw new DocumentProcessingException("XML input cannot be null or empty");
-		}
-
-		byte[] xmlBytes = xml.getBytes(StandardCharsets.UTF_8);
-		if (xmlBytes.length > MAX_XML_SIZE_BYTES) {
-			throw new DocumentProcessingException(
-					"XML document too large: " + xmlBytes.length + " bytes (max: " + MAX_XML_SIZE_BYTES + ")");
-		}
-
-		return xmlDocumentCreator.create(xml);
 	}
 
 	/**
