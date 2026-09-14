@@ -22,7 +22,6 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.regex.Pattern;
 import org.apache.solr.common.SolrInputDocument;
 import org.commonmark.Extension;
 import org.commonmark.ext.front.matter.YamlFrontMatterExtension;
@@ -93,13 +92,6 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
 
 	private static final int MAX_INPUT_SIZE_BYTES = 10 * 1024 * 1024;
 
-	/**
-	 * A line that may appear inside a YAML front matter block: {@code key: value},
-	 * a {@code - item} list entry, an indented continuation, or blank.
-	 */
-	private static final Pattern FRONT_MATTER_LINE = Pattern
-			.compile("^(?:[A-Za-z0-9_.\\-]+:.*|\\s+-\\s.*|\\s{2,}\\S.*|\\s*)$");
-
 	/** Solr field holding the document's unique key. */
 	public static final String FIELD_ID = "id";
 
@@ -126,17 +118,15 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
 	 * Creates a SolrInputDocument from a markdown string.
 	 *
 	 * <p>
-	 * Each YAML front matter block starts a new document, so one string may carry
-	 * many; text before the first block is its own document. Within a document,
-	 * front matter entries map to fields, the title is resolved from front matter
-	 * or the first level-1 heading, all heading texts are collected into a
-	 * multi-valued {@code headings} field, and the plain text body is stored in
-	 * {@code content}.
+	 * The whole input is treated as a single document: front matter entries map to
+	 * fields, the title is resolved from front matter or the first level-1 heading,
+	 * all heading texts are collected into a multi-valued {@code headings} field,
+	 * and the plain text body is stored in {@code content}.
 	 *
 	 * @param markdown
 	 *            markdown string, optionally starting with YAML front matter
-	 * @return one document per front matter block (a single document when there is
-	 *         at most one), or an empty list if the input is blank
+	 * @return a single-element list containing the created document, or an empty
+	 *         list if the input is blank
 	 * @throws DocumentProcessingException
 	 *             if the input exceeds the size limit or parsing fails
 	 */
@@ -151,79 +141,6 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
 			return List.of();
 		}
 
-		List<SolrInputDocument> documents = new ArrayList<>();
-		for (String chunk : splitDocuments(markdown)) {
-			if (!chunk.trim().isEmpty()) {
-				documents.add(parseOne(chunk));
-			}
-		}
-		return documents;
-	}
-
-	/**
-	 * Splits one Markdown string into documents. A new document starts at every
-	 * YAML front matter block (a {@code ---} line, one or more {@code key: value}
-	 * or list-item lines, a closing {@code ---} line). Text before the first block
-	 * is its own document. A lone {@code ---} followed by prose is a thematic break
-	 * and does not split, and input with a single front matter block, or none,
-	 * comes back unchanged.
-	 */
-	static List<String> splitDocuments(String markdown) {
-		String[] lines = markdown.split("\n", -1);
-		List<Integer> starts = new ArrayList<>();
-		for (int i = 0; i < lines.length; i++) {
-			if (!isDelimiter(lines[i])) {
-				continue;
-			}
-			int j = i + 1;
-			boolean entry = false;
-			boolean closed = false;
-			while (j < lines.length) {
-				if (isDelimiter(lines[j])) {
-					closed = true;
-					break;
-				}
-				if (!FRONT_MATTER_LINE.matcher(lines[j]).matches()) {
-					break;
-				}
-				entry |= !lines[j].isBlank();
-				j++;
-			}
-			if (closed && entry) {
-				starts.add(i);
-				i = j;
-			}
-		}
-		if (starts.size() <= 1 && (starts.isEmpty() || isBlankBefore(lines, starts.getFirst()))) {
-			return List.of(markdown);
-		}
-		List<String> chunks = new ArrayList<>();
-		int from = isBlankBefore(lines, starts.getFirst()) ? starts.getFirst() : 0;
-		for (int k = 0; k < starts.size(); k++) {
-			int start = starts.get(k);
-			if (start > from) {
-				chunks.add(String.join("\n", java.util.Arrays.copyOfRange(lines, from, start)));
-			}
-			from = start;
-		}
-		chunks.add(String.join("\n", java.util.Arrays.copyOfRange(lines, from, lines.length)));
-		return chunks;
-	}
-
-	private static boolean isDelimiter(String line) {
-		return line.strip().equals("---");
-	}
-
-	private static boolean isBlankBefore(String[] lines, int index) {
-		for (int i = 0; i < index; i++) {
-			if (!lines[i].isBlank()) {
-				return false;
-			}
-		}
-		return true;
-	}
-
-	private SolrInputDocument parseOne(String markdown) {
 		Node document;
 		try {
 			document = parser.parse(markdown);
@@ -257,7 +174,7 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
 			doc.addField(FIELD_CONTENT, content);
 		}
 
-		return doc;
+		return List.of(doc);
 	}
 
 	/**

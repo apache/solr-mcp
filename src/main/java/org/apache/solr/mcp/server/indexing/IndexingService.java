@@ -18,6 +18,7 @@ package org.apache.solr.mcp.server.indexing;
 
 import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -400,8 +401,8 @@ public class IndexingService {
 	}
 
 	/**
-	 * Indexes one or more documents from a markdown string into a specified Solr
-	 * collection; each YAML front matter block starts a new document.
+	 * Indexes markdown documents into a specified Solr collection, one array
+	 * element per document.
 	 *
 	 * <p>
 	 * This method serves as the primary entry point for markdown document indexing
@@ -448,9 +449,8 @@ public class IndexingService {
 	 *
 	 * @param collection
 	 *            the name of the Solr collection to index documents into
-	 * @param markdown
-	 *            markdown string to index, optionally starting with YAML front
-	 *            matter
+	 * @param documents
+	 *            the markdown documents, one string per document matter
 	 * @throws IOException
 	 *             if there are critical errors in Solr communication
 	 * @throws SolrServerException
@@ -462,15 +462,21 @@ public class IndexingService {
 	@McpTool(
 			name = "index-markdown-documents",
 			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index one or more documents from a markdown String into Solr collection, extracting front matter, title, headings, and body text. "
-					+ "A new document starts at each YAML front matter block (--- ... ---), so many documents can be sent in one call. "
+			description = "Index markdown documents into Solr collection, one array element per document, extracting front matter, title, headings, and body text from each. "
+					+ "Pass many documents in one call rather than one call per document. "
 					+ "Do NOT use for JSON/CSV/XML input; use index-json-documents, index-csv-documents, or index-xml-documents instead. "
 					+ "Only convert source content to markdown when there is no dedicated tool for the source format, and supply a stable 'id' in the YAML front matter when doing so.")
 	public String indexMarkdownDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(
-					description = "Markdown to index; each YAML front matter block starts a new document") String markdown)
+					description = "Markdown documents to index, one string per document, each optionally starting with YAML front matter") List<String> documents)
 			throws IOException, SolrServerException {
-		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
+		if (documents == null) {
+			throw new IllegalArgumentException("documents cannot be null");
+		}
+		List<SolrInputDocument> schemalessDoc = new ArrayList<>();
+		for (String markdown : documents) {
+			schemalessDoc.addAll(indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown));
+		}
 		int successCount = indexDocuments(collection, schemalessDoc);
 		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
 				+ collection + "'";
@@ -622,7 +628,7 @@ public class IndexingService {
 			case "json" -> new IndexTool("index-json-documents", "json");
 			case "csv" -> new IndexTool("index-csv-documents", "csv");
 			case "xml" -> new IndexTool("index-xml-documents", "xml");
-			case "markdown", "md" -> new IndexTool("index-markdown-documents", "markdown");
+			case "markdown", "md" -> new IndexTool("index-markdown-documents", "documents");
 			default ->
 				throw new IllegalArgumentException("format must be one of json/csv/xml/markdown, got: " + format);
 		};
@@ -693,7 +699,7 @@ public class IndexingService {
 
 				Next step suggestion: once data is indexed, the `search-collection` prompt drives
 				searching it.
-				""".formatted(indexTool.paramName(), collection, collection, sampleSection, indexTool.name(),
+				""".formatted(format.trim().toLowerCase(), collection, collection, sampleSection, indexTool.name(),
 				collection, indexTool.paramName(), collection);
 	}
 }
