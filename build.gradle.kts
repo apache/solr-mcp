@@ -549,6 +549,10 @@ if (nativeBuild) {
                     "--initialize-at-build-time=org.junit.platform.launcher",
                     "--initialize-at-build-time=org.junit.platform.engine",
                     "--initialize-at-build-time=org.junit.jupiter.engine.descriptor",
+                    // Spring AOT registers every *.json resource, which covers shows.json;
+                    // the CSV and XML flavours of the sample dataset need an explicit include
+                    // or ShowsSampleDataIntegrationTest cannot load them natively.
+                    "-H:IncludeResources=shows\\.(csv|xml)$",
                 )
             }
         }
