@@ -67,12 +67,12 @@ class XmlIndexingTest {
 
 		SolrInputDocument doc = documents.getFirst();
 		assertThat(doc.getFieldValue("id_attr")).isEqualTo("123");
-		assertThat(doc.getFieldValue("book_title")).isEqualTo("A Game of Thrones");
-		assertThat(doc.getFieldValue("book_author_name")).isEqualTo("George R.R. Martin");
-		assertThat(doc.getFieldValue("book_author_email")).isEqualTo("george@example.com");
-		assertThat(doc.getFieldValue("book_price")).isEqualTo("7.99");
-		assertThat(doc.getFieldValue("book_instock")).isEqualTo("true");
-		assertThat(doc.getFieldValue("book_genre")).isEqualTo("fantasy");
+		assertThat(doc.getFieldValue("title")).isEqualTo("A Game of Thrones");
+		assertThat(doc.getFieldValue("author_name")).isEqualTo("George R.R. Martin");
+		assertThat(doc.getFieldValue("author_email")).isEqualTo("george@example.com");
+		assertThat(doc.getFieldValue("price")).isEqualTo("7.99");
+		assertThat(doc.getFieldValue("instock")).isEqualTo("true");
+		assertThat(doc.getFieldValue("genre")).isEqualTo("fantasy");
 	}
 
 	@Test
@@ -108,23 +108,23 @@ class XmlIndexingTest {
 		// Verify first document
 		SolrInputDocument firstDoc = documents.getFirst();
 		assertThat(firstDoc.getFieldValue("id_attr")).isEqualTo("1");
-		assertThat(firstDoc.getFieldValue("document_title")).isEqualTo("A Game of Thrones");
-		assertThat(firstDoc.getFieldValue("document_author")).isEqualTo("George R.R. Martin");
-		assertThat(firstDoc.getFieldValue("document_genre")).isEqualTo("fantasy");
+		assertThat(firstDoc.getFieldValue("title")).isEqualTo("A Game of Thrones");
+		assertThat(firstDoc.getFieldValue("author")).isEqualTo("George R.R. Martin");
+		assertThat(firstDoc.getFieldValue("genre")).isEqualTo("fantasy");
 
 		// Verify second document
 		SolrInputDocument secondDoc = documents.get(1);
 		assertThat(secondDoc.getFieldValue("id_attr")).isEqualTo("2");
-		assertThat(secondDoc.getFieldValue("document_title")).isEqualTo("Foundation");
-		assertThat(secondDoc.getFieldValue("document_author")).isEqualTo("Isaac Asimov");
-		assertThat(secondDoc.getFieldValue("document_genre")).isEqualTo("scifi");
+		assertThat(secondDoc.getFieldValue("title")).isEqualTo("Foundation");
+		assertThat(secondDoc.getFieldValue("author")).isEqualTo("Isaac Asimov");
+		assertThat(secondDoc.getFieldValue("genre")).isEqualTo("scifi");
 
 		// Verify third document
 		SolrInputDocument thirdDoc = documents.get(2);
 		assertThat(thirdDoc.getFieldValue("id_attr")).isEqualTo("3");
-		assertThat(thirdDoc.getFieldValue("document_title")).isEqualTo("Dune");
-		assertThat(thirdDoc.getFieldValue("document_author")).isEqualTo("Frank Herbert");
-		assertThat(thirdDoc.getFieldValue("document_genre")).isEqualTo("scifi");
+		assertThat(thirdDoc.getFieldValue("title")).isEqualTo("Dune");
+		assertThat(thirdDoc.getFieldValue("author")).isEqualTo("Frank Herbert");
+		assertThat(thirdDoc.getFieldValue("genre")).isEqualTo("scifi");
 	}
 
 	@Test
@@ -149,11 +149,11 @@ class XmlIndexingTest {
 		assertThat(doc.getFieldValue("id_attr")).isEqualTo("P123");
 		assertThat(doc.getFieldValue("category_attr")).isEqualTo("electronics");
 		assertThat(doc.getFieldValue("featured_attr")).isEqualTo("true");
-		assertThat(doc.getFieldValue("product_name_lang_attr")).isEqualTo("en");
-		assertThat(doc.getFieldValue("product_price_currency_attr")).isEqualTo("USD");
-		assertThat(doc.getFieldValue("product_name")).isEqualTo("Smartphone");
-		assertThat(doc.getFieldValue("product_price")).isEqualTo("599.99");
-		assertThat(doc.getFieldValue("product_description")).isEqualTo("Latest smartphone with advanced features");
+		assertThat(doc.getFieldValue("name_lang_attr")).isEqualTo("en");
+		assertThat(doc.getFieldValue("price_currency_attr")).isEqualTo("USD");
+		assertThat(doc.getFieldValue("name")).isEqualTo("Smartphone");
+		assertThat(doc.getFieldValue("price")).isEqualTo("599.99");
+		assertThat(doc.getFieldValue("description")).isEqualTo("Latest smartphone with advanced features");
 	}
 
 	@Test
@@ -184,16 +184,16 @@ class XmlIndexingTest {
 		// First document should skip empty description
 		SolrInputDocument firstDoc = documents.getFirst();
 		assertThat(firstDoc.getFieldValue("id_attr")).isEqualTo("1");
-		assertThat(firstDoc.getFieldValue("item_name")).isEqualTo("Product One");
-		assertThat(firstDoc.getFieldValue("item_description")).isNull(); // Empty element should not be indexed
-		assertThat(firstDoc.getFieldValue("item_price")).isEqualTo("19.99");
+		assertThat(firstDoc.getFieldValue("name")).isEqualTo("Product One");
+		assertThat(firstDoc.getFieldValue("description")).isNull(); // Empty element should not be indexed
+		assertThat(firstDoc.getFieldValue("price")).isEqualTo("19.99");
 
 		// Second document should skip empty name
 		SolrInputDocument secondDoc = documents.get(1);
 		assertThat(secondDoc.getFieldValue("id_attr")).isEqualTo("2");
-		assertThat(secondDoc.getFieldValue("item_name")).isNull(); // Empty element should not be indexed
-		assertThat(secondDoc.getFieldValue("item_description")).isEqualTo("Product with no name");
-		assertThat(secondDoc.getFieldValue("item_price")).isEqualTo("29.99");
+		assertThat(secondDoc.getFieldValue("name")).isNull(); // Empty element should not be indexed
+		assertThat(secondDoc.getFieldValue("description")).isEqualTo("Product with no name");
+		assertThat(secondDoc.getFieldValue("price")).isEqualTo("29.99");
 	}
 
 	@Test
@@ -223,14 +223,14 @@ class XmlIndexingTest {
 		assertThat(documents).hasSize(1);
 
 		SolrInputDocument doc = documents.getFirst();
-		assertThat(doc.getFieldValue("book_title")).isEqualTo("Programming Book");
-		assertThat(doc.getFieldValue("book_author")).isEqualTo("John Doe");
+		assertThat(doc.getFieldValue("title")).isEqualTo("Programming Book");
+		assertThat(doc.getFieldValue("author")).isEqualTo("John Doe");
 
 		// Check that repeated elements are handled properly
 		// Note: The current implementation processes each element separately,
 		// so we check for the individual tag and category fields
-		assertThat(doc.getFieldValue("book_tags_tag")).isNotNull();
-		assertThat(doc.getFieldValue("book_categories_category")).isNotNull();
+		assertThat(doc.getFieldValue("tags_tag")).isNotNull();
+		assertThat(doc.getFieldValue("categories_category")).isNotNull();
 	}
 
 	@Test
@@ -256,12 +256,12 @@ class XmlIndexingTest {
 		assertThat(documents).hasSize(1);
 
 		SolrInputDocument doc = documents.getFirst();
-		assertThat(doc.getFieldValue("article_title")).isEqualTo("Mixed Content Example");
-		assertThat(doc.getFieldValue("article_author")).isEqualTo("Jane Smith");
+		assertThat(doc.getFieldValue("title")).isEqualTo("Mixed Content Example");
+		assertThat(doc.getFieldValue("author")).isEqualTo("Jane Smith");
 
 		// Mixed content should be handled - text content should be captured
-		assertThat(doc.getFieldValue("article_content")).isNotNull();
-		assertThat(doc.getFieldValue("article_content_emphasis")).isEqualTo("emphasized text");
+		assertThat(doc.getFieldValue("content")).isNotNull();
+		assertThat(doc.getFieldValue("content_emphasis")).isEqualTo("emphasized text");
 	}
 
 	@Test
@@ -440,24 +440,24 @@ class XmlIndexingTest {
 		assertThat(doc.getFieldValue("category_attr")).isEqualTo("electronics");
 
 		// Verify nested structure flattening
-		assertThat(doc.getFieldValue("product_details_name_lang_attr")).isNotNull();
-		assertThat(doc.getFieldValue("product_details_specifications_screen_size_attr")).isEqualTo("6.1");
-		assertThat(doc.getFieldValue("product_details_specifications_screen_type_attr")).isEqualTo("OLED");
-		assertThat(doc.getFieldValue("product_details_specifications_screen")).isEqualTo("Full HD+");
+		assertThat(doc.getFieldValue("details_name_lang_attr")).isNotNull();
+		assertThat(doc.getFieldValue("details_specifications_screen_size_attr")).isEqualTo("6.1");
+		assertThat(doc.getFieldValue("details_specifications_screen_type_attr")).isEqualTo("OLED");
+		assertThat(doc.getFieldValue("details_specifications_screen")).isEqualTo("Full HD+");
 
 		// Verify multiple similar elements
-		assertThat(doc.getFieldValue("product_details_specifications_camera_type_attr")).isNotNull();
-		assertThat(doc.getFieldValue("product_details_specifications_camera_resolution_attr")).isNotNull();
+		assertThat(doc.getFieldValue("details_specifications_camera_type_attr")).isNotNull();
+		assertThat(doc.getFieldValue("details_specifications_camera_resolution_attr")).isNotNull();
 
 		// Verify deeply nested elements
-		assertThat(doc.getFieldValue("product_details_specifications_storage_internal")).isEqualTo("128GB");
-		assertThat(doc.getFieldValue("product_details_specifications_storage_expandable")).isEqualTo("Yes");
+		assertThat(doc.getFieldValue("details_specifications_storage_internal")).isEqualTo("128GB");
+		assertThat(doc.getFieldValue("details_specifications_storage_expandable")).isEqualTo("Yes");
 
 		// Verify pricing and availability
-		assertThat(doc.getFieldValue("product_pricing_currency_attr")).isEqualTo("USD");
-		assertThat(doc.getFieldValue("product_pricing")).isEqualTo("599.99");
-		assertThat(doc.getFieldValue("product_availability_instock")).isEqualTo("true");
-		assertThat(doc.getFieldValue("product_availability_regions_region")).isNotNull();
+		assertThat(doc.getFieldValue("pricing_currency_attr")).isEqualTo("USD");
+		assertThat(doc.getFieldValue("pricing")).isEqualTo("599.99");
+		assertThat(doc.getFieldValue("availability_instock")).isEqualTo("true");
+		assertThat(doc.getFieldValue("availability_regions_region")).isNotNull();
 	}
 
 	@Test
@@ -486,11 +486,11 @@ class XmlIndexingTest {
 
 		// Verify field name sanitization
 		assertThat(doc.getFieldValue("id_attr")).isEqualTo("123");
-		assertThat(doc.getFieldValue("product_data_product_name")).isEqualTo("Test Product");
-		assertThat(doc.getFieldValue("product_data_price_usd")).isEqualTo("99.99");
-		assertThat(doc.getFieldValue("product_data_category_type")).isEqualTo("electronics");
-		assertThat(doc.getFieldValue("product_data_field_with_multiple_underscores")).isEqualTo("value");
-		assertThat(doc.getFieldValue("product_data_field_with_dashes")).isEqualTo("dashed value");
-		assertThat(doc.getFieldValue("product_data_uppercase_field")).isEqualTo("uppercase value");
+		assertThat(doc.getFieldValue("data_product_name")).isEqualTo("Test Product");
+		assertThat(doc.getFieldValue("data_price_usd")).isEqualTo("99.99");
+		assertThat(doc.getFieldValue("data_category_type")).isEqualTo("electronics");
+		assertThat(doc.getFieldValue("data_field_with_multiple_underscores")).isEqualTo("value");
+		assertThat(doc.getFieldValue("data_field_with_dashes")).isEqualTo("dashed value");
+		assertThat(doc.getFieldValue("data_uppercase_field")).isEqualTo("uppercase value");
 	}
 }

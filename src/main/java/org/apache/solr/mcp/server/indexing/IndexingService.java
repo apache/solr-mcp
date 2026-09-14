@@ -313,11 +313,12 @@ public class IndexingService {
 	 * <strong>Supported XML Formats:</strong>
 	 *
 	 * <ul>
-	 * <li><strong>Single Document</strong>: Root element treated as one document
-	 * <li><strong>Multiple Documents</strong>: Child elements with 'doc', 'item',
-	 * or 'record' names treated as separate documents
-	 * <li><strong>Nested Elements</strong>: Automatically flattened with underscore
-	 * notation
+	 * <li><strong>Single Document</strong>: Root element treated as one document;
+	 * its child elements are the fields
+	 * <li><strong>Multiple Documents</strong>: Repeated child elements of the root
+	 * (any name) are separate documents; each one's child elements are its fields
+	 * <li><strong>Nested Elements</strong>: Flattened below the field with
+	 * underscore notation ({@code author_name})
 	 * <li><strong>Attributes</strong>: Converted to fields with "_attr" suffix
 	 * <li><strong>Mixed Data Types</strong>: Automatic type detection by Solr
 	 * </ul>
@@ -387,9 +388,12 @@ public class IndexingService {
 	@McpTool(
 			name = "index-xml-documents",
 			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index documents from XML string into Solr collection. Element names are"
-					+ " sanitized for Solr compatibility (lowercased, special characters replaced"
-					+ " with underscores); the response lists the field names as indexed")
+			description = "Index documents from XML string into Solr collection: repeated child elements of the"
+					+ " root are the documents and each one's child elements are its fields (<show><id>x</id>"
+					+ "<title>T</title></show> yields id and title; nested elements flatten with underscores,"
+					+ " attributes get an _attr suffix). Element names are sanitized for Solr compatibility"
+					+ " (lowercased, special characters replaced with underscores); the response lists the field"
+					+ " names as indexed")
 	public String indexXmlDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "XML string containing documents to index") String xml)
 			throws ParserConfigurationException, SAXException, IOException, SolrServerException {

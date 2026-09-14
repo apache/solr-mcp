@@ -58,7 +58,10 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
 	 * This method parses the XML and creates documents based on the structure: - If
 	 * the XML has multiple child elements with the same tag name (indicating
 	 * repeated structures), each child element becomes a separate document -
-	 * Otherwise, the entire XML structure is treated as a single document
+	 * Otherwise, the entire XML structure is treated as a single document. In both
+	 * cases the record element is a wrapper: its child elements are the fields,
+	 * named after themselves, so {@code <show><id>x</id><title>T</title></show>}
+	 * yields {@code id} and {@code title}, not {@code show_id}.
 	 *
 	 * <p>
 	 * This approach is flexible and doesn't rely on hardcoded element names,
@@ -147,7 +150,7 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
 
 		for (Element childElement : childElements) {
 			SolrInputDocument solrDoc = new SolrInputDocument();
-			addXmlElementFields(solrDoc, childElement, "");
+			addRecordFields(solrDoc, childElement);
 			if (!solrDoc.isEmpty()) {
 				documents.add(solrDoc);
 			}
@@ -156,11 +159,32 @@ public class XmlDocumentCreator implements SolrDocumentCreator {
 		return documents;
 	}
 
+	/**
+	 * Adds the fields of one record element. The record element itself (the root
+	 * for a single document, or each repeated child) is a wrapper, not a field:
+	 * its child elements become fields named after themselves ({@code <title>}
+	 * is {@code title}, a repeated {@code <genres>} is multi-valued), nested
+	 * elements flatten below that with underscores, and the record's own
+	 * attributes keep the {@code _attr} suffix.
+	 */
+	private void addRecordFields(SolrInputDocument doc, Element record) {
+		String recordName = FieldNameSanitizer.sanitizeFieldName(record.getTagName());
+		processXmlAttributes(doc, record, "", recordName);
+		NodeList children = record.getChildNodes();
+		processXmlTextContent(doc, recordName, recordName, "", hasChildElements(children), children);
+		for (int i = 0; i < children.getLength(); i++) {
+			Node child = children.item(i);
+			if (child.getNodeType() == Node.ELEMENT_NODE) {
+				addXmlElementFields(doc, (Element) child, "");
+			}
+		}
+	}
+
 	/** Creates a single document from the root element. */
 	private List<SolrInputDocument> createSingleDocument(Element rootElement) {
 		List<SolrInputDocument> documents = new ArrayList<>();
 		SolrInputDocument solrDoc = new SolrInputDocument();
-		addXmlElementFields(solrDoc, rootElement, "");
+		addRecordFields(solrDoc, rootElement);
 
 		if (!solrDoc.isEmpty()) {
 			documents.add(solrDoc);
