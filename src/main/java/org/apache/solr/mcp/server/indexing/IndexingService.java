@@ -198,8 +198,8 @@ public class IndexingService {
 	 *
 	 * @param collection
 	 *            the name of the Solr collection to index documents into
-	 * @param json
-	 *            JSON string containing an array of documents to index
+	 * @param documents
+	 *            the documents to index, one map per document
 	 * @return a human-readable summary reporting how many documents were
 	 *         successfully indexed
 	 * @throws IOException
