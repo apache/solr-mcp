@@ -90,8 +90,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class MarkdownDocumentCreator implements SolrDocumentCreator {
 
-	private static final int MAX_INPUT_SIZE_BYTES = 10 * 1024 * 1024;
-
 	/** Solr field holding the document's unique key. */
 	public static final String FIELD_ID = "id";
 
@@ -128,15 +126,10 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
 	 * @return a single-element list containing the created document, or an empty
 	 *         list if the input is blank
 	 * @throws DocumentProcessingException
-	 *             if the input exceeds the size limit or parsing fails
+	 *             if parsing fails
 	 */
 	@Override
 	public List<SolrInputDocument> create(String markdown) throws DocumentProcessingException {
-		if (markdown.getBytes(StandardCharsets.UTF_8).length > MAX_INPUT_SIZE_BYTES) {
-			throw new DocumentProcessingException(
-					"Input too large: exceeds maximum size of " + MAX_INPUT_SIZE_BYTES + " bytes");
-		}
-
 		if (markdown.trim().isEmpty()) {
 			return List.of();
 		}
