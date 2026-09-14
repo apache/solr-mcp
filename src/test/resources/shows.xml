@@ -15,1613 +15,1613 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-<shows>
-  <show>
-    <id>netflix-001</id>
-    <title>Stranger Things</title>
-    <platform>Netflix</platform>
-    <genres>Sci-Fi</genres>
-    <genres>Horror</genres>
-    <genres>Drama</genres>
-    <release_year>2016</release_year>
-    <end_year>2025</end_year>
-    <status>Ended</status>
-    <seasons>5</seasons>
-    <episodes>42</episodes>
-    <creators>Matt Duffer</creators>
-    <creators>Ross Duffer</creators>
-    <cast>Millie Bobby Brown</cast>
-    <cast>Finn Wolfhard</cast>
-    <cast>Winona Ryder</cast>
-    <cast>David Harbour</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-14</rating>
-    <imdb_rating>8.7</imdb_rating>
-    <description>A group of kids in 1980s Indiana uncover supernatural mysteries and government conspiracies tied to a parallel dimension.</description>
-    <tags>80s</tags>
-    <tags>supernatural</tags>
-    <tags>coming-of-age</tags>
-    <tags>monsters</tags>
-  </show>
-  <show>
-    <id>netflix-002</id>
-    <title>The Crown</title>
-    <platform>Netflix</platform>
-    <genres>Drama</genres>
-    <genres>Historical</genres>
-    <genres>Biography</genres>
-    <release_year>2016</release_year>
-    <end_year>2023</end_year>
-    <status>Ended</status>
-    <seasons>6</seasons>
-    <episodes>60</episodes>
-    <creators>Peter Morgan</creators>
-    <cast>Claire Foy</cast>
-    <cast>Olivia Colman</cast>
-    <cast>Imelda Staunton</cast>
-    <cast>Matt Smith</cast>
-    <country>UK</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.6</imdb_rating>
-    <description>The reign of Queen Elizabeth II from her wedding in 1947 through the early 21st century.</description>
-    <tags>royalty</tags>
-    <tags>british</tags>
-    <tags>period-drama</tags>
-    <tags>politics</tags>
-  </show>
-  <show>
-    <id>netflix-003</id>
-    <title>Squid Game</title>
-    <platform>Netflix</platform>
-    <genres>Thriller</genres>
-    <genres>Drama</genres>
-    <genres>Survival</genres>
-    <release_year>2021</release_year>
-    <end_year>2025</end_year>
-    <status>Ended</status>
-    <seasons>3</seasons>
-    <episodes>22</episodes>
-    <creators>Hwang Dong-hyuk</creators>
-    <cast>Lee Jung-jae</cast>
-    <cast>Park Hae-soo</cast>
-    <cast>Wi Ha-joon</cast>
-    <cast>HoYeon Jung</cast>
-    <country>South Korea</country>
-    <language>Korean</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.0</imdb_rating>
-    <description>Hundreds of cash-strapped contestants accept an invitation to compete in deadly children's games for a tempting prize.</description>
-    <tags>korean</tags>
-    <tags>survival</tags>
-    <tags>dystopian</tags>
-    <tags>social-commentary</tags>
-  </show>
-  <show>
-    <id>netflix-004</id>
-    <title>Wednesday</title>
-    <platform>Netflix</platform>
-    <genres>Comedy</genres>
-    <genres>Horror</genres>
-    <genres>Mystery</genres>
-    <release_year>2022</release_year>
-    <status>Ongoing</status>
-    <seasons>2</seasons>
-    <episodes>16</episodes>
-    <creators>Alfred Gough</creators>
-    <creators>Miles Millar</creators>
-    <cast>Jenna Ortega</cast>
-    <cast>Catherine Zeta-Jones</cast>
-    <cast>Luis Guzmán</cast>
-    <cast>Gwendoline Christie</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-14</rating>
-    <imdb_rating>8.1</imdb_rating>
-    <description>Wednesday Addams navigates a supernatural boarding school while solving a murder mystery.</description>
-    <tags>gothic</tags>
-    <tags>teen</tags>
-    <tags>supernatural</tags>
-    <tags>addams-family</tags>
-  </show>
-  <show>
-    <id>netflix-005</id>
-    <title>Money Heist</title>
-    <platform>Netflix</platform>
-    <genres>Crime</genres>
-    <genres>Thriller</genres>
-    <genres>Drama</genres>
-    <release_year>2017</release_year>
-    <end_year>2021</end_year>
-    <status>Ended</status>
-    <seasons>5</seasons>
-    <episodes>41</episodes>
-    <creators>Álex Pina</creators>
-    <cast>Úrsula Corberó</cast>
-    <cast>Álvaro Morte</cast>
-    <cast>Pedro Alonso</cast>
-    <cast>Itziar Ituño</cast>
-    <country>Spain</country>
-    <language>Spanish</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.2</imdb_rating>
-    <description>An unusual group of robbers attempt to carry out the most perfect robbery in Spanish history.</description>
-    <tags>spanish</tags>
-    <tags>heist</tags>
-    <tags>crime</tags>
-    <tags>ensemble</tags>
-  </show>
-  <show>
-    <id>netflix-006</id>
-    <title>Dark</title>
-    <platform>Netflix</platform>
-    <genres>Sci-Fi</genres>
-    <genres>Mystery</genres>
-    <genres>Thriller</genres>
-    <release_year>2017</release_year>
-    <end_year>2020</end_year>
-    <status>Ended</status>
-    <seasons>3</seasons>
-    <episodes>26</episodes>
-    <creators>Baran bo Odar</creators>
-    <creators>Jantje Friese</creators>
-    <cast>Louis Hofmann</cast>
-    <cast>Karoline Eichhorn</cast>
-    <cast>Lisa Vicari</cast>
-    <cast>Maja Schöne</cast>
-    <country>Germany</country>
-    <language>German</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.7</imdb_rating>
-    <description>A family saga with a supernatural twist set in a German town where the disappearance of children exposes the relationships among four families.</description>
-    <tags>time-travel</tags>
-    <tags>german</tags>
-    <tags>complex-plot</tags>
-    <tags>mystery</tags>
-  </show>
-  <show>
-    <id>netflix-007</id>
-    <title>Ozark</title>
-    <platform>Netflix</platform>
-    <genres>Crime</genres>
-    <genres>Drama</genres>
-    <genres>Thriller</genres>
-    <release_year>2017</release_year>
-    <end_year>2022</end_year>
-    <status>Ended</status>
-    <seasons>4</seasons>
-    <episodes>44</episodes>
-    <creators>Bill Dubuque</creators>
-    <creators>Mark Williams</creators>
-    <cast>Jason Bateman</cast>
-    <cast>Laura Linney</cast>
-    <cast>Julia Garner</cast>
-    <cast>Sofia Hublitz</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.5</imdb_rating>
-    <description>A financial advisor drags his family from Chicago to the Missouri Ozarks, where he must launder money to appease a drug boss.</description>
-    <tags>money-laundering</tags>
-    <tags>cartel</tags>
-    <tags>family-drama</tags>
-    <tags>crime</tags>
-  </show>
-  <show>
-    <id>netflix-008</id>
-    <title>Black Mirror</title>
-    <platform>Netflix</platform>
-    <genres>Sci-Fi</genres>
-    <genres>Drama</genres>
-    <genres>Anthology</genres>
-    <release_year>2011</release_year>
-    <status>Ongoing</status>
-    <seasons>7</seasons>
-    <episodes>33</episodes>
-    <creators>Charlie Brooker</creators>
-    <cast>Various</cast>
-    <country>UK</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.7</imdb_rating>
-    <description>An anthology series exploring a twisted, high-tech multiverse where humanity's greatest innovations collide with its darkest instincts.</description>
-    <tags>anthology</tags>
-    <tags>technology</tags>
-    <tags>dystopian</tags>
-    <tags>british</tags>
-  </show>
-  <show>
-    <id>netflix-009</id>
-    <title>The Witcher</title>
-    <platform>Netflix</platform>
-    <genres>Fantasy</genres>
-    <genres>Action</genres>
-    <genres>Adventure</genres>
-    <release_year>2019</release_year>
-    <status>Ongoing</status>
-    <seasons>4</seasons>
-    <episodes>32</episodes>
-    <creators>Lauren Schmidt Hissrich</creators>
-    <cast>Henry Cavill</cast>
-    <cast>Liam Hemsworth</cast>
-    <cast>Anya Chalotra</cast>
-    <cast>Freya Allan</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.0</imdb_rating>
-    <description>Geralt of Rivia, a solitary monster hunter, struggles to find his place in a world where people often prove more wicked than beasts.</description>
-    <tags>fantasy</tags>
-    <tags>monsters</tags>
-    <tags>magic</tags>
-    <tags>adaptation</tags>
-  </show>
-  <show>
-    <id>netflix-010</id>
-    <title>Bridgerton</title>
-    <platform>Netflix</platform>
-    <genres>Romance</genres>
-    <genres>Drama</genres>
-    <genres>Historical</genres>
-    <release_year>2020</release_year>
-    <status>Ongoing</status>
-    <seasons>3</seasons>
-    <episodes>24</episodes>
-    <creators>Chris Van Dusen</creators>
-    <cast>Phoebe Dynevor</cast>
-    <cast>Regé-Jean Page</cast>
-    <cast>Jonathan Bailey</cast>
-    <cast>Nicola Coughlan</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>7.3</imdb_rating>
-    <description>Wealth, lust, and betrayal set against the backdrop of Regency-era England, seen through the eyes of the powerful Bridgerton family.</description>
-    <tags>regency</tags>
-    <tags>romance</tags>
-    <tags>period-drama</tags>
-    <tags>shondaland</tags>
-  </show>
-  <show>
-    <id>netflix-011</id>
-    <title>Narcos</title>
-    <platform>Netflix</platform>
-    <genres>Crime</genres>
-    <genres>Biography</genres>
-    <genres>Drama</genres>
-    <release_year>2015</release_year>
-    <end_year>2017</end_year>
-    <status>Ended</status>
-    <seasons>3</seasons>
-    <episodes>30</episodes>
-    <creators>Chris Brancato</creators>
-    <creators>Carlo Bernard</creators>
-    <creators>Doug Miro</creators>
-    <cast>Wagner Moura</cast>
-    <cast>Pedro Pascal</cast>
-    <cast>Boyd Holbrook</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.8</imdb_rating>
-    <description>The true story of Colombia's infamously violent and powerful drug cartels.</description>
-    <tags>cartel</tags>
-    <tags>colombia</tags>
-    <tags>true-crime</tags>
-    <tags>pablo-escobar</tags>
-  </show>
-  <show>
-    <id>netflix-012</id>
-    <title>Mindhunter</title>
-    <platform>Netflix</platform>
-    <genres>Crime</genres>
-    <genres>Drama</genres>
-    <genres>Thriller</genres>
-    <release_year>2017</release_year>
-    <end_year>2019</end_year>
-    <status>Ended</status>
-    <seasons>2</seasons>
-    <episodes>19</episodes>
-    <creators>Joe Penhall</creators>
-    <cast>Jonathan Groff</cast>
-    <cast>Holt McCallany</cast>
-    <cast>Anna Torv</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.6</imdb_rating>
-    <description>Two FBI agents interview imprisoned serial killers to apply behavioral science to their open cases.</description>
-    <tags>fbi</tags>
-    <tags>serial-killers</tags>
-    <tags>psychology</tags>
-    <tags>fincher</tags>
-  </show>
-  <show>
-    <id>netflix-013</id>
-    <title>The Queen's Gambit</title>
-    <platform>Netflix</platform>
-    <genres>Drama</genres>
-    <genres>Period</genres>
-    <release_year>2020</release_year>
-    <end_year>2020</end_year>
-    <status>Ended</status>
-    <seasons>1</seasons>
-    <episodes>7</episodes>
-    <creators>Scott Frank</creators>
-    <creators>Allan Scott</creators>
-    <cast>Anya Taylor-Joy</cast>
-    <cast>Bill Camp</cast>
-    <cast>Marielle Heller</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.5</imdb_rating>
-    <description>An orphaned chess prodigy rises to the top of the chess world while struggling with addiction.</description>
-    <tags>chess</tags>
-    <tags>limited-series</tags>
-    <tags>cold-war</tags>
-    <tags>addiction</tags>
-  </show>
-  <show>
-    <id>netflix-014</id>
-    <title>BoJack Horseman</title>
-    <platform>Netflix</platform>
-    <genres>Animation</genres>
-    <genres>Comedy</genres>
-    <genres>Drama</genres>
-    <release_year>2014</release_year>
-    <end_year>2020</end_year>
-    <status>Ended</status>
-    <seasons>6</seasons>
-    <episodes>77</episodes>
-    <creators>Raphael Bob-Waksberg</creators>
-    <cast>Will Arnett</cast>
-    <cast>Aaron Paul</cast>
-    <cast>Amy Sedaris</cast>
-    <cast>Alison Brie</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.8</imdb_rating>
-    <description>A washed-up actor who happens to be a horse navigates Hollywood life, depression, and existentialism.</description>
-    <tags>animation</tags>
-    <tags>adult-animation</tags>
-    <tags>satire</tags>
-    <tags>mental-health</tags>
-  </show>
-  <show>
-    <id>netflix-015</id>
-    <title>Peaky Blinders</title>
-    <platform>Netflix</platform>
-    <genres>Crime</genres>
-    <genres>Drama</genres>
-    <genres>Historical</genres>
-    <release_year>2013</release_year>
-    <end_year>2022</end_year>
-    <status>Ended</status>
-    <seasons>6</seasons>
-    <episodes>36</episodes>
-    <creators>Steven Knight</creators>
-    <cast>Cillian Murphy</cast>
-    <cast>Paul Anderson</cast>
-    <cast>Helen McCrory</cast>
-    <cast>Tom Hardy</cast>
-    <country>UK</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.8</imdb_rating>
-    <description>A gangster family epic set in 1900s England, centering on a gang led by the fierce Tommy Shelby.</description>
-    <tags>british</tags>
-    <tags>gangster</tags>
-    <tags>period-drama</tags>
-    <tags>birmingham</tags>
-  </show>
-  <show>
-    <id>netflix-016</id>
-    <title>Lupin</title>
-    <platform>Netflix</platform>
-    <genres>Crime</genres>
-    <genres>Mystery</genres>
-    <genres>Drama</genres>
-    <release_year>2021</release_year>
-    <status>Ongoing</status>
-    <seasons>3</seasons>
-    <episodes>17</episodes>
-    <creators>George Kay</creators>
-    <creators>François Uzan</creators>
-    <cast>Omar Sy</cast>
-    <cast>Ludivine Sagnier</cast>
-    <cast>Clotilde Hesme</cast>
-    <country>France</country>
-    <language>French</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>7.5</imdb_rating>
-    <description>Inspired by Arsène Lupin, gentleman thief Assane Diop sets out to avenge his father for an injustice inflicted by a wealthy family.</description>
-    <tags>french</tags>
-    <tags>heist</tags>
-    <tags>revenge</tags>
-    <tags>paris</tags>
-  </show>
-  <show>
-    <id>netflix-017</id>
-    <title>The Umbrella Academy</title>
-    <platform>Netflix</platform>
-    <genres>Sci-Fi</genres>
-    <genres>Action</genres>
-    <genres>Drama</genres>
-    <release_year>2019</release_year>
-    <end_year>2024</end_year>
-    <status>Ended</status>
-    <seasons>4</seasons>
-    <episodes>34</episodes>
-    <creators>Steve Blackman</creators>
-    <cast>Elliot Page</cast>
-    <cast>Tom Hopper</cast>
-    <cast>David Castañeda</cast>
-    <cast>Emmy Raver-Lampman</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-14</rating>
-    <imdb_rating>7.9</imdb_rating>
-    <description>A dysfunctional family of adopted sibling superheroes reunites to solve the mystery of their father's death and the threat of an apocalypse.</description>
-    <tags>superheroes</tags>
-    <tags>time-travel</tags>
-    <tags>comic-adaptation</tags>
-    <tags>family</tags>
-  </show>
-  <show>
-    <id>netflix-018</id>
-    <title>Sex Education</title>
-    <platform>Netflix</platform>
-    <genres>Comedy</genres>
-    <genres>Drama</genres>
-    <genres>Romance</genres>
-    <release_year>2019</release_year>
-    <end_year>2023</end_year>
-    <status>Ended</status>
-    <seasons>4</seasons>
-    <episodes>32</episodes>
-    <creators>Laurie Nunn</creators>
-    <cast>Asa Butterfield</cast>
-    <cast>Gillian Anderson</cast>
-    <cast>Emma Mackey</cast>
-    <cast>Ncuti Gatwa</cast>
-    <country>UK</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.3</imdb_rating>
-    <description>A teenage boy with a sex therapist mother teams up with a high school classmate to set up an underground sex therapy clinic at school.</description>
-    <tags>teen</tags>
-    <tags>british</tags>
-    <tags>coming-of-age</tags>
-    <tags>lgbtq</tags>
-  </show>
-  <show>
-    <id>netflix-019</id>
-    <title>House of Cards</title>
-    <platform>Netflix</platform>
-    <genres>Drama</genres>
-    <genres>Political</genres>
-    <genres>Thriller</genres>
-    <release_year>2013</release_year>
-    <end_year>2018</end_year>
-    <status>Ended</status>
-    <seasons>6</seasons>
-    <episodes>73</episodes>
-    <creators>Beau Willimon</creators>
-    <cast>Kevin Spacey</cast>
-    <cast>Robin Wright</cast>
-    <cast>Michael Kelly</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.7</imdb_rating>
-    <description>A ruthless politician will stop at nothing to conquer Washington, D.C.</description>
-    <tags>politics</tags>
-    <tags>washington</tags>
-    <tags>dc</tags>
-    <tags>machiavellian</tags>
-  </show>
-  <show>
-    <id>netflix-020</id>
-    <title>Beef</title>
-    <platform>Netflix</platform>
-    <genres>Comedy</genres>
-    <genres>Drama</genres>
-    <genres>Thriller</genres>
-    <release_year>2023</release_year>
-    <end_year>2023</end_year>
-    <status>Ended</status>
-    <seasons>1</seasons>
-    <episodes>10</episodes>
-    <creators>Lee Sung Jin</creators>
-    <cast>Steven Yeun</cast>
-    <cast>Ali Wong</cast>
-    <cast>Joseph Lee</cast>
-    <cast>Young Mazino</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.0</imdb_rating>
-    <description>A road rage incident between two strangers triggers a feud that brings out their darkest impulses.</description>
-    <tags>limited-series</tags>
-    <tags>dark-comedy</tags>
-    <tags>a24</tags>
-    <tags>asian-american</tags>
-  </show>
-  <show>
-    <id>prime-001</id>
-    <title>The Boys</title>
-    <platform>Amazon Prime Video</platform>
-    <genres>Action</genres>
-    <genres>Sci-Fi</genres>
-    <genres>Drama</genres>
-    <release_year>2019</release_year>
-    <status>Ongoing</status>
-    <seasons>4</seasons>
-    <episodes>32</episodes>
-    <creators>Eric Kripke</creators>
-    <cast>Karl Urban</cast>
-    <cast>Jack Quaid</cast>
-    <cast>Antony Starr</cast>
-    <cast>Erin Moriarty</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.7</imdb_rating>
-    <description>A group of vigilantes set out to take down corrupt superheroes who abuse their powers.</description>
-    <tags>superheroes</tags>
-    <tags>satire</tags>
-    <tags>violent</tags>
-    <tags>comic-adaptation</tags>
-  </show>
-  <show>
-    <id>prime-002</id>
-    <title>The Marvelous Mrs. Maisel</title>
-    <platform>Amazon Prime Video</platform>
-    <genres>Comedy</genres>
-    <genres>Drama</genres>
-    <genres>Period</genres>
-    <release_year>2017</release_year>
-    <end_year>2023</end_year>
-    <status>Ended</status>
-    <seasons>5</seasons>
-    <episodes>43</episodes>
-    <creators>Amy Sherman-Palladino</creators>
-    <cast>Rachel Brosnahan</cast>
-    <cast>Alex Borstein</cast>
-    <cast>Michael Zegen</cast>
-    <cast>Tony Shalhoub</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.7</imdb_rating>
-    <description>A 1950s New York housewife discovers she has a talent for stand-up comedy.</description>
-    <tags>50s</tags>
-    <tags>stand-up</tags>
-    <tags>feminist</tags>
-    <tags>new-york</tags>
-  </show>
-  <show>
-    <id>prime-003</id>
-    <title>Fleabag</title>
-    <platform>Amazon Prime Video</platform>
-    <genres>Comedy</genres>
-    <genres>Drama</genres>
-    <release_year>2016</release_year>
-    <end_year>2019</end_year>
-    <status>Ended</status>
-    <seasons>2</seasons>
-    <episodes>12</episodes>
-    <creators>Phoebe Waller-Bridge</creators>
-    <cast>Phoebe Waller-Bridge</cast>
-    <cast>Sian Clifford</cast>
-    <cast>Olivia Colman</cast>
-    <cast>Andrew Scott</cast>
-    <country>UK</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.7</imdb_rating>
-    <description>A dry-witted woman navigates life and love in London while trying to cope with tragedy.</description>
-    <tags>british</tags>
-    <tags>dark-comedy</tags>
-    <tags>fourth-wall</tags>
-    <tags>limited-series</tags>
-  </show>
-  <show>
-    <id>prime-004</id>
-    <title>The Expanse</title>
-    <platform>Amazon Prime Video</platform>
-    <genres>Sci-Fi</genres>
-    <genres>Drama</genres>
-    <genres>Mystery</genres>
-    <release_year>2015</release_year>
-    <end_year>2022</end_year>
-    <status>Ended</status>
-    <seasons>6</seasons>
-    <episodes>62</episodes>
-    <creators>Mark Fergus</creators>
-    <creators>Hawk Ostby</creators>
-    <cast>Steven Strait</cast>
-    <cast>Dominique Tipper</cast>
-    <cast>Wes Chatham</cast>
-    <cast>Shohreh Aghdashloo</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-14</rating>
-    <imdb_rating>8.5</imdb_rating>
-    <description>In a colonized future solar system, a detective, a ship's officer, and a UN executive uncover a conspiracy.</description>
-    <tags>space</tags>
-    <tags>hard-sci-fi</tags>
-    <tags>politics</tags>
-    <tags>adaptation</tags>
-  </show>
-  <show>
-    <id>prime-005</id>
-    <title>The Lord of the Rings: The Rings of Power</title>
-    <platform>Amazon Prime Video</platform>
-    <genres>Fantasy</genres>
-    <genres>Adventure</genres>
-    <genres>Drama</genres>
-    <release_year>2022</release_year>
-    <status>Ongoing</status>
-    <seasons>2</seasons>
-    <episodes>16</episodes>
-    <creators>J.D. Payne</creators>
-    <creators>Patrick McKay</creators>
-    <cast>Morfydd Clark</cast>
-    <cast>Robert Aramayo</cast>
-    <cast>Charlie Vickers</cast>
-    <cast>Markella Kavenagh</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-14</rating>
-    <imdb_rating>6.9</imdb_rating>
-    <description>Epic drama set thousands of years before the events of The Hobbit and The Lord of the Rings, follows an ensemble cast in the Second Age of Middle-earth.</description>
-    <tags>tolkien</tags>
-    <tags>middle-earth</tags>
-    <tags>epic</tags>
-    <tags>high-budget</tags>
-  </show>
-  <show>
-    <id>prime-006</id>
-    <title>Reacher</title>
-    <platform>Amazon Prime Video</platform>
-    <genres>Action</genres>
-    <genres>Crime</genres>
-    <genres>Drama</genres>
-    <release_year>2022</release_year>
-    <status>Ongoing</status>
-    <seasons>3</seasons>
-    <episodes>24</episodes>
-    <creators>Nick Santora</creators>
-    <cast>Alan Ritchson</cast>
-    <cast>Malcolm Goodwin</cast>
-    <cast>Willa Fitzgerald</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.1</imdb_rating>
-    <description>Veteran military police investigator Jack Reacher solves crimes as a drifter.</description>
-    <tags>action</tags>
-    <tags>thriller</tags>
-    <tags>lee-child</tags>
-    <tags>adaptation</tags>
-  </show>
-  <show>
-    <id>prime-007</id>
-    <title>Jack Ryan</title>
-    <platform>Amazon Prime Video</platform>
-    <genres>Action</genres>
-    <genres>Thriller</genres>
-    <genres>Drama</genres>
-    <release_year>2018</release_year>
-    <end_year>2023</end_year>
-    <status>Ended</status>
-    <seasons>4</seasons>
-    <episodes>32</episodes>
-    <creators>Carlton Cuse</creators>
-    <creators>Graham Roland</creators>
-    <cast>John Krasinski</cast>
-    <cast>Wendell Pierce</cast>
-    <cast>Abbie Cornish</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.0</imdb_rating>
-    <description>An up-and-coming CIA analyst is thrust into a dangerous field assignment.</description>
-    <tags>cia</tags>
-    <tags>spy</tags>
-    <tags>tom-clancy</tags>
-    <tags>adaptation</tags>
-  </show>
-  <show>
-    <id>prime-008</id>
-    <title>Fallout</title>
-    <platform>Amazon Prime Video</platform>
-    <genres>Sci-Fi</genres>
-    <genres>Action</genres>
-    <genres>Adventure</genres>
-    <release_year>2024</release_year>
-    <status>Ongoing</status>
-    <seasons>1</seasons>
-    <episodes>8</episodes>
-    <creators>Graham Wagner</creators>
-    <creators>Geneva Robertson-Dworet</creators>
-    <cast>Ella Purnell</cast>
-    <cast>Walton Goggins</cast>
-    <cast>Aaron Moten</cast>
-    <cast>Kyle MacLachlan</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.4</imdb_rating>
-    <description>In a future, post-apocalyptic Los Angeles brought about by nuclear decimation, citizens must live in underground bunkers to protect themselves.</description>
-    <tags>post-apocalyptic</tags>
-    <tags>video-game-adaptation</tags>
-    <tags>wasteland</tags>
-    <tags>vaults</tags>
-  </show>
-  <show>
-    <id>prime-009</id>
-    <title>Mr. &amp; Mrs. Smith</title>
-    <platform>Amazon Prime Video</platform>
-    <genres>Action</genres>
-    <genres>Comedy</genres>
-    <genres>Romance</genres>
-    <release_year>2024</release_year>
-    <status>Ongoing</status>
-    <seasons>1</seasons>
-    <episodes>8</episodes>
-    <creators>Donald Glover</creators>
-    <creators>Francesca Sloane</creators>
-    <cast>Donald Glover</cast>
-    <cast>Maya Erskine</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>7.2</imdb_rating>
-    <description>Two lonely strangers take a job working for a mysterious spy agency that offers them a glamorous life, a dream brownstone in Manhattan, and a new identity as a married couple.</description>
-    <tags>spy</tags>
-    <tags>romance</tags>
-    <tags>remake</tags>
-    <tags>donald-glover</tags>
-  </show>
-  <show>
-    <id>prime-010</id>
-    <title>The Wheel of Time</title>
-    <platform>Amazon Prime Video</platform>
-    <genres>Fantasy</genres>
-    <genres>Adventure</genres>
-    <genres>Action</genres>
-    <release_year>2021</release_year>
-    <status>Ongoing</status>
-    <seasons>3</seasons>
-    <episodes>24</episodes>
-    <creators>Rafe Judkins</creators>
-    <cast>Rosamund Pike</cast>
-    <cast>Daniel Henney</cast>
-    <cast>Josha Stradowski</cast>
-    <cast>Madeleine Madden</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-14</rating>
-    <imdb_rating>7.0</imdb_rating>
-    <description>Set in a high fantasy world where magic exists, but only some can access it, a woman named Moiraine leads five young people on a journey.</description>
-    <tags>fantasy</tags>
-    <tags>magic</tags>
-    <tags>robert-jordan</tags>
-    <tags>epic</tags>
-  </show>
-  <show>
-    <id>prime-011</id>
-    <title>Good Omens</title>
-    <platform>Amazon Prime Video</platform>
-    <genres>Comedy</genres>
-    <genres>Fantasy</genres>
-    <genres>Drama</genres>
-    <release_year>2019</release_year>
-    <status>Ongoing</status>
-    <seasons>2</seasons>
-    <episodes>12</episodes>
-    <creators>Neil Gaiman</creators>
-    <cast>David Tennant</cast>
-    <cast>Michael Sheen</cast>
-    <cast>Jon Hamm</cast>
-    <cast>Frances McDormand</cast>
-    <country>UK</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.0</imdb_rating>
-    <description>A demon and an angel attempt to prevent the apocalypse on Earth, which they have grown rather fond of over the millennia.</description>
-    <tags>british</tags>
-    <tags>supernatural</tags>
-    <tags>gaiman</tags>
-    <tags>pratchett</tags>
-  </show>
-  <show>
-    <id>prime-012</id>
-    <title>The Terminal List</title>
-    <platform>Amazon Prime Video</platform>
-    <genres>Action</genres>
-    <genres>Drama</genres>
-    <genres>Thriller</genres>
-    <release_year>2022</release_year>
-    <status>Ongoing</status>
-    <seasons>1</seasons>
-    <episodes>8</episodes>
-    <creators>David DiGilio</creators>
-    <cast>Chris Pratt</cast>
-    <cast>Constance Wu</cast>
-    <cast>Taylor Kitsch</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.0</imdb_rating>
-    <description>A former Navy SEAL officer investigates why his entire platoon was ambushed during a high-stakes covert mission.</description>
-    <tags>navy-seal</tags>
-    <tags>revenge</tags>
-    <tags>military</tags>
-    <tags>thriller</tags>
-  </show>
-  <show>
-    <id>prime-013</id>
-    <title>Upload</title>
-    <platform>Amazon Prime Video</platform>
-    <genres>Sci-Fi</genres>
-    <genres>Comedy</genres>
-    <genres>Mystery</genres>
-    <release_year>2020</release_year>
-    <status>Ongoing</status>
-    <seasons>3</seasons>
-    <episodes>24</episodes>
-    <creators>Greg Daniels</creators>
-    <cast>Robbie Amell</cast>
-    <cast>Andy Allo</cast>
-    <cast>Allegra Edwards</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>7.9</imdb_rating>
-    <description>A man is able to choose his own afterlife after his untimely death by having his consciousness uploaded into a virtual world.</description>
-    <tags>afterlife</tags>
-    <tags>technology</tags>
-    <tags>sci-fi-comedy</tags>
-    <tags>near-future</tags>
-  </show>
-  <show>
-    <id>prime-014</id>
-    <title>Bosch</title>
-    <platform>Amazon Prime Video</platform>
-    <genres>Crime</genres>
-    <genres>Drama</genres>
-    <genres>Mystery</genres>
-    <release_year>2014</release_year>
-    <end_year>2021</end_year>
-    <status>Ended</status>
-    <seasons>7</seasons>
-    <episodes>68</episodes>
-    <creators>Eric Overmyer</creators>
-    <cast>Titus Welliver</cast>
-    <cast>Jamie Hector</cast>
-    <cast>Amy Aquino</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.5</imdb_rating>
-    <description>An LAPD homicide detective works to solve the murder of a 13-year-old boy.</description>
-    <tags>detective</tags>
-    <tags>los-angeles</tags>
-    <tags>procedural</tags>
-    <tags>michael-connelly</tags>
-  </show>
-  <show>
-    <id>prime-015</id>
-    <title>Invincible</title>
-    <platform>Amazon Prime Video</platform>
-    <genres>Animation</genres>
-    <genres>Action</genres>
-    <genres>Drama</genres>
-    <release_year>2021</release_year>
-    <status>Ongoing</status>
-    <seasons>3</seasons>
-    <episodes>24</episodes>
-    <creators>Robert Kirkman</creators>
-    <cast>Steven Yeun</cast>
-    <cast>J.K. Simmons</cast>
-    <cast>Sandra Oh</cast>
-    <cast>Zazie Beetz</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.7</imdb_rating>
-    <description>An adult animated series about a teenager whose father is the most powerful superhero on the planet.</description>
-    <tags>adult-animation</tags>
-    <tags>superheroes</tags>
-    <tags>violent</tags>
-    <tags>comic-adaptation</tags>
-  </show>
-  <show>
-    <id>prime-016</id>
-    <title>Vikings</title>
-    <platform>Amazon Prime Video</platform>
-    <genres>Drama</genres>
-    <genres>Action</genres>
-    <genres>Historical</genres>
-    <release_year>2013</release_year>
-    <end_year>2020</end_year>
-    <status>Ended</status>
-    <seasons>6</seasons>
-    <episodes>89</episodes>
-    <creators>Michael Hirst</creators>
-    <cast>Travis Fimmel</cast>
-    <cast>Katheryn Winnick</cast>
-    <cast>Clive Standen</cast>
-    <cast>Gustaf Skarsgård</cast>
-    <country>Ireland</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.5</imdb_rating>
-    <description>The world of the Vikings is brought to life through the journey of Ragnar Lothbrok, the first Viking to emerge from Norse legend.</description>
-    <tags>vikings</tags>
-    <tags>historical</tags>
-    <tags>norse</tags>
-    <tags>ragnar</tags>
-  </show>
-  <show>
-    <id>prime-017</id>
-    <title>The Underground Railroad</title>
-    <platform>Amazon Prime Video</platform>
-    <genres>Drama</genres>
-    <genres>Historical</genres>
-    <release_year>2021</release_year>
-    <end_year>2021</end_year>
-    <status>Ended</status>
-    <seasons>1</seasons>
-    <episodes>10</episodes>
-    <creators>Barry Jenkins</creators>
-    <cast>Thuso Mbedu</cast>
-    <cast>Chase W. Dillon</cast>
-    <cast>Joel Edgerton</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>7.4</imdb_rating>
-    <description>A young woman makes a harrowing escape from antebellum slavery via an underground railroad that travels in a literal underground train.</description>
-    <tags>limited-series</tags>
-    <tags>slavery</tags>
-    <tags>barry-jenkins</tags>
-    <tags>literary-adaptation</tags>
-  </show>
-  <show>
-    <id>prime-018</id>
-    <title>Hunters</title>
-    <platform>Amazon Prime Video</platform>
-    <genres>Drama</genres>
-    <genres>Thriller</genres>
-    <genres>Action</genres>
-    <release_year>2020</release_year>
-    <end_year>2023</end_year>
-    <status>Ended</status>
-    <seasons>2</seasons>
-    <episodes>18</episodes>
-    <creators>David Weil</creators>
-    <cast>Al Pacino</cast>
-    <cast>Logan Lerman</cast>
-    <cast>Jerrika Hinton</cast>
-    <cast>Lena Olin</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>7.2</imdb_rating>
-    <description>A diverse band of Nazi hunters living in 1977 New York City discover that hundreds of high-ranking Nazi officials are conspiring to create a Fourth Reich in the U.S.</description>
-    <tags>nazi-hunters</tags>
-    <tags>70s</tags>
-    <tags>alternate-history</tags>
-    <tags>new-york</tags>
-  </show>
-  <show>
-    <id>prime-019</id>
-    <title>Carnival Row</title>
-    <platform>Amazon Prime Video</platform>
-    <genres>Fantasy</genres>
-    <genres>Drama</genres>
-    <genres>Mystery</genres>
-    <release_year>2019</release_year>
-    <end_year>2023</end_year>
-    <status>Ended</status>
-    <seasons>2</seasons>
-    <episodes>18</episodes>
-    <creators>René Echevarria</creators>
-    <creators>Travis Beacham</creators>
-    <cast>Orlando Bloom</cast>
-    <cast>Cara Delevingne</cast>
-    <cast>Simon McBurney</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>7.8</imdb_rating>
-    <description>Mythical creatures have fled their war-torn homeland and gathered in a city where humans live, leading to escalating tensions.</description>
-    <tags>fantasy</tags>
-    <tags>victorian</tags>
-    <tags>mythical-creatures</tags>
-    <tags>noir</tags>
-  </show>
-  <show>
-    <id>prime-020</id>
-    <title>Citadel</title>
-    <platform>Amazon Prime Video</platform>
-    <genres>Action</genres>
-    <genres>Drama</genres>
-    <genres>Thriller</genres>
-    <release_year>2023</release_year>
-    <status>Ongoing</status>
-    <seasons>1</seasons>
-    <episodes>6</episodes>
-    <creators>Josh Appelbaum</creators>
-    <creators>Bryan Oh</creators>
-    <creators>David Weil</creators>
-    <cast>Richard Madden</cast>
-    <cast>Priyanka Chopra Jonas</cast>
-    <cast>Stanley Tucci</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>5.9</imdb_rating>
-    <description>Eight years after the fall of an independent global spy agency, two former agents must work together to stop a new threat.</description>
-    <tags>spy</tags>
-    <tags>russo-brothers</tags>
-    <tags>global</tags>
-    <tags>amnesia</tags>
-  </show>
-  <show>
-    <id>hbo-001</id>
-    <title>Game of Thrones</title>
-    <platform>HBO Max</platform>
-    <genres>Fantasy</genres>
-    <genres>Drama</genres>
-    <genres>Adventure</genres>
-    <release_year>2011</release_year>
-    <end_year>2019</end_year>
-    <status>Ended</status>
-    <seasons>8</seasons>
-    <episodes>73</episodes>
-    <creators>David Benioff</creators>
-    <creators>D.B. Weiss</creators>
-    <cast>Emilia Clarke</cast>
-    <cast>Peter Dinklage</cast>
-    <cast>Kit Harington</cast>
-    <cast>Lena Headey</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>9.2</imdb_rating>
-    <description>Nine noble families fight for control over the lands of Westeros, while an ancient enemy returns after being dormant for millennia.</description>
-    <tags>fantasy</tags>
-    <tags>dragons</tags>
-    <tags>epic</tags>
-    <tags>george-rr-martin</tags>
-  </show>
-  <show>
-    <id>hbo-002</id>
-    <title>Succession</title>
-    <platform>HBO Max</platform>
-    <genres>Drama</genres>
-    <genres>Comedy</genres>
-    <release_year>2018</release_year>
-    <end_year>2023</end_year>
-    <status>Ended</status>
-    <seasons>4</seasons>
-    <episodes>39</episodes>
-    <creators>Jesse Armstrong</creators>
-    <cast>Brian Cox</cast>
-    <cast>Jeremy Strong</cast>
-    <cast>Kieran Culkin</cast>
-    <cast>Sarah Snook</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.9</imdb_rating>
-    <description>The Roy family controls the biggest media and entertainment company in the world, but their patriarch's health is failing.</description>
-    <tags>media</tags>
-    <tags>family-drama</tags>
-    <tags>satire</tags>
-    <tags>wealth</tags>
-  </show>
-  <show>
-    <id>hbo-003</id>
-    <title>The Last of Us</title>
-    <platform>HBO Max</platform>
-    <genres>Drama</genres>
-    <genres>Horror</genres>
-    <genres>Sci-Fi</genres>
-    <release_year>2023</release_year>
-    <status>Ongoing</status>
-    <seasons>2</seasons>
-    <episodes>16</episodes>
-    <creators>Craig Mazin</creators>
-    <creators>Neil Druckmann</creators>
-    <cast>Pedro Pascal</cast>
-    <cast>Bella Ramsey</cast>
-    <cast>Anna Torv</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.7</imdb_rating>
-    <description>After a global pandemic destroys civilization, a hardened survivor takes charge of a 14-year-old girl who may be humanity's last hope.</description>
-    <tags>post-apocalyptic</tags>
-    <tags>zombies</tags>
-    <tags>video-game-adaptation</tags>
-    <tags>fungal</tags>
-  </show>
-  <show>
-    <id>hbo-004</id>
-    <title>House of the Dragon</title>
-    <platform>HBO Max</platform>
-    <genres>Fantasy</genres>
-    <genres>Drama</genres>
-    <genres>Action</genres>
-    <release_year>2022</release_year>
-    <status>Ongoing</status>
-    <seasons>2</seasons>
-    <episodes>18</episodes>
-    <creators>Ryan Condal</creators>
-    <creators>George R.R. Martin</creators>
-    <cast>Paddy Considine</cast>
-    <cast>Matt Smith</cast>
-    <cast>Emma D'Arcy</cast>
-    <cast>Olivia Cooke</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.4</imdb_rating>
-    <description>An internal succession war within House Targaryen at the height of its power, 172 years before the birth of Daenerys Targaryen.</description>
-    <tags>targaryen</tags>
-    <tags>dragons</tags>
-    <tags>got-prequel</tags>
-    <tags>civil-war</tags>
-  </show>
-  <show>
-    <id>hbo-005</id>
-    <title>True Detective</title>
-    <platform>HBO Max</platform>
-    <genres>Crime</genres>
-    <genres>Drama</genres>
-    <genres>Mystery</genres>
-    <release_year>2014</release_year>
-    <status>Ongoing</status>
-    <seasons>4</seasons>
-    <episodes>32</episodes>
-    <creators>Nic Pizzolatto</creators>
-    <cast>Matthew McConaughey</cast>
-    <cast>Woody Harrelson</cast>
-    <cast>Mahershala Ali</cast>
-    <cast>Jodie Foster</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.9</imdb_rating>
-    <description>An anthology series of police investigations, with each season featuring a new cast and setting.</description>
-    <tags>anthology</tags>
-    <tags>noir</tags>
-    <tags>detective</tags>
-    <tags>atmospheric</tags>
-  </show>
-  <show>
-    <id>hbo-006</id>
-    <title>Westworld</title>
-    <platform>HBO Max</platform>
-    <genres>Sci-Fi</genres>
-    <genres>Drama</genres>
-    <genres>Mystery</genres>
-    <release_year>2016</release_year>
-    <end_year>2022</end_year>
-    <status>Ended</status>
-    <seasons>4</seasons>
-    <episodes>36</episodes>
-    <creators>Jonathan Nolan</creators>
-    <creators>Lisa Joy</creators>
-    <cast>Evan Rachel Wood</cast>
-    <cast>Thandiwe Newton</cast>
-    <cast>Jeffrey Wright</cast>
-    <cast>Ed Harris</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.5</imdb_rating>
-    <description>Set in a Western-themed park where guests live out their fantasies through robotic hosts that develop consciousness.</description>
-    <tags>ai</tags>
-    <tags>consciousness</tags>
-    <tags>theme-park</tags>
-    <tags>androids</tags>
-  </show>
-  <show>
-    <id>hbo-007</id>
-    <title>The White Lotus</title>
-    <platform>HBO Max</platform>
-    <genres>Comedy</genres>
-    <genres>Drama</genres>
-    <genres>Mystery</genres>
-    <release_year>2021</release_year>
-    <status>Ongoing</status>
-    <seasons>3</seasons>
-    <episodes>18</episodes>
-    <creators>Mike White</creators>
-    <cast>Murray Bartlett</cast>
-    <cast>Jennifer Coolidge</cast>
-    <cast>Aubrey Plaza</cast>
-    <cast>Theo James</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>7.9</imdb_rating>
-    <description>The exploits of various employees and guests at an exclusive tropical resort.</description>
-    <tags>anthology</tags>
-    <tags>satire</tags>
-    <tags>wealth</tags>
-    <tags>vacation</tags>
-  </show>
-  <show>
-    <id>disney-001</id>
-    <title>The Mandalorian</title>
-    <platform>Disney+</platform>
-    <genres>Sci-Fi</genres>
-    <genres>Action</genres>
-    <genres>Adventure</genres>
-    <release_year>2019</release_year>
-    <status>Ongoing</status>
-    <seasons>3</seasons>
-    <episodes>24</episodes>
-    <creators>Jon Favreau</creators>
-    <cast>Pedro Pascal</cast>
-    <cast>Carl Weathers</cast>
-    <cast>Giancarlo Esposito</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-14</rating>
-    <imdb_rating>8.6</imdb_rating>
-    <description>The travels of a lone bounty hunter in the outer reaches of the galaxy, far from the authority of the New Republic.</description>
-    <tags>star-wars</tags>
-    <tags>space-western</tags>
-    <tags>grogu</tags>
-    <tags>baby-yoda</tags>
-  </show>
-  <show>
-    <id>disney-002</id>
-    <title>WandaVision</title>
-    <platform>Disney+</platform>
-    <genres>Sci-Fi</genres>
-    <genres>Drama</genres>
-    <genres>Mystery</genres>
-    <release_year>2021</release_year>
-    <end_year>2021</end_year>
-    <status>Ended</status>
-    <seasons>1</seasons>
-    <episodes>9</episodes>
-    <creators>Jac Schaeffer</creators>
-    <cast>Elizabeth Olsen</cast>
-    <cast>Paul Bettany</cast>
-    <cast>Kathryn Hahn</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-14</rating>
-    <imdb_rating>7.9</imdb_rating>
-    <description>Wanda Maximoff and Vision live idealized suburban lives, but begin to suspect that everything is not as it seems.</description>
-    <tags>marvel</tags>
-    <tags>mcu</tags>
-    <tags>sitcom</tags>
-    <tags>superhero</tags>
-  </show>
-  <show>
-    <id>disney-003</id>
-    <title>Andor</title>
-    <platform>Disney+</platform>
-    <genres>Sci-Fi</genres>
-    <genres>Drama</genres>
-    <genres>Action</genres>
-    <release_year>2022</release_year>
-    <end_year>2025</end_year>
-    <status>Ended</status>
-    <seasons>2</seasons>
-    <episodes>24</episodes>
-    <creators>Tony Gilroy</creators>
-    <cast>Diego Luna</cast>
-    <cast>Genevieve O'Reilly</cast>
-    <cast>Stellan Skarsgård</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-14</rating>
-    <imdb_rating>8.4</imdb_rating>
-    <description>Prequel to Rogue One, exploring a new perspective from the Star Wars galaxy and Cassian Andor's journey to becoming a rebel hero.</description>
-    <tags>star-wars</tags>
-    <tags>rebellion</tags>
-    <tags>political</tags>
-    <tags>prequel</tags>
-  </show>
-  <show>
-    <id>disney-004</id>
-    <title>Loki</title>
-    <platform>Disney+</platform>
-    <genres>Sci-Fi</genres>
-    <genres>Action</genres>
-    <genres>Adventure</genres>
-    <release_year>2021</release_year>
-    <end_year>2023</end_year>
-    <status>Ended</status>
-    <seasons>2</seasons>
-    <episodes>12</episodes>
-    <creators>Michael Waldron</creators>
-    <cast>Tom Hiddleston</cast>
-    <cast>Owen Wilson</cast>
-    <cast>Sophia Di Martino</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-14</rating>
-    <imdb_rating>8.2</imdb_rating>
-    <description>The mercurial villain Loki resumes his role as the God of Mischief in a new series that takes place after the events of Avengers: Endgame.</description>
-    <tags>marvel</tags>
-    <tags>mcu</tags>
-    <tags>multiverse</tags>
-    <tags>time-travel</tags>
-  </show>
-  <show>
-    <id>appletv-001</id>
-    <title>Ted Lasso</title>
-    <platform>Apple TV+</platform>
-    <genres>Comedy</genres>
-    <genres>Drama</genres>
-    <genres>Sport</genres>
-    <release_year>2020</release_year>
-    <end_year>2023</end_year>
-    <status>Ended</status>
-    <seasons>3</seasons>
-    <episodes>34</episodes>
-    <creators>Bill Lawrence</creators>
-    <creators>Jason Sudeikis</creators>
-    <cast>Jason Sudeikis</cast>
-    <cast>Hannah Waddingham</cast>
-    <cast>Brett Goldstein</cast>
-    <cast>Juno Temple</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.8</imdb_rating>
-    <description>American college football coach Ted Lasso heads to London to manage AFC Richmond, a struggling English Premier League soccer team.</description>
-    <tags>soccer</tags>
-    <tags>football</tags>
-    <tags>feel-good</tags>
-    <tags>british</tags>
-  </show>
-  <show>
-    <id>appletv-002</id>
-    <title>Severance</title>
-    <platform>Apple TV+</platform>
-    <genres>Sci-Fi</genres>
-    <genres>Thriller</genres>
-    <genres>Drama</genres>
-    <release_year>2022</release_year>
-    <status>Ongoing</status>
-    <seasons>2</seasons>
-    <episodes>19</episodes>
-    <creators>Dan Erickson</creators>
-    <cast>Adam Scott</cast>
-    <cast>Britt Lower</cast>
-    <cast>Zach Cherry</cast>
-    <cast>John Turturro</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.7</imdb_rating>
-    <description>Employees at Lumon Industries undergo a procedure that surgically divides their memories between their work and personal lives.</description>
-    <tags>workplace</tags>
-    <tags>dystopian</tags>
-    <tags>mystery</tags>
-    <tags>ben-stiller</tags>
-  </show>
-  <show>
-    <id>appletv-003</id>
-    <title>Foundation</title>
-    <platform>Apple TV+</platform>
-    <genres>Sci-Fi</genres>
-    <genres>Drama</genres>
-    <genres>Adventure</genres>
-    <release_year>2021</release_year>
-    <status>Ongoing</status>
-    <seasons>3</seasons>
-    <episodes>28</episodes>
-    <creators>David S. Goyer</creators>
-    <creators>Josh Friedman</creators>
-    <cast>Jared Harris</cast>
-    <cast>Lee Pace</cast>
-    <cast>Lou Llobell</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-14</rating>
-    <imdb_rating>7.5</imdb_rating>
-    <description>A complex saga of humans scattered on planets throughout the galaxy living under the rule of the Galactic Empire.</description>
-    <tags>space-opera</tags>
-    <tags>asimov</tags>
-    <tags>epic</tags>
-    <tags>empire</tags>
-  </show>
-  <show>
-    <id>appletv-004</id>
-    <title>Slow Horses</title>
-    <platform>Apple TV+</platform>
-    <genres>Crime</genres>
-    <genres>Drama</genres>
-    <genres>Thriller</genres>
-    <release_year>2022</release_year>
-    <status>Ongoing</status>
-    <seasons>4</seasons>
-    <episodes>24</episodes>
-    <creators>Will Smith</creators>
-    <cast>Gary Oldman</cast>
-    <cast>Jack Lowden</cast>
-    <cast>Kristin Scott Thomas</cast>
-    <country>UK</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.3</imdb_rating>
-    <description>Follows a team of British intelligence agents who serve in a dumping ground department of MI5.</description>
-    <tags>spy</tags>
-    <tags>british</tags>
-    <tags>mi5</tags>
-    <tags>mick-herron</tags>
-  </show>
-  <show>
-    <id>hulu-001</id>
-    <title>The Handmaid's Tale</title>
-    <platform>Hulu</platform>
-    <genres>Drama</genres>
-    <genres>Sci-Fi</genres>
-    <genres>Dystopian</genres>
-    <release_year>2017</release_year>
-    <end_year>2025</end_year>
-    <status>Ended</status>
-    <seasons>6</seasons>
-    <episodes>66</episodes>
-    <creators>Bruce Miller</creators>
-    <cast>Elisabeth Moss</cast>
-    <cast>Joseph Fiennes</cast>
-    <cast>Yvonne Strahovski</cast>
-    <cast>Samira Wiley</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.4</imdb_rating>
-    <description>Set in a dystopian future, a woman is forced to live as a concubine under a fundamentalist theocratic dictatorship.</description>
-    <tags>dystopian</tags>
-    <tags>feminist</tags>
-    <tags>atwood</tags>
-    <tags>theocracy</tags>
-  </show>
-  <show>
-    <id>hulu-002</id>
-    <title>The Bear</title>
-    <platform>Hulu</platform>
-    <genres>Comedy</genres>
-    <genres>Drama</genres>
-    <release_year>2022</release_year>
-    <status>Ongoing</status>
-    <seasons>3</seasons>
-    <episodes>28</episodes>
-    <creators>Christopher Storer</creators>
-    <cast>Jeremy Allen White</cast>
-    <cast>Ebon Moss-Bachrach</cast>
-    <cast>Ayo Edebiri</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.6</imdb_rating>
-    <description>A young chef from the fine dining world returns to Chicago to run his family's sandwich shop after a heartbreaking death.</description>
-    <tags>cooking</tags>
-    <tags>chicago</tags>
-    <tags>family</tags>
-    <tags>anxiety</tags>
-  </show>
-  <show>
-    <id>hulu-003</id>
-    <title>Only Murders in the Building</title>
-    <platform>Hulu</platform>
-    <genres>Comedy</genres>
-    <genres>Crime</genres>
-    <genres>Mystery</genres>
-    <release_year>2021</release_year>
-    <status>Ongoing</status>
-    <seasons>4</seasons>
-    <episodes>40</episodes>
-    <creators>Steve Martin</creators>
-    <creators>John Hoffman</creators>
-    <cast>Steve Martin</cast>
-    <cast>Martin Short</cast>
-    <cast>Selena Gomez</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.1</imdb_rating>
-    <description>Three strangers who share an obsession with true crime suddenly find themselves wrapped up in one.</description>
-    <tags>whodunit</tags>
-    <tags>podcast</tags>
-    <tags>new-york</tags>
-    <tags>comedy-mystery</tags>
-  </show>
-  <show>
-    <id>peacock-001</id>
-    <title>Poker Face</title>
-    <platform>Peacock</platform>
-    <genres>Crime</genres>
-    <genres>Comedy</genres>
-    <genres>Mystery</genres>
-    <release_year>2023</release_year>
-    <status>Ongoing</status>
-    <seasons>2</seasons>
-    <episodes>20</episodes>
-    <creators>Rian Johnson</creators>
-    <cast>Natasha Lyonne</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.1</imdb_rating>
-    <description>A casino worker with the ability to determine when someone is lying hits the road, solving crimes along the way.</description>
-    <tags>mystery-of-the-week</tags>
-    <tags>rian-johnson</tags>
-    <tags>columbo</tags>
-    <tags>road-trip</tags>
-  </show>
-  <show>
-    <id>paramount-001</id>
-    <title>Yellowstone</title>
-    <platform>Paramount+</platform>
-    <genres>Drama</genres>
-    <genres>Western</genres>
-    <release_year>2018</release_year>
-    <end_year>2024</end_year>
-    <status>Ended</status>
-    <seasons>5</seasons>
-    <episodes>53</episodes>
-    <creators>Taylor Sheridan</creators>
-    <creators>John Linson</creators>
-    <cast>Kevin Costner</cast>
-    <cast>Luke Grimes</cast>
-    <cast>Kelly Reilly</cast>
-    <cast>Wes Bentley</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-MA</rating>
-    <imdb_rating>8.7</imdb_rating>
-    <description>A ranching family in Montana faces off against others encroaching on their land.</description>
-    <tags>western</tags>
-    <tags>ranch</tags>
-    <tags>family-drama</tags>
-    <tags>montana</tags>
-  </show>
-  <show>
-    <id>paramount-002</id>
-    <title>Star Trek: Strange New Worlds</title>
-    <platform>Paramount+</platform>
-    <genres>Sci-Fi</genres>
-    <genres>Adventure</genres>
-    <genres>Drama</genres>
-    <release_year>2022</release_year>
-    <status>Ongoing</status>
-    <seasons>3</seasons>
-    <episodes>30</episodes>
-    <creators>Akiva Goldsman</creators>
-    <creators>Alex Kurtzman</creators>
-    <creators>Jenny Lumet</creators>
-    <cast>Anson Mount</cast>
-    <cast>Rebecca Romijn</cast>
-    <cast>Ethan Peck</cast>
-    <country>USA</country>
-    <language>English</language>
-    <rating>TV-14</rating>
-    <imdb_rating>8.1</imdb_rating>
-    <description>Captain Christopher Pike helms the USS Enterprise as it explores new worlds in the years before Captain Kirk's iconic missions.</description>
-    <tags>star-trek</tags>
-    <tags>space</tags>
-    <tags>enterprise</tags>
-    <tags>pike</tags>
-  </show>
-</shows>
+<add>
+  <doc>
+    <field name="id">netflix-001</field>
+    <field name="title">Stranger Things</field>
+    <field name="platform">Netflix</field>
+    <field name="genres">Sci-Fi</field>
+    <field name="genres">Horror</field>
+    <field name="genres">Drama</field>
+    <field name="release_year">2016</field>
+    <field name="end_year">2025</field>
+    <field name="status">Ended</field>
+    <field name="seasons">5</field>
+    <field name="episodes">42</field>
+    <field name="creators">Matt Duffer</field>
+    <field name="creators">Ross Duffer</field>
+    <field name="cast">Millie Bobby Brown</field>
+    <field name="cast">Finn Wolfhard</field>
+    <field name="cast">Winona Ryder</field>
+    <field name="cast">David Harbour</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-14</field>
+    <field name="imdb_rating">8.7</field>
+    <field name="description">A group of kids in 1980s Indiana uncover supernatural mysteries and government conspiracies tied to a parallel dimension.</field>
+    <field name="tags">80s</field>
+    <field name="tags">supernatural</field>
+    <field name="tags">coming-of-age</field>
+    <field name="tags">monsters</field>
+  </doc>
+  <doc>
+    <field name="id">netflix-002</field>
+    <field name="title">The Crown</field>
+    <field name="platform">Netflix</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Historical</field>
+    <field name="genres">Biography</field>
+    <field name="release_year">2016</field>
+    <field name="end_year">2023</field>
+    <field name="status">Ended</field>
+    <field name="seasons">6</field>
+    <field name="episodes">60</field>
+    <field name="creators">Peter Morgan</field>
+    <field name="cast">Claire Foy</field>
+    <field name="cast">Olivia Colman</field>
+    <field name="cast">Imelda Staunton</field>
+    <field name="cast">Matt Smith</field>
+    <field name="country">UK</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.6</field>
+    <field name="description">The reign of Queen Elizabeth II from her wedding in 1947 through the early 21st century.</field>
+    <field name="tags">royalty</field>
+    <field name="tags">british</field>
+    <field name="tags">period-drama</field>
+    <field name="tags">politics</field>
+  </doc>
+  <doc>
+    <field name="id">netflix-003</field>
+    <field name="title">Squid Game</field>
+    <field name="platform">Netflix</field>
+    <field name="genres">Thriller</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Survival</field>
+    <field name="release_year">2021</field>
+    <field name="end_year">2025</field>
+    <field name="status">Ended</field>
+    <field name="seasons">3</field>
+    <field name="episodes">22</field>
+    <field name="creators">Hwang Dong-hyuk</field>
+    <field name="cast">Lee Jung-jae</field>
+    <field name="cast">Park Hae-soo</field>
+    <field name="cast">Wi Ha-joon</field>
+    <field name="cast">HoYeon Jung</field>
+    <field name="country">South Korea</field>
+    <field name="language">Korean</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.0</field>
+    <field name="description">Hundreds of cash-strapped contestants accept an invitation to compete in deadly children's games for a tempting prize.</field>
+    <field name="tags">korean</field>
+    <field name="tags">survival</field>
+    <field name="tags">dystopian</field>
+    <field name="tags">social-commentary</field>
+  </doc>
+  <doc>
+    <field name="id">netflix-004</field>
+    <field name="title">Wednesday</field>
+    <field name="platform">Netflix</field>
+    <field name="genres">Comedy</field>
+    <field name="genres">Horror</field>
+    <field name="genres">Mystery</field>
+    <field name="release_year">2022</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">2</field>
+    <field name="episodes">16</field>
+    <field name="creators">Alfred Gough</field>
+    <field name="creators">Miles Millar</field>
+    <field name="cast">Jenna Ortega</field>
+    <field name="cast">Catherine Zeta-Jones</field>
+    <field name="cast">Luis Guzmán</field>
+    <field name="cast">Gwendoline Christie</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-14</field>
+    <field name="imdb_rating">8.1</field>
+    <field name="description">Wednesday Addams navigates a supernatural boarding school while solving a murder mystery.</field>
+    <field name="tags">gothic</field>
+    <field name="tags">teen</field>
+    <field name="tags">supernatural</field>
+    <field name="tags">addams-family</field>
+  </doc>
+  <doc>
+    <field name="id">netflix-005</field>
+    <field name="title">Money Heist</field>
+    <field name="platform">Netflix</field>
+    <field name="genres">Crime</field>
+    <field name="genres">Thriller</field>
+    <field name="genres">Drama</field>
+    <field name="release_year">2017</field>
+    <field name="end_year">2021</field>
+    <field name="status">Ended</field>
+    <field name="seasons">5</field>
+    <field name="episodes">41</field>
+    <field name="creators">Álex Pina</field>
+    <field name="cast">Úrsula Corberó</field>
+    <field name="cast">Álvaro Morte</field>
+    <field name="cast">Pedro Alonso</field>
+    <field name="cast">Itziar Ituño</field>
+    <field name="country">Spain</field>
+    <field name="language">Spanish</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.2</field>
+    <field name="description">An unusual group of robbers attempt to carry out the most perfect robbery in Spanish history.</field>
+    <field name="tags">spanish</field>
+    <field name="tags">heist</field>
+    <field name="tags">crime</field>
+    <field name="tags">ensemble</field>
+  </doc>
+  <doc>
+    <field name="id">netflix-006</field>
+    <field name="title">Dark</field>
+    <field name="platform">Netflix</field>
+    <field name="genres">Sci-Fi</field>
+    <field name="genres">Mystery</field>
+    <field name="genres">Thriller</field>
+    <field name="release_year">2017</field>
+    <field name="end_year">2020</field>
+    <field name="status">Ended</field>
+    <field name="seasons">3</field>
+    <field name="episodes">26</field>
+    <field name="creators">Baran bo Odar</field>
+    <field name="creators">Jantje Friese</field>
+    <field name="cast">Louis Hofmann</field>
+    <field name="cast">Karoline Eichhorn</field>
+    <field name="cast">Lisa Vicari</field>
+    <field name="cast">Maja Schöne</field>
+    <field name="country">Germany</field>
+    <field name="language">German</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.7</field>
+    <field name="description">A family saga with a supernatural twist set in a German town where the disappearance of children exposes the relationships among four families.</field>
+    <field name="tags">time-travel</field>
+    <field name="tags">german</field>
+    <field name="tags">complex-plot</field>
+    <field name="tags">mystery</field>
+  </doc>
+  <doc>
+    <field name="id">netflix-007</field>
+    <field name="title">Ozark</field>
+    <field name="platform">Netflix</field>
+    <field name="genres">Crime</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Thriller</field>
+    <field name="release_year">2017</field>
+    <field name="end_year">2022</field>
+    <field name="status">Ended</field>
+    <field name="seasons">4</field>
+    <field name="episodes">44</field>
+    <field name="creators">Bill Dubuque</field>
+    <field name="creators">Mark Williams</field>
+    <field name="cast">Jason Bateman</field>
+    <field name="cast">Laura Linney</field>
+    <field name="cast">Julia Garner</field>
+    <field name="cast">Sofia Hublitz</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.5</field>
+    <field name="description">A financial advisor drags his family from Chicago to the Missouri Ozarks, where he must launder money to appease a drug boss.</field>
+    <field name="tags">money-laundering</field>
+    <field name="tags">cartel</field>
+    <field name="tags">family-drama</field>
+    <field name="tags">crime</field>
+  </doc>
+  <doc>
+    <field name="id">netflix-008</field>
+    <field name="title">Black Mirror</field>
+    <field name="platform">Netflix</field>
+    <field name="genres">Sci-Fi</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Anthology</field>
+    <field name="release_year">2011</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">7</field>
+    <field name="episodes">33</field>
+    <field name="creators">Charlie Brooker</field>
+    <field name="cast">Various</field>
+    <field name="country">UK</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.7</field>
+    <field name="description">An anthology series exploring a twisted, high-tech multiverse where humanity's greatest innovations collide with its darkest instincts.</field>
+    <field name="tags">anthology</field>
+    <field name="tags">technology</field>
+    <field name="tags">dystopian</field>
+    <field name="tags">british</field>
+  </doc>
+  <doc>
+    <field name="id">netflix-009</field>
+    <field name="title">The Witcher</field>
+    <field name="platform">Netflix</field>
+    <field name="genres">Fantasy</field>
+    <field name="genres">Action</field>
+    <field name="genres">Adventure</field>
+    <field name="release_year">2019</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">4</field>
+    <field name="episodes">32</field>
+    <field name="creators">Lauren Schmidt Hissrich</field>
+    <field name="cast">Henry Cavill</field>
+    <field name="cast">Liam Hemsworth</field>
+    <field name="cast">Anya Chalotra</field>
+    <field name="cast">Freya Allan</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.0</field>
+    <field name="description">Geralt of Rivia, a solitary monster hunter, struggles to find his place in a world where people often prove more wicked than beasts.</field>
+    <field name="tags">fantasy</field>
+    <field name="tags">monsters</field>
+    <field name="tags">magic</field>
+    <field name="tags">adaptation</field>
+  </doc>
+  <doc>
+    <field name="id">netflix-010</field>
+    <field name="title">Bridgerton</field>
+    <field name="platform">Netflix</field>
+    <field name="genres">Romance</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Historical</field>
+    <field name="release_year">2020</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">3</field>
+    <field name="episodes">24</field>
+    <field name="creators">Chris Van Dusen</field>
+    <field name="cast">Phoebe Dynevor</field>
+    <field name="cast">Regé-Jean Page</field>
+    <field name="cast">Jonathan Bailey</field>
+    <field name="cast">Nicola Coughlan</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">7.3</field>
+    <field name="description">Wealth, lust, and betrayal set against the backdrop of Regency-era England, seen through the eyes of the powerful Bridgerton family.</field>
+    <field name="tags">regency</field>
+    <field name="tags">romance</field>
+    <field name="tags">period-drama</field>
+    <field name="tags">shondaland</field>
+  </doc>
+  <doc>
+    <field name="id">netflix-011</field>
+    <field name="title">Narcos</field>
+    <field name="platform">Netflix</field>
+    <field name="genres">Crime</field>
+    <field name="genres">Biography</field>
+    <field name="genres">Drama</field>
+    <field name="release_year">2015</field>
+    <field name="end_year">2017</field>
+    <field name="status">Ended</field>
+    <field name="seasons">3</field>
+    <field name="episodes">30</field>
+    <field name="creators">Chris Brancato</field>
+    <field name="creators">Carlo Bernard</field>
+    <field name="creators">Doug Miro</field>
+    <field name="cast">Wagner Moura</field>
+    <field name="cast">Pedro Pascal</field>
+    <field name="cast">Boyd Holbrook</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.8</field>
+    <field name="description">The true story of Colombia's infamously violent and powerful drug cartels.</field>
+    <field name="tags">cartel</field>
+    <field name="tags">colombia</field>
+    <field name="tags">true-crime</field>
+    <field name="tags">pablo-escobar</field>
+  </doc>
+  <doc>
+    <field name="id">netflix-012</field>
+    <field name="title">Mindhunter</field>
+    <field name="platform">Netflix</field>
+    <field name="genres">Crime</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Thriller</field>
+    <field name="release_year">2017</field>
+    <field name="end_year">2019</field>
+    <field name="status">Ended</field>
+    <field name="seasons">2</field>
+    <field name="episodes">19</field>
+    <field name="creators">Joe Penhall</field>
+    <field name="cast">Jonathan Groff</field>
+    <field name="cast">Holt McCallany</field>
+    <field name="cast">Anna Torv</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.6</field>
+    <field name="description">Two FBI agents interview imprisoned serial killers to apply behavioral science to their open cases.</field>
+    <field name="tags">fbi</field>
+    <field name="tags">serial-killers</field>
+    <field name="tags">psychology</field>
+    <field name="tags">fincher</field>
+  </doc>
+  <doc>
+    <field name="id">netflix-013</field>
+    <field name="title">The Queen's Gambit</field>
+    <field name="platform">Netflix</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Period</field>
+    <field name="release_year">2020</field>
+    <field name="end_year">2020</field>
+    <field name="status">Ended</field>
+    <field name="seasons">1</field>
+    <field name="episodes">7</field>
+    <field name="creators">Scott Frank</field>
+    <field name="creators">Allan Scott</field>
+    <field name="cast">Anya Taylor-Joy</field>
+    <field name="cast">Bill Camp</field>
+    <field name="cast">Marielle Heller</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.5</field>
+    <field name="description">An orphaned chess prodigy rises to the top of the chess world while struggling with addiction.</field>
+    <field name="tags">chess</field>
+    <field name="tags">limited-series</field>
+    <field name="tags">cold-war</field>
+    <field name="tags">addiction</field>
+  </doc>
+  <doc>
+    <field name="id">netflix-014</field>
+    <field name="title">BoJack Horseman</field>
+    <field name="platform">Netflix</field>
+    <field name="genres">Animation</field>
+    <field name="genres">Comedy</field>
+    <field name="genres">Drama</field>
+    <field name="release_year">2014</field>
+    <field name="end_year">2020</field>
+    <field name="status">Ended</field>
+    <field name="seasons">6</field>
+    <field name="episodes">77</field>
+    <field name="creators">Raphael Bob-Waksberg</field>
+    <field name="cast">Will Arnett</field>
+    <field name="cast">Aaron Paul</field>
+    <field name="cast">Amy Sedaris</field>
+    <field name="cast">Alison Brie</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.8</field>
+    <field name="description">A washed-up actor who happens to be a horse navigates Hollywood life, depression, and existentialism.</field>
+    <field name="tags">animation</field>
+    <field name="tags">adult-animation</field>
+    <field name="tags">satire</field>
+    <field name="tags">mental-health</field>
+  </doc>
+  <doc>
+    <field name="id">netflix-015</field>
+    <field name="title">Peaky Blinders</field>
+    <field name="platform">Netflix</field>
+    <field name="genres">Crime</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Historical</field>
+    <field name="release_year">2013</field>
+    <field name="end_year">2022</field>
+    <field name="status">Ended</field>
+    <field name="seasons">6</field>
+    <field name="episodes">36</field>
+    <field name="creators">Steven Knight</field>
+    <field name="cast">Cillian Murphy</field>
+    <field name="cast">Paul Anderson</field>
+    <field name="cast">Helen McCrory</field>
+    <field name="cast">Tom Hardy</field>
+    <field name="country">UK</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.8</field>
+    <field name="description">A gangster family epic set in 1900s England, centering on a gang led by the fierce Tommy Shelby.</field>
+    <field name="tags">british</field>
+    <field name="tags">gangster</field>
+    <field name="tags">period-drama</field>
+    <field name="tags">birmingham</field>
+  </doc>
+  <doc>
+    <field name="id">netflix-016</field>
+    <field name="title">Lupin</field>
+    <field name="platform">Netflix</field>
+    <field name="genres">Crime</field>
+    <field name="genres">Mystery</field>
+    <field name="genres">Drama</field>
+    <field name="release_year">2021</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">3</field>
+    <field name="episodes">17</field>
+    <field name="creators">George Kay</field>
+    <field name="creators">François Uzan</field>
+    <field name="cast">Omar Sy</field>
+    <field name="cast">Ludivine Sagnier</field>
+    <field name="cast">Clotilde Hesme</field>
+    <field name="country">France</field>
+    <field name="language">French</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">7.5</field>
+    <field name="description">Inspired by Arsène Lupin, gentleman thief Assane Diop sets out to avenge his father for an injustice inflicted by a wealthy family.</field>
+    <field name="tags">french</field>
+    <field name="tags">heist</field>
+    <field name="tags">revenge</field>
+    <field name="tags">paris</field>
+  </doc>
+  <doc>
+    <field name="id">netflix-017</field>
+    <field name="title">The Umbrella Academy</field>
+    <field name="platform">Netflix</field>
+    <field name="genres">Sci-Fi</field>
+    <field name="genres">Action</field>
+    <field name="genres">Drama</field>
+    <field name="release_year">2019</field>
+    <field name="end_year">2024</field>
+    <field name="status">Ended</field>
+    <field name="seasons">4</field>
+    <field name="episodes">34</field>
+    <field name="creators">Steve Blackman</field>
+    <field name="cast">Elliot Page</field>
+    <field name="cast">Tom Hopper</field>
+    <field name="cast">David Castañeda</field>
+    <field name="cast">Emmy Raver-Lampman</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-14</field>
+    <field name="imdb_rating">7.9</field>
+    <field name="description">A dysfunctional family of adopted sibling superheroes reunites to solve the mystery of their father's death and the threat of an apocalypse.</field>
+    <field name="tags">superheroes</field>
+    <field name="tags">time-travel</field>
+    <field name="tags">comic-adaptation</field>
+    <field name="tags">family</field>
+  </doc>
+  <doc>
+    <field name="id">netflix-018</field>
+    <field name="title">Sex Education</field>
+    <field name="platform">Netflix</field>
+    <field name="genres">Comedy</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Romance</field>
+    <field name="release_year">2019</field>
+    <field name="end_year">2023</field>
+    <field name="status">Ended</field>
+    <field name="seasons">4</field>
+    <field name="episodes">32</field>
+    <field name="creators">Laurie Nunn</field>
+    <field name="cast">Asa Butterfield</field>
+    <field name="cast">Gillian Anderson</field>
+    <field name="cast">Emma Mackey</field>
+    <field name="cast">Ncuti Gatwa</field>
+    <field name="country">UK</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.3</field>
+    <field name="description">A teenage boy with a sex therapist mother teams up with a high school classmate to set up an underground sex therapy clinic at school.</field>
+    <field name="tags">teen</field>
+    <field name="tags">british</field>
+    <field name="tags">coming-of-age</field>
+    <field name="tags">lgbtq</field>
+  </doc>
+  <doc>
+    <field name="id">netflix-019</field>
+    <field name="title">House of Cards</field>
+    <field name="platform">Netflix</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Political</field>
+    <field name="genres">Thriller</field>
+    <field name="release_year">2013</field>
+    <field name="end_year">2018</field>
+    <field name="status">Ended</field>
+    <field name="seasons">6</field>
+    <field name="episodes">73</field>
+    <field name="creators">Beau Willimon</field>
+    <field name="cast">Kevin Spacey</field>
+    <field name="cast">Robin Wright</field>
+    <field name="cast">Michael Kelly</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.7</field>
+    <field name="description">A ruthless politician will stop at nothing to conquer Washington, D.C.</field>
+    <field name="tags">politics</field>
+    <field name="tags">washington</field>
+    <field name="tags">dc</field>
+    <field name="tags">machiavellian</field>
+  </doc>
+  <doc>
+    <field name="id">netflix-020</field>
+    <field name="title">Beef</field>
+    <field name="platform">Netflix</field>
+    <field name="genres">Comedy</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Thriller</field>
+    <field name="release_year">2023</field>
+    <field name="end_year">2023</field>
+    <field name="status">Ended</field>
+    <field name="seasons">1</field>
+    <field name="episodes">10</field>
+    <field name="creators">Lee Sung Jin</field>
+    <field name="cast">Steven Yeun</field>
+    <field name="cast">Ali Wong</field>
+    <field name="cast">Joseph Lee</field>
+    <field name="cast">Young Mazino</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.0</field>
+    <field name="description">A road rage incident between two strangers triggers a feud that brings out their darkest impulses.</field>
+    <field name="tags">limited-series</field>
+    <field name="tags">dark-comedy</field>
+    <field name="tags">a24</field>
+    <field name="tags">asian-american</field>
+  </doc>
+  <doc>
+    <field name="id">prime-001</field>
+    <field name="title">The Boys</field>
+    <field name="platform">Amazon Prime Video</field>
+    <field name="genres">Action</field>
+    <field name="genres">Sci-Fi</field>
+    <field name="genres">Drama</field>
+    <field name="release_year">2019</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">4</field>
+    <field name="episodes">32</field>
+    <field name="creators">Eric Kripke</field>
+    <field name="cast">Karl Urban</field>
+    <field name="cast">Jack Quaid</field>
+    <field name="cast">Antony Starr</field>
+    <field name="cast">Erin Moriarty</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.7</field>
+    <field name="description">A group of vigilantes set out to take down corrupt superheroes who abuse their powers.</field>
+    <field name="tags">superheroes</field>
+    <field name="tags">satire</field>
+    <field name="tags">violent</field>
+    <field name="tags">comic-adaptation</field>
+  </doc>
+  <doc>
+    <field name="id">prime-002</field>
+    <field name="title">The Marvelous Mrs. Maisel</field>
+    <field name="platform">Amazon Prime Video</field>
+    <field name="genres">Comedy</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Period</field>
+    <field name="release_year">2017</field>
+    <field name="end_year">2023</field>
+    <field name="status">Ended</field>
+    <field name="seasons">5</field>
+    <field name="episodes">43</field>
+    <field name="creators">Amy Sherman-Palladino</field>
+    <field name="cast">Rachel Brosnahan</field>
+    <field name="cast">Alex Borstein</field>
+    <field name="cast">Michael Zegen</field>
+    <field name="cast">Tony Shalhoub</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.7</field>
+    <field name="description">A 1950s New York housewife discovers she has a talent for stand-up comedy.</field>
+    <field name="tags">50s</field>
+    <field name="tags">stand-up</field>
+    <field name="tags">feminist</field>
+    <field name="tags">new-york</field>
+  </doc>
+  <doc>
+    <field name="id">prime-003</field>
+    <field name="title">Fleabag</field>
+    <field name="platform">Amazon Prime Video</field>
+    <field name="genres">Comedy</field>
+    <field name="genres">Drama</field>
+    <field name="release_year">2016</field>
+    <field name="end_year">2019</field>
+    <field name="status">Ended</field>
+    <field name="seasons">2</field>
+    <field name="episodes">12</field>
+    <field name="creators">Phoebe Waller-Bridge</field>
+    <field name="cast">Phoebe Waller-Bridge</field>
+    <field name="cast">Sian Clifford</field>
+    <field name="cast">Olivia Colman</field>
+    <field name="cast">Andrew Scott</field>
+    <field name="country">UK</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.7</field>
+    <field name="description">A dry-witted woman navigates life and love in London while trying to cope with tragedy.</field>
+    <field name="tags">british</field>
+    <field name="tags">dark-comedy</field>
+    <field name="tags">fourth-wall</field>
+    <field name="tags">limited-series</field>
+  </doc>
+  <doc>
+    <field name="id">prime-004</field>
+    <field name="title">The Expanse</field>
+    <field name="platform">Amazon Prime Video</field>
+    <field name="genres">Sci-Fi</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Mystery</field>
+    <field name="release_year">2015</field>
+    <field name="end_year">2022</field>
+    <field name="status">Ended</field>
+    <field name="seasons">6</field>
+    <field name="episodes">62</field>
+    <field name="creators">Mark Fergus</field>
+    <field name="creators">Hawk Ostby</field>
+    <field name="cast">Steven Strait</field>
+    <field name="cast">Dominique Tipper</field>
+    <field name="cast">Wes Chatham</field>
+    <field name="cast">Shohreh Aghdashloo</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-14</field>
+    <field name="imdb_rating">8.5</field>
+    <field name="description">In a colonized future solar system, a detective, a ship's officer, and a UN executive uncover a conspiracy.</field>
+    <field name="tags">space</field>
+    <field name="tags">hard-sci-fi</field>
+    <field name="tags">politics</field>
+    <field name="tags">adaptation</field>
+  </doc>
+  <doc>
+    <field name="id">prime-005</field>
+    <field name="title">The Lord of the Rings: The Rings of Power</field>
+    <field name="platform">Amazon Prime Video</field>
+    <field name="genres">Fantasy</field>
+    <field name="genres">Adventure</field>
+    <field name="genres">Drama</field>
+    <field name="release_year">2022</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">2</field>
+    <field name="episodes">16</field>
+    <field name="creators">J.D. Payne</field>
+    <field name="creators">Patrick McKay</field>
+    <field name="cast">Morfydd Clark</field>
+    <field name="cast">Robert Aramayo</field>
+    <field name="cast">Charlie Vickers</field>
+    <field name="cast">Markella Kavenagh</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-14</field>
+    <field name="imdb_rating">6.9</field>
+    <field name="description">Epic drama set thousands of years before the events of The Hobbit and The Lord of the Rings, follows an ensemble cast in the Second Age of Middle-earth.</field>
+    <field name="tags">tolkien</field>
+    <field name="tags">middle-earth</field>
+    <field name="tags">epic</field>
+    <field name="tags">high-budget</field>
+  </doc>
+  <doc>
+    <field name="id">prime-006</field>
+    <field name="title">Reacher</field>
+    <field name="platform">Amazon Prime Video</field>
+    <field name="genres">Action</field>
+    <field name="genres">Crime</field>
+    <field name="genres">Drama</field>
+    <field name="release_year">2022</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">3</field>
+    <field name="episodes">24</field>
+    <field name="creators">Nick Santora</field>
+    <field name="cast">Alan Ritchson</field>
+    <field name="cast">Malcolm Goodwin</field>
+    <field name="cast">Willa Fitzgerald</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.1</field>
+    <field name="description">Veteran military police investigator Jack Reacher solves crimes as a drifter.</field>
+    <field name="tags">action</field>
+    <field name="tags">thriller</field>
+    <field name="tags">lee-child</field>
+    <field name="tags">adaptation</field>
+  </doc>
+  <doc>
+    <field name="id">prime-007</field>
+    <field name="title">Jack Ryan</field>
+    <field name="platform">Amazon Prime Video</field>
+    <field name="genres">Action</field>
+    <field name="genres">Thriller</field>
+    <field name="genres">Drama</field>
+    <field name="release_year">2018</field>
+    <field name="end_year">2023</field>
+    <field name="status">Ended</field>
+    <field name="seasons">4</field>
+    <field name="episodes">32</field>
+    <field name="creators">Carlton Cuse</field>
+    <field name="creators">Graham Roland</field>
+    <field name="cast">John Krasinski</field>
+    <field name="cast">Wendell Pierce</field>
+    <field name="cast">Abbie Cornish</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.0</field>
+    <field name="description">An up-and-coming CIA analyst is thrust into a dangerous field assignment.</field>
+    <field name="tags">cia</field>
+    <field name="tags">spy</field>
+    <field name="tags">tom-clancy</field>
+    <field name="tags">adaptation</field>
+  </doc>
+  <doc>
+    <field name="id">prime-008</field>
+    <field name="title">Fallout</field>
+    <field name="platform">Amazon Prime Video</field>
+    <field name="genres">Sci-Fi</field>
+    <field name="genres">Action</field>
+    <field name="genres">Adventure</field>
+    <field name="release_year">2024</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">1</field>
+    <field name="episodes">8</field>
+    <field name="creators">Graham Wagner</field>
+    <field name="creators">Geneva Robertson-Dworet</field>
+    <field name="cast">Ella Purnell</field>
+    <field name="cast">Walton Goggins</field>
+    <field name="cast">Aaron Moten</field>
+    <field name="cast">Kyle MacLachlan</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.4</field>
+    <field name="description">In a future, post-apocalyptic Los Angeles brought about by nuclear decimation, citizens must live in underground bunkers to protect themselves.</field>
+    <field name="tags">post-apocalyptic</field>
+    <field name="tags">video-game-adaptation</field>
+    <field name="tags">wasteland</field>
+    <field name="tags">vaults</field>
+  </doc>
+  <doc>
+    <field name="id">prime-009</field>
+    <field name="title">Mr. &amp; Mrs. Smith</field>
+    <field name="platform">Amazon Prime Video</field>
+    <field name="genres">Action</field>
+    <field name="genres">Comedy</field>
+    <field name="genres">Romance</field>
+    <field name="release_year">2024</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">1</field>
+    <field name="episodes">8</field>
+    <field name="creators">Donald Glover</field>
+    <field name="creators">Francesca Sloane</field>
+    <field name="cast">Donald Glover</field>
+    <field name="cast">Maya Erskine</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">7.2</field>
+    <field name="description">Two lonely strangers take a job working for a mysterious spy agency that offers them a glamorous life, a dream brownstone in Manhattan, and a new identity as a married couple.</field>
+    <field name="tags">spy</field>
+    <field name="tags">romance</field>
+    <field name="tags">remake</field>
+    <field name="tags">donald-glover</field>
+  </doc>
+  <doc>
+    <field name="id">prime-010</field>
+    <field name="title">The Wheel of Time</field>
+    <field name="platform">Amazon Prime Video</field>
+    <field name="genres">Fantasy</field>
+    <field name="genres">Adventure</field>
+    <field name="genres">Action</field>
+    <field name="release_year">2021</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">3</field>
+    <field name="episodes">24</field>
+    <field name="creators">Rafe Judkins</field>
+    <field name="cast">Rosamund Pike</field>
+    <field name="cast">Daniel Henney</field>
+    <field name="cast">Josha Stradowski</field>
+    <field name="cast">Madeleine Madden</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-14</field>
+    <field name="imdb_rating">7.0</field>
+    <field name="description">Set in a high fantasy world where magic exists, but only some can access it, a woman named Moiraine leads five young people on a journey.</field>
+    <field name="tags">fantasy</field>
+    <field name="tags">magic</field>
+    <field name="tags">robert-jordan</field>
+    <field name="tags">epic</field>
+  </doc>
+  <doc>
+    <field name="id">prime-011</field>
+    <field name="title">Good Omens</field>
+    <field name="platform">Amazon Prime Video</field>
+    <field name="genres">Comedy</field>
+    <field name="genres">Fantasy</field>
+    <field name="genres">Drama</field>
+    <field name="release_year">2019</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">2</field>
+    <field name="episodes">12</field>
+    <field name="creators">Neil Gaiman</field>
+    <field name="cast">David Tennant</field>
+    <field name="cast">Michael Sheen</field>
+    <field name="cast">Jon Hamm</field>
+    <field name="cast">Frances McDormand</field>
+    <field name="country">UK</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.0</field>
+    <field name="description">A demon and an angel attempt to prevent the apocalypse on Earth, which they have grown rather fond of over the millennia.</field>
+    <field name="tags">british</field>
+    <field name="tags">supernatural</field>
+    <field name="tags">gaiman</field>
+    <field name="tags">pratchett</field>
+  </doc>
+  <doc>
+    <field name="id">prime-012</field>
+    <field name="title">The Terminal List</field>
+    <field name="platform">Amazon Prime Video</field>
+    <field name="genres">Action</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Thriller</field>
+    <field name="release_year">2022</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">1</field>
+    <field name="episodes">8</field>
+    <field name="creators">David DiGilio</field>
+    <field name="cast">Chris Pratt</field>
+    <field name="cast">Constance Wu</field>
+    <field name="cast">Taylor Kitsch</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.0</field>
+    <field name="description">A former Navy SEAL officer investigates why his entire platoon was ambushed during a high-stakes covert mission.</field>
+    <field name="tags">navy-seal</field>
+    <field name="tags">revenge</field>
+    <field name="tags">military</field>
+    <field name="tags">thriller</field>
+  </doc>
+  <doc>
+    <field name="id">prime-013</field>
+    <field name="title">Upload</field>
+    <field name="platform">Amazon Prime Video</field>
+    <field name="genres">Sci-Fi</field>
+    <field name="genres">Comedy</field>
+    <field name="genres">Mystery</field>
+    <field name="release_year">2020</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">3</field>
+    <field name="episodes">24</field>
+    <field name="creators">Greg Daniels</field>
+    <field name="cast">Robbie Amell</field>
+    <field name="cast">Andy Allo</field>
+    <field name="cast">Allegra Edwards</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">7.9</field>
+    <field name="description">A man is able to choose his own afterlife after his untimely death by having his consciousness uploaded into a virtual world.</field>
+    <field name="tags">afterlife</field>
+    <field name="tags">technology</field>
+    <field name="tags">sci-fi-comedy</field>
+    <field name="tags">near-future</field>
+  </doc>
+  <doc>
+    <field name="id">prime-014</field>
+    <field name="title">Bosch</field>
+    <field name="platform">Amazon Prime Video</field>
+    <field name="genres">Crime</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Mystery</field>
+    <field name="release_year">2014</field>
+    <field name="end_year">2021</field>
+    <field name="status">Ended</field>
+    <field name="seasons">7</field>
+    <field name="episodes">68</field>
+    <field name="creators">Eric Overmyer</field>
+    <field name="cast">Titus Welliver</field>
+    <field name="cast">Jamie Hector</field>
+    <field name="cast">Amy Aquino</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.5</field>
+    <field name="description">An LAPD homicide detective works to solve the murder of a 13-year-old boy.</field>
+    <field name="tags">detective</field>
+    <field name="tags">los-angeles</field>
+    <field name="tags">procedural</field>
+    <field name="tags">michael-connelly</field>
+  </doc>
+  <doc>
+    <field name="id">prime-015</field>
+    <field name="title">Invincible</field>
+    <field name="platform">Amazon Prime Video</field>
+    <field name="genres">Animation</field>
+    <field name="genres">Action</field>
+    <field name="genres">Drama</field>
+    <field name="release_year">2021</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">3</field>
+    <field name="episodes">24</field>
+    <field name="creators">Robert Kirkman</field>
+    <field name="cast">Steven Yeun</field>
+    <field name="cast">J.K. Simmons</field>
+    <field name="cast">Sandra Oh</field>
+    <field name="cast">Zazie Beetz</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.7</field>
+    <field name="description">An adult animated series about a teenager whose father is the most powerful superhero on the planet.</field>
+    <field name="tags">adult-animation</field>
+    <field name="tags">superheroes</field>
+    <field name="tags">violent</field>
+    <field name="tags">comic-adaptation</field>
+  </doc>
+  <doc>
+    <field name="id">prime-016</field>
+    <field name="title">Vikings</field>
+    <field name="platform">Amazon Prime Video</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Action</field>
+    <field name="genres">Historical</field>
+    <field name="release_year">2013</field>
+    <field name="end_year">2020</field>
+    <field name="status">Ended</field>
+    <field name="seasons">6</field>
+    <field name="episodes">89</field>
+    <field name="creators">Michael Hirst</field>
+    <field name="cast">Travis Fimmel</field>
+    <field name="cast">Katheryn Winnick</field>
+    <field name="cast">Clive Standen</field>
+    <field name="cast">Gustaf Skarsgård</field>
+    <field name="country">Ireland</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.5</field>
+    <field name="description">The world of the Vikings is brought to life through the journey of Ragnar Lothbrok, the first Viking to emerge from Norse legend.</field>
+    <field name="tags">vikings</field>
+    <field name="tags">historical</field>
+    <field name="tags">norse</field>
+    <field name="tags">ragnar</field>
+  </doc>
+  <doc>
+    <field name="id">prime-017</field>
+    <field name="title">The Underground Railroad</field>
+    <field name="platform">Amazon Prime Video</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Historical</field>
+    <field name="release_year">2021</field>
+    <field name="end_year">2021</field>
+    <field name="status">Ended</field>
+    <field name="seasons">1</field>
+    <field name="episodes">10</field>
+    <field name="creators">Barry Jenkins</field>
+    <field name="cast">Thuso Mbedu</field>
+    <field name="cast">Chase W. Dillon</field>
+    <field name="cast">Joel Edgerton</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">7.4</field>
+    <field name="description">A young woman makes a harrowing escape from antebellum slavery via an underground railroad that travels in a literal underground train.</field>
+    <field name="tags">limited-series</field>
+    <field name="tags">slavery</field>
+    <field name="tags">barry-jenkins</field>
+    <field name="tags">literary-adaptation</field>
+  </doc>
+  <doc>
+    <field name="id">prime-018</field>
+    <field name="title">Hunters</field>
+    <field name="platform">Amazon Prime Video</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Thriller</field>
+    <field name="genres">Action</field>
+    <field name="release_year">2020</field>
+    <field name="end_year">2023</field>
+    <field name="status">Ended</field>
+    <field name="seasons">2</field>
+    <field name="episodes">18</field>
+    <field name="creators">David Weil</field>
+    <field name="cast">Al Pacino</field>
+    <field name="cast">Logan Lerman</field>
+    <field name="cast">Jerrika Hinton</field>
+    <field name="cast">Lena Olin</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">7.2</field>
+    <field name="description">A diverse band of Nazi hunters living in 1977 New York City discover that hundreds of high-ranking Nazi officials are conspiring to create a Fourth Reich in the U.S.</field>
+    <field name="tags">nazi-hunters</field>
+    <field name="tags">70s</field>
+    <field name="tags">alternate-history</field>
+    <field name="tags">new-york</field>
+  </doc>
+  <doc>
+    <field name="id">prime-019</field>
+    <field name="title">Carnival Row</field>
+    <field name="platform">Amazon Prime Video</field>
+    <field name="genres">Fantasy</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Mystery</field>
+    <field name="release_year">2019</field>
+    <field name="end_year">2023</field>
+    <field name="status">Ended</field>
+    <field name="seasons">2</field>
+    <field name="episodes">18</field>
+    <field name="creators">René Echevarria</field>
+    <field name="creators">Travis Beacham</field>
+    <field name="cast">Orlando Bloom</field>
+    <field name="cast">Cara Delevingne</field>
+    <field name="cast">Simon McBurney</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">7.8</field>
+    <field name="description">Mythical creatures have fled their war-torn homeland and gathered in a city where humans live, leading to escalating tensions.</field>
+    <field name="tags">fantasy</field>
+    <field name="tags">victorian</field>
+    <field name="tags">mythical-creatures</field>
+    <field name="tags">noir</field>
+  </doc>
+  <doc>
+    <field name="id">prime-020</field>
+    <field name="title">Citadel</field>
+    <field name="platform">Amazon Prime Video</field>
+    <field name="genres">Action</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Thriller</field>
+    <field name="release_year">2023</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">1</field>
+    <field name="episodes">6</field>
+    <field name="creators">Josh Appelbaum</field>
+    <field name="creators">Bryan Oh</field>
+    <field name="creators">David Weil</field>
+    <field name="cast">Richard Madden</field>
+    <field name="cast">Priyanka Chopra Jonas</field>
+    <field name="cast">Stanley Tucci</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">5.9</field>
+    <field name="description">Eight years after the fall of an independent global spy agency, two former agents must work together to stop a new threat.</field>
+    <field name="tags">spy</field>
+    <field name="tags">russo-brothers</field>
+    <field name="tags">global</field>
+    <field name="tags">amnesia</field>
+  </doc>
+  <doc>
+    <field name="id">hbo-001</field>
+    <field name="title">Game of Thrones</field>
+    <field name="platform">HBO Max</field>
+    <field name="genres">Fantasy</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Adventure</field>
+    <field name="release_year">2011</field>
+    <field name="end_year">2019</field>
+    <field name="status">Ended</field>
+    <field name="seasons">8</field>
+    <field name="episodes">73</field>
+    <field name="creators">David Benioff</field>
+    <field name="creators">D.B. Weiss</field>
+    <field name="cast">Emilia Clarke</field>
+    <field name="cast">Peter Dinklage</field>
+    <field name="cast">Kit Harington</field>
+    <field name="cast">Lena Headey</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">9.2</field>
+    <field name="description">Nine noble families fight for control over the lands of Westeros, while an ancient enemy returns after being dormant for millennia.</field>
+    <field name="tags">fantasy</field>
+    <field name="tags">dragons</field>
+    <field name="tags">epic</field>
+    <field name="tags">george-rr-martin</field>
+  </doc>
+  <doc>
+    <field name="id">hbo-002</field>
+    <field name="title">Succession</field>
+    <field name="platform">HBO Max</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Comedy</field>
+    <field name="release_year">2018</field>
+    <field name="end_year">2023</field>
+    <field name="status">Ended</field>
+    <field name="seasons">4</field>
+    <field name="episodes">39</field>
+    <field name="creators">Jesse Armstrong</field>
+    <field name="cast">Brian Cox</field>
+    <field name="cast">Jeremy Strong</field>
+    <field name="cast">Kieran Culkin</field>
+    <field name="cast">Sarah Snook</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.9</field>
+    <field name="description">The Roy family controls the biggest media and entertainment company in the world, but their patriarch's health is failing.</field>
+    <field name="tags">media</field>
+    <field name="tags">family-drama</field>
+    <field name="tags">satire</field>
+    <field name="tags">wealth</field>
+  </doc>
+  <doc>
+    <field name="id">hbo-003</field>
+    <field name="title">The Last of Us</field>
+    <field name="platform">HBO Max</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Horror</field>
+    <field name="genres">Sci-Fi</field>
+    <field name="release_year">2023</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">2</field>
+    <field name="episodes">16</field>
+    <field name="creators">Craig Mazin</field>
+    <field name="creators">Neil Druckmann</field>
+    <field name="cast">Pedro Pascal</field>
+    <field name="cast">Bella Ramsey</field>
+    <field name="cast">Anna Torv</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.7</field>
+    <field name="description">After a global pandemic destroys civilization, a hardened survivor takes charge of a 14-year-old girl who may be humanity's last hope.</field>
+    <field name="tags">post-apocalyptic</field>
+    <field name="tags">zombies</field>
+    <field name="tags">video-game-adaptation</field>
+    <field name="tags">fungal</field>
+  </doc>
+  <doc>
+    <field name="id">hbo-004</field>
+    <field name="title">House of the Dragon</field>
+    <field name="platform">HBO Max</field>
+    <field name="genres">Fantasy</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Action</field>
+    <field name="release_year">2022</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">2</field>
+    <field name="episodes">18</field>
+    <field name="creators">Ryan Condal</field>
+    <field name="creators">George R.R. Martin</field>
+    <field name="cast">Paddy Considine</field>
+    <field name="cast">Matt Smith</field>
+    <field name="cast">Emma D'Arcy</field>
+    <field name="cast">Olivia Cooke</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.4</field>
+    <field name="description">An internal succession war within House Targaryen at the height of its power, 172 years before the birth of Daenerys Targaryen.</field>
+    <field name="tags">targaryen</field>
+    <field name="tags">dragons</field>
+    <field name="tags">got-prequel</field>
+    <field name="tags">civil-war</field>
+  </doc>
+  <doc>
+    <field name="id">hbo-005</field>
+    <field name="title">True Detective</field>
+    <field name="platform">HBO Max</field>
+    <field name="genres">Crime</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Mystery</field>
+    <field name="release_year">2014</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">4</field>
+    <field name="episodes">32</field>
+    <field name="creators">Nic Pizzolatto</field>
+    <field name="cast">Matthew McConaughey</field>
+    <field name="cast">Woody Harrelson</field>
+    <field name="cast">Mahershala Ali</field>
+    <field name="cast">Jodie Foster</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.9</field>
+    <field name="description">An anthology series of police investigations, with each season featuring a new cast and setting.</field>
+    <field name="tags">anthology</field>
+    <field name="tags">noir</field>
+    <field name="tags">detective</field>
+    <field name="tags">atmospheric</field>
+  </doc>
+  <doc>
+    <field name="id">hbo-006</field>
+    <field name="title">Westworld</field>
+    <field name="platform">HBO Max</field>
+    <field name="genres">Sci-Fi</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Mystery</field>
+    <field name="release_year">2016</field>
+    <field name="end_year">2022</field>
+    <field name="status">Ended</field>
+    <field name="seasons">4</field>
+    <field name="episodes">36</field>
+    <field name="creators">Jonathan Nolan</field>
+    <field name="creators">Lisa Joy</field>
+    <field name="cast">Evan Rachel Wood</field>
+    <field name="cast">Thandiwe Newton</field>
+    <field name="cast">Jeffrey Wright</field>
+    <field name="cast">Ed Harris</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.5</field>
+    <field name="description">Set in a Western-themed park where guests live out their fantasies through robotic hosts that develop consciousness.</field>
+    <field name="tags">ai</field>
+    <field name="tags">consciousness</field>
+    <field name="tags">theme-park</field>
+    <field name="tags">androids</field>
+  </doc>
+  <doc>
+    <field name="id">hbo-007</field>
+    <field name="title">The White Lotus</field>
+    <field name="platform">HBO Max</field>
+    <field name="genres">Comedy</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Mystery</field>
+    <field name="release_year">2021</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">3</field>
+    <field name="episodes">18</field>
+    <field name="creators">Mike White</field>
+    <field name="cast">Murray Bartlett</field>
+    <field name="cast">Jennifer Coolidge</field>
+    <field name="cast">Aubrey Plaza</field>
+    <field name="cast">Theo James</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">7.9</field>
+    <field name="description">The exploits of various employees and guests at an exclusive tropical resort.</field>
+    <field name="tags">anthology</field>
+    <field name="tags">satire</field>
+    <field name="tags">wealth</field>
+    <field name="tags">vacation</field>
+  </doc>
+  <doc>
+    <field name="id">disney-001</field>
+    <field name="title">The Mandalorian</field>
+    <field name="platform">Disney+</field>
+    <field name="genres">Sci-Fi</field>
+    <field name="genres">Action</field>
+    <field name="genres">Adventure</field>
+    <field name="release_year">2019</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">3</field>
+    <field name="episodes">24</field>
+    <field name="creators">Jon Favreau</field>
+    <field name="cast">Pedro Pascal</field>
+    <field name="cast">Carl Weathers</field>
+    <field name="cast">Giancarlo Esposito</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-14</field>
+    <field name="imdb_rating">8.6</field>
+    <field name="description">The travels of a lone bounty hunter in the outer reaches of the galaxy, far from the authority of the New Republic.</field>
+    <field name="tags">star-wars</field>
+    <field name="tags">space-western</field>
+    <field name="tags">grogu</field>
+    <field name="tags">baby-yoda</field>
+  </doc>
+  <doc>
+    <field name="id">disney-002</field>
+    <field name="title">WandaVision</field>
+    <field name="platform">Disney+</field>
+    <field name="genres">Sci-Fi</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Mystery</field>
+    <field name="release_year">2021</field>
+    <field name="end_year">2021</field>
+    <field name="status">Ended</field>
+    <field name="seasons">1</field>
+    <field name="episodes">9</field>
+    <field name="creators">Jac Schaeffer</field>
+    <field name="cast">Elizabeth Olsen</field>
+    <field name="cast">Paul Bettany</field>
+    <field name="cast">Kathryn Hahn</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-14</field>
+    <field name="imdb_rating">7.9</field>
+    <field name="description">Wanda Maximoff and Vision live idealized suburban lives, but begin to suspect that everything is not as it seems.</field>
+    <field name="tags">marvel</field>
+    <field name="tags">mcu</field>
+    <field name="tags">sitcom</field>
+    <field name="tags">superhero</field>
+  </doc>
+  <doc>
+    <field name="id">disney-003</field>
+    <field name="title">Andor</field>
+    <field name="platform">Disney+</field>
+    <field name="genres">Sci-Fi</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Action</field>
+    <field name="release_year">2022</field>
+    <field name="end_year">2025</field>
+    <field name="status">Ended</field>
+    <field name="seasons">2</field>
+    <field name="episodes">24</field>
+    <field name="creators">Tony Gilroy</field>
+    <field name="cast">Diego Luna</field>
+    <field name="cast">Genevieve O'Reilly</field>
+    <field name="cast">Stellan Skarsgård</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-14</field>
+    <field name="imdb_rating">8.4</field>
+    <field name="description">Prequel to Rogue One, exploring a new perspective from the Star Wars galaxy and Cassian Andor's journey to becoming a rebel hero.</field>
+    <field name="tags">star-wars</field>
+    <field name="tags">rebellion</field>
+    <field name="tags">political</field>
+    <field name="tags">prequel</field>
+  </doc>
+  <doc>
+    <field name="id">disney-004</field>
+    <field name="title">Loki</field>
+    <field name="platform">Disney+</field>
+    <field name="genres">Sci-Fi</field>
+    <field name="genres">Action</field>
+    <field name="genres">Adventure</field>
+    <field name="release_year">2021</field>
+    <field name="end_year">2023</field>
+    <field name="status">Ended</field>
+    <field name="seasons">2</field>
+    <field name="episodes">12</field>
+    <field name="creators">Michael Waldron</field>
+    <field name="cast">Tom Hiddleston</field>
+    <field name="cast">Owen Wilson</field>
+    <field name="cast">Sophia Di Martino</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-14</field>
+    <field name="imdb_rating">8.2</field>
+    <field name="description">The mercurial villain Loki resumes his role as the God of Mischief in a new series that takes place after the events of Avengers: Endgame.</field>
+    <field name="tags">marvel</field>
+    <field name="tags">mcu</field>
+    <field name="tags">multiverse</field>
+    <field name="tags">time-travel</field>
+  </doc>
+  <doc>
+    <field name="id">appletv-001</field>
+    <field name="title">Ted Lasso</field>
+    <field name="platform">Apple TV+</field>
+    <field name="genres">Comedy</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Sport</field>
+    <field name="release_year">2020</field>
+    <field name="end_year">2023</field>
+    <field name="status">Ended</field>
+    <field name="seasons">3</field>
+    <field name="episodes">34</field>
+    <field name="creators">Bill Lawrence</field>
+    <field name="creators">Jason Sudeikis</field>
+    <field name="cast">Jason Sudeikis</field>
+    <field name="cast">Hannah Waddingham</field>
+    <field name="cast">Brett Goldstein</field>
+    <field name="cast">Juno Temple</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.8</field>
+    <field name="description">American college football coach Ted Lasso heads to London to manage AFC Richmond, a struggling English Premier League soccer team.</field>
+    <field name="tags">soccer</field>
+    <field name="tags">football</field>
+    <field name="tags">feel-good</field>
+    <field name="tags">british</field>
+  </doc>
+  <doc>
+    <field name="id">appletv-002</field>
+    <field name="title">Severance</field>
+    <field name="platform">Apple TV+</field>
+    <field name="genres">Sci-Fi</field>
+    <field name="genres">Thriller</field>
+    <field name="genres">Drama</field>
+    <field name="release_year">2022</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">2</field>
+    <field name="episodes">19</field>
+    <field name="creators">Dan Erickson</field>
+    <field name="cast">Adam Scott</field>
+    <field name="cast">Britt Lower</field>
+    <field name="cast">Zach Cherry</field>
+    <field name="cast">John Turturro</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.7</field>
+    <field name="description">Employees at Lumon Industries undergo a procedure that surgically divides their memories between their work and personal lives.</field>
+    <field name="tags">workplace</field>
+    <field name="tags">dystopian</field>
+    <field name="tags">mystery</field>
+    <field name="tags">ben-stiller</field>
+  </doc>
+  <doc>
+    <field name="id">appletv-003</field>
+    <field name="title">Foundation</field>
+    <field name="platform">Apple TV+</field>
+    <field name="genres">Sci-Fi</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Adventure</field>
+    <field name="release_year">2021</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">3</field>
+    <field name="episodes">28</field>
+    <field name="creators">David S. Goyer</field>
+    <field name="creators">Josh Friedman</field>
+    <field name="cast">Jared Harris</field>
+    <field name="cast">Lee Pace</field>
+    <field name="cast">Lou Llobell</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-14</field>
+    <field name="imdb_rating">7.5</field>
+    <field name="description">A complex saga of humans scattered on planets throughout the galaxy living under the rule of the Galactic Empire.</field>
+    <field name="tags">space-opera</field>
+    <field name="tags">asimov</field>
+    <field name="tags">epic</field>
+    <field name="tags">empire</field>
+  </doc>
+  <doc>
+    <field name="id">appletv-004</field>
+    <field name="title">Slow Horses</field>
+    <field name="platform">Apple TV+</field>
+    <field name="genres">Crime</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Thriller</field>
+    <field name="release_year">2022</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">4</field>
+    <field name="episodes">24</field>
+    <field name="creators">Will Smith</field>
+    <field name="cast">Gary Oldman</field>
+    <field name="cast">Jack Lowden</field>
+    <field name="cast">Kristin Scott Thomas</field>
+    <field name="country">UK</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.3</field>
+    <field name="description">Follows a team of British intelligence agents who serve in a dumping ground department of MI5.</field>
+    <field name="tags">spy</field>
+    <field name="tags">british</field>
+    <field name="tags">mi5</field>
+    <field name="tags">mick-herron</field>
+  </doc>
+  <doc>
+    <field name="id">hulu-001</field>
+    <field name="title">The Handmaid's Tale</field>
+    <field name="platform">Hulu</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Sci-Fi</field>
+    <field name="genres">Dystopian</field>
+    <field name="release_year">2017</field>
+    <field name="end_year">2025</field>
+    <field name="status">Ended</field>
+    <field name="seasons">6</field>
+    <field name="episodes">66</field>
+    <field name="creators">Bruce Miller</field>
+    <field name="cast">Elisabeth Moss</field>
+    <field name="cast">Joseph Fiennes</field>
+    <field name="cast">Yvonne Strahovski</field>
+    <field name="cast">Samira Wiley</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.4</field>
+    <field name="description">Set in a dystopian future, a woman is forced to live as a concubine under a fundamentalist theocratic dictatorship.</field>
+    <field name="tags">dystopian</field>
+    <field name="tags">feminist</field>
+    <field name="tags">atwood</field>
+    <field name="tags">theocracy</field>
+  </doc>
+  <doc>
+    <field name="id">hulu-002</field>
+    <field name="title">The Bear</field>
+    <field name="platform">Hulu</field>
+    <field name="genres">Comedy</field>
+    <field name="genres">Drama</field>
+    <field name="release_year">2022</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">3</field>
+    <field name="episodes">28</field>
+    <field name="creators">Christopher Storer</field>
+    <field name="cast">Jeremy Allen White</field>
+    <field name="cast">Ebon Moss-Bachrach</field>
+    <field name="cast">Ayo Edebiri</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.6</field>
+    <field name="description">A young chef from the fine dining world returns to Chicago to run his family's sandwich shop after a heartbreaking death.</field>
+    <field name="tags">cooking</field>
+    <field name="tags">chicago</field>
+    <field name="tags">family</field>
+    <field name="tags">anxiety</field>
+  </doc>
+  <doc>
+    <field name="id">hulu-003</field>
+    <field name="title">Only Murders in the Building</field>
+    <field name="platform">Hulu</field>
+    <field name="genres">Comedy</field>
+    <field name="genres">Crime</field>
+    <field name="genres">Mystery</field>
+    <field name="release_year">2021</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">4</field>
+    <field name="episodes">40</field>
+    <field name="creators">Steve Martin</field>
+    <field name="creators">John Hoffman</field>
+    <field name="cast">Steve Martin</field>
+    <field name="cast">Martin Short</field>
+    <field name="cast">Selena Gomez</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.1</field>
+    <field name="description">Three strangers who share an obsession with true crime suddenly find themselves wrapped up in one.</field>
+    <field name="tags">whodunit</field>
+    <field name="tags">podcast</field>
+    <field name="tags">new-york</field>
+    <field name="tags">comedy-mystery</field>
+  </doc>
+  <doc>
+    <field name="id">peacock-001</field>
+    <field name="title">Poker Face</field>
+    <field name="platform">Peacock</field>
+    <field name="genres">Crime</field>
+    <field name="genres">Comedy</field>
+    <field name="genres">Mystery</field>
+    <field name="release_year">2023</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">2</field>
+    <field name="episodes">20</field>
+    <field name="creators">Rian Johnson</field>
+    <field name="cast">Natasha Lyonne</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.1</field>
+    <field name="description">A casino worker with the ability to determine when someone is lying hits the road, solving crimes along the way.</field>
+    <field name="tags">mystery-of-the-week</field>
+    <field name="tags">rian-johnson</field>
+    <field name="tags">columbo</field>
+    <field name="tags">road-trip</field>
+  </doc>
+  <doc>
+    <field name="id">paramount-001</field>
+    <field name="title">Yellowstone</field>
+    <field name="platform">Paramount+</field>
+    <field name="genres">Drama</field>
+    <field name="genres">Western</field>
+    <field name="release_year">2018</field>
+    <field name="end_year">2024</field>
+    <field name="status">Ended</field>
+    <field name="seasons">5</field>
+    <field name="episodes">53</field>
+    <field name="creators">Taylor Sheridan</field>
+    <field name="creators">John Linson</field>
+    <field name="cast">Kevin Costner</field>
+    <field name="cast">Luke Grimes</field>
+    <field name="cast">Kelly Reilly</field>
+    <field name="cast">Wes Bentley</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-MA</field>
+    <field name="imdb_rating">8.7</field>
+    <field name="description">A ranching family in Montana faces off against others encroaching on their land.</field>
+    <field name="tags">western</field>
+    <field name="tags">ranch</field>
+    <field name="tags">family-drama</field>
+    <field name="tags">montana</field>
+  </doc>
+  <doc>
+    <field name="id">paramount-002</field>
+    <field name="title">Star Trek: Strange New Worlds</field>
+    <field name="platform">Paramount+</field>
+    <field name="genres">Sci-Fi</field>
+    <field name="genres">Adventure</field>
+    <field name="genres">Drama</field>
+    <field name="release_year">2022</field>
+    <field name="status">Ongoing</field>
+    <field name="seasons">3</field>
+    <field name="episodes">30</field>
+    <field name="creators">Akiva Goldsman</field>
+    <field name="creators">Alex Kurtzman</field>
+    <field name="creators">Jenny Lumet</field>
+    <field name="cast">Anson Mount</field>
+    <field name="cast">Rebecca Romijn</field>
+    <field name="cast">Ethan Peck</field>
+    <field name="country">USA</field>
+    <field name="language">English</field>
+    <field name="rating">TV-14</field>
+    <field name="imdb_rating">8.1</field>
+    <field name="description">Captain Christopher Pike helms the USS Enterprise as it explores new worlds in the years before Captain Kirk's iconic missions.</field>
+    <field name="tags">star-trek</field>
+    <field name="tags">space</field>
+    <field name="tags">enterprise</field>
+    <field name="tags">pike</field>
+  </doc>
+</add>

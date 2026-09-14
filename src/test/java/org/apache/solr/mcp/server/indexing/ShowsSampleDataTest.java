@@ -28,28 +28,28 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
 import org.apache.solr.common.SolrInputDocument;
-import org.apache.solr.mcp.server.indexing.documentcreator.CsvDocumentCreator;
 import org.apache.solr.mcp.server.indexing.documentcreator.JsonDocumentCreator;
 import org.apache.solr.mcp.server.indexing.documentcreator.MarkdownDocumentCreator;
-import org.apache.solr.mcp.server.indexing.documentcreator.XmlDocumentCreator;
 import org.junit.jupiter.api.Test;
 
 /**
  * The {@code shows} sample dataset ships in every format the indexing tools
  * accept: {@code shows.json}, {@code shows.csv}, {@code shows.xml} and one
  * Markdown file per show under {@code shows-markdown/}. These tests pin that
- * the four representations parse to the same 61 documents, so a tutorial step
- * written against one format holds for the others.
+ * the representations the server parses itself (JSON and Markdown) yield the
+ * same 61 documents; CSV and XML are forwarded to Solr and checked end to end
+ * in {@code ShowsSampleDataIntegrationTest}.
  *
  * <p>
  * Two representation choices are worth knowing:
  * <ul>
  * <li>CSV carries multi-valued fields as <em>repeated column headers</em>
- * ({@code genres,genres,genres}); the parser adds one value per non-empty cell
- * under the same field name.</li>
- * <li>XML uses one {@code <show>} element per record; the record element is a
- * wrapper, so its children become the fields ({@code id}, {@code title}, a
- * repeated {@code <genres>} is multi-valued), the same names as JSON.</li>
+ * ({@code genres,genres,genres}); Solr's CSV handler adds one value per
+ * non-empty cell under the same field name.</li>
+ * <li>XML is Solr's own update format ({@code <add><doc><field name=...>});
+ * it is forwarded to Solr rather than parsed here, so its equality with the
+ * JSON documents is checked end to end in
+ * {@code ShowsSampleDataIntegrationTest}.</li>
  * </ul>
  */
 class ShowsSampleDataTest {
@@ -65,15 +65,6 @@ class ShowsSampleDataTest {
 		assertThat(shows).hasSize(SHOWS);
 		assertThat(shows.get("netflix-001")).containsEntry("title", List.of("Stranger Things")).containsEntry("genres",
 				List.of("Sci-Fi", "Horror", "Drama"));
-	}
-
-	@Test
-	void csvParsesToTheSameDocumentsAsJson() throws Exception {
-		Map<String, Map<String, List<String>>> expected = byId(json.create(resource("/shows.json")), "id");
-		Map<String, Map<String, List<String>>> actual = byId(new CsvDocumentCreator().create(resource("/shows.csv")),
-				"id");
-
-		assertThat(actual).containsExactlyEntriesOf(expected);
 	}
 
 	@Test
@@ -96,15 +87,6 @@ class ShowsSampleDataTest {
 					.isEqualTo(show.getValue().get("title"));
 			assertThat(fields).as(show.getKey()).containsExactlyEntriesOf(frontMatter);
 		}
-	}
-
-	@Test
-	void xmlParsesToTheSameDocumentsAsJson() throws Exception {
-		Map<String, Map<String, List<String>>> expected = byId(json.create(resource("/shows.json")), "id");
-		Map<String, Map<String, List<String>>> actual = byId(new XmlDocumentCreator().create(resource("/shows.xml")),
-				"id");
-
-		assertThat(actual).containsExactlyEntriesOf(expected);
 	}
 
 	private static Map<String, Map<String, List<String>>> byId(List<SolrInputDocument> docs, String idField) {
