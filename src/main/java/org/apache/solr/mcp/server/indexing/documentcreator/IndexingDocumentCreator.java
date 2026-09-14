@@ -16,7 +16,6 @@
  */
 package org.apache.solr.mcp.server.indexing.documentcreator;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import org.apache.solr.common.SolrInputDocument;
@@ -56,8 +55,6 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class IndexingDocumentCreator {
-
-	private static final int MAX_XML_SIZE_BYTES = 10 * 1024 * 1024; // 10MB limit
 
 	private final XmlDocumentCreator xmlDocumentCreator;
 
@@ -157,12 +154,6 @@ public class IndexingDocumentCreator {
 		// Input validation
 		if (xml == null || xml.trim().isEmpty()) {
 			throw new DocumentProcessingException("XML input cannot be null or empty");
-		}
-
-		byte[] xmlBytes = xml.getBytes(StandardCharsets.UTF_8);
-		if (xmlBytes.length > MAX_XML_SIZE_BYTES) {
-			throw new DocumentProcessingException(
-					"XML document too large: " + xmlBytes.length + " bytes (max: " + MAX_XML_SIZE_BYTES + ")");
 		}
 
 		return xmlDocumentCreator.create(xml);
