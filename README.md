@@ -97,8 +97,8 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 |------|-------------|
 | `search` | Full-text search with filtering, faceting, sorting, and pagination |
 | `index-json-documents` | Index documents from a JSON string into a collection |
-| `index-csv-documents` | Index documents from a CSV string into a collection |
-| `index-xml-documents` | Index documents from an XML string into a collection |
+| `index-csv-documents` | Index documents from a CSV string via Solr's CSV handler; repeat a column name for multi-valued fields |
+| `index-xml-documents` | Index documents from Solr update XML (`<add><doc><field name="...">`); only `<add>` blocks are accepted |
 | `index-markdown-documents` | Index a markdown document into a collection, extracting front matter, title, headings, and body text |
 | `create-collection` | Create a collection (configSet, numShards, replicationFactor optional — default `_default`, `1`, `1`) |
 | `list-collections` | List all available Solr collections |
