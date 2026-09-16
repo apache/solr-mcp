@@ -92,9 +92,12 @@ class OtlpExportIntegrationTest {
 	 * The {@code @ServiceConnection} annotation enables Spring Boot to recognize
 	 * this container for service connection auto-configuration.
 	 */
+	// Pinned in gradle/libs.versions.toml as test-image-lgtm; -Dlgtm.test.image
+	// overrides it for a single run.
 	@Container
 	@ServiceConnection
-	static LgtmStackContainer lgtmStack = new LgtmStackContainer("grafana/otel-lgtm:latest");
+	static LgtmStackContainer lgtmStack = new LgtmStackContainer(
+			System.getProperty("lgtm.test.image", "grafana/otel-lgtm:0.33.0"));
 
 	@Autowired
 	private SearchService searchService;

@@ -381,12 +381,12 @@ are exercised. The Jib JVM path runs in `build-and-publish.yml`.
 
 ### Solr Version Compatibility Testing
 
-The Solr Docker image used in tests is configurable via the `solr.test.image` system property (default: `solr:9.9-slim`):
+The Solr Docker image used in tests is pinned as `test-image-solr` in `gradle/libs.versions.toml` (the Grafana LGTM image for the OTLP test as `test-image-lgtm`), matching the literal default in `TestcontainersConfiguration`/`OtlpExportIntegrationTest`. Override the Solr image for one run with the `solr.test.image` system property:
 
 ```bash
 ./gradlew test -Dsolr.test.image=solr:8.11-slim    # Solr 8.11
 ./gradlew test -Dsolr.test.image=solr:9.4-slim     # Solr 9.4
-./gradlew test -Dsolr.test.image=solr:9.9-slim     # Solr 9.9 (default)
+./gradlew test -Dsolr.test.image=solr:9.9.0-slim     # Solr 9.9 (the pinned default)
 ./gradlew test -Dsolr.test.image=solr:9.10-slim    # Solr 9.10
 ./gradlew test -Dsolr.test.image=solr:10-slim      # Solr 10
 ```
@@ -404,7 +404,7 @@ Remaining known differences from Solr 9:
 - **`/admin/mbeans` removed:** Cache and handler stats from `getCollectionStats()` will always be `null` on Solr 10. A future migration to `/admin/metrics` will restore these metrics.
 - **Metrics migration:** Dropwizard metrics replaced by OpenTelemetry. Metric names switch to snake_case in Solr 10.
 - **SolrJ base URL:** Already uses root URLs — **no change needed**.
-- **SolrJ version:** `solr-solrj` is on 10.0.0 (`gradle/libs.versions.toml`), released to Maven Central and bumped in #58. Jetty artifacts are declared versionless and managed by Spring Boot's BOM, so there is no separate Jetty pin to update. Note the client is *newer* than the default test server: `solr.test.image` defaults to `solr:9.9-slim`, so the standard build exercises a SolrJ 10 client against Solr 9.9.
+- **SolrJ version:** `solr-solrj` is on 10.0.0 (`gradle/libs.versions.toml`), released to Maven Central and bumped in #58. Jetty artifacts are declared versionless and managed by Spring Boot's BOM, so there is no separate Jetty pin to update. Note the client is *newer* than the default test server: `solr.test.image` defaults to `solr:9.9.0-slim`, so the standard build exercises a SolrJ 10 client against Solr 9.9.
 
 ## Key Configuration
 

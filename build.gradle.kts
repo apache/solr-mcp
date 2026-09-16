@@ -203,6 +203,18 @@ springBoot {
     buildInfo()
 }
 
+// Testcontainers image pins live in gradle/libs.versions.toml; -Dsolr.test.image
+// and -Dlgtm.test.image override them for a single run (e.g. the Solr
+// compatibility matrix in CI).
+val solrPin =
+    libs.versions.test.image.solr
+        .get()
+val lgtmPin =
+    libs.versions.test.image.lgtm
+        .get()
+val solrTestImage = System.getProperty("solr.test.image", solrPin)
+val lgtmTestImage = System.getProperty("lgtm.test.image", lgtmPin)
+
 tasks.withType<Test> {
     useJUnitPlatform {
         // Only exclude docker integration tests from regular test runs, not from dockerIntegrationTest
@@ -217,8 +229,9 @@ tasks.withType<Test> {
     if (name != "dockerIntegrationTest") {
         dependsOn(tasks.bootJar)
     }
-    // Forward solr.test.image system property to test JVMs for Solr version compatibility testing
-    systemProperty("solr.test.image", System.getProperty("solr.test.image", "solr:9.9-slim"))
+    // Forward the Testcontainers image pins (or a per-run -D override) to test JVMs.
+    systemProperty("solr.test.image", solrTestImage)
+    systemProperty("lgtm.test.image", lgtmTestImage)
     if (name != "dockerIntegrationTest") {
         finalizedBy(tasks.jacocoTestReport)
     }
@@ -253,8 +266,6 @@ tasks.register<Test>("integrationTest") {
 
     testClassesDirs = sourceSets["test"].output.classesDirs
     classpath = sourceSets["test"].runtimeClasspath
-
-    systemProperty("solr.test.image", System.getProperty("solr.test.image", "solr:9.9-slim"))
 
     mustRunAfter(tasks.named("unitTest"))
     finalizedBy(tasks.jacocoTestReport)
