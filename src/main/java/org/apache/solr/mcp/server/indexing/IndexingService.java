@@ -219,10 +219,7 @@ public class IndexingService {
 	public String indexJsonDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "JSON string containing documents to index") String json)
 			throws IOException, SolrServerException {
-		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
-		int successCount = indexDocuments(collection, schemalessDoc);
-		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
-				+ collection + "'" + describeIndexedFields(schemalessDoc);
+		return indexPayload(collection, json, "json");
 	}
 
 	/**
@@ -294,10 +291,7 @@ public class IndexingService {
 	public String indexCsvDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "CSV string containing documents to index") String csv)
 			throws IOException, SolrServerException {
-		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromCsv(csv);
-		int successCount = indexDocuments(collection, schemalessDoc);
-		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
-				+ collection + "'" + describeIndexedFields(schemalessDoc);
+		return indexPayload(collection, csv, "csv");
 	}
 
 	/**
@@ -393,10 +387,7 @@ public class IndexingService {
 	public String indexXmlDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "XML string containing documents to index") String xml)
 			throws ParserConfigurationException, SAXException, IOException, SolrServerException {
-		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromXml(xml);
-		int successCount = indexDocuments(collection, schemalessDoc);
-		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
-				+ collection + "'" + describeIndexedFields(schemalessDoc);
+		return indexPayload(collection, xml, "xml");
 	}
 
 	/**
@@ -468,10 +459,39 @@ public class IndexingService {
 			@McpToolParam(
 					description = "Markdown string to index, optionally starting with YAML front matter") String markdown)
 			throws IOException, SolrServerException {
-		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
+		return indexPayload(collection, markdown, "markdown");
+	}
+
+	/**
+	 * The one indexing path shared by the four inline tools and {@code index-url}:
+	 * parse the whole payload with the creator for its format, batch-index the
+	 * documents, and summarise. Structured formats also list the indexed field
+	 * names; Markdown, being one document, does not.
+	 *
+	 * @param collection
+	 *            target collection
+	 * @param payload
+	 *            the whole document set as text
+	 * @param format
+	 *            {@code json}, {@code csv}, {@code xml} or {@code markdown}
+	 * @return the human-readable summary the tools return
+	 * @throws IOException
+	 *             on Solr communication failure
+	 * @throws SolrServerException
+	 *             if Solr rejects the update
+	 */
+	String indexPayload(String collection, String payload, String format) throws IOException, SolrServerException {
+		List<SolrInputDocument> schemalessDoc = switch (format) {
+			case "json" -> indexingDocumentCreator.createSchemalessDocumentsFromJson(payload);
+			case "csv" -> indexingDocumentCreator.createSchemalessDocumentsFromCsv(payload);
+			case "xml" -> indexingDocumentCreator.createSchemalessDocumentsFromXml(payload);
+			case "markdown" -> indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(payload);
+			default -> throw new IllegalArgumentException("Unsupported document format: " + format);
+		};
 		int successCount = indexDocuments(collection, schemalessDoc);
-		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
-				+ collection + "'";
+		String summary = "Successfully indexed " + successCount + " of " + schemalessDoc.size()
+				+ " documents into collection '" + collection + "'";
+		return format.equals("markdown") ? summary : summary + describeIndexedFields(schemalessDoc);
 	}
 
 	/**
