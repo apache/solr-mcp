@@ -122,7 +122,8 @@ exists for browser-based tooling.
 ## Connecting an MCP client to a secured server
 
 What a client observes, verified on 2026-09-16 against Keycloak 26.0 with the
-audience mapper in place (`curl`, the MCP Inspector CLI and Claude Code 2.1):
+audience mapper in place and against an Auth0 tenant with the API identifier
+set to the resource URI (`curl`, the MCP Inspector CLI and Claude Code 2.1):
 
 | Request | Without a token | With a valid token |
 |---|---|---|
