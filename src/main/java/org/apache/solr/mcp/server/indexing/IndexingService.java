@@ -18,6 +18,7 @@ package org.apache.solr.mcp.server.indexing;
 
 import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -326,7 +327,8 @@ public class IndexingService {
 	}
 
 	/**
-	 * Indexes a document from a markdown string into a specified Solr collection.
+	 * Indexes markdown documents into a specified Solr collection, one array
+	 * element per document.
 	 *
 	 * <p>
 	 * This method serves as the primary entry point for markdown document indexing
@@ -353,8 +355,7 @@ public class IndexingService {
 	 *
 	 * <p>
 	 * AI clients can invoke this method with natural language requests like "index
-	 * this markdown file into my_collection" or "add this README to the search
-	 * index".
+	 * these markdown documents into my_collection".
 	 *
 	 * <p>
 	 * <strong>Example Markdown Processing:</strong>
@@ -373,9 +374,9 @@ public class IndexingService {
 	 *
 	 * @param collection
 	 *            the name of the Solr collection to index documents into
-	 * @param markdown
-	 *            markdown string to index, optionally starting with YAML front
-	 *            matter
+	 * @param documents
+	 *            the markdown documents, one string per document
+	 * @return a summary of the indexing result
 	 * @throws IOException
 	 *             if there are critical errors in Solr communication
 	 * @throws SolrServerException
@@ -387,14 +388,21 @@ public class IndexingService {
 	@McpTool(
 			name = "index-markdown-documents",
 			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index a document from markdown String into Solr collection, extracting front matter, title, headings, and body text. "
+			description = "Index markdown documents into Solr collection, one array element per document, extracting front matter, title, headings, and body text from each. "
+					+ "Pass many documents in one call rather than one call per document. "
 					+ "Do NOT use for JSON/CSV/XML input; use index-json-documents, index-csv-documents, or index-xml-documents instead. "
 					+ "Only convert source content to markdown when there is no dedicated tool for the source format, and supply a stable 'id' in the YAML front matter when doing so.")
 	public String indexMarkdownDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(
-					description = "Markdown string to index, optionally starting with YAML front matter") String markdown)
+					description = "Markdown documents to index, one string per document, each optionally starting with YAML front matter") List<String> documents)
 			throws IOException, SolrServerException {
-		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
+		if (documents == null) {
+			throw new IllegalArgumentException("documents cannot be null");
+		}
+		List<SolrInputDocument> schemalessDoc = new ArrayList<>();
+		for (String markdown : documents) {
+			schemalessDoc.addAll(indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown));
+		}
 		int successCount = indexDocuments(collection, schemalessDoc);
 		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
 				+ collection + "'";
@@ -560,8 +568,8 @@ public class IndexingService {
 					"the documents as a JSON array of objects, not as a string");
 			case "csv" -> new IndexTool("csv", "index-csv-documents", "csv", "the CSV text");
 			case "xml" -> new IndexTool("xml", "index-xml-documents", "xml", "the XML text");
-			case "markdown", "md" ->
-				new IndexTool("markdown", "index-markdown-documents", "markdown", "the markdown text");
+			case "markdown", "md" -> new IndexTool("markdown", "index-markdown-documents", "documents",
+					"the markdown documents, one string per document, each optionally starting with YAML front matter");
 			default ->
 				throw new IllegalArgumentException("format must be one of json/csv/xml/markdown, got: " + format);
 		};
