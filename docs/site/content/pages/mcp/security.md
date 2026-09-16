@@ -36,6 +36,19 @@ To turn authentication **off** for local development, set `HTTP_SECURITY_ENABLED
 
 ***
 
+## Before you start: the audience ##
+
+The server validates the token's `aud` claim against its **resource URI**, which it derives from the URL the client calls &mdash; scheme, host and port plus `/mcp`. For a local trial that is `http://localhost:8080/mcp`; for a deployed server it is the public URL. Read it from a running server:
+
+```bash
+curl -s http://localhost:8080/.well-known/oauth-protected-resource | jq -r .resource
+# http://localhost:8080/mcp
+```
+
+Every provider setup below has one step whose only job is to put that value into `aud`. Skip it and every token is rejected with `401 ... "The aud claim is not valid"`.
+
+***
+
 ## Auth0 ##
 
 ### 1. Create Auth0 Application ###
@@ -49,28 +62,20 @@ To turn authentication **off** for local development, set `HTTP_SECURITY_ENABLED
 
 1. Navigate to **Applications** > **APIs** > **Create API**
 2. Name: `Solr MCP API`
-3. Identifier (audience): `https://solr-mcp-api`
+3. Identifier (audience): `http://localhost:8080/mcp` &mdash; the server's resource URI, exactly as clients will dial it
 4. Signing Algorithm: **RS256**
 
-### 3. Configure Callback URLs ###
+### 3. Authorize the Application ###
 
-In your application settings, add to **Allowed Callback URLs**:
-
-    http://localhost:6274/oauth/callback,http://localhost:3334/oauth/callback,http://localhost:8080/login/oauth2/code/auth0
-
-Each callback URL serves a different client:
-
-* `http://localhost:6274/oauth/callback` &mdash; MCP Inspector
-* `http://localhost:3334/oauth/callback` &mdash; `mcp-remote` (Claude Desktop, VS Code, Cursor, JetBrains in HTTP mode)
-* `http://localhost:8080/login/oauth2/code/auth0` &mdash; Direct server OAuth2 code flow
+In your application's **APIs** tab, toggle **Solr MCP API** on. No callback URLs are needed: the MCP server is a resource server and a machine-to-machine application never opens a browser.
 
 ### 4. Run the Server ###
 
 ```bash
-export PROFILES=http
-export OAUTH2_ISSUER_URI=https://your-tenant.auth0.com/
-./gradlew bootRun
+PROFILES=http OAUTH2_ISSUER_URI=https://your-tenant.auth0.com/ ./gradlew bootRun
 ```
+
+The issuer must end with `/`, as Auth0 writes the `iss` claim. It is resolved at startup, so a wrong domain fails immediately.
 
 ### 5. Get an Access Token ###
 
@@ -81,7 +86,7 @@ curl --request POST \
     --data '{
       "client_id": "YOUR_CLIENT_ID",
       "client_secret": "YOUR_CLIENT_SECRET",
-      "audience": "https://solr-mcp-api",
+      "audience": "http://localhost:8080/mcp",
       "grant_type": "client_credentials"
     }'
 ```
@@ -93,14 +98,7 @@ Or use the convenience script:
     --domain your-tenant.auth0.com \
     --client-id YOUR_CLIENT_ID \
     --client-secret YOUR_CLIENT_SECRET \
-    --audience https://solr-mcp-api
-```
-
-### 6. Use the Token ###
-
-```bash
-curl -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
-    http://localhost:8080/mcp
+    --audience http://localhost:8080/mcp
 ```
 
 For the full step-by-step guide, see [Auth0 Setup Guide](https://github.com/apache/solr-mcp/blob/main/docs/security/auth0.md).
@@ -119,7 +117,7 @@ docker run -d --name keycloak \
     quay.io/keycloak/keycloak:26.0 start-dev
 ```
 
-Access the admin console at `http://localhost:8180` (login: `admin` / `admin`).
+Access the admin console at `http://localhost:8180` (login: `admin` / `admin`). Wait for `http://localhost:8180/realms/master/.well-known/openid-configuration` to answer before continuing; the container is up well before its endpoints are.
 
 ### 2. Create Realm and Client ###
 
@@ -128,24 +126,34 @@ Access the admin console at `http://localhost:8180` (login: `admin` / `admin`).
     * Client ID: `solr-mcp-client`
     * Client type: OpenID Connect
     * Client authentication: OFF (public client)
-    * Valid redirect URIs: `http://localhost:6274/*`, `http://localhost:3334/*`, `http://localhost:8080/*`
-    * Web origins: `*`
+    * Authentication flow: leave **Direct access grants** enabled (the token request below uses it)
+    * Valid redirect URIs: `http://localhost:6274/*`
+    * Web origins: `http://localhost:6274`
 
-### 3. Create Test User ###
+### 3. Add the Audience Mapper ###
+
+Keycloak does not honour the RFC 8707 `resource=` parameter, so the audience must be mapped in:
+
+1. **Clients** > `solr-mcp-client` > **Client scopes** > `solr-mcp-client-dedicated`
+2. **Add mapper** > **By configuration** > **Audience**
+3. Name `mcp-audience`, **Included Custom Audience** `http://localhost:8080/mcp`, **Add to access token** ON
+4. **Save**
+
+### 4. Create Test User ###
 
 1. Navigate to **Users** > **Add user**
-2. Username: `testuser`, Email verified: ON
-3. Set password in **Credentials** tab
+2. Username: `testuser`, Email verified: ON, **First name and Last name filled in** (Keycloak refuses to issue a token to a user missing either)
+3. Set password in **Credentials** tab with **Temporary** OFF
 
-### 4. Run the Server ###
+### 5. Run the Server ###
 
 ```bash
-export PROFILES=http
-export OAUTH2_ISSUER_URI=http://localhost:8180/realms/solr-mcp
-./gradlew bootRun
+PROFILES=http OAUTH2_ISSUER_URI=http://localhost:8180/realms/solr-mcp ./gradlew bootRun
 ```
 
-### 5. Get a Token ###
+The realm must exist before this: the issuer is resolved at startup.
+
+### 6. Get a Token ###
 
 ```bash
 curl -X POST "http://localhost:8180/realms/solr-mcp/protocol/openid-connect/token" \
@@ -156,20 +164,37 @@ curl -X POST "http://localhost:8180/realms/solr-mcp/protocol/openid-connect/toke
     -d "grant_type=password"
 ```
 
-For the full guide including role-based access control and production deployment, see [Keycloak Setup Guide](https://github.com/apache/solr-mcp/blob/main/docs/security/keycloak.md).
+Tokens last 300 seconds by default. The full guide shows how to raise that for a trial, and covers scripted realm setup, role-based access control and production deployment: [Keycloak Setup Guide](https://github.com/apache/solr-mcp/blob/main/docs/security/keycloak.md).
 
 ***
 
-## How OAuth2 Works with MCP Clients ##
+## Verify ##
 
-When a client connects to a secured Solr MCP Server:
+An unauthenticated tool call is denied inside the tool; the same call with the token returns data:
 
-1. Client connects to `/mcp`
-2. Server responds with `401` + OAuth2 metadata
-3. Client discovers the authorization server from `/.well-known/oauth-authorization-server`
-4. Client opens a browser for login/consent
-5. Client receives an authorization code, exchanges it for an access token (JWT)
-6. Client attaches the Bearer token to all subsequent MCP requests
-7. Server validates the JWT with the OAuth2 provider
+```bash
+curl -s -X POST http://localhost:8080/mcp \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \
+    -d '{"jsonrpc":"2.0","method":"tools/call","id":1,"params":{"name":"list-collections","arguments":{}}}'
+# with the header:    {"content":[{"type":"text","text":"[\"books\",\"films\"]"}],"isError":false}
+# without the header: {"content":[{"type":"text","text":"Access Denied"}],"isError":true}
+```
 
-Most MCP clients handle this flow transparently&mdash;the configuration is the same for secured and unsecured HTTP servers. See the individual [client setup pages](/mcp/clients/claude-desktop.html) for details.
+***
+
+## Connecting an MCP Client ##
+
+The server does not answer an anonymous `/mcp` request with `401` &mdash; `/mcp` is permitted at the HTTP layer and the denial happens inside each tool &mdash; and MCP clients start their OAuth flow only on a `401`. A client configured with just the URL therefore shows the server as connected, lists every tool, and gets `Access Denied` from every call; no browser opens. Pass the token explicitly:
+
+```bash
+# Claude Code
+claude mcp add --transport http solr-mcp http://localhost:8080/mcp \
+    --header "Authorization: Bearer $TOKEN"
+
+# MCP Inspector
+npx @modelcontextprotocol/inspector --server-url http://localhost:8080/mcp --transport http \
+    --header "Authorization: Bearer $TOKEN"
+```
+
+VS Code and Cursor take a `headers` object on the server entry; Claude Desktop and JetBrains go through `mcp-remote --header`. Each [client page](/mcp/clients/claude-code.html) shows the snippet. The token's `aud` must contain the exact URL the client dials, and when it expires the client reports a failed connection until you configure a fresh one.

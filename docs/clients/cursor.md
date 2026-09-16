@@ -67,6 +67,19 @@ Start the server in HTTP mode first (`PROFILES=http java -jar build/libs/solr-mc
 }
 ```
 
-The configuration is the same for secured and unsecured HTTP. Cursor handles the MCP OAuth2 flow automatically.
+With security enabled (the default), this server does not answer an anonymous `/mcp` request with `401`, so Cursor will not start an OAuth flow by itself: it connects, lists the tools, and every call returns `Access Denied`. Pass a token from your identity provider in `headers`; Cursor expands `${env:…}` so the secret stays out of the file:
+
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "url": "http://localhost:8080/mcp",
+      "headers": { "Authorization": "Bearer ${env:SOLR_MCP_TOKEN}" }
+    }
+  }
+}
+```
+
+The token's `aud` claim must contain the exact `url` above, and it expires — see the [HTTP security model](../security/http.md#connecting-an-mcp-client-to-a-secured-server) for obtaining one and the lifetime knobs.
 
 See the [Cursor MCP documentation](https://docs.cursor.com/context/model-context-protocol) for the latest configuration format.

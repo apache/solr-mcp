@@ -104,8 +104,13 @@ claude mcp add --transport http solr-mcp http://localhost:8080/mcp
 }
 ```
 
-### Secured HTTP (OAuth2) ###
+### Secured HTTP (bearer token) ###
 
-Claude Code detects the OAuth2 challenge from the server and initiates the authorization flow automatically. The configuration is the same as unsecured HTTP.
+Claude Code starts an OAuth flow only when a server answers `401`/`403`. This server never does that on `/mcp` — the handshake is anonymous and `@PreAuthorize` denies inside each tool — so with the URL alone Claude Code shows the server as **connected** and every tool call returns `Access Denied`. Pass a token from your identity provider instead:
 
-See the [HTTP security model](../security/http.md) for server-side OAuth2 setup.
+```bash
+claude mcp add --transport http solr-mcp http://localhost:8080/mcp \
+    --header "Authorization: Bearer $TOKEN"
+```
+
+The token's `aud` claim must contain the exact URL you register here (`http://localhost:8080/mcp`), and when it expires the connection fails rather than re-authenticating; re-run `claude mcp add` with a fresh token. How to obtain a token, and the lifetime knobs, are in the [Keycloak](../security/keycloak.md#connecting-an-mcp-client) and [Auth0](../security/auth0.md) guides; the server-side model is in [HTTP security](../security/http.md#connecting-an-mcp-client-to-a-secured-server).
