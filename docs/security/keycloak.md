@@ -859,7 +859,7 @@ public String getSchema(String collection) { ... }
 > current chain in `HttpSecurityConfiguration` authenticates `/actuator/**`
 > (only `/actuator/health` is anonymous) and sets `resourcePath("/mcp")` plus
 > `validateAudienceClaim(true)`. Replacing it with a version that permits all
-> actuator paths exposes `loggers`, `sbom`, `metrics` and `prometheus`
+> actuator paths exposes `loggers`, `sbom` and `metrics`
 > anonymously, and dropping `validateAudienceClaim` reintroduces
 > [CWE-345](https://cwe.mitre.org/data/definitions/345.html). See
 > [`http.md`](./http.md#1-filter-chain-httpsecurityconfiguration) for the

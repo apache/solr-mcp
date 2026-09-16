@@ -8,7 +8,7 @@ Solr MCP Server is a Spring AI Model Context Protocol (MCP) server that enables 
 
 - **Status:** Apache incubating project (v0.0.2-SNAPSHOT)
 - **Java:** 25+ (centralized in build.gradle.kts)
-- **Framework:** Spring Boot 3.5.14, Spring AI 1.1.7
+- **Framework:** Spring Boot 4.1.1, Spring AI 2.0.1
 - **License:** Apache 2.0
 
 ## Common Commands
@@ -131,14 +131,40 @@ Configuration files: `application-stdio.properties`, `application-http.propertie
 
 ### SBOM Architecture
 
-CycloneDX SBOM generation is wired by applying the `org.cyclonedx.bom` plugin
-(version 2.4.1, matching what Spring Initializr ships for Spring Boot 3.5.14).
-Spring Boot's `CycloneDxPluginAction` auto-configures `cyclonedxBom` and makes
-the bootJar embed the result at `META-INF/sbom/application.cdx.json`; the
-actuator serves it at `/actuator/sbom/application` in the `http` profile
-(enabled via `application-http.properties`). Both the Jib JVM image and the
-Paketo native images package the bootJar contents, so every distribution
-artifact ships the SBOM without per-image wiring.
+CycloneDX SBOM generation is wired by applying the `org.cyclonedx.bom` plugin,
+version **3.4.1**. Spring Boot 4.1.1's `CyclonedxPluginAction` recognises 3.x and
+auto-configures the `cyclonedxBom` task (type `org.cyclonedx.gradle.CyclonedxAggregateTask`):
+it writes `build/reports/cyclonedx/application.cdx.json`, embeds that in the bootJar at
+`META-INF/sbom/application.cdx.json`, and sets the `Sbom-Format` / `Sbom-Location`
+manifest headers the actuator needs. The actuator then serves it at
+`/actuator/sbom/application` in the `http` profile (enabled via
+`application-http.properties`). Both the Jib JVM image and the Paketo native images
+package the bootJar contents, so every distribution artifact ships the SBOM without
+per-image wiring.
+
+What the build still configures by hand is **scope**. cyclonedx 3.x splits the work
+across two tasks: `cyclonedxDirectBom` (`CyclonedxDirectTask`) resolves the dependency
+graph and owns `includeConfigs`, while `cyclonedxBom` only aggregates its output. Left
+at defaults the direct task scans every configuration, which adds ~100 test/build-only
+components (JUnit, AssertJ, ByteBuddy, docker-java, JaCoCo, Error Prone, NullAway) that
+are not in the fat jar. `build.gradle.kts` therefore sets
+`includeConfigs = [productionRuntimeClasspath]` **on `cyclonedxDirectBom`**, giving a
+141-component SBOM that matches `generateBinaryLicense`'s completeness gate exactly.
+
+> **Do not drop that scoping.** Nothing in the build would catch it: the LICENSE appendix
+> filters to shipped coordinates, and the completeness gate only fails on *missing*
+> entries, never extra ones. The over-broad SBOM would ship silently and register as
+> false-positive CVEs in scanners that read it as a manifest of the artifact's contents.
+
+Historical note: this used to pin cyclonedx to **2.4.1**, because 3.x once failed at
+configuration time on Gradle 9.4.1 (a variant-mutation conflict on `:cyclonedxDirectBom`).
+That is fixed as of 3.4.1. The pin had a cost that was not obvious: because Spring Boot's
+action bails on an unrecognised plugin version, and jar-embedding is part of that same
+action, **the pinned build shipped no SBOM at all** — no `META-INF/sbom/` entry and no
+`Sbom-*` manifest headers in the bootJar, hence nothing for `/actuator/sbom/application`
+to serve. `./gradlew cyclonedxBom` still produced a report under `build/reports/`, which
+is why this went unnoticed. Resolved along with
+[#186](https://github.com/apache/solr-mcp/issues/186).
 
 ### Logging Architecture
 
@@ -185,8 +211,14 @@ Contents of `logback-spring.xml`:
     and `captureKeyValuePairAttributes` enabled).
   - **STDIO**: No appenders defined, so nothing can reach stdout. The OTEL appender is
     intentionally excluded too.
-- `application-stdio.properties` additionally sets `logging.pattern.console=` (empty
-  pattern), the idiom Spring AI documents for STDIO servers, as a second line of defence.
+- `application-stdio.properties` must **not** set `logging.pattern.console=` (the
+  empty-pattern idiom Spring AI documents for STDIO servers). Boot copies it into the
+  JVM-wide `CONSOLE_LOG_PATTERN` system property (first writer wins) and logback rejects
+  an empty pattern (`Empty or null pattern`) instead of silencing output. Spring
+  Framework 7 pauses a test's ApplicationContext on context switch, which stops Boot's
+  logging lifecycle bean and makes the next context re-initialise logback, so a
+  stdio-profile test running first would break every later http-profile context in the
+  same JVM (`DistributedTracingTest`). `LoggingConfigurationTest` enforces this.
 
 Under AOT, `LogbackLoggingSystem` replays `META-INF/spring/logback-model` — the model
 `processAot` serialized from `logback-spring.xml` — before looking at the classpath.
@@ -278,6 +310,28 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
   `solr-mcp:<version>-native-http` (with corresponding `:latest-native-*` tags).
 - **CI:** Separate `native.yml` workflow; native failures do not block JVM-path merges.
 - **Spec:** [dev-docs/graalvm-native-image.md](dev-docs/graalvm-native-image.md)
+
+### Spring Boot 4 Notes
+
+The move from Spring Boot 3.5 / Spring AI 1.1 to Spring Boot 4.1.1 / Spring AI 2.0.1
+([release announcement](https://spring.io/blog/2026/06/12/spring-ai-2-0-0-GA-available-now))
+changed these things; keep them in mind when reading older docs or PRs:
+
+- **Jackson 3:** `tools.jackson.databind` replaces `com.fasterxml.jackson.databind`. Annotations
+  remain in `com.fasterxml.jackson.annotation`.
+- **MCP Annotations:** Package moved from `org.springaicommunity.mcp.annotation` to
+  `org.springframework.ai.mcp.annotation` in Spring AI 2.0.
+- **Testcontainers 2.x:** Module names changed (e.g., `testcontainers-junit-jupiter`, `testcontainers-solr`).
+- **JSpecify:** Built into Spring Boot 4 — no separate dependency needed.
+- **`spring-boot-starter-aop` removed:** Replaced by `spring-boot-starter-aspectj` for
+  `@Observed` annotation support.
+- **Observability:** Uses `spring-boot-starter-opentelemetry` for traces, metrics, and log
+  export via OTLP. The `micrometer-tracing-bridge-otel` + manual OTel BOM approach and the
+  Prometheus registry (`/actuator/prometheus`) are gone.
+- **MCP SDK:** `io.modelcontextprotocol.sdk:mcp` 2.0.1 via `mcp-bom`, with the Jackson 3
+  module (`mcp-json-jackson3`).
+- **Span naming:** `@Observed` spans use `ClassName#methodName` (PascalCase) instead of
+  the earlier `class-name#method-name` (kebab-case).
 
 ## Release LICENSE / NOTICE
 
@@ -412,6 +466,11 @@ Environment variables:
 - `SOLR_URL`: Solr URL (default: `http://localhost:8983/solr/`)
 - `PROFILES`: Transport mode (`stdio` or `http`)
 - `OAUTH2_ISSUER_URI`: OAuth2 issuer URL (HTTP mode only)
+- `OTEL_SAMPLING_PROBABILITY`: trace sampling rate (default `1.0`)
+- `OTEL_TRACES_URL` / `OTEL_METRICS_URL` / `OTEL_LOGS_URL`: OTLP/HTTP endpoints
+  (default `http://localhost:4318/v1/{traces,metrics,logs}`). Each is a complete
+  signal path. On SB 3.x a single `OTEL_TRACES_URL` was a *base* gRPC endpoint on
+  port 4317 — a value carried over from there stops exporting silently.
 
 Dependencies managed in `gradle/libs.versions.toml`.
 

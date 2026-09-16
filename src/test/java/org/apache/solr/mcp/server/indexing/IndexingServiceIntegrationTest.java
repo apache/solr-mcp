@@ -16,7 +16,11 @@
  */
 package org.apache.solr.mcp.server.indexing;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
@@ -49,9 +53,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers(disabledWithoutDocker = true)
 class IndexingServiceIntegrationTest {
 
-	private static boolean initialized = false;
-
 	private static final String COLLECTION_NAME = "indexing_test_" + System.currentTimeMillis();
+	private static boolean initialized = false;
 	@Autowired
 	private SolrContainer solrContainer;
 	@Autowired

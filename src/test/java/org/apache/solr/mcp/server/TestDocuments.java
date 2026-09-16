@@ -16,11 +16,12 @@
  */
 package org.apache.solr.mcp.server;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Map;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Turns a JSON array literal into the typed {@code documents} argument of the
@@ -29,7 +30,7 @@ import java.util.Map;
  */
 public final class TestDocuments {
 
-	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+	private static final ObjectMapper OBJECT_MAPPER = JsonMapper.builder().build();
 
 	private static final TypeReference<List<Map<String, Object>>> DOCUMENTS = new TypeReference<>() {
 	};
@@ -47,7 +48,7 @@ public final class TestDocuments {
 	public static List<Map<String, Object>> json(String json) {
 		try {
 			return OBJECT_MAPPER.readValue(json, DOCUMENTS);
-		} catch (JsonProcessingException e) {
+		} catch (JacksonException e) {
 			throw new IllegalArgumentException("not a JSON array of objects: " + json, e);
 		}
 	}

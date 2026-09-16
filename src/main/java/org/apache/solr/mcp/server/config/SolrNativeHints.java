@@ -78,7 +78,7 @@ public class SolrNativeHints {
 		@Override
 		public void registerHints(RuntimeHints hints, @Nullable ClassLoader classLoader) {
 			MemberCategory[] categories = {MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
-					MemberCategory.INVOKE_DECLARED_METHODS, MemberCategory.DECLARED_FIELDS};
+					MemberCategory.INVOKE_DECLARED_METHODS, MemberCategory.ACCESS_DECLARED_FIELDS};
 
 			// SolrJ response types
 			hints.reflection().registerType(QueryResponse.class, categories);
@@ -95,6 +95,22 @@ public class SolrNativeHints {
 			// SolrJ facet types
 			hints.reflection().registerType(FacetField.class, categories);
 			hints.reflection().registerType(FacetField.Count.class, categories);
+
+			// SolrJ / Solr API model types used by CoreAdminResponse.getCoreStatus()
+			// which deserializes via Jackson reflection.
+			for (String solrApiType : List.of("org.apache.solr.client.api.model.SolrJerseyResponse",
+					"org.apache.solr.client.api.model.SolrJerseyResponse$ResponseHeader",
+					"org.apache.solr.client.api.model.ErrorInfo", "org.apache.solr.client.api.model.CoreStatusResponse",
+					"org.apache.solr.client.api.model.CoreStatusResponse$SingleCoreData",
+					"org.apache.solr.client.api.model.CoreStatusResponse$CloudDetails",
+					"org.apache.solr.client.api.model.CoreStatusResponse$IndexDetails")) {
+				hints.reflection().registerTypeIfPresent(classLoader, solrApiType, categories);
+			}
+
+			// Spring AI MCP annotation internals — MetaUtils reflectively
+			// instantiates DefaultMetaProvider via its no-arg constructor.
+			hints.reflection().registerTypeIfPresent(classLoader,
+					"org.springframework.ai.mcp.annotation.context.DefaultMetaProvider", categories);
 
 			// SolrJ schema request types (needed for Jackson's convertValue in native
 			// image when add-field-types deserializes analyzer trees)
@@ -118,9 +134,17 @@ public class SolrNativeHints {
 				hints.reflection().registerTypeIfPresent(classLoader, className, categories);
 			}
 
-			// Spring AI MCP reflectively instantiates DefaultMetaProvider via its
-			// no-arg constructor in MetaUtils.getMeta() when building resource
-			// specifications. AOT does not generate this hint automatically.
+			// SolrJ EnvUtils loads these properties files in its static
+			// initializer; without them getResourceAsStream returns null
+			// and the <clinit> throws NullPointerException.
+			hints.resources().registerPattern("EnvToSyspropMappings.properties");
+			hints.resources().registerPattern("DeprecatedSystemPropertyMappings.properties");
+
+			// Older springaicommunity location of DefaultMetaProvider (Spring AI 1.x
+			// transitive). Spring AI 2.x relocated this to
+			// org.springframework.ai.mcp.annotation.context.DefaultMetaProvider,
+			// which is registered above. Kept defensively via registerTypeIfPresent
+			// so this is a no-op when the older class isn't on the classpath.
 			hints.reflection().registerTypeIfPresent(classLoader,
 					"org.springaicommunity.mcp.context.DefaultMetaProvider",
 					MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
