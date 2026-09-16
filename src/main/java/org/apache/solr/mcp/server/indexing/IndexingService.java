@@ -494,8 +494,8 @@ public class IndexingService {
 	 * failure
 	 * <li><strong>Success Tracking</strong>: Accurate count of successfully indexed
 	 * documents
-	 * <li><strong>Commit Strategy</strong>: Single commit after all batches for
-	 * consistency
+	 * <li><strong>Commit Strategy</strong>: Single soft commit after all batches
+	 * for consistency
 	 * </ul>
 	 *
 	 * <p>
@@ -521,7 +521,7 @@ public class IndexingService {
 	 * <strong>Transaction Behavior:</strong>
 	 *
 	 * <p>
-	 * The method commits changes after all batches are processed, making indexed
+	 * The method soft-commits after all batches are processed, making indexed
 	 * documents immediately searchable. This ensures atomicity at the operation
 	 * level while maintaining performance through batching.
 	 *
@@ -536,7 +536,7 @@ public class IndexingService {
 	 *             if there are critical errors in commit operations
 	 * @see SolrInputDocument
 	 * @see SolrClient#add(String, java.util.Collection)
-	 * @see SolrClient#commit(String)
+	 * @see SolrClient#commit(String, boolean, boolean, boolean)
 	 */
 	/**
 	 * Maximum number of distinct field names listed in an indexing response before
@@ -599,7 +599,10 @@ public class IndexingService {
 		}
 
 		try {
-			solrClient.commit(collection);
+			// waitFlush=false, waitSearcher=true, softCommit=true: the documents are
+			// searchable when this method returns, while the hard commit (segment fsync)
+			// is left to Solr's autoCommit, so many small calls do not each force one.
+			solrClient.commit(collection, false, true, true);
 		} catch (SolrServerException | IOException e) {
 			logger.error("Failed to commit after indexing to collection: {}", collection, e);
 			throw e;
