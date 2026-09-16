@@ -24,7 +24,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
-import org.apache.solr.mcp.server.TestImages;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.apache.solr.mcp.server.search.SearchService;
@@ -92,9 +91,12 @@ class OtlpExportIntegrationTest {
 	 * The {@code @ServiceConnection} annotation enables Spring Boot to recognize
 	 * this container for service connection auto-configuration.
 	 */
+	// Pinned in gradle/libs.versions.toml as test-image-lgtm; -Dlgtm.test.image
+	// overrides it for a single run.
 	@Container
 	@ServiceConnection
-	static LgtmStackContainer lgtmStack = new LgtmStackContainer(TestImages.lgtm());
+	static LgtmStackContainer lgtmStack = new LgtmStackContainer(
+			System.getProperty("lgtm.test.image", "grafana/otel-lgtm:0.33.0"));
 
 	@Autowired
 	private SearchService searchService;

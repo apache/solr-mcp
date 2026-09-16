@@ -216,14 +216,6 @@ val lgtmPin =
 val solrTestImage = System.getProperty("solr.test.image", solrPin)
 val lgtmTestImage = System.getProperty("lgtm.test.image", lgtmPin)
 
-tasks.processTestResources {
-    inputs.property("solrTestImage", solrPin)
-    inputs.property("lgtmTestImage", lgtmPin)
-    filesMatching("test-images.properties") {
-        expand("solrTestImage" to solrPin, "lgtmTestImage" to lgtmPin)
-    }
-}
-
 tasks.withType<Test> {
     useJUnitPlatform {
         // Only exclude docker integration tests from regular test runs, not from dockerIntegrationTest
@@ -569,9 +561,6 @@ if (nativeBuild) {
                     "--initialize-at-build-time=org.junit.platform.launcher",
                     "--initialize-at-build-time=org.junit.platform.engine",
                     "--initialize-at-build-time=org.junit.jupiter.engine.descriptor",
-                    // TestImages reads the Testcontainers image pins from this resource
-                    // when no -D override is present (see gradle/libs.versions.toml).
-                    "-H:IncludeResources=test-images\\.properties",
                 )
             }
         }

@@ -370,7 +370,7 @@ are exercised. The Jib JVM path runs in `build-and-publish.yml`.
 
 ### Solr Version Compatibility Testing
 
-The Solr Docker image used in tests is pinned as `test-image-solr` in `gradle/libs.versions.toml` (the Grafana LGTM image for the OTLP test as `test-image-lgtm`). `TestImagesTest` fails the build if a pin is missing, floats on `latest`, or is not an exact release tag. Override the Solr image for one run with the `solr.test.image` system property:
+The Solr Docker image used in tests is pinned as `test-image-solr` in `gradle/libs.versions.toml` (the Grafana LGTM image for the OTLP test as `test-image-lgtm`), matching the literal default in `TestcontainersConfiguration`/`OtlpExportIntegrationTest`. Override the Solr image for one run with the `solr.test.image` system property:
 
 ```bash
 ./gradlew test -Dsolr.test.image=solr:8.11-slim    # Solr 8.11
