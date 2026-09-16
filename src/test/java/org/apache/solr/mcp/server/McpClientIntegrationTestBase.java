@@ -418,7 +418,7 @@ public abstract class McpClientIntegrationTestBase {
 				""";
 
 		CallToolResult indexResult = mcpClient.callTool(new CallToolRequest("index-markdown-documents",
-				Map.of("collection", COLLECTION, "markdown", markdown)));
+				Map.of("collection", COLLECTION, "documents", List.of(markdown))));
 
 		assertNotNull(indexResult);
 		assertNotError(indexResult);
