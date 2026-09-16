@@ -388,12 +388,18 @@ spec:
 - Secure by default
 
 ### HTTP Transport
-⚠️ **Warning**: HTTP mode is insecure without additional measures.
+HTTP mode is **secured by default**: `HTTP_SECURITY_ENABLED` defaults to `true`,
+and every tool call and every actuator endpoint except `/actuator/health`
+requires a JWT bearer token from the issuer named by `OAUTH2_ISSUER_URI`. See
+[docs/security/http.md](../docs/security/http.md) for the model and
+[Keycloak](../docs/security/keycloak.md) / [Auth0](../docs/security/auth0.md)
+for provider setup.
 
 **Production requirements:**
 1. **Use HTTPS** with TLS/SSL certificates
-2. **Implement OAuth2** authentication (see [Spring AI MCP OAuth2 guide](https://spring.io/blog/2025/04/02/mcp-server-oauth2/))
-3. **Validate origin headers** to prevent DNS rebinding
+2. **Set `OAUTH2_ISSUER_URI`** and configure the IdP to put the server's public
+   URL in the token's `aud` claim
+3. **Keep the CORS allowlist explicit** (`MCP_CORS_ALLOWED_ORIGINS`, no wildcards)
 4. **Network isolation** via firewall/VPN
 5. **API Gateway** with rate limiting
 
