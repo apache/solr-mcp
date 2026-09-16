@@ -96,7 +96,7 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 | Tool | Description |
 |------|-------------|
 | `search` | Full-text search with filtering, faceting, sorting, and pagination |
-| `index-json-documents` | Index documents from a JSON string into a collection |
+| `index-json-documents` | Index documents passed as a JSON array of objects into a collection |
 | `index-csv-documents` | Index documents from a CSV string into a collection |
 | `index-xml-documents` | Index documents from an XML string into a collection |
 | `index-markdown-documents` | Index a markdown document into a collection, extracting front matter, title, headings, and body text |

@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
+import org.apache.solr.mcp.server.TestDocuments;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.apache.solr.mcp.server.search.SearchService;
@@ -147,7 +148,7 @@ class OtlpExportIntegrationTest {
 
 		// When: We perform operations that create spans
 		// Then: Operations should execute without throwing exceptions
-		indexingService.indexJsonDocuments(COLLECTION_NAME, testData);
+		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(testData));
 		solrClient.commit(COLLECTION_NAME);
 		searchService.search(COLLECTION_NAME, "*:*", null, null, null, null, null);
 
@@ -176,7 +177,7 @@ class OtlpExportIntegrationTest {
 				""";
 
 		// Then: All operations should succeed
-		indexingService.indexJsonDocuments(COLLECTION_NAME, testData);
+		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(testData));
 		solrClient.commit(COLLECTION_NAME);
 
 		// Verify we can search for the documents
@@ -190,7 +191,7 @@ class OtlpExportIntegrationTest {
 		String testData = """
 				[{"id": "metrics_test_1", "name": "Metrics Test"}]
 				""";
-		indexingService.indexJsonDocuments(COLLECTION_NAME, testData);
+		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(testData));
 		solrClient.commit(COLLECTION_NAME);
 		searchService.search(COLLECTION_NAME, "*:*", null, null, null, null, null);
 

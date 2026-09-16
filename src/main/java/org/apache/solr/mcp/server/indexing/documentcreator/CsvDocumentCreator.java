@@ -18,7 +18,6 @@ package org.apache.solr.mcp.server.indexing.documentcreator;
 
 import java.io.IOException;
 import java.io.StringReader;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.commons.csv.CSVFormat;
@@ -38,8 +37,6 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class CsvDocumentCreator implements SolrDocumentCreator {
-
-	private static final int MAX_INPUT_SIZE_BYTES = 10 * 1024 * 1024;
 
 	/** Default constructor used by Spring to instantiate this component. */
 	public CsvDocumentCreator() {
@@ -112,11 +109,6 @@ public class CsvDocumentCreator implements SolrDocumentCreator {
 		if (csv.isBlank()) {
 			throw new DocumentProcessingException("CSV input cannot be empty");
 		}
-		if (csv.getBytes(StandardCharsets.UTF_8).length > MAX_INPUT_SIZE_BYTES) {
-			throw new DocumentProcessingException(
-					"Input too large: exceeds maximum size of " + MAX_INPUT_SIZE_BYTES + " bytes");
-		}
-
 		List<SolrInputDocument> documents = new ArrayList<>();
 
 		try (CSVParser parser = new CSVParser(new StringReader(csv),

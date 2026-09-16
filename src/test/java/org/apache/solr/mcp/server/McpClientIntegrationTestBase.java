@@ -192,8 +192,8 @@ public abstract class McpClientIntegrationTestBase {
 				]
 				""";
 
-		CallToolResult result = mcpClient
-				.callTool(new CallToolRequest("index-json-documents", Map.of("collection", COLLECTION, "json", json)));
+		CallToolResult result = mcpClient.callTool(new CallToolRequest("index-json-documents",
+				Map.of("collection", COLLECTION, "documents", TestDocuments.json(json))));
 
 		assertNotNull(result);
 		assertNotError(result);
@@ -377,8 +377,8 @@ public abstract class McpClientIntegrationTestBase {
 				]
 				""";
 
-		CallToolResult result = mcpClient
-				.callTool(new CallToolRequest("index-json-documents", Map.of("collection", COLLECTION, "json", json)));
+		CallToolResult result = mcpClient.callTool(new CallToolRequest("index-json-documents",
+				Map.of("collection", COLLECTION, "documents", TestDocuments.json(json))));
 
 		assertNotNull(result);
 		assertNotError(result);
@@ -539,8 +539,8 @@ public abstract class McpClientIntegrationTestBase {
 		String showsJson = loadClasspathResource("/shows.json");
 		assertFalse(showsJson.isBlank(), "shows.json resource must not be blank");
 
-		CallToolResult result = mcpClient.callTool(
-				new CallToolRequest("index-json-documents", Map.of("collection", SHOWS_COLLECTION, "json", showsJson)));
+		CallToolResult result = mcpClient.callTool(new CallToolRequest("index-json-documents",
+				Map.of("collection", SHOWS_COLLECTION, "documents", TestDocuments.json(showsJson))));
 
 		assertNotNull(result);
 		assertNotError(result);
@@ -877,5 +877,4 @@ public abstract class McpClientIntegrationTestBase {
 		assertNotNull(value, "documents should be present in response");
 		return (List<Map<String, Object>>) value;
 	}
-
 }
