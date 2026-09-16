@@ -97,6 +97,7 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 |------|-------------|
 | `search` | Full-text search with filtering, faceting, sorting, and pagination |
 | `index-json-documents` | Index documents from a JSON string into a collection |
+| `index-url` | Index a UTF-8 JSON, CSV, XML or Markdown document from an http(s) URL on the allow-list (both transports; default 10 MB limit) |
 | `index-csv-documents` | Index documents from a CSV string into a collection |
 | `index-xml-documents` | Index documents from an XML string into a collection |
 | `index-markdown-documents` | Index a markdown document into a collection, extracting front matter, title, headings, and body text |
@@ -109,6 +110,25 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 | `get-schema` | Retrieve schema information for a collection |
 
 Every tool advertises MCP behavior hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`) so clients can build sensible approval UX — `search` and the metadata tools are read-only, indexing is destructive but idempotent, schema modification is additive.
+
+**Index from a URL:** call `index-url` with
+`{"collection":"shows","url":"https://raw.githubusercontent.com/apache/solr-mcp/main/src/test/resources/shows.json"}`
+in either transport. The server fetches the URL from its own network with no
+credentials or custom headers, so `localhost` means the server, not your client.
+Only allow-listed hosts are fetched: by default `raw.githubusercontent.com`,
+`*.githubusercontent.com` and `github.com`. `SOLR_INDEX_URL_ALLOWED_HOSTS` takes a
+comma-separated list of exact hosts, `*.suffix` patterns, or `*` for any host the
+server can reach; link-local addresses and the known cloud-metadata addresses
+(AWS, Alibaba Cloud, Azure) are always refused. The
+body is limited to 10 MB (`SOLR_INDEX_URL_MAX_BYTES`); for larger datasets index
+directly with Solr, for example `bin/solr post -c shows shows.json`, which needs no
+model in the loop. The format comes from the URL path extension, then the
+`Content-Type`; add `"format":"csv"` when neither identifies it. Non-2xx responses
+and HTML pages are errors, and nothing is indexed unless the whole document parses.
+`SOLR_INDEX_URL_CONNECT_TIMEOUT` (`10s`), `SOLR_INDEX_URL_READ_TIMEOUT` (`30s`, per
+read) and `SOLR_INDEX_URL_TOTAL_TIMEOUT` (`5m`, the whole fetch including redirects)
+bound one fetch, and `SOLR_INDEX_URL_MAX_CONCURRENT_FETCHES` (`4`) bounds how many run
+at once; a call beyond that limit fails immediately with a retry message.
 
 ### Resources
 

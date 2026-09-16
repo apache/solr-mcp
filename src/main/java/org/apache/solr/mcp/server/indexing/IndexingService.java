@@ -219,10 +219,7 @@ public class IndexingService {
 	public String indexJsonDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "JSON string containing documents to index") String json)
 			throws IOException, SolrServerException {
-		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
-		int successCount = indexDocuments(collection, schemalessDoc);
-		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
-				+ collection + "'" + describeIndexedFields(schemalessDoc);
+		return indexPayload(collection, json, "json");
 	}
 
 	/**
@@ -294,10 +291,7 @@ public class IndexingService {
 	public String indexCsvDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "CSV string containing documents to index") String csv)
 			throws IOException, SolrServerException {
-		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromCsv(csv);
-		int successCount = indexDocuments(collection, schemalessDoc);
-		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
-				+ collection + "'" + describeIndexedFields(schemalessDoc);
+		return indexPayload(collection, csv, "csv");
 	}
 
 	/**
@@ -393,10 +387,7 @@ public class IndexingService {
 	public String indexXmlDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(description = "XML string containing documents to index") String xml)
 			throws ParserConfigurationException, SAXException, IOException, SolrServerException {
-		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromXml(xml);
-		int successCount = indexDocuments(collection, schemalessDoc);
-		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
-				+ collection + "'" + describeIndexedFields(schemalessDoc);
+		return indexPayload(collection, xml, "xml");
 	}
 
 	/**
@@ -468,10 +459,48 @@ public class IndexingService {
 			@McpToolParam(
 					description = "Markdown string to index, optionally starting with YAML front matter") String markdown)
 			throws IOException, SolrServerException {
-		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
+		return indexPayload(collection, markdown, "markdown");
+	}
+
+	/**
+	 * Trailing sentence for indexing tool descriptions: prepare the schema before
+	 * indexing rather than relying on schemaless guesses.
+	 */
+	static final String SCHEMA_FIRST_GUIDANCE = "Before indexing, use get-schema and add-fields (or design-schema) "
+			+ "to define compatible fields. Use string with docValues for categories/facets, text_general for prose, "
+			+ "and explicit numeric types and multiValued settings. Do not rely on schemaless type guessing; "
+			+ "existing field types cannot be changed with these tools.";
+
+	/**
+	 * The one indexing path shared by the four inline tools and {@code index-url}:
+	 * parse the whole payload with the creator for its format, batch-index the
+	 * documents, and summarise. Structured formats also list the indexed field
+	 * names; Markdown, being one document, does not.
+	 *
+	 * @param collection
+	 *            target collection
+	 * @param payload
+	 *            the whole document set as text
+	 * @param format
+	 *            {@code json}, {@code csv}, {@code xml} or {@code markdown}
+	 * @return the human-readable summary the tools return
+	 * @throws IOException
+	 *             on Solr communication failure
+	 * @throws SolrServerException
+	 *             if Solr rejects the update
+	 */
+	String indexPayload(String collection, String payload, String format) throws IOException, SolrServerException {
+		List<SolrInputDocument> schemalessDoc = switch (format) {
+			case "json" -> indexingDocumentCreator.createSchemalessDocumentsFromJson(payload);
+			case "csv" -> indexingDocumentCreator.createSchemalessDocumentsFromCsv(payload);
+			case "xml" -> indexingDocumentCreator.createSchemalessDocumentsFromXml(payload);
+			case "markdown" -> indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(payload);
+			default -> throw new IllegalArgumentException("Unsupported document format: " + format);
+		};
 		int successCount = indexDocuments(collection, schemalessDoc);
-		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
-				+ collection + "'";
+		String summary = "Successfully indexed " + successCount + " of " + schemalessDoc.size()
+				+ " documents into collection '" + collection + "'";
+		return format.equals("markdown") ? summary : summary + describeIndexedFields(schemalessDoc);
 	}
 
 	/**
@@ -677,7 +706,21 @@ public class IndexingService {
 				%s
 
 				3. Index the documents.
-				   - Call `%s` with `collection=%s` and `%s=<the document payload>`.
+				   - If the data is reachable at an http(s) URL and is within the server's size limit
+				     (10 MB unless the operator changed it), prefer `index-url` with `collection` and
+				     `url`; optionally override the detected `format`. The URL is fetched by the MCP
+				     server, so it must be reachable from the server's network and its host must be on
+				     the server's allow-list (GitHub raw content by default).
+				   - If the data is larger than that limit, or is a file on the user's machine that is
+				     too large to paste, do not push it through this conversation. Give the user this
+				     command to run where the file is, with their collection name and Solr URL filled
+				     in, then continue with step 4:
+				     `bin/solr post -c <collection> <file>`
+				     or `curl -X POST '<solr-url>/<collection>/update?commit=true' -H 'Content-Type: application/json' --data-binary @<file>`
+				     (use `Content-Type: text/csv` or `application/xml` for those formats).
+				   - Otherwise, for small pasted or attached data, call `%s` with `collection=%s` and
+				     `%s=<the document payload>`. Use one path only; do not also send inline data after a
+				     successful URL call.
 				   - The tool batches internally and commits at the end. The return value is the count
 				     of successfully indexed documents.
 				   - On error, read the message carefully: an "unknown field" error means the schema is
@@ -691,7 +734,8 @@ public class IndexingService {
 
 				Next step suggestion: once data is indexed, the `search-collection` prompt drives
 				searching it.
-				""".formatted(indexTool.paramName(), collection, collection, sampleSection, indexTool.name(),
-				collection, indexTool.paramName(), collection);
+				"""
+				.formatted(indexTool.paramName(), collection, collection, sampleSection, indexTool.name(), collection,
+						indexTool.paramName(), collection);
 	}
 }

@@ -96,12 +96,13 @@ docker run -p 8080:8080 --rm -e PROFILES=http \
 
 ### MCP Tools (src/main/java/org/apache/solr/mcp/server/)
 
-Four service classes expose MCP tools via `@McpTool` annotations:
+Five service classes expose MCP tools via `@McpTool` annotations:
 
 - **SearchService** (`search/`) - Full-text search with filtering, faceting, sorting, pagination
 - **IndexingService** (`indexing/`) - Document indexing supporting JSON, CSV, XML, and markdown formats
 - **CollectionService** (`collection/`) - List collections, get stats, health checks
 - **SchemaService** (`schema/`) - Schema introspection and additive modification (add-fields, add-field-types)
+- **UrlIndexingService** (`indexing/`) - `index-url`: fetches an allow-listed http(s) URL (GitHub raw content by default, `SOLR_INDEX_URL_ALLOWED_HOSTS`), capped at `SOLR_INDEX_URL_MAX_BYTES` (10 MB), and hands the body to the same parsers as the inline tools via `IndexingService.indexPayload`
 
 ### Document Creators (Strategy Pattern)
 
@@ -401,6 +402,8 @@ Environment variables:
 - `SOLR_URL`: Solr URL (default: `http://localhost:8983/solr/`)
 - `PROFILES`: Transport mode (`stdio` or `http`)
 - `OAUTH2_ISSUER_URI`: OAuth2 issuer URL (HTTP mode only)
+- `SOLR_INDEX_URL_ALLOWED_HOSTS`: hosts `index-url` may fetch (default `raw.githubusercontent.com,*.githubusercontent.com,github.com`; `*` = any)
+- `SOLR_INDEX_URL_MAX_BYTES`, `SOLR_INDEX_URL_CONNECT_TIMEOUT`, `SOLR_INDEX_URL_READ_TIMEOUT`, `SOLR_INDEX_URL_TOTAL_TIMEOUT`, `SOLR_INDEX_URL_MAX_CONCURRENT_FETCHES`: `index-url` body cap, timeouts and concurrency limit (defaults `10MB`, `10s`, `30s`, `5m`, `4`)
 
 Dependencies managed in `gradle/libs.versions.toml`.
 

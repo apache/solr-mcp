@@ -78,8 +78,14 @@ curl -O https://raw.githubusercontent.com/apache/solr-mcp/main/src/test/resource
 }
 ```
 
-If your client cannot read local files, paste the JSON contents directly into the
-conversation instead of referencing the path.
+The quickest way to load it is `index-url` with the raw GitHub URL of the file,
+`https://raw.githubusercontent.com/apache/solr-mcp/main/src/test/resources/shows.json`:
+the server fetches it directly, so nothing passes through the model, and the host
+is on the server's default allow-list. That works in both STDIO and HTTP mode. For
+a file on your own machine, paste small data into the conversation, or for
+anything large run `bin/solr post -c shows shows.json` where the file is: the
+client cannot send files to the server and the server cannot see your disk, and
+`index-url` resolves `localhost` on the server's side, not yours.
 
 ---
 
