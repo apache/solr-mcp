@@ -14,7 +14,7 @@ Just ask your AI assistant:
 
 > *"Find sci-fi movies with 'star wars' in the title released after 2000, show me the genre breakdown, and sort by relevance."*
 
-This Spring AI [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server exposes Solr operations as tools that any MCP-compatible AI client (Claude Desktop, Claude Code, VS Code/Copilot, Cursor, JetBrains) can invoke.
+This Spring AI [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server exposes Solr operations as tools that any MCP-compatible AI client (Claude Desktop, Claude Code, VS Code/Copilot, Cursor, JetBrains, Zed) can invoke.
 
 ## Quick start
 
@@ -64,6 +64,7 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 **[VS Code / Copilot](docs/clients/vs-code.md)** ·
 **[Cursor](docs/clients/cursor.md)** ·
 **[JetBrains](docs/clients/jetbrains.md)** ·
+**[Zed](docs/clients/zed.md)** ·
 **[MCP Inspector](docs/clients/mcp-inspector.md)**.
 
 #### 4. Try it out
@@ -153,7 +154,7 @@ Running in **HTTP mode** — OAuth2, CORS, and the `HTTP_SECURITY_ENABLED` toggl
 ## Documentation
 
 **Using it**
-- [Quick start](#quick-start) · [Client setup](docs/clients/) — Claude Desktop, Claude Code, VS Code, Cursor, JetBrains, MCP Inspector
+- [Quick start](#quick-start) · [Client setup](docs/clients/) — Claude Desktop, Claude Code, VS Code, Cursor, JetBrains, Zed, MCP Inspector
 - [Tutorial: your first collection](docs/tutorial.md) — index a dataset twice, schemaless then with a designed schema, and see why field types matter
 - [Observability](docs/observability.md) — OpenTelemetry traces, metrics, logs
 - Security: [Deployment model (single-tenant)](docs/security/deployment-model.md) · [STDIO model](docs/security/stdio.md) · [HTTP model](docs/security/http.md) · OAuth2 setup: [Auth0](docs/security/auth0.md) · [Keycloak](docs/security/keycloak.md)

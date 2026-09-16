@@ -57,6 +57,8 @@ Create `.cursor/mcp.json` in your project root:
 
 Start the server in HTTP mode first (`PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar`, or `PROFILES=http ./gradlew bootRun`), then:
 
+The HTTP transport is secured by default and answers 401 until an OAuth2 issuer is configured. For a local experiment on your own machine only, add `HTTP_SECURITY_ENABLED=false` to the server's environment; see the [HTTP security model](../security/http.md) before exposing it to anyone else.
+
 ```json
 {
   "mcpServers": {
