@@ -22,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import org.apache.solr.mcp.server.TestDocuments;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.apache.solr.mcp.server.search.SearchResponse;
@@ -69,7 +70,7 @@ class ConferenceEndToEndIntegrationTest {
 		assertTrue(result.success(), "Collection creation should succeed: " + result.message());
 
 		String json = Files.readString(Path.of("mydata/devnexus-2026.json"));
-		indexingService.indexJsonDocuments(COLLECTION, json);
+		indexingService.indexJsonDocuments(COLLECTION, TestDocuments.json(json));
 	}
 
 	@Test

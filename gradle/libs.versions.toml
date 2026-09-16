@@ -27,7 +27,6 @@ cyclonedx-plugin = "3.4.1"
 # Main dependencies
 spring-ai = "2.0.1"
 solr = "10.0.0"
-commons-csv = "1.14.1"
 mcp-server-security = "0.1.14"
 # MCP Java SDK. Spring AI 2.0.1 pulls 2.0.0 transitively; 2.0.1 fixes error
 # handling when a handler is not registered on a stateless server (our HTTP
@@ -61,6 +60,7 @@ spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-star
 spring-boot-starter-actuator-test = { module = "org.springframework.boot:spring-boot-starter-actuator-test" }
 spring-boot-starter-opentelemetry-test = { module = "org.springframework.boot:spring-boot-starter-opentelemetry-test" }
 spring-boot-starter-webmvc-test = { module = "org.springframework.boot:spring-boot-starter-webmvc-test" }
+spring-security-test = { module = "org.springframework.security:spring-security-test" }
 spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
 # Spring AI
 spring-ai-starter-mcp-server-webmvc = { module = "org.springframework.ai:spring-ai-starter-mcp-server-webmvc" }
@@ -78,9 +78,6 @@ mcp-server-security = { module = "org.springaicommunity:mcp-server-security", ve
 
 # Solr
 solr-solrj = { module = "org.apache.solr:solr-solrj", version.ref = "solr" }
-
-# Apache Commons
-commons-csv = { module = "org.apache.commons:commons-csv", version.ref = "commons-csv" }
 
 # OpenTelemetry (HTTP mode only)
 spring-boot-starter-opentelemetry = { module = "org.springframework.boot:spring-boot-starter-opentelemetry" }
@@ -125,6 +122,7 @@ test = [
     "spring-boot-starter-actuator-test",
     "spring-boot-starter-opentelemetry-test",
     "spring-boot-starter-webmvc-test",
+    "spring-security-test",
     "spring-boot-testcontainers",
     "spring-ai-spring-boot-testcontainers",
     "testcontainers-junit-jupiter",

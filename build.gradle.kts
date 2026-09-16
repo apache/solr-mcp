@@ -191,7 +191,6 @@ dependencies {
     // and other types from it.
     implementation(libs.spring.ai.autoconfigure.mcp.server.common)
     implementation(libs.solr.solrj)
-    implementation(libs.commons.csv)
     // CommonMark for markdown parsing
     implementation(libs.commonmark)
     implementation(libs.commonmark.ext.yaml.front.matter)

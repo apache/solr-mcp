@@ -19,19 +19,19 @@ package org.apache.solr.mcp.server.indexing;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
+import org.apache.solr.client.solrj.request.SolrQuery;
 import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.mcp.server.TestDocuments;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
-import org.apache.solr.mcp.server.indexing.documentcreator.CsvDocumentCreator;
+import org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
-import org.apache.solr.mcp.server.indexing.documentcreator.JsonDocumentCreator;
-import org.apache.solr.mcp.server.indexing.documentcreator.MarkdownDocumentCreator;
-import org.apache.solr.mcp.server.indexing.documentcreator.XmlDocumentCreator;
 import org.apache.solr.mcp.server.search.SearchResponse;
 import org.apache.solr.mcp.server.search.SearchService;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,20 +68,6 @@ class IndexingServiceIntegrationTest {
 
 	@BeforeEach
 	void setUp() throws Exception {
-
-		// Create processor instances and wire them manually since this is not a Spring
-		// Boot test
-		XmlDocumentCreator xmlDocumentCreator = new XmlDocumentCreator();
-		CsvDocumentCreator csvDocumentCreator = new CsvDocumentCreator();
-		JsonDocumentCreator jsonDocumentCreator = new JsonDocumentCreator(
-				tools.jackson.databind.json.JsonMapper.builder().build());
-		MarkdownDocumentCreator markdownDocumentCreator = new MarkdownDocumentCreator();
-
-		indexingDocumentCreator = new IndexingDocumentCreator(xmlDocumentCreator, csvDocumentCreator,
-				jsonDocumentCreator, markdownDocumentCreator);
-
-		indexingService = new IndexingService(solrClient, indexingDocumentCreator);
-		searchService = new SearchService(solrClient);
 
 		if (!initialized) {
 			// Create collection
@@ -173,7 +159,7 @@ class IndexingServiceIntegrationTest {
 				]
 				""";
 
-		String result = indexingService.indexJsonDocuments(COLLECTION_NAME, json);
+		String result = indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
 		// The response must list the names as indexed, not as submitted, so MCP
 		// clients query the fields that actually exist.
@@ -210,7 +196,7 @@ class IndexingServiceIntegrationTest {
 				""";
 
 		// Index documents
-		indexingService.indexJsonDocuments(COLLECTION_NAME, json);
+		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
 		// Verify documents were indexed by searching for them
 		SearchResponse result = searchService.search(COLLECTION_NAME, "id:test002 OR id:test003", null, null, null,
@@ -315,7 +301,7 @@ class IndexingServiceIntegrationTest {
 				""";
 
 		// Index documents
-		indexingService.indexJsonDocuments(COLLECTION_NAME, json);
+		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
 		// Verify documents were indexed by searching for them
 		SearchResponse result = searchService.search(COLLECTION_NAME, "id:test004", null, null, null, null, null);
@@ -379,7 +365,7 @@ class IndexingServiceIntegrationTest {
 				""";
 
 		// Index documents
-		indexingService.indexJsonDocuments(COLLECTION_NAME, json);
+		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
 		// Verify documents were indexed with sanitized field names
 		SearchResponse result = searchService.search(COLLECTION_NAME, "id:test005", null, null, null, null, null);
@@ -471,7 +457,7 @@ class IndexingServiceIntegrationTest {
 				""";
 
 		// Index documents
-		indexingService.indexJsonDocuments(COLLECTION_NAME, json);
+		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
 		// Verify documents were indexed by searching for them
 		SearchResponse result = searchService.search(COLLECTION_NAME, "id:nested001", null, null, null, null, null);
@@ -551,7 +537,7 @@ class IndexingServiceIntegrationTest {
 				""";
 
 		// Index documents
-		indexingService.indexJsonDocuments(COLLECTION_NAME, json);
+		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
 		// Verify documents were indexed by searching for them
 		SearchResponse result = searchService.search(COLLECTION_NAME, "id:special_fields_001", null, null, null, null,
@@ -640,7 +626,7 @@ class IndexingServiceIntegrationTest {
 				""";
 
 		// Index documents
-		indexingService.indexJsonDocuments(COLLECTION_NAME, json);
+		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
 		// Verify documents were indexed by searching for them
 		SearchResponse result = searchService.search(COLLECTION_NAME, "id:array_objects_001", null, null, null, null,
@@ -780,5 +766,40 @@ class IndexingServiceIntegrationTest {
 		assertEquals("Value 5", doc.getFieldValue("leading_underscores"));
 		assertEquals("Value 6", doc.getFieldValue("trailing_underscores"));
 		assertEquals("Value 7", doc.getFieldValue("multiple_underscores"));
+	}
+
+	@Test
+	void indexCsvDocuments_goesThroughSolrsCsvHandlerWithColumnNamesAsGiven() throws Exception {
+		String result = indexingService.indexCsvDocuments(COLLECTION_NAME, """
+				id,Title,genres,genres,imdb_rating
+				csv-001,Alpha,Drama,Comedy,8.7
+				csv-002,Beta,Horror,,7.1
+				""");
+
+		assertTrue(result.contains("Solr accepted the CSV payload"), result);
+		var alpha = solrClient.query(COLLECTION_NAME, new SolrQuery("id:csv-001")).getResults().getFirst();
+		assertEquals("Alpha", alpha.getFirstValue("Title"), "the header name is used as given, not lower-cased");
+		assertEquals(List.of("Drama", "Comedy"), alpha.getFieldValues("genres"));
+		var beta = solrClient.query(COLLECTION_NAME, new SolrQuery("id:csv-002")).getResults().getFirst();
+		assertEquals(List.of("Horror"), beta.getFieldValues("genres"));
+	}
+
+	@Test
+	void indexXmlDocuments_forwardsSolrUpdateXmlAndRejectsCommands() throws Exception {
+		String result = indexingService.indexXmlDocuments(COLLECTION_NAME, """
+				<add>
+				  <doc><field name="id">xml-001</field><field name="title">Gamma</field>
+				       <field name="genres">Sci-Fi</field><field name="genres">Drama</field></doc>
+				</add>
+				""");
+
+		assertTrue(result.contains("Solr accepted the XML <add> block"), result);
+		var gamma = solrClient.query(COLLECTION_NAME, new SolrQuery("id:xml-001")).getResults().getFirst();
+		assertEquals("Gamma", gamma.getFirstValue("title"));
+		assertEquals(List.of("Sci-Fi", "Drama"), gamma.getFieldValues("genres"));
+
+		assertThrows(DocumentProcessingException.class,
+				() -> indexingService.indexXmlDocuments(COLLECTION_NAME, "<delete><id>xml-001</id></delete>"));
+		assertEquals(1, solrClient.query(COLLECTION_NAME, new SolrQuery("id:xml-001")).getResults().getNumFound());
 	}
 }

@@ -22,17 +22,21 @@ import static org.awaitility.Awaitility.await;
 import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
+import org.apache.solr.mcp.server.TestDocuments;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.apache.solr.mcp.server.search.SearchService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.grafana.LgtmStackContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -63,16 +67,10 @@ import tools.jackson.databind.ObjectMapper;
  * container integration which auto-configures OTLP export endpoints.
  *
  * <p>
- * <b>NOTE:</b> This test is currently disabled due to a Jetty HTTP client
- * ClassNotFoundException when using LgtmStackContainer. The
- * testcontainers-grafana module requires
- * {@code org.eclipse.jetty.client.transport.HttpClientTransportOverHTTP} which
- * is not properly resolved with the current Jetty BOM configuration. This is a
- * known issue and can be addressed separately. The core distributed tracing
- * functionality is tested by {@link DistributedTracingTest} which uses
- * SimpleTracer and passes all tests successfully.
+ * Runs against a real LGTM container and authenticates its own thread, because
+ * the http profile keeps method security on. {@link DistributedTracingTest}
+ * covers the same tracing paths in-memory without a container.
  */
-@Disabled("Jetty HTTP client ClassNotFoundException with LgtmStackContainer - see class javadoc")
 @SpringBootTest(
 		webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
 		properties = {
@@ -117,6 +115,23 @@ class OtlpExportIntegrationTest {
 		createRequest.process(solrClient);
 	}
 
+	/**
+	 * The http profile keeps secure-by-default on, so the {@code @PreAuthorize}
+	 * service methods this test calls directly need an authenticated principal.
+	 * Over MCP the OAuth2 filter chain supplies one; here the test thread does,
+	 * which keeps method security active rather than switching it off.
+	 */
+	@BeforeEach
+	void authenticateTestThread() {
+		var authentication = new TestingAuthenticationToken("otlp-test", null, "ROLE_USER");
+		SecurityContextHolder.getContext().setAuthentication(authentication);
+	}
+
+	@AfterEach
+	void clearAuthentication() {
+		SecurityContextHolder.clearContext();
+	}
+
 	@Test
 	void shouldExportTracesWithoutErrors() throws Exception {
 		// Given: Some test data
@@ -132,7 +147,7 @@ class OtlpExportIntegrationTest {
 
 		// When: We perform operations that create spans
 		// Then: Operations should execute without throwing exceptions
-		indexingService.indexJsonDocuments(COLLECTION_NAME, testData);
+		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(testData));
 		solrClient.commit(COLLECTION_NAME);
 		searchService.search(COLLECTION_NAME, "*:*", null, null, null, null, null);
 
@@ -161,7 +176,7 @@ class OtlpExportIntegrationTest {
 				""";
 
 		// Then: All operations should succeed
-		indexingService.indexJsonDocuments(COLLECTION_NAME, testData);
+		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(testData));
 		solrClient.commit(COLLECTION_NAME);
 
 		// Verify we can search for the documents
@@ -175,7 +190,7 @@ class OtlpExportIntegrationTest {
 		String testData = """
 				[{"id": "metrics_test_1", "name": "Metrics Test"}]
 				""";
-		indexingService.indexJsonDocuments(COLLECTION_NAME, testData);
+		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(testData));
 		solrClient.commit(COLLECTION_NAME);
 		searchService.search(COLLECTION_NAME, "*:*", null, null, null, null, null);
 

@@ -16,7 +16,6 @@
  */
 package org.apache.solr.mcp.server.indexing.documentcreator;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -38,8 +37,6 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Component
 public class JsonDocumentCreator implements SolrDocumentCreator {
-
-	private static final int MAX_INPUT_SIZE_BYTES = 10 * 1024 * 1024;
 
 	private final ObjectMapper objectMapper;
 
@@ -119,38 +116,79 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
 		if (json.isBlank()) {
 			throw new DocumentProcessingException("JSON input cannot be empty");
 		}
-		if (json.getBytes(StandardCharsets.UTF_8).length > MAX_INPUT_SIZE_BYTES) {
-			throw new DocumentProcessingException(
-					"Input too large: exceeds maximum size of " + MAX_INPUT_SIZE_BYTES + " bytes");
-		}
 
-		List<SolrInputDocument> documents = new ArrayList<>();
-
+		JsonNode rootNode;
 		try {
-			JsonNode rootNode = this.objectMapper.readTree(json);
-
-			if (rootNode.isArray()) {
-				for (JsonNode item : rootNode) {
-					SolrInputDocument doc = new SolrInputDocument();
-
-					// Add all fields without type suffixes - let Solr figure it out
-					addAllFieldsFlat(doc, item, "");
-					documents.add(doc);
-				}
-			} else if (rootNode.isObject()) {
-				// A single document. Previously fell through and returned an empty
-				// list, so indexing one object silently indexed nothing.
-				SolrInputDocument doc = new SolrInputDocument();
-				addAllFieldsFlat(doc, rootNode, "");
-				documents.add(doc);
-			} else {
-				throw new DocumentProcessingException("JSON input must be an object or an array of objects");
-			}
+			rootNode = this.objectMapper.readTree(json);
 		} catch (JacksonException e) {
 			throw new DocumentProcessingException("Failed to parse JSON document", e);
 		}
+		if (!rootNode.isArray() && !rootNode.isObject()) {
+			throw new DocumentProcessingException("JSON input must be an object or an array of objects");
+		}
+		return flatten(rootNode);
+	}
 
+	/**
+	 * Creates schema-less documents from already-parsed JSON objects, one document
+	 * per map. This is the entry point for the {@code index-json-documents} tool,
+	 * whose {@code documents} argument is a typed JSON array: the MCP client parses
+	 * it, so the model emits native JSON instead of JSON escaped inside a string.
+	 *
+	 * <p>
+	 * The maps are converted to a {@link JsonNode} tree and handed to the same
+	 * {@link #flatten(JsonNode)} walk {@link #create(String)} uses, so both entry
+	 * points flatten and sanitize identically by construction.
+	 *
+	 * @param documents
+	 *            the documents, each a map of field name to value
+	 * @return list of SolrInputDocument objects ready for indexing
+	 * @throws DocumentProcessingException
+	 *             if the list is {@code null} or empty
+	 */
+	public List<SolrInputDocument> create(List<Map<String, Object>> documents) throws DocumentProcessingException {
+		if (documents == null || documents.isEmpty()) {
+			throw new DocumentProcessingException("JSON input cannot be empty");
+		}
+		return flatten(objectMapper.valueToTree(documents));
+	}
+
+	/**
+	 * Builds one document per element of an array node, or a single document from
+	 * an object node.
+	 *
+	 * <p>
+	 * A lone object is a single document: it previously fell through and returned
+	 * an empty list, so indexing one object silently indexed nothing.
+	 *
+	 * @param rootNode
+	 *            an array of document objects, or one document object
+	 * @return list of SolrInputDocument objects ready for indexing
+	 */
+	private List<SolrInputDocument> flatten(JsonNode rootNode) {
+		List<SolrInputDocument> documents = new ArrayList<>(rootNode.size());
+		if (rootNode.isArray()) {
+			for (JsonNode item : rootNode) {
+				documents.add(toDocument(item));
+			}
+		} else {
+			documents.add(toDocument(rootNode));
+		}
 		return documents;
+	}
+
+	/**
+	 * Flattens one JSON object node into a SolrInputDocument. Field names are added
+	 * without type suffixes; Solr infers the types.
+	 *
+	 * @param node
+	 *            the JSON object to flatten
+	 * @return the document, with nested objects flattened and arrays multi-valued
+	 */
+	private SolrInputDocument toDocument(JsonNode node) {
+		SolrInputDocument doc = new SolrInputDocument();
+		addAllFieldsFlat(doc, node, "");
+		return doc;
 	}
 
 	/**

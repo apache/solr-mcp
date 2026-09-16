@@ -103,13 +103,24 @@ Four service classes expose MCP tools via `@McpTool` annotations:
 - **CollectionService** (`collection/`) - List collections, get stats, health checks
 - **SchemaService** (`schema/`) - Schema introspection and additive modification (add-fields, add-field-types)
 
-### Document Creators (Strategy Pattern)
+### Document Creators and pass-throughs
 
-`indexing/documentcreator/` uses strategy pattern for format parsing:
+Only the formats Solr cannot parse itself go through server-side document creators
+in `indexing/documentcreator/`:
 - `SolrDocumentCreator` - Common interface
-- `JsonDocumentCreator`, `CsvDocumentCreator`, `XmlDocumentCreator`, `MarkdownDocumentCreator` - Format implementations
-- `IndexingDocumentCreator` - Orchestrator that delegates to format-specific creators
+- `JsonDocumentCreator`, `MarkdownDocumentCreator` - Format implementations (Jackson, commonmark)
+- `IndexingDocumentCreator` - Orchestrator that delegates to the format-specific creator
 - `FieldNameSanitizer` - Automatic field name validation for Solr compatibility
+
+CSV and XML are forwarded unchanged to Solr's own update handlers (`/update` with
+`text/csv` or `application/xml`); the server does not parse them and field names
+are used as given. The one server-side step is `indexing/SolrUpdateXml`, a
+hardened StAX read up to the root element that rejects anything but an `<add>`
+block, because Solr's update grammar also carries `<delete>` and `<commit>` on the
+same endpoint. There is no generic-XML mapping; the XML tool takes Solr update XML
+(`<add><doc><field name="...">`). Solr's update response carries no document
+count, so these two tools report that Solr accepted the payload rather than a
+count.
 
 ### Transport Modes
 

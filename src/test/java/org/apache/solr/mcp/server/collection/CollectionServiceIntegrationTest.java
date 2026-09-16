@@ -40,7 +40,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import tools.jackson.databind.json.JsonMapper;
 
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
@@ -64,9 +63,6 @@ class CollectionServiceIntegrationTest {
 	@Autowired
 	private SearchService searchService;
 
-	@Autowired
-	private JsonMapper jsonMapper;
-
 	@BeforeAll
 	void setupCollectionWithData() throws Exception {
 		// 1. Create collection via CollectionService MCP tool
@@ -84,8 +80,7 @@ class CollectionServiceIntegrationTest {
 			doc.put("count_i", i);
 			docs.add(doc);
 		}
-		String json = jsonMapper.writeValueAsString(docs);
-		indexingService.indexJsonDocuments(TEST_COLLECTION, json);
+		indexingService.indexJsonDocuments(TEST_COLLECTION, docs);
 		log.debug("Indexed {} documents via IndexingService", DOC_COUNT);
 
 		// 3. Run searches via SearchService MCP tool to populate caches and handler

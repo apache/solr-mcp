@@ -16,12 +16,12 @@ src/main/java/org/apache/solr/mcp/server/
 │   ├── SearchService.java             # MCP tool for searching Solr
 │   └── SearchResponse.java            # Search result DTOs
 ├── indexing/                           # Document indexing functionality
-│   ├── IndexingService.java           # MCP tool for indexing documents
-│   └── documentcreator/               # Document format parsers
+│   ├── IndexingService.java           # MCP tools for indexing documents
+│   ├── SolrUpdateXml.java             # Rejects anything but an <add> block before XML is forwarded to Solr
+│   └── documentcreator/               # Parsers for the formats Solr cannot parse itself
 │       ├── IndexingDocumentCreator.java    # Orchestrator that delegates to format-specific creators
 │       ├── JsonDocumentCreator.java        # JSON document parser (implements SolrDocumentCreator)
-│       ├── CsvDocumentCreator.java         # CSV document parser (implements SolrDocumentCreator)
-│       ├── XmlDocumentCreator.java         # XML document parser (implements SolrDocumentCreator)
+│       ├── MarkdownDocumentCreator.java    # Markdown document parser (implements SolrDocumentCreator)
 │       ├── SolrDocumentCreator.java        # Common interface for document creators
 │       ├── FieldNameSanitizer.java         # Field name sanitization utility
 │       └── DocumentProcessingException.java # Indexing exceptions
@@ -53,11 +53,16 @@ Spring Boot configuration using properties files:
 
 ### Document Creators
 
-Strategy pattern implementation for parsing different document formats:
+Server-side parsing exists only for JSON and Markdown, the formats Solr's update
+handlers do not accept directly:
 
 - Automatically sanitizes field names to comply with Solr schema requirements
 - Supports nested JSON structures and multi-valued fields
 - Delegation via service composition (IndexingDocumentCreator) to the appropriate format-specific creator
+
+CSV and Solr update XML are forwarded to Solr as-is, field names as given. The only
+server-side step is `SolrUpdateXml`, which rejects any XML root other than `<add>`
+so the indexing tool cannot carry `<delete>` or `<commit>`.
 
 ### DTOs
 
@@ -145,8 +150,9 @@ src/test/java/org/apache/solr/mcp/server/
 ├── indexing/
 │   ├── IndexingServiceTest.java
 │   ├── IndexingServiceIntegrationTest.java
-│   ├── CsvIndexingTest.java
-│   └── XmlIndexingTest.java
+│   ├── SolrUpdateXmlTest.java             # <add>-only gate
+│   ├── MarkdownIndexingTest.java
+│   └── ShowsSampleDataIntegrationTest.java  # JSON/CSV/XML parity
 ├── collection/
 │   ├── CollectionServiceTest.java
 │   ├── CollectionUtilsTest.java
