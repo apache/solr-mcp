@@ -463,6 +463,15 @@ public class IndexingService {
 	}
 
 	/**
+	 * Trailing sentence for indexing tool descriptions: prepare the schema before
+	 * indexing rather than relying on schemaless guesses.
+	 */
+	static final String SCHEMA_FIRST_GUIDANCE = "Before indexing, use get-schema and add-fields (or design-schema) "
+			+ "to define compatible fields. Use string with docValues for categories/facets, text_general for prose, "
+			+ "and explicit numeric types and multiValued settings. Do not rely on schemaless type guessing; "
+			+ "existing field types cannot be changed with these tools.";
+
+	/**
 	 * The one indexing path shared by the four inline tools and {@code index-url}:
 	 * parse the whole payload with the creator for its format, batch-index the
 	 * documents, and summarise. Structured formats also list the indexed field
