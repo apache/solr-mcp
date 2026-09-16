@@ -828,6 +828,15 @@ public abstract class McpClientIntegrationTestBase {
 				"view-schema prompt completion should resolve the created collection: " + result.completion().values());
 	}
 
+	@Test
+	@Order(40)
+	void searchFailureIsAnActionableMcpToolError() {
+		var result = mcpClient.callTool(new CallToolRequest("search",
+				Map.of("collection", SHOWS_COLLECTION, "facetFields", List.of("nonexistent_field_xyz"))));
+		assertEquals(Boolean.TRUE, result.isError());
+		assertTrue(extractText(result).contains("get-schema"), extractText(result));
+	}
+
 	private static String extractFirstMessageText(GetPromptResult result) {
 		List<PromptMessage> messages = result.messages();
 		assertFalse(messages.isEmpty(), "messages must not be empty");
