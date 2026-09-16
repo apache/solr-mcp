@@ -706,7 +706,21 @@ public class IndexingService {
 				%s
 
 				3. Index the documents.
-				   - Call `%s` with `collection=%s` and `%s=<the document payload>`.
+				   - If the data is reachable at an http(s) URL and is within the server's size limit
+				     (10 MB unless the operator changed it), prefer `index-url` with `collection` and
+				     `url`; optionally override the detected `format`. The URL is fetched by the MCP
+				     server, so it must be reachable from the server's network and its host must be on
+				     the server's allow-list (GitHub raw content by default).
+				   - If the data is larger than that limit, or is a file on the user's machine that is
+				     too large to paste, do not push it through this conversation. Give the user this
+				     command to run where the file is, with their collection name and Solr URL filled
+				     in, then continue with step 4:
+				     `bin/solr post -c <collection> <file>`
+				     or `curl -X POST '<solr-url>/<collection>/update?commit=true' -H 'Content-Type: application/json' --data-binary @<file>`
+				     (use `Content-Type: text/csv` or `application/xml` for those formats).
+				   - Otherwise, for small pasted or attached data, call `%s` with `collection=%s` and
+				     `%s=<the document payload>`. Use one path only; do not also send inline data after a
+				     successful URL call.
 				   - The tool batches internally and commits at the end. The return value is the count
 				     of successfully indexed documents.
 				   - On error, read the message carefully: an "unknown field" error means the schema is
@@ -720,7 +734,8 @@ public class IndexingService {
 
 				Next step suggestion: once data is indexed, the `search-collection` prompt drives
 				searching it.
-				""".formatted(indexTool.paramName(), collection, collection, sampleSection, indexTool.name(),
-				collection, indexTool.paramName(), collection);
+				"""
+				.formatted(indexTool.paramName(), collection, collection, sampleSection, indexTool.name(), collection,
+						indexTool.paramName(), collection);
 	}
 }

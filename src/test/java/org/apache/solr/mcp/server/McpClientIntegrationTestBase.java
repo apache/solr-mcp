@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sun.net.httpserver.HttpServer;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
@@ -33,8 +34,12 @@ import io.modelcontextprotocol.spec.McpSchema.PromptReference;
 import io.modelcontextprotocol.spec.McpSchema.ResourceReference;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
+import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -105,6 +110,7 @@ public abstract class McpClientIntegrationTestBase {
 		assertTrue(toolNames.contains("create-collection"), "Should have create-collection tool");
 		assertTrue(toolNames.contains("index-json-documents"), "Should have index-json-documents tool");
 		assertTrue(toolNames.contains("index-markdown-documents"), "Should have index-markdown-documents tool");
+		assertTrue(toolNames.contains("index-url"), "index-url must be registered in every transport");
 		assertTrue(toolNames.contains("search"), "Should have search tool");
 		assertTrue(toolNames.contains("list-collections"), "Should have list-collections tool");
 		assertTrue(toolNames.contains("check-health"), "Should have check-health tool");
@@ -137,6 +143,11 @@ public abstract class McpClientIntegrationTestBase {
 		assertHint(tools, "index-csv-documents", false, true, true);
 		assertHint(tools, "index-xml-documents", false, true, true);
 		assertHint(tools, "index-markdown-documents", false, true, true);
+		// index-url: same write semantics, and openWorld because it contacts a
+		// caller-chosen external system.
+		assertHint(tools, "index-url", false, true, true);
+		assertEquals(Boolean.TRUE, tools.get("index-url").annotations().openWorldHint(),
+				"index-url should declare openWorldHint");
 	}
 
 	private static void assertReadOnly(Map<String, Tool> tools, String name) {
@@ -843,6 +854,30 @@ public abstract class McpClientIntegrationTestBase {
 			Objects.requireNonNull(in, "Classpath resource not found: " + resourcePath);
 			return new String(in.readAllBytes(), StandardCharsets.UTF_8);
 		}
+	}
+
+	/**
+	 * Serves {@code src/test/resources/shows.json} at {@code /shows.json} on an
+	 * ephemeral loopback port, as {@code text/plain} the way raw GitHub does, so
+	 * {@code index-url} has to resolve the format from the extension. The caller
+	 * stops the server.
+	 */
+	protected static HttpServer serveShowsJson() throws IOException {
+		byte[] body = Files.readAllBytes(Path.of("src/test/resources/shows.json"));
+		HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+		server.createContext("/shows.json", exchange -> {
+			exchange.getResponseHeaders().add("Content-Type", "text/plain; charset=utf-8");
+			exchange.sendResponseHeaders(200, body.length);
+			try (var out = exchange.getResponseBody()) {
+				out.write(body);
+			}
+		});
+		server.start();
+		return server;
+	}
+
+	protected static String showsJsonUrl(HttpServer server) {
+		return "http://127.0.0.1:" + server.getAddress().getPort() + "/shows.json";
 	}
 
 	protected static String extractText(CallToolResult result) {

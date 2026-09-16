@@ -16,10 +16,17 @@
  */
 package org.apache.solr.mcp.server;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import com.fasterxml.jackson.core.type.TypeReference;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
+import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
+import java.util.Map;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
@@ -33,7 +40,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  */
 @SpringBootTest(
 		webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-		properties = {"http.security.enabled=false", "spring.docker.compose.enabled=false"})
+		properties = {"http.security.enabled=false", "spring.docker.compose.enabled=false",
+				"solr.index-url.allowed-hosts=*"})
 @ActiveProfiles("http")
 @Import(TestcontainersConfiguration.class)
 @Tag("integration")
@@ -47,6 +55,42 @@ class McpClientIntegrationTest extends McpClientIntegrationTestBase {
 	protected McpSyncClient createClient() {
 		var transport = HttpClientStreamableHttpTransport.builder("http://localhost:" + port).build();
 		return McpClient.sync(transport).build();
+	}
+
+	/**
+	 * URL ingestion must work over HTTP exactly as it does over STDIO (#208): the
+	 * base class asserts the tool and its hints; this is the round trip.
+	 */
+	@Test
+	@Order(42)
+	void indexesFromAUrlThroughHttpMcp() throws Exception {
+		var server = serveShowsJson();
+		try {
+			String collection = "shows-url-copy";
+			assertNotError(mcpClient.callTool(new CallToolRequest("create-collection", Map.of("name", collection))));
+			var indexed = mcpClient.callTool(
+					new CallToolRequest("index-url", Map.of("collection", collection, "url", showsJsonUrl(server))));
+			assertNotError(indexed);
+			assertTrue(extractText(indexed).contains("61 of 61"), extractText(indexed));
+			assertFalse(extractText(indexed).contains("Stranger Things"), "payload leaked into the summary");
+			var searched = mcpClient.callTool(
+					new CallToolRequest("search", Map.of("collection", collection, "query", "*:*", "rows", 0)));
+			assertNotError(searched);
+			Map<String, Object> response = OBJECT_MAPPER.readValue(extractText(searched), new TypeReference<>() {
+			});
+			assertEquals(SHOWS_DOC_COUNT, getNumFound(response));
+		} finally {
+			server.stop(0);
+		}
+	}
+
+	@Test
+	@Order(43)
+	void aRefusedAddressIsAnMcpToolError() {
+		var result = mcpClient.callTool(new CallToolRequest("index-url",
+				Map.of("collection", SHOWS_COLLECTION, "url", "http://169.254.169.254/latest/meta-data/")));
+		assertEquals(Boolean.TRUE, result.isError());
+		assertTrue(extractText(result).contains("link-local or cloud-metadata"), extractText(result));
 	}
 
 }

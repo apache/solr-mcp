@@ -124,6 +124,11 @@ exists for browser-based tooling.
 - `http.security.enabled=false` on a network-reachable deployment.
 - Passing `SOLR_URL` from MCP tool input — it must come from deployer-controlled
   environment.
+- Setting `SOLR_INDEX_URL_ALLOWED_HOSTS=*` on a deployment whose network has
+  internal services you would not expose to every authenticated MCP caller.
+  `index-url` fetches any allow-listed host the server can reach; with `*` that
+  includes loopback and RFC1918 services (link-local and cloud-metadata addresses
+  stay refused). Keep the default GitHub allow-list or add specific hosts.
 
 ## Primary sources
 
