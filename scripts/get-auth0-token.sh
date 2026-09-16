@@ -46,7 +46,7 @@
 #   export AUTH0_DOMAIN=your-tenant.auth0.com
 #   export AUTH0_CLIENT_ID=your-client-id
 #   export AUTH0_CLIENT_SECRET=your-client-secret
-#   export AUTH0_AUDIENCE=https://solr-mcp-api
+#   export AUTH0_AUDIENCE=http://localhost:8080/mcp   # the MCP server's resource URI
 #   ./scripts/get-auth0-token.sh
 #
 #   # Using command line arguments
@@ -54,7 +54,7 @@
 #     --domain your-tenant.auth0.com \
 #     --client-id your-client-id \
 #     --client-secret your-client-secret \
-#     --audience https://solr-mcp-api
+#     --audience http://localhost:8080/mcp
 #
 #   # Save token to custom file
 #   ./scripts/get-auth0-token.sh -o my-token.txt

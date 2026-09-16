@@ -16,6 +16,7 @@ This guide covers setting up [Keycloak](https://www.keycloak.org/) as an OAuth2/
 - [Spring Boot Configuration](#spring-boot-configuration)
 - [Running the Server](#running-the-server)
 - [Testing Authentication](#testing-authentication)
+- [Connecting an MCP Client](#connecting-an-mcp-client)
 - [Configuring a Spring AI MCP Client](#configuring-a-spring-ai-mcp-client)
 - [User Management Options](#user-management-options)
   - [Manual User Creation](#manual-user-creation)
@@ -286,6 +287,13 @@ curl -s http://localhost:8080/.well-known/oauth-protected-resource | jq -r .reso
 # http://localhost:8080/mcp
 ```
 
+That value is derived from the URL the client calls — scheme, host and port
+plus `/mcp` — not from a fixed setting. A token whose `aud` is
+`http://localhost:8080/mcp` is rejected with `The aud claim is not valid` when
+the client dials `http://127.0.0.1:8080/mcp`, and a server reached through a
+public hostname expects that hostname. Use the same spelling in the mapper and
+in every client.
+
 Keycloak does not honour the RFC 8707 `resource=` parameter yet
 ([keycloak#41526](https://github.com/keycloak/keycloak/issues/41526)), so the
 supported approach is an **Audience** protocol mapper:
@@ -469,6 +477,60 @@ To see *why* a token was rejected:
 curl -s -i -H "Authorization: Bearer $TOKEN" http://localhost:8080/actuator/metrics \
   | grep -i www-authenticate
 ```
+
+## Connecting an MCP Client
+
+The curl calls above prove the server; this connects a real client. One fact
+shapes the setup: **the server does not answer an anonymous `/mcp` request with
+`401`** (`/mcp` is `permitAll`, and `@PreAuthorize` denies inside each tool), and
+MCP clients start their OAuth flow only on a `401`. A client given just the URL
+shows the server as connected, lists every tool, and gets `Access Denied` from
+every call — no browser opens. So pass the token yourself.
+
+Keycloak's default access-token lifetime is 300 s, which is shorter than most
+trial sessions. Raise it on the realm before handing out tokens (one hour here;
+`$ADMIN_TOKEN` is from the Quick Start and itself expires after 300 s, so
+re-request it if the call returns `401`):
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -X PUT "$KC/admin/realms/solr-mcp" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"accessTokenLifespan":3600}'
+# 204
+```
+
+Then obtain a token and hand it to the client:
+
+```bash
+TOKEN=$(curl -s -X POST "$KC/realms/solr-mcp/protocol/openid-connect/token" \
+  -d client_id=solr-mcp-client -d username=testuser \
+  -d password=testpassword -d grant_type=password | jq -r .access_token)
+
+# Claude Code
+claude mcp add --transport http solr-mcp http://localhost:8080/mcp \
+  --header "Authorization: Bearer $TOKEN"
+claude mcp list          # solr-mcp: http://localhost:8080/mcp (HTTP) - ✔ Connected
+
+# MCP Inspector, CLI — one tool call, no browser
+npx @modelcontextprotocol/inspector --cli http://localhost:8080/mcp --transport http \
+  --header "Authorization: Bearer $TOKEN" --method tools/call --tool-name list-collections
+
+# MCP Inspector, web UI — the header applies to the ad-hoc server it opens with
+npx @modelcontextprotocol/inspector --server-url http://localhost:8080/mcp --transport http \
+  --header "Authorization: Bearer $TOKEN"
+```
+
+Note that `claude mcp list` reports `✔ Connected` with or without the header —
+the handshake is anonymous. The test that matters is a tool call: ask Claude
+Code to run `list-collections`, and expect the collection names, not
+`Access Denied`.
+
+When the token expires, calls fail with `401` and Claude Code reports the
+connection as failed (it does not re-authenticate a server whose
+`Authorization` header you configured). Re-run `claude mcp add` with a fresh
+token. The other clients take the same header — see
+[the table in `http.md`](./http.md#connecting-an-mcp-client-to-a-secured-server)
+for VS Code, Cursor, Zed and `mcp-remote`.
 
 ## Configuring a Spring AI MCP Client
 
