@@ -16,8 +16,10 @@
  */
 package org.apache.solr.mcp.server.config;
 
+import java.net.URI;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.util.StringUtils;
 
 /**
  * Spring Boot Configuration Properties record for Apache Solr connection
@@ -101,12 +103,17 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * that requires Solr connection information.
  *
  * <p>
- * <strong>Validation Considerations:</strong>
+ * <strong>Validation:</strong>
  *
  * <p>
- * While basic validation is handled by the configuration system, additional URL
- * validation and normalization occurs in the {@link SolrConfig} class during
- * SolrClient bean creation.
+ * {@code url} must be an absolute {@code http} or {@code https} URL with a
+ * host. The compact constructor enforces this at bind time, so a misconfigured
+ * deployment fails at startup with an actionable message instead of at first
+ * request with an opaque SolrJ error. {@code localhost:8983} (scheme omitted)
+ * is the easy mistake: {@code java.net.URI} parses it as scheme
+ * {@code localhost} with no host, and path normalization in {@link SolrConfig}
+ * would otherwise concatenate it without noticing. Path normalization (adding
+ * {@code /solr/}) still happens in {@link SolrConfig}.
  *
  * <p>
  * <strong>Optional Basic Authentication:</strong>
@@ -120,7 +127,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * header is attached and the client behaves as before.
  *
  * @param url
- *            the base URL of the Apache Solr server (required, non-null)
+ *            the base URL of the Apache Solr server; an absolute http(s) URL
+ *            with a host
  * @param username
  *            the HTTP Basic Authentication username (optional; required
  *            together with {@code password} to enable auth)
@@ -133,4 +141,33 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  */
 @ConfigurationProperties(prefix = "solr")
 public record SolrConfigurationProperties(String url, @Nullable String username, @Nullable String password) {
+
+	private static final String HTTP = "http";
+
+	private static final String HTTPS = "https";
+
+	public SolrConfigurationProperties {
+		if (!isAbsoluteHttpUrlWithHost(url)) {
+			throw new IllegalArgumentException("solr.url must be an absolute http or https URL including a host, "
+					+ "for example http://localhost:8983/solr/ (was: '" + url + "')");
+		}
+	}
+
+	/**
+	 * The binder hands over whatever was configured, including nothing at all, so
+	 * this is the one place a null or blank value can arrive.
+	 */
+	private static boolean isAbsoluteHttpUrlWithHost(@Nullable String url) {
+		if (!StringUtils.hasText(url)) {
+			return false;
+		}
+		URI uri;
+		try {
+			uri = URI.create(url);
+		} catch (IllegalArgumentException ex) {
+			return false;
+		}
+		String scheme = uri.getScheme();
+		return (HTTP.equals(scheme) || HTTPS.equals(scheme)) && StringUtils.hasText(uri.getHost());
+	}
 }
