@@ -310,10 +310,16 @@ public class IndexingService {
 	 * round trip, so the status and query time reported here cover the commit this
 	 * message claims. Solr's update response carries no document count, so none is
 	 * claimed.
+	 *
+	 * <p>
+	 * The commit is a soft one: {@code waitSearcher} keeps the documents searchable
+	 * the moment the tool returns, while the segment fsync is left to Solr's
+	 * {@code autoCommit}, which the {@code _default} configset enables at 15 s, so
+	 * many small calls do not each force one.
 	 */
 	private String forward(String collection, ContentStreamUpdateRequest request, String payload)
 			throws IOException, SolrServerException {
-		request.setAction(AbstractUpdateRequest.ACTION.COMMIT, true, true);
+		request.setAction(AbstractUpdateRequest.ACTION.COMMIT, false, true, true);
 		UpdateResponse response = request.process(solrClient, collection);
 		return "Solr accepted the " + payload + " for collection '" + collection + "' and committed it (status "
 				+ response.getStatus() + ", " + response.getQTime() + " ms)";

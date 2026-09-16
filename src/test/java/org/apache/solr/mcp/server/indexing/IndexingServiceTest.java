@@ -247,6 +247,8 @@ class IndexingServiceTest {
 		assertEquals(csv, new String(stream.getStream().readAllBytes(), StandardCharsets.UTF_8));
 		assertEquals("true", captor.getValue().getParams().get("commit"),
 				"the commit rides on the update request, not a second round trip");
+		assertEquals("true", captor.getValue().getParams().get("softCommit"),
+				"soft commit: searchable on return, the segment fsync left to Solr's autoCommit");
 		verify(solrClient, never()).commit(anyString());
 		assertTrue(result.contains("Solr accepted the CSV payload"), result);
 		assertTrue(result.contains("'test_collection'"), result);
@@ -267,6 +269,8 @@ class IndexingServiceTest {
 				captor.getValue().getContentStreams().iterator().next().getContentType().startsWith("application/xml"));
 		assertEquals("true", captor.getValue().getParams().get("commit"),
 				"the commit rides on the update request, not a second round trip");
+		assertEquals("true", captor.getValue().getParams().get("softCommit"),
+				"soft commit: searchable on return, the segment fsync left to Solr's autoCommit");
 		verify(solrClient, never()).commit(anyString());
 		assertTrue(result.contains("Solr accepted the XML <add> block"), result);
 		assertTrue(result.contains("'test_collection'"), result);
