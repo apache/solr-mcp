@@ -77,6 +77,7 @@ class UrlFetcherTest {
 		server.createContext("/loop", ex -> redirect(ex, base + "/loop"));
 		server.createContext("/to-metadata", ex -> redirect(ex, "http://169.254.169.254/latest/meta-data/"));
 		server.createContext("/to-invalid", ex -> redirect(ex, "http://example.invalid/x.json"));
+		server.createContext("/bad-location", ex -> redirect(ex, "http://[not-an-address/x.json"));
 		for (int i = 1; i <= 6; i++) {
 			int hop = i;
 			server.createContext("/chain" + hop,
@@ -197,12 +198,20 @@ class UrlFetcherTest {
 		assertEquals(UrlTargetPolicy.REFUSED_ADDRESS, e.getMessage());
 	}
 
+	/**
+	 * The allow-list message proves the ordering: had DNS been consulted first,
+	 * {@code example.invalid} would have surfaced as an UnknownHostException.
+	 */
 	@Test
-	void aRedirectToAHostOffTheAllowListIsRefusedWithoutDns() {
-		long start = System.nanoTime();
+	void aRedirectToAHostOffTheAllowListIsRefusedBeforeDns() {
 		var e = assertThrows(IllegalArgumentException.class, () -> restricted.fetch(URI.create(base + "/to-invalid")));
 		assertEquals(UrlTargetPolicy.HOST_NOT_ALLOWED, e.getMessage());
-		assertTrue(System.nanoTime() - start < Duration.ofSeconds(1).toNanos(), "a DNS lookup was attempted");
+	}
+
+	@Test
+	void aMalformedRedirectLocationIsAnError() {
+		var e = assertThrows(IllegalArgumentException.class, () -> open.fetch(URI.create(base + "/bad-location")));
+		assertEquals(UrlFetcher.INVALID_REDIRECT, e.getMessage());
 	}
 
 	@Test

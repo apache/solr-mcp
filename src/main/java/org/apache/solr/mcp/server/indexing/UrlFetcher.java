@@ -51,6 +51,7 @@ final class UrlFetcher {
 			+ " times. Use the final URL directly.";
 	static final String DOWNGRADE = "The URL redirects from https to http, which is refused. "
 			+ "Use the final https URL directly.";
+	static final String INVALID_REDIRECT = "The URL redirected to an invalid location. Use the final URL directly.";
 	static final String UNSUPPORTED_CHARSET = "The URL declares an unsupported charset. Supply a UTF-8 document.";
 
 	private final RestClient restClient;
@@ -148,7 +149,12 @@ final class UrlFetcher {
 	 * to http downgrade.
 	 */
 	static URI redirectTarget(URI current, String location) {
-		URI target = current.resolve(location);
+		URI target;
+		try {
+			target = current.resolve(location);
+		} catch (IllegalArgumentException e) {
+			throw new IllegalArgumentException(INVALID_REDIRECT); // never the JDK's parse message
+		}
 		if ("https".equalsIgnoreCase(current.getScheme()) && "http".equalsIgnoreCase(target.getScheme())) {
 			throw new IllegalArgumentException(DOWNGRADE);
 		}

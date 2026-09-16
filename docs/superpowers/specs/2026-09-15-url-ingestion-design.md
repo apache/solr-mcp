@@ -337,6 +337,7 @@ truthfully say nothing was indexed.
 | unknown explicit `format` | IAE | `Cannot determine the file format. Supply format=json, csv, xml or markdown.` |
 | `https` → `http` redirect | IAE | `The URL redirects from https to http, which is refused. Use the final https URL directly.` |
 | sixth redirect | IAE | `The URL redirected more than 5 times. Use the final URL directly.` |
+| `Location` header that is not a parsable URI | IAE | `The URL redirected to an invalid location. Use the final URL directly.` |
 | non-2xx status *N* | IAE | `The URL returned HTTP N; nothing was indexed. Check that it is public and points at a raw document, not a web page.` |
 | unsupported charset | IAE | `The URL declares an unsupported charset. Supply a UTF-8 document.` |
 | body larger than `maxBytes` (by `Content-Length` or by reading) | IAE | `The document is larger than this server's limit of <limit>; nothing was indexed. Index datasets this large directly with Solr (bin/solr post or the /update handler); the index-data prompt shows the command.` where `<limit>` is `maxBytes.toMegabytes() + " MB"` if `maxBytes.toBytes() % 1048576 == 0`, otherwise `maxBytes.toBytes() + " bytes"` (so the default renders as `10 MB`) |
