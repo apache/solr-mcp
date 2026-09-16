@@ -127,8 +127,10 @@ exists for browser-based tooling.
 - Setting `SOLR_INDEX_URL_ALLOWED_HOSTS=*` on a deployment whose network has
   internal services you would not expose to every authenticated MCP caller.
   `index-url` fetches any allow-listed host the server can reach; with `*` that
-  includes loopback and RFC1918 services (link-local and cloud-metadata addresses
-  stay refused). Keep the default GitHub allow-list or add specific hosts.
+  includes loopback and RFC1918 services (link-local addresses and the known
+  AWS, Alibaba Cloud and Azure metadata addresses stay refused; other providers'
+  metadata endpoints are not enumerated). Keep the default GitHub allow-list or
+  add specific hosts.
 
 ## Primary sources
 

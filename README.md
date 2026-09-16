@@ -118,7 +118,8 @@ credentials or custom headers, so `localhost` means the server, not your client.
 Only allow-listed hosts are fetched: by default `raw.githubusercontent.com`,
 `*.githubusercontent.com` and `github.com`. `SOLR_INDEX_URL_ALLOWED_HOSTS` takes a
 comma-separated list of exact hosts, `*.suffix` patterns, or `*` for any host the
-server can reach; link-local and cloud-metadata addresses are always refused. The
+server can reach; link-local addresses and the known cloud-metadata addresses
+(AWS, Alibaba Cloud, Azure) are always refused. The
 body is limited to 10 MB (`SOLR_INDEX_URL_MAX_BYTES`); for larger datasets index
 directly with Solr, for example `bin/solr post -c shows shows.json`, which needs no
 model in the loop. The format comes from the URL path extension, then the

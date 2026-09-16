@@ -21,6 +21,7 @@ import java.net.URI;
 import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Pure checks that decide whether {@code index-url} may fetch a URL: absolute
@@ -41,7 +42,9 @@ final class UrlTargetPolicy {
 	/**
 	 * The EC2 IPv6 instance-metadata address; not link-local, so listed explicitly.
 	 */
-	private static final InetAddress EC2_IPV6_METADATA = literal("fd00:ec2::254");
+	private static final Set<InetAddress> METADATA_ADDRESSES = Set.of(literal("fd00:ec2::254"), // AWS IPv6
+			literal("100.100.100.200"), // Alibaba Cloud
+			literal("168.63.129.16")); // Azure WireServer
 
 	private UrlTargetPolicy() {
 	}
@@ -63,7 +66,9 @@ final class UrlTargetPolicy {
 	static void check(URI uri, List<String> allowedHosts, List<InetAddress> resolved) {
 		String scheme = uri.getScheme();
 		String host = uri.getHost();
-		if (scheme == null || host == null) {
+		if (scheme == null || host == null || uri.getPort() > 65535) {
+			// java.net.URI accepts any integer port; HttpURLConnection would later throw
+			// a raw "port out of range" IllegalArgumentException that is not one of ours
 			throw new IllegalArgumentException(INVALID_URL);
 		}
 		String lowered = scheme.toLowerCase(Locale.ROOT);
@@ -77,7 +82,7 @@ final class UrlTargetPolicy {
 			throw new IllegalArgumentException(HOST_NOT_ALLOWED);
 		}
 		for (InetAddress address : resolved) {
-			if (address.isLinkLocalAddress() || address.equals(EC2_IPV6_METADATA)) {
+			if (address.isLinkLocalAddress() || METADATA_ADDRESSES.contains(address)) {
 				throw new IllegalArgumentException(REFUSED_ADDRESS);
 			}
 		}

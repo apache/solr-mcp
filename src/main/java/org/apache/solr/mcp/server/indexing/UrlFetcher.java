@@ -26,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.charset.UnsupportedCharsetException;
 import java.util.List;
 import java.util.Locale;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
@@ -126,7 +127,16 @@ final class UrlFetcher {
 		URI current = uri;
 		int redirects = 0;
 		while (true) {
-			UrlTargetPolicy.check(current, allowedHosts, List.of()); // syntax and allow-list before any DNS
+			try {
+				UrlTargetPolicy.check(current, allowedHosts, List.of()); // syntax and allow-list before any DNS
+			} catch (IllegalArgumentException e) {
+				boolean syntactic = UrlTargetPolicy.INVALID_URL.equals(e.getMessage())
+						|| UrlTargetPolicy.EMBEDDED_CREDENTIALS.equals(e.getMessage());
+				if (redirects > 0 && syntactic) {
+					throw new IllegalArgumentException(INVALID_REDIRECT); // the caller never supplied this URL
+				}
+				throw e;
+			}
 			UrlTargetPolicy.check(current, allowedHosts, List.of(InetAddress.getAllByName(current.getHost())));
 			switch (send(current)) {
 				case Redirect redirect -> {
@@ -169,10 +179,12 @@ final class UrlFetcher {
 						if (isRedirect(status)) {
 							String location = response.getHeaders().getFirst("Location");
 							if (location != null) {
+								abandon(response);
 								return new Redirect(location);
 							}
 						}
 						if (status / 100 != 2) {
+							abandon(response);
 							return new Status(status);
 						}
 						String contentType = response.getHeaders().getFirst("Content-Type");
@@ -185,11 +197,13 @@ final class UrlFetcher {
 						} catch (IllegalCharsetNameException | UnsupportedCharsetException e) {
 							throw new IllegalArgumentException(UNSUPPORTED_CHARSET);
 						}
-						if (response.getHeaders().getContentLength() > maxBytes) {
-							throw new IllegalArgumentException(tooLarge); // before reading a byte
+						if (contentLengthOf(response.getHeaders()) > maxBytes) {
+							abandon(response); // before reading a byte
+							throw new IllegalArgumentException(tooLarge);
 						}
 						byte[] bytes = response.getBody().readNBytes(maxBytes + 1);
 						if (bytes.length > maxBytes) {
+							abandon(response);
 							throw new IllegalArgumentException(tooLarge);
 						}
 						return new Body(mediaTypeOf(contentType), charset, bytes);
@@ -199,6 +213,34 @@ final class UrlFetcher {
 				throw io;
 			}
 			throw new IOException(e.getMessage(), e);
+		}
+	}
+
+	/**
+	 * Closes the body stream before Spring's own {@code close()} runs. Spring
+	 * drains an unread body to keep the connection reusable, which would download a
+	 * refused or over-cap response in full; closing the stream first makes the JDK
+	 * drop the connection (or hand at most a small remainder to its keep-alive
+	 * cleaner) and turns Spring's drain into a no-op on a closed stream.
+	 */
+	private static void abandon(org.springframework.http.client.ClientHttpResponse response) {
+		try {
+			response.getBody().close();
+		} catch (IOException ignored) {
+			// nothing to abandon
+		}
+	}
+
+	/** {@code Content-Length} as a long, or -1 when absent or not a number. */
+	static long contentLengthOf(HttpHeaders headers) {
+		String value = headers.getFirst(HttpHeaders.CONTENT_LENGTH);
+		if (value == null) {
+			return -1;
+		}
+		try {
+			return Long.parseLong(value.trim());
+		} catch (NumberFormatException e) {
+			return -1;
 		}
 	}
 

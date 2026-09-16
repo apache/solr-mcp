@@ -214,7 +214,7 @@ reaching the backend Solr directly, bypassing this server, is out of model (§3)
 | `MCP_CORS_ALLOWED_ORIGINS` | MCP Inspector localhost proxy | Explicit CORS allowlist; wildcard-with-credentials is rejected by construction (`setAllowedOrigins`, not patterns). | *(documented)* |
 | `SOLR_USERNAME` / `SOLR_PASSWORD` | unset | When both set, static HTTP Basic Auth to backend Solr on every request; when unset, unauthenticated backend calls. | Q-backendcreds |
 | `SOLR_INDEX_URL_ALLOWED_HOSTS` | `raw.githubusercontent.com,*.githubusercontent.com,github.com` | Which hosts `index-url` may fetch; exact hosts, `*.suffix` patterns, or `*`, which widens the boundary to the server's whole network (link-local and cloud-metadata addresses stay refused). | *(documented)* |
-| `SOLR_INDEX_URL_MAX_BYTES` | `10MB` | Caps one `index-url` fetch; the body is parsed in memory, so this bounds memory per call. | *(documented)* |
+| `SOLR_INDEX_URL_MAX_BYTES` | `10MB` | Caps one `index-url` fetch; the body is parsed in memory, so this bounds memory per call to a small multiple of the value (raw bytes, decoded string, parsed documents). Concurrent callers multiply it. | *(documented)* |
 | `SOLR_INDEX_URL_READ_TIMEOUT` | `30s` | Bounds how long a remote endpoint can hold an `index-url` call open per read. The connect timeout (`10s`) is operational, not security-relevant. | *(documented)* |
 
 **How HTTP mode enforces auth** *(maintainer — Q-transport.)*: the transport
@@ -337,12 +337,20 @@ Two adversaries are in scope; several are explicitly not.
 - **It does not verify what an allow-listed URL serves.** `index-url` fetches
   any `http(s)` URL whose host matches `SOLR_INDEX_URL_ALLOWED_HOSTS` (default:
   GitHub raw-content hosts; `*` allows any host the server can reach, including
-  loopback and RFC1918). Link-local and cloud-metadata addresses are refused on
-  every redirect hop regardless. The fetch carries no credentials or caller
-  headers, refuses an https→http redirect, and reads at most
-  `SOLR_INDEX_URL_MAX_BYTES` (default 10 MB). The address check runs on the
-  resolved addresses before the connection is made, so a DNS answer that changes
-  in between (DNS rebinding) can bypass it; with the default allow-list that
+  loopback and RFC1918). Link-local addresses (`169.254.0.0/16`, `fe80::/10`)
+  and the known cloud-metadata literals (`fd00:ec2::254`, `100.100.100.200`,
+  `168.63.129.16`) are refused on every redirect hop regardless; other providers'
+  metadata endpoints are not enumerated. The fetch carries no credentials or
+  caller headers, refuses an https→http redirect, and reads at most
+  `SOLR_INDEX_URL_MAX_BYTES` (default 10 MB); a refused or over-cap response is
+  abandoned without reading its body (the JDK may drain a small remainder in the
+  background for keep-alive). The read timeout is per read, so an allow-listed
+  host that keeps sending slowly can hold one call open for as long as it keeps
+  sending, and response headers are not size-capped; both are accepted for
+  allow-listed hosts. The address check runs on the resolved addresses before
+  the connection is made, so a DNS answer that changes in between (DNS
+  rebinding) can bypass it; the JDK's positive DNS cache (30 s by default) means
+  both lookups usually see the same answer, with the default allow-list it
   requires control of a GitHub host's DNS, and with `*` the operator has accepted
   the network boundary. *(documented — `UrlTargetPolicy`, `UrlFetcher`.)*
 - **It does not defend against prompt injection / tool poisoning via Solr

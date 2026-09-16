@@ -74,7 +74,9 @@ class UrlTargetPolicyTest {
 	}
 
 	@ParameterizedTest
-	@ValueSource(strings = {"169.254.169.254", "fe80::1", "fd00:ec2::254", "::ffff:169.254.169.254"})
+	@ValueSource(
+			strings = {"169.254.169.254", "fe80::1", "fd00:ec2::254", "::ffff:169.254.169.254", "100.100.100.200",
+					"168.63.129.16"})
 	void refusesLinkLocalAndCloudMetadataAddressesEvenWithStar(String literal) {
 		var e = assertThrows(IllegalArgumentException.class,
 				() -> UrlTargetPolicy.check(uri("http://example.invalid/x.json"), ANY, addresses(literal)));
@@ -95,6 +97,19 @@ class UrlTargetPolicyTest {
 	void rejectsNonHttpSchemesRelativeUrlsAndMissingHosts(String url) {
 		var e = assertThrows(IllegalArgumentException.class, () -> UrlTargetPolicy.check(uri(url), ANY, PUBLIC));
 		assertEquals(UrlTargetPolicy.INVALID_URL, e.getMessage());
+	}
+
+	@Test
+	void rejectsAPortOutOfRangeBeforeConnecting() {
+		var e = assertThrows(IllegalArgumentException.class,
+				() -> UrlTargetPolicy.check(uri("https://raw.githubusercontent.com:99999/x.json"), GITHUB, PUBLIC));
+		assertEquals(UrlTargetPolicy.INVALID_URL, e.getMessage());
+	}
+
+	@Test
+	void anExactIpv6EntryMatchesTheBracketedHost() {
+		assertDoesNotThrow(
+				() -> UrlTargetPolicy.check(uri("http://[::1]:8000/x.json"), List.of("::1"), addresses("::1")));
 	}
 
 	@Test

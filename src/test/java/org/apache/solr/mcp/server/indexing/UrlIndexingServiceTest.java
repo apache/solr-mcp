@@ -27,6 +27,7 @@ import java.net.UnknownHostException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.common.SolrException;
 import org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -98,6 +99,27 @@ class UrlIndexingServiceTest {
 		when(indexingService.indexPayload("shows", "<add/>", "xml")).thenReturn(SUMMARY);
 
 		assertEquals(SUMMARY, service.indexUrl("shows", url, null));
+	}
+
+	@Test
+	void csvAndMarkdownMediaTypesResolveTheirFormats() throws Exception {
+		when(fetcher.fetch(URI.create("https://example.invalid/a")))
+				.thenReturn(fetched("https://example.invalid/a", "text/csv", "id\n1\n"));
+		when(fetcher.fetch(URI.create("https://example.invalid/b")))
+				.thenReturn(fetched("https://example.invalid/b", "text/markdown", "# T\n"));
+		when(indexingService.indexPayload("shows", "id\n1\n", "csv")).thenReturn(SUMMARY);
+		when(indexingService.indexPayload("shows", "# T\n", "markdown")).thenReturn(SUMMARY);
+
+		assertEquals(SUMMARY, service.indexUrl("shows", "https://example.invalid/a", null));
+		assertEquals(SUMMARY, service.indexUrl("shows", "https://example.invalid/b", null));
+	}
+
+	@Test
+	void aBlankExplicitFormatIsTreatedAsAbsent() throws Exception {
+		when(fetcher.fetch(any())).thenReturn(fetched(URL, "text/plain", "[]"));
+		when(indexingService.indexPayload("shows", "[]", "json")).thenReturn(SUMMARY);
+
+		assertEquals(SUMMARY, service.indexUrl("shows", URL, "   "));
 	}
 
 	@Test
@@ -191,9 +213,10 @@ class UrlIndexingServiceTest {
 	void solrFailuresAreStateErrors() throws Exception {
 		when(fetcher.fetch(any())).thenReturn(fetched(URL, "application/json", "[]"));
 		when(indexingService.indexPayload("shows", "[]", "json")).thenThrow(new SolrServerException("down"))
-				.thenThrow(new IOException("connection reset"));
+				.thenThrow(new IOException("connection reset"))
+				.thenThrow(new SolrException(SolrException.ErrorCode.SERVER_ERROR, "commit failed"));
 
-		for (int i = 0; i < 2; i++) {
+		for (int i = 0; i < 3; i++) {
 			var e = assertThrows(IllegalStateException.class, () -> service.indexUrl("shows", URL, null));
 			assertEquals(UrlIndexingService.SOLR_FAILED, e.getMessage());
 		}

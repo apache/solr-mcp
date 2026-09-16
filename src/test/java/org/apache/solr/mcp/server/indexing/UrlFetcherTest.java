@@ -37,6 +37,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.util.unit.DataSize;
 
 /**
@@ -78,6 +81,31 @@ class UrlFetcherTest {
 		server.createContext("/to-metadata", ex -> redirect(ex, "http://169.254.169.254/latest/meta-data/"));
 		server.createContext("/to-invalid", ex -> redirect(ex, "http://example.invalid/x.json"));
 		server.createContext("/bad-location", ex -> redirect(ex, "http://[not-an-address/x.json"));
+		server.createContext("/to-mailto", ex -> redirect(ex, "mailto:someone@example.invalid"));
+		server.createContext("/to-userinfo", ex -> redirect(ex, "http://u:p@" + base.substring(7) + "/shows.json"));
+		server.createContext("/no-location", ex -> {
+			record(ex);
+			ex.sendResponseHeaders(302, -1);
+			ex.close();
+		});
+		server.createContext("/quoted-charset", ex -> respond(ex, 200, "text/csv; charset=\"iso-8859-1\"", "id\n1\n"));
+		for (int status : new int[]{301, 303, 307, 308}) {
+			server.createContext("/r" + status, ex -> redirect(ex, status, base + "/shows.json"));
+		}
+		server.createContext("/slow-big", ex -> {
+			record(ex);
+			ex.getResponseHeaders().add("Content-Type", "text/csv");
+			ex.sendResponseHeaders(200, 2 * 1024 * 1024); // far over the 1 KB cap
+			try (OutputStream out = ex.getResponseBody()) {
+				for (int i = 0; i < 2048; i++) {
+					out.write(new byte[1024]); // steady 10 KB/s: never idle, so a drain would run for minutes
+					out.flush();
+					sleep(100);
+				}
+			} catch (IOException ignored) {
+				// the client dropped the connection, as expected
+			}
+		});
 		for (int i = 1; i <= 6; i++) {
 			int hop = i;
 			server.createContext("/chain" + hop,
@@ -137,6 +165,53 @@ class UrlFetcherTest {
 		assertEquals(StandardCharsets.UTF_8, fetched.charset());
 		assertEquals("[{\"id\":\"1\"}]", new String(fetched.body(), StandardCharsets.UTF_8));
 		assertEquals(URI.create(base + "/shows.json"), fetched.finalUri());
+	}
+
+	@Test
+	void honoursAQuotedCharset() throws Exception {
+		assertEquals(StandardCharsets.ISO_8859_1, open.fetch(URI.create(base + "/quoted-charset")).charset());
+	}
+
+	@ParameterizedTest
+	@ValueSource(ints = {301, 303, 307, 308})
+	void followsEveryRedirectStatus(int status) throws Exception {
+		assertEquals(URI.create(base + "/shows.json"), open.fetch(URI.create(base + "/r" + status)).finalUri());
+	}
+
+	@Test
+	void aRedirectStatusWithoutLocationIsAStatusError() {
+		var e = assertThrows(IllegalArgumentException.class, () -> open.fetch(URI.create(base + "/no-location")));
+		assertTrue(e.getMessage().startsWith("The URL returned HTTP 302;"), e.getMessage());
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"/to-mailto", "/to-userinfo"})
+	void aRedirectToANonHttpOrCredentialedLocationIsARedirectError(String path) {
+		var e = assertThrows(IllegalArgumentException.class, () -> open.fetch(URI.create(base + path)));
+		assertEquals(UrlFetcher.INVALID_REDIRECT, e.getMessage());
+	}
+
+	/**
+	 * Spring's response close() drains the body to keep the connection alive; the
+	 * fetcher must drop the connection instead, or a refused 2 MB body streamed at
+	 * 10 KB/s would hold the call open for minutes.
+	 */
+	@Test
+	void anOverCapBodyIsNotDrainedAfterRefusal() {
+		assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+			var e = assertThrows(IllegalArgumentException.class, () -> open.fetch(URI.create(base + "/slow-big")));
+			assertEquals(SIZE_MESSAGE, e.getMessage());
+		});
+	}
+
+	@Test
+	void aNonNumericContentLengthCountsAsUnknown() {
+		var headers = new HttpHeaders();
+		headers.add("Content-Length", "banana");
+		assertEquals(-1L, UrlFetcher.contentLengthOf(headers));
+		headers.set("Content-Length", "42");
+		assertEquals(42L, UrlFetcher.contentLengthOf(headers));
+		assertEquals(-1L, UrlFetcher.contentLengthOf(new HttpHeaders()));
 	}
 
 	@Test
@@ -269,9 +344,13 @@ class UrlFetcherTest {
 	}
 
 	private void redirect(HttpExchange exchange, String location) throws IOException {
+		redirect(exchange, 302, location);
+	}
+
+	private void redirect(HttpExchange exchange, int status, String location) throws IOException {
 		record(exchange);
 		exchange.getResponseHeaders().add("Location", location);
-		exchange.sendResponseHeaders(302, -1);
+		exchange.sendResponseHeaders(status, -1);
 		exchange.close();
 	}
 

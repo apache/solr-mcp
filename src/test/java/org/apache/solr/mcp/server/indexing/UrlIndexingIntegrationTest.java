@@ -100,6 +100,7 @@ class UrlIndexingIntegrationTest {
 		String collection = newCollection("json");
 		String summary = service.indexUrl(collection, base + "/shows.json", null);
 		assertTrue(summary.contains("61 of 61"), summary);
+		assertTrue(summary.contains("Indexed field names"), "structured formats list their fields: " + summary);
 		assertFalse(summary.contains("Stranger Things"), "payload leaked into the summary");
 		assertEquals(61, count(collection));
 	}
@@ -107,15 +108,21 @@ class UrlIndexingIntegrationTest {
 	@Test
 	void indexesCsvXmlAndMarkdown() throws Exception {
 		String csv = newCollection("csv");
-		assertTrue(service.indexUrl(csv, base + "/shows.csv", null).contains("50 of 50"));
+		String csvSummary = service.indexUrl(csv, base + "/shows.csv", null);
+		assertTrue(csvSummary.contains("50 of 50"), csvSummary);
+		assertTrue(csvSummary.contains("Indexed field names"), csvSummary);
 		assertEquals(50, count(csv));
 
 		String xml = newCollection("xml");
-		assertTrue(service.indexUrl(xml, base + "/shows.xml", null).contains("40 of 40"));
+		String xmlSummary = service.indexUrl(xml, base + "/shows.xml", null);
+		assertTrue(xmlSummary.contains("40 of 40"), xmlSummary);
+		assertTrue(xmlSummary.contains("Indexed field names"), xmlSummary);
 		assertEquals(40, count(xml));
 
 		String md = newCollection("md");
-		assertTrue(service.indexUrl(md, base + "/shows.md", null).contains("1 of 1"));
+		String mdSummary = service.indexUrl(md, base + "/shows.md", null);
+		assertTrue(mdSummary.contains("1 of 1"), mdSummary);
+		assertFalse(mdSummary.contains("Indexed field names"), "Markdown is one document, no field list: " + mdSummary);
 		assertEquals(1, count(md));
 	}
 
@@ -151,13 +158,17 @@ class UrlIndexingIntegrationTest {
 
 		var missing = assertThrows(IllegalArgumentException.class,
 				() -> service.indexUrl(collection, base + "/missing", null));
-		assertTrue(missing.getMessage().startsWith("The URL returned HTTP 404"), missing.getMessage());
+		assertEquals(
+				"The URL returned HTTP 404; nothing was indexed. "
+						+ "Check that it is public and points at a raw document, not a web page.",
+				missing.getMessage());
 
 		var big = assertThrows(IllegalArgumentException.class,
 				() -> service.indexUrl(collection, base + "/big.csv", null));
 		// 64 KB is not a whole number of megabytes, so the limit renders in bytes
-		assertTrue(big.getMessage().startsWith("The document is larger than this server's limit of 65536 bytes"),
-				big.getMessage());
+		assertEquals("The document is larger than this server's limit of 65536 bytes; nothing was indexed. "
+				+ "Index datasets this large directly with Solr (bin/solr post or the /update handler); "
+				+ "the index-data prompt shows the command.", big.getMessage());
 
 		var offList = assertThrows(IllegalArgumentException.class,
 				() -> service.indexUrl(collection, "http://example.invalid/x.json", null));

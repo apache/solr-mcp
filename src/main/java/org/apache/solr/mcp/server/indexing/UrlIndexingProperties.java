@@ -24,10 +24,10 @@ import org.springframework.util.unit.DataSize;
 
 /**
  * Limits on a single {@code index-url} fetch. Hosts are allow-listed (GitHub
- * raw content by default; {@code *} allows any host); link-local and
- * cloud-metadata addresses are refused regardless. The read timeout applies to
- * every socket read, so it bounds a body that stops arriving; the size cap
- * bounds memory, because the body is parsed in memory.
+ * raw content by default; {@code *} allows any host); link-local addresses and
+ * the known cloud-metadata addresses are refused regardless. The read timeout
+ * applies to every socket read, so it bounds a body that stops arriving; the
+ * size cap bounds memory, because the body is parsed in memory.
  *
  * @param allowedHosts
  *            exact hosts, {@code *.suffix} patterns, or {@code *}
