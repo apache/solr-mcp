@@ -369,31 +369,34 @@ public class SearchService {
 	 * @param collection
 	 *            the collection that was queried
 	 * @return an exception carrying the original message plus a remediation hint,
-	 *         or the original exception when no hint applies
+	 *         or the original exception when no hint applies; never with a cause,
+	 *         which MCP would unwrap in place of the hint
 	 */
 	private static RuntimeException withRemediationHint(SolrException e, String collection) {
 		final String message = String.valueOf(e.getMessage());
 
-		// The MCP client only ever sees the exception message, so without this the
-		// server keeps no record of a failed query.
-		logger.debug("Solr query failed on collection {}", collection, e);
+		// Deliberately no cause on the exceptions below: the MCP annotation layer
+		// reports the ROOT cause's message as the tool error, so attaching the Solr
+		// failure would discard the hint and the client would never see it. The hints
+		// therefore live in the message, and this log is the only server-side record.
+		logger.warn("Solr query failed on collection {}", collection, e);
 
 		// An unknown collection is a 404 whose body is Solr's HTML "not found" page,
 		// so SolrJ reports it as a mime-type mismatch and leaves getMetadata() null.
 		// The status code is the only signal that survives; match it rather than the
 		// message text, which mentions neither the collection nor "404".
 		if (e.code() == SolrException.ErrorCode.NOT_FOUND.code) {
-			return new IllegalArgumentException(message + LIST_COLLECTIONS_HINT, e);
+			return new IllegalArgumentException(message + LIST_COLLECTIONS_HINT);
 		}
 
 		// Everything below is a 400 carrying a generic SolrException, indistinguishable
 		// except by Solr's message text.
 		final String lower = message.toLowerCase(Locale.ROOT);
 		if (lower.contains(UNDEFINED_FIELD_TOKEN) || lower.contains(SORT_FIELD_NOT_FOUND_TOKEN)) {
-			return new IllegalArgumentException(message + GET_SCHEMA_HINT_FORMAT.formatted(collection), e);
+			return new IllegalArgumentException(message + GET_SCHEMA_HINT_FORMAT.formatted(collection));
 		}
 		if (lower.contains(SYNTAX_ERROR_TOKEN) || lower.contains(CANNOT_PARSE_TOKEN)) {
-			return new IllegalArgumentException(message + LUCENE_SYNTAX_HINT, e);
+			return new IllegalArgumentException(message + LUCENE_SYNTAX_HINT);
 		}
 		return e;
 	}
