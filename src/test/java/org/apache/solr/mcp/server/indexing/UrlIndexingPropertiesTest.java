@@ -51,7 +51,22 @@ class UrlIndexingPropertiesTest {
 		assertEquals(RANGE, e.getMessage());
 	}
 
+	@Test
+	void rejectsANonPositiveTotalTimeout() {
+		var e = assertThrows(IllegalArgumentException.class, () -> new UrlIndexingProperties(List.of("*"),
+				Duration.ofSeconds(10), Duration.ofSeconds(30), DataSize.ofMegabytes(10), Duration.ZERO, 4));
+		assertEquals("solr.index-url.total-timeout must be positive", e.getMessage());
+	}
+
+	@Test
+	void rejectsFewerThanOneConcurrentFetch() {
+		var e = assertThrows(IllegalArgumentException.class, () -> new UrlIndexingProperties(List.of("*"),
+				Duration.ofSeconds(10), Duration.ofSeconds(30), DataSize.ofMegabytes(10), Duration.ofMinutes(5), 0));
+		assertEquals("solr.index-url.max-concurrent-fetches must be at least 1", e.getMessage());
+	}
+
 	private static UrlIndexingProperties properties(DataSize maxBytes) {
-		return new UrlIndexingProperties(List.of("*"), Duration.ofSeconds(10), Duration.ofSeconds(30), maxBytes);
+		return new UrlIndexingProperties(List.of("*"), Duration.ofSeconds(10), Duration.ofSeconds(30), maxBytes,
+				Duration.ofMinutes(5), 4);
 	}
 }

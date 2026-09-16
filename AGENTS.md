@@ -403,7 +403,7 @@ Environment variables:
 - `PROFILES`: Transport mode (`stdio` or `http`)
 - `OAUTH2_ISSUER_URI`: OAuth2 issuer URL (HTTP mode only)
 - `SOLR_INDEX_URL_ALLOWED_HOSTS`: hosts `index-url` may fetch (default `raw.githubusercontent.com,*.githubusercontent.com,github.com`; `*` = any)
-- `SOLR_INDEX_URL_MAX_BYTES`, `SOLR_INDEX_URL_CONNECT_TIMEOUT`, `SOLR_INDEX_URL_READ_TIMEOUT`: `index-url` body cap and timeouts (defaults `10MB`, `10s`, `30s`)
+- `SOLR_INDEX_URL_MAX_BYTES`, `SOLR_INDEX_URL_CONNECT_TIMEOUT`, `SOLR_INDEX_URL_READ_TIMEOUT`, `SOLR_INDEX_URL_TOTAL_TIMEOUT`, `SOLR_INDEX_URL_MAX_CONCURRENT_FETCHES`: `index-url` body cap, timeouts and concurrency limit (defaults `10MB`, `10s`, `30s`, `5m`, `4`)
 
 Dependencies managed in `gradle/libs.versions.toml`.
 

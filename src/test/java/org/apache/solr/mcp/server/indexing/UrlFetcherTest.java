@@ -52,6 +52,7 @@ class UrlFetcherTest {
 	private static final Duration CONNECT = Duration.ofSeconds(5);
 	private static final Duration READ = Duration.ofSeconds(1);
 	private static final DataSize CAP = DataSize.ofKilobytes(1);
+	private static final Duration TOTAL = Duration.ofMinutes(5);
 	private static final String SIZE_MESSAGE = "The document is larger than this server's limit of 1024 bytes; "
 			+ "nothing was indexed. Index datasets this large directly with Solr (bin/solr post or the /update "
 			+ "handler); the index-data prompt shows the command.";
@@ -61,6 +62,7 @@ class UrlFetcherTest {
 	private String base;
 	private UrlFetcher open;
 	private UrlFetcher restricted;
+	private UrlFetcher dripping;
 	private final Map<String, List<String>> lastRequestHeaders = new ConcurrentHashMap<>();
 	private final AtomicInteger requests = new AtomicInteger();
 
@@ -92,6 +94,20 @@ class UrlFetcherTest {
 		for (int status : new int[]{301, 303, 307, 308}) {
 			server.createContext("/r" + status, ex -> redirect(ex, status, base + "/shows.json"));
 		}
+		server.createContext("/drip", ex -> {
+			record(ex);
+			ex.getResponseHeaders().add("Content-Type", "text/csv");
+			ex.sendResponseHeaders(200, 0);
+			try (OutputStream out = ex.getResponseBody()) {
+				for (int i = 0; i < 100; i++) {
+					out.write('x'); // one byte every 200 ms: under the cap, never idle, never finishing soon
+					out.flush();
+					sleep(200);
+				}
+			} catch (IOException ignored) {
+				// the client gave up, as expected
+			}
+		});
 		server.createContext("/slow-big", ex -> {
 			record(ex);
 			ex.getResponseHeaders().add("Content-Type", "text/csv");
@@ -148,8 +164,11 @@ class UrlFetcherTest {
 		});
 		server.start();
 		base = "http://127.0.0.1:" + server.getAddress().getPort();
-		open = new UrlFetcher(new UrlIndexingProperties(List.of("*"), CONNECT, READ, CAP));
-		restricted = new UrlFetcher(new UrlIndexingProperties(List.of("127.0.0.1"), CONNECT, READ, CAP));
+		open = new UrlFetcher(new UrlIndexingProperties(List.of("*"), CONNECT, READ, CAP, TOTAL, 4));
+		restricted = new UrlFetcher(new UrlIndexingProperties(List.of("127.0.0.1"), CONNECT, READ, CAP, TOTAL, 4));
+		// a read timeout longer than the total deadline, so only the deadline can fire
+		dripping = new UrlFetcher(
+				new UrlIndexingProperties(List.of("*"), CONNECT, Duration.ofSeconds(5), CAP, Duration.ofSeconds(1), 4));
 	}
 
 	@AfterEach
@@ -202,6 +221,16 @@ class UrlFetcherTest {
 			var e = assertThrows(IllegalArgumentException.class, () -> open.fetch(URI.create(base + "/slow-big")));
 			assertEquals(SIZE_MESSAGE, e.getMessage());
 		});
+	}
+
+	/**
+	 * The read timeout is per read, so a host that drips one byte at a time never
+	 * trips it; the total deadline must.
+	 */
+	@Test
+	void aDrippingBodyFailsAtTheTotalDeadline() {
+		assertTimeoutPreemptively(Duration.ofSeconds(4),
+				() -> assertThrows(SocketTimeoutException.class, () -> dripping.fetch(URI.create(base + "/drip"))));
 	}
 
 	@Test

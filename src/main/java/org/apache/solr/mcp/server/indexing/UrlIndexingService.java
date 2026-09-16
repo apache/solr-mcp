@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.util.Locale;
+import java.util.concurrent.Semaphore;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException;
@@ -50,8 +51,9 @@ public class UrlIndexingService {
 	static final String UNREACHABLE = "Cannot reach the URL from the MCP server. The URL is fetched from the "
 			+ "server's network, not the client's, so localhost and private addresses refer to the server's side. "
 			+ "Check the address and try again.";
-	static final String READ_TIMEOUT = "The URL did not respond within the read timeout; nothing was indexed. "
-			+ "Try again or ask the operator to raise SOLR_INDEX_URL_READ_TIMEOUT.";
+	static final String READ_TIMEOUT = "The URL did not deliver the document within the read or total timeout; "
+			+ "nothing was indexed. Try again or ask the operator to raise SOLR_INDEX_URL_READ_TIMEOUT or "
+			+ "SOLR_INDEX_URL_TOTAL_TIMEOUT.";
 	static final String FORMAT_UNRESOLVED = "Cannot determine the format from the URL path or Content-Type. "
 			+ "Supply format=json, csv, xml or markdown.";
 	static final String HTML_NOT_SUPPORTED = " HTML pages are not supported.";
@@ -61,6 +63,8 @@ public class UrlIndexingService {
 
 	private final IndexingService indexingService;
 	private final UrlFetcher fetcher;
+	private final Semaphore permits;
+	private final String busy;
 
 	/**
 	 * Creates the URL-ingestion tool with a fetcher built from the configured
@@ -69,16 +73,24 @@ public class UrlIndexingService {
 	 * @param indexingService
 	 *            the indexing pipeline
 	 * @param properties
-	 *            allow-list, timeouts and size cap
+	 *            allow-list, timeouts, size cap and concurrency limit
 	 */
 	@Autowired
 	public UrlIndexingService(IndexingService indexingService, UrlIndexingProperties properties) {
-		this(indexingService, new UrlFetcher(properties));
+		this(indexingService, new UrlFetcher(properties), properties.maxConcurrentFetches());
 	}
 
-	UrlIndexingService(IndexingService indexingService, UrlFetcher fetcher) {
+	UrlIndexingService(IndexingService indexingService, UrlFetcher fetcher, int maxConcurrentFetches) {
 		this.indexingService = indexingService;
 		this.fetcher = fetcher;
+		this.permits = new Semaphore(maxConcurrentFetches);
+		this.busy = busyMessage(maxConcurrentFetches);
+	}
+
+	/** The error returned when {@code max} fetches are already running. */
+	static String busyMessage(int max) {
+		return "The server is already running " + max + " index-url call" + (max == 1 ? "" : "s")
+				+ ", the configured maximum; try again in a moment. Nothing was indexed.";
 	}
 
 	/**
@@ -122,6 +134,17 @@ public class UrlIndexingService {
 		}
 		URI uri = parse(url);
 		@Nullable String explicit = format == null || format.isBlank() ? null : IndexFormats.normalize(format);
+		if (!permits.tryAcquire()) {
+			throw new IllegalStateException(busy);
+		}
+		try {
+			return fetchAndIndex(collection, uri, explicit);
+		} finally {
+			permits.release();
+		}
+	}
+
+	private String fetchAndIndex(String collection, URI uri, @Nullable String explicit) {
 		UrlFetcher.FetchedBody fetched;
 		try {
 			fetched = fetcher.fetch(uri);

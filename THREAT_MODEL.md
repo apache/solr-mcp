@@ -216,6 +216,8 @@ reaching the backend Solr directly, bypassing this server, is out of model (§3)
 | `SOLR_INDEX_URL_ALLOWED_HOSTS` | `raw.githubusercontent.com,*.githubusercontent.com,github.com` | Which hosts `index-url` may fetch; exact hosts, `*.suffix` patterns, or `*`, which widens the boundary to the server's whole network (link-local and cloud-metadata addresses stay refused). | *(documented)* |
 | `SOLR_INDEX_URL_MAX_BYTES` | `10MB` | Caps one `index-url` fetch; the body is parsed in memory, so this bounds memory per call to a small multiple of the value (raw bytes, decoded string, parsed documents). Concurrent callers multiply it. | *(documented)* |
 | `SOLR_INDEX_URL_READ_TIMEOUT` | `30s` | Bounds how long a remote endpoint can hold an `index-url` call open per read. The connect timeout (`10s`) is operational, not security-relevant. | *(documented)* |
+| `SOLR_INDEX_URL_TOTAL_TIMEOUT` | `5m` | Deadline for one whole `index-url` fetch, redirects included, so a host that drips bytes cannot outlast the per-read timeout. | *(documented)* |
+| `SOLR_INDEX_URL_MAX_CONCURRENT_FETCHES` | `4` | How many `index-url` calls may run at once; further calls fail immediately. Bounds total memory (each call holds a small multiple of `SOLR_INDEX_URL_MAX_BYTES`) and outbound connections. | *(documented)* |
 
 **How HTTP mode enforces auth** *(maintainer — Q-transport.)*: the transport
 is streamable HTTP running in **stateless** mode
@@ -344,10 +346,12 @@ Two adversaries are in scope; several are explicitly not.
   caller headers, refuses an https→http redirect, and reads at most
   `SOLR_INDEX_URL_MAX_BYTES` (default 10 MB); a refused or over-cap response is
   abandoned without reading its body (the JDK may drain a small remainder in the
-  background for keep-alive). The read timeout is per read, so an allow-listed
-  host that keeps sending slowly can hold one call open for as long as it keeps
-  sending, and response headers are not size-capped; both are accepted for
-  allow-listed hosts. The address check runs on the resolved addresses before
+  background for keep-alive). One fetch is bounded by a per-read timeout and by
+  a total deadline (`SOLR_INDEX_URL_TOTAL_TIMEOUT`, default 5 minutes, redirects
+  included), and at most `SOLR_INDEX_URL_MAX_CONCURRENT_FETCHES` (default 4)
+  fetches run at once, further calls failing immediately; response headers are
+  not size-capped, which is accepted for allow-listed hosts. The address check
+  runs on the resolved addresses before
   the connection is made, so a DNS answer that changes in between (DNS
   rebinding) can bypass it; the JDK's positive DNS cache (30 s by default) means
   both lookups usually see the same answer, with the default allow-list it

@@ -125,8 +125,10 @@ directly with Solr, for example `bin/solr post -c shows shows.json`, which needs
 model in the loop. The format comes from the URL path extension, then the
 `Content-Type`; add `"format":"csv"` when neither identifies it. Non-2xx responses
 and HTML pages are errors, and nothing is indexed unless the whole document parses.
-`SOLR_INDEX_URL_CONNECT_TIMEOUT` (`10s`) and `SOLR_INDEX_URL_READ_TIMEOUT` (`30s`)
-bound the fetch.
+`SOLR_INDEX_URL_CONNECT_TIMEOUT` (`10s`), `SOLR_INDEX_URL_READ_TIMEOUT` (`30s`, per
+read) and `SOLR_INDEX_URL_TOTAL_TIMEOUT` (`5m`, the whole fetch including redirects)
+bound one fetch, and `SOLR_INDEX_URL_MAX_CONCURRENT_FETCHES` (`4`) bounds how many run
+at once; a call beyond that limit fails immediately with a retry message.
 
 ### Resources
 

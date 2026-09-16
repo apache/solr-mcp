@@ -26,6 +26,10 @@ import java.net.URI;
 import java.net.UnknownHostException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException;
@@ -60,7 +64,35 @@ class UrlIndexingServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		service = new UrlIndexingService(indexingService, fetcher);
+		service = new UrlIndexingService(indexingService, fetcher, 4);
+	}
+
+	@Test
+	void refusesACallBeyondTheConfiguredConcurrentFetches() throws Exception {
+		var entered = new CountDownLatch(1);
+		var release = new CountDownLatch(1);
+		when(fetcher.fetch(any())).thenAnswer(invocation -> {
+			entered.countDown();
+			release.await(10, TimeUnit.SECONDS);
+			return fetched(URL, "application/json", "[]");
+		});
+		when(indexingService.indexPayload("shows", "[]", "json")).thenReturn(SUMMARY);
+		var single = new UrlIndexingService(indexingService, fetcher, 1);
+		var executor = Executors.newSingleThreadExecutor();
+		try {
+			Future<String> first = executor.submit(() -> single.indexUrl("shows", URL, null));
+			assertTrue(entered.await(10, TimeUnit.SECONDS), "first fetch never started");
+
+			var e = assertThrows(IllegalStateException.class, () -> single.indexUrl("shows", URL, null));
+			assertEquals(UrlIndexingService.busyMessage(1), e.getMessage());
+
+			release.countDown();
+			assertEquals(SUMMARY, first.get(10, TimeUnit.SECONDS));
+			// the permit is returned: a third call goes through
+			assertEquals(SUMMARY, single.indexUrl("shows", URL, null));
+		} finally {
+			executor.shutdownNow();
+		}
 	}
 
 	@Test

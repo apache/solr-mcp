@@ -16,9 +16,12 @@
  */
 package org.apache.solr.mcp.server.indexing;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.charset.IllegalCharsetNameException;
@@ -58,6 +61,7 @@ final class UrlFetcher {
 	private final RestClient restClient;
 	private final List<String> allowedHosts;
 	private final int maxBytes;
+	private final long totalTimeoutNanos;
 	private final String tooLarge;
 
 	/**
@@ -102,6 +106,7 @@ final class UrlFetcher {
 		this.restClient = RestClient.builder().requestFactory(factory).build();
 		this.allowedHosts = properties.allowedHosts();
 		this.maxBytes = (int) properties.maxBytes().toBytes(); // the record bounds it below Integer.MAX_VALUE
+		this.totalTimeoutNanos = properties.totalTimeout().toNanos();
 		long bytes = properties.maxBytes().toBytes();
 		String limit = bytes % 1048576 == 0 ? properties.maxBytes().toMegabytes() + " MB" : bytes + " bytes";
 		this.tooLarge = "The document is larger than this server's limit of " + limit + "; nothing was indexed. "
@@ -126,7 +131,11 @@ final class UrlFetcher {
 	FetchedBody fetch(URI uri) throws IOException {
 		URI current = uri;
 		int redirects = 0;
+		long deadline = System.nanoTime() + totalTimeoutNanos;
 		while (true) {
+			if (System.nanoTime() - deadline > 0) {
+				throw new SocketTimeoutException("total timeout exceeded before hop " + redirects);
+			}
 			try {
 				UrlTargetPolicy.check(current, allowedHosts, List.of()); // syntax and allow-list before any DNS
 			} catch (IllegalArgumentException e) {
@@ -138,7 +147,7 @@ final class UrlFetcher {
 				throw e;
 			}
 			UrlTargetPolicy.check(current, allowedHosts, List.of(InetAddress.getAllByName(current.getHost())));
-			switch (send(current)) {
+			switch (send(current, deadline)) {
 				case Redirect redirect -> {
 					if (++redirects > MAX_REDIRECTS) {
 						throw new IllegalArgumentException(TOO_MANY_REDIRECTS);
@@ -171,7 +180,7 @@ final class UrlFetcher {
 		return target;
 	}
 
-	private Exchange send(URI uri) throws IOException {
+	private Exchange send(URI uri, long deadline) throws IOException {
 		try {
 			return restClient.get().uri(uri).header("Accept", ACCEPT).header("User-Agent", USER_AGENT)
 					.exchange((request, response) -> {
@@ -201,7 +210,13 @@ final class UrlFetcher {
 							abandon(response); // before reading a byte
 							throw new IllegalArgumentException(tooLarge);
 						}
-						byte[] bytes = response.getBody().readNBytes(maxBytes + 1);
+						byte[] bytes;
+						try {
+							bytes = readCapped(response.getBody(), maxBytes + 1, deadline);
+						} catch (IOException e) {
+							abandon(response); // a deadline or read failure must not turn into a drain
+							throw e;
+						}
 						if (bytes.length > maxBytes) {
 							abandon(response);
 							throw new IllegalArgumentException(tooLarge);
@@ -229,6 +244,24 @@ final class UrlFetcher {
 		} catch (IOException ignored) {
 			// nothing to abandon
 		}
+	}
+
+	/**
+	 * Reads at most {@code limit} bytes, checking the total deadline after every
+	 * chunk so a host that keeps sending slowly cannot outlast the per-read
+	 * timeout.
+	 */
+	private static byte[] readCapped(InputStream in, int limit, long deadline) throws IOException {
+		var out = new ByteArrayOutputStream();
+		byte[] buffer = new byte[8192];
+		int n;
+		while (out.size() < limit && (n = in.read(buffer, 0, Math.min(buffer.length, limit - out.size()))) != -1) {
+			out.write(buffer, 0, n);
+			if (System.nanoTime() - deadline > 0) {
+				throw new SocketTimeoutException("total timeout exceeded while reading the body");
+			}
+		}
+		return out.toByteArray();
 	}
 
 	/** {@code Content-Length} as a long, or -1 when absent or not a number. */
