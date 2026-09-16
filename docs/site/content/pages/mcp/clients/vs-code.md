@@ -80,6 +80,23 @@ Start the server first (see [Running the Server](https://github.com/apache/solr-
 }
 ```
 
-The configuration is the same for secured and unsecured HTTP. VS Code handles the MCP OAuth2 flow automatically.
+With security enabled (the default), this server does not answer an anonymous `/mcp` request with `401`, so VS Code will not start an OAuth flow by itself: it connects, lists the tools, and every call returns `Access Denied`. Pass a token from your identity provider in `headers`; an `inputs` entry prompts for it once and keeps it out of the file:
+
+```json
+{
+  "inputs": [
+    { "type": "promptString", "id": "solr-mcp-token", "description": "Solr MCP access token", "password": true }
+  ],
+  "servers": {
+    "solr-mcp": {
+      "type": "http",
+      "url": "http://localhost:8080/mcp",
+      "headers": { "Authorization": "Bearer ${input:solr-mcp-token}" }
+    }
+  }
+}
+```
+
+The token's `aud` claim must contain the exact `url` above, and it expires — see the [Security](/mcp/security.html) for obtaining one and the lifetime knobs.
 
 See the [VS Code MCP documentation](https://code.visualstudio.com/docs/copilot/chat/mcp-servers) for the latest configuration format.

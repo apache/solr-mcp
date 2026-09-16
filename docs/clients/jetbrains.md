@@ -70,6 +70,23 @@ Start the server in HTTP mode first (`PROFILES=http java -jar build/libs/solr-mc
 
 Or in IDE Settings, select the **HTTP** transport and enter `http://localhost:8080/mcp` as the URL. AI Assistant connects using the **Streamable HTTP** transport, which is what this server implements; the legacy SSE transport (a `/sse` URL) is not supported.
 
-The configuration is the same for secured and unsecured HTTP. JetBrains IDEs handle the MCP OAuth2 flow automatically.
+With security enabled (the default), this server does not answer an anonymous `/mcp` request with `401`, so the IDE will not start an OAuth flow by itself: it connects, lists the tools, and every call returns `Access Denied`. Supply a token from your identity provider. The portable way is to register the server as a STDIO command through `mcp-remote`, which forwards the header on every request and expands `${TOKEN}` from `env`:
+
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "command": "npx",
+      "args": [
+        "mcp-remote", "http://localhost:8080/mcp", "--allow-http",
+        "--header", "Authorization: Bearer ${TOKEN}"
+      ],
+      "env": { "TOKEN": "<access token>" }
+    }
+  }
+}
+```
+
+The token's `aud` claim must contain the exact URL above, and it expires — see the [HTTP security model](../security/http.md#connecting-an-mcp-client-to-a-secured-server) for obtaining one and the lifetime knobs.
 
 MCP support requires the AI Assistant plugin. See the [JetBrains MCP documentation](https://www.jetbrains.com/help/ai-assistant/mcp.html) for the latest configuration format.

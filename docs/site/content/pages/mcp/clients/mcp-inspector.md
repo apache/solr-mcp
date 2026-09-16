@@ -47,13 +47,20 @@ This starts the Inspector UI at `http://localhost:6274`.
 
 ***
 
-## OAuth2 ##
+## Secured HTTP (bearer token) ##
 
-When OAuth2 is enabled on the server, configure the Inspector's OAuth settings before connecting:
+The Inspector starts its OAuth flow only when the server answers `401`. This server never does that on `/mcp` — the handshake is anonymous and `@PreAuthorize` denies inside each tool — so with the URL alone the Inspector connects, lists every tool, and every call returns `Access Denied`. Pass a token from your identity provider with `--header` instead. It applies to the ad-hoc server the Inspector opens with:
 
-1. Click the **OAuth** settings in the Inspector
-2. Enter your provider's Authorization URL, Token URL, Client ID, and Redirect URI (`http://localhost:6274/oauth/callback`)
-3. Complete the OAuth flow
-4. The Inspector will include the Bearer token in all subsequent requests
+```bash
+# Web UI
+npx @modelcontextprotocol/inspector --server-url http://localhost:8080/mcp --transport http \
+    --header "Authorization: Bearer $TOKEN"
+
+# CLI: one tool call, no browser
+npx @modelcontextprotocol/inspector --cli http://localhost:8080/mcp --transport http \
+    --header "Authorization: Bearer $TOKEN" --method tools/call --tool-name list-collections
+```
+
+The token's `aud` claim must contain the exact URL given here (`http://localhost:8080/mcp`), and when it expires calls fail with `401` until you relaunch with a fresh one.
 
 See [Security](/mcp/security.html) for server-side OAuth2 setup with Auth0 and Keycloak.
