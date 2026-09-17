@@ -60,19 +60,19 @@ public class SolrNativeHints {
 	}
 
 	/**
-	 * Package-private record types returned by {@code @McpTool} methods. Jackson
-	 * needs reflection access to serialize these as MCP tool responses in native
-	 * image.
+	 * Record types used by {@code @McpTool} methods as responses or parameters.
+	 * Jackson needs reflection access to serialize responses and to bind request
+	 * parameters in native image. Registered by name because some are
+	 * package-private.
 	 */
-	private static final List<String> MCP_RESPONSE_RECORDS = List.of(
-			"org.apache.solr.mcp.server.collection.AliasResult",
+	private static final List<String> MCP_TOOL_RECORDS = List.of("org.apache.solr.mcp.server.collection.AliasResult",
 			"org.apache.solr.mcp.server.collection.CollectionCreationResult",
 			"org.apache.solr.mcp.server.collection.SolrHealthStatus",
 			"org.apache.solr.mcp.server.collection.SolrMetrics", "org.apache.solr.mcp.server.collection.IndexStats",
 			"org.apache.solr.mcp.server.collection.QueryStats", "org.apache.solr.mcp.server.collection.CacheStats",
 			"org.apache.solr.mcp.server.collection.CacheInfo", "org.apache.solr.mcp.server.collection.HandlerStats",
 			"org.apache.solr.mcp.server.collection.HandlerInfo", "org.apache.solr.mcp.server.search.SearchResponse",
-			"org.apache.solr.mcp.server.schema.SchemaUpdateResult");
+			"org.apache.solr.mcp.server.search.SortClause", "org.apache.solr.mcp.server.schema.SchemaUpdateResult");
 
 	static class Registrar implements RuntimeHintsRegistrar {
 		@Override
@@ -111,8 +111,10 @@ public class SolrNativeHints {
 			hints.reflection().registerType(org.apache.solr.client.solrj.response.schema.SchemaRepresentation.class,
 					categories);
 
-			// MCP tool response records (package-private, registered by name)
-			for (String className : MCP_RESPONSE_RECORDS) {
+			// MCP tool request/response records (some package-private, registered by
+			// name); request records are deserialized reflectively by Jackson when
+			// tool arguments are bound
+			for (String className : MCP_TOOL_RECORDS) {
 				hints.reflection().registerTypeIfPresent(classLoader, className, categories);
 			}
 
@@ -123,12 +125,13 @@ public class SolrNativeHints {
 					"org.springaicommunity.mcp.context.DefaultMetaProvider",
 					MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
 
-			// Include logback.xml in the native image so logback's early
-			// initialization (before Spring Boot) finds it and applies the
-			// NopStatusListener. Without this, logback falls through to
-			// BasicConfigurator and writes status messages to stdout,
-			// corrupting the MCP STDIO JSON-RPC framing.
-			hints.resources().registerPattern("logback.xml");
+			// logback-spring.xml is the only logback configuration; Spring Boot
+			// resolves it by convention. Under AOT the parsed model is replayed
+			// from META-INF/spring/logback-model, so this hint is belt-and-braces
+			// for the non-AOT path. Logback's own pre-Spring status output is
+			// silenced by Main, not by a second configuration file; see
+			// LoggingConfigurationTest.
+			hints.resources().registerPattern("logback-spring.xml");
 		}
 	}
 }

@@ -33,6 +33,8 @@ import org.apache.solr.client.solrj.request.schema.FieldTypeDefinition;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
 import org.apache.solr.mcp.server.util.PromptNames;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.annotation.McpArg;
 import org.springaicommunity.mcp.annotation.McpPrompt;
 import org.springaicommunity.mcp.annotation.McpResource;
@@ -137,6 +139,8 @@ import org.springframework.stereotype.Service;
 @Observed
 public class SchemaService {
 
+	private static final Logger logger = LoggerFactory.getLogger(SchemaService.class);
+
 	/** SolrJ client for communicating with Solr server */
 	private final SolrClient solrClient;
 
@@ -185,6 +189,7 @@ public class SchemaService {
 		try {
 			return toJson(objectMapper, getSchema(collection));
 		} catch (Exception e) {
+			logger.error("Failed to get schema for collection: {}", collection, e);
 			// Serialise via Jackson rather than concatenating: an exception message
 			// containing a quote, backslash or newline would otherwise emit invalid
 			// JSON to the MCP client.
@@ -264,9 +269,11 @@ public class SchemaService {
 	 *            the name of the Solr collection to retrieve schema information for
 	 * @return complete schema representation containing all field and type
 	 *         definitions
-	 * @throws Exception
-	 *             if collection does not exist, access is denied, or communication
-	 *             fails
+	 * @throws SolrServerException
+	 *             if the Solr server returns an error; a missing collection
+	 *             surfaces as an unchecked {@code SolrException} (404)
+	 * @throws IOException
+	 *             if communication with the Solr server fails
 	 * @see SchemaRepresentation
 	 * @see SchemaRequest
 	 * @see org.apache.solr.client.solrj.response.schema.SchemaResponse
@@ -276,7 +283,7 @@ public class SchemaService {
 			name = "get-schema",
 			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
 			description = "Get schema for a Solr collection")
-	public SchemaRepresentation getSchema(String collection) throws Exception {
+	public SchemaRepresentation getSchema(String collection) throws SolrServerException, IOException {
 		SchemaRequest schemaRequest = new SchemaRequest();
 		return schemaRequest.process(solrClient, collection).getSchemaRepresentation();
 	}
