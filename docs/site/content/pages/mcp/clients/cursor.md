@@ -58,7 +58,25 @@ Create `.cursor/mcp.json` in your project root:
 
 ## HTTP Mode ##
 
-Start the server first (see [Running the Server](https://github.com/apache/solr-mcp#running-the-server)), then:
+### Start the Server ###
+
+```bash
+# JAR
+PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
+
+# Or Gradle
+PROFILES=http ./gradlew bootRun
+
+# Or Docker (local image — build first with ./gradlew jibDockerBuild)
+docker run -p 8080:8080 --rm \
+    -e PROFILES=http \
+    -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+    solr-mcp:latest
+```
+
+**Linux users** (Docker option): add `--add-host=host.docker.internal:host-gateway` to the `docker run` command.
+
+### Configure Cursor ###
 
 ```json
 {
@@ -70,6 +88,8 @@ Start the server first (see [Running the Server](https://github.com/apache/solr-
 }
 ```
 
+### Secured HTTP (OAuth2) ###
+
 The configuration is the same for secured and unsecured HTTP. Cursor handles the MCP OAuth2 flow automatically.
 
-See the [Cursor MCP documentation](https://docs.cursor.com/context/model-context-protocol) for the latest configuration format.
+See [Security](/mcp/security.html) for server-side OAuth2 setup, and the [Cursor MCP documentation](https://docs.cursor.com/context/model-context-protocol) for the latest configuration format.
