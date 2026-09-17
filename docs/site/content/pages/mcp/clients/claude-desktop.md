@@ -18,9 +18,11 @@ Restart Claude Desktop after any configuration change.
 
 STDIO mode communicates via stdin/stdout. This is the simplest setup for local use.
 
-### JAR ###
+### Configuration ###
 
-Requires Java 25+ and a [built JAR](https://github.com/apache/solr-mcp#running-the-server) (`./gradlew build`).
+Requires Java 25+ and a [built JAR](https://github.com/apache/solr-mcp#running-the-server) (`./gradlew build`) for the JAR option.
+
+**JAR:**
 
 ```json
 {
@@ -36,9 +38,7 @@ Requires Java 25+ and a [built JAR](https://github.com/apache/solr-mcp#running-t
 }
 ```
 
-### Docker (local image) ###
-
-Build the image first: `./gradlew jibDockerBuild`
+**Docker (local image — build first with `./gradlew jibDockerBuild`):**
 
 ```json
 {
@@ -70,12 +70,14 @@ PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
 # Or Gradle
 PROFILES=http ./gradlew bootRun
 
-# Or Docker (local image)
+# Or Docker (local image — build first with ./gradlew jibDockerBuild)
 docker run -p 8080:8080 --rm \
     -e PROFILES=http \
     -e SOLR_URL=http://host.docker.internal:8983/solr/ \
     solr-mcp:latest
 ```
+
+**Linux users** (Docker option): add `--add-host=host.docker.internal:host-gateway` to the `docker run` command.
 
 ### Configure Claude Desktop ###
 
