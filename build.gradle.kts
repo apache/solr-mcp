@@ -28,6 +28,7 @@ plugins {
     alias(libs.plugins.jib)
     alias(libs.plugins.graalvm.native) apply false
     alias(libs.plugins.cyclonedx)
+    alias(libs.plugins.changelog)
     // Generates ASF source/binary LICENSE + NOTICE (buildSrc convention plugin).
     // Listed after spring-boot + cyclonedx so productionRuntimeClasspath and
     // cyclonedxBom exist when it wires its tasks. See buildSrc/.
@@ -339,6 +340,28 @@ spotless {
         target("*.gradle.kts")
         ktlint()
     }
+}
+
+// Release Notes / CHANGELOG.md (org.jetbrains.changelog)
+// ========================================================
+// Maintains CHANGELOG.md in Keep a Changelog format. Entries are added by hand to the
+// [Unreleased] section as PRs land (see CONTRIBUTING guidance); at release time
+// `patchChangelog` promotes [Unreleased] into a versioned section, and `getChangelog`
+// extracts one version's notes for reuse (e.g. as a GitHub Release body).
+//
+//   ./gradlew patchChangelog                                   # cut [Unreleased] -> version section
+//   ./gradlew getChangelog --console=plain -q --no-header --project-version=Unreleased  # unreleased notes
+//   ./gradlew getChangelog --console=plain -q --no-header --project-version=1.0.0        # one version's notes
+//
+// `--project-version` is required: without it the task resolves against Gradle's own
+// `project.version` (e.g. "1.0.0-SNAPSHOT"), which won't match any changelog heading
+// until `patchChangelog` has cut that version's section.
+//
+// See the release process doc (apache/solr-mcp#157; will land as dev-docs/release-process.md)
+// for where this fits in an ASF release.
+changelog {
+    repositoryUrl = "https://github.com/apache/solr-mcp"
+    groups = listOf("Added", "Changed", "Fixed", "Security")
 }
 
 // Docker Integration Test Task
