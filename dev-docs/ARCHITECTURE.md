@@ -16,16 +16,16 @@ src/main/java/org/apache/solr/mcp/server/
 │   ├── SearchService.java             # MCP tool for searching Solr
 │   └── SearchResponse.java            # Search result DTOs
 ├── indexing/                           # Document indexing functionality
-│   ├── IndexingService.java           # MCP tool for indexing documents
-│   └── documentcreator/               # Document format parsers
+│   ├── IndexingService.java           # MCP tools for indexing documents
+│   ├── SolrUpdateXml.java             # Rejects anything but an <add> block before XML is forwarded to Solr
+│   └── documentcreator/               # Parsers for the formats Solr cannot parse itself
 │       ├── IndexingDocumentCreator.java    # Orchestrator that delegates to format-specific creators
 │       ├── JsonDocumentCreator.java        # JSON document parser (implements SolrDocumentCreator)
-│       ├── CsvDocumentCreator.java         # CSV document parser (implements SolrDocumentCreator)
-│       ├── XmlDocumentCreator.java         # XML document parser (implements SolrDocumentCreator)
+│       ├── MarkdownDocumentCreator.java    # Markdown document parser (implements SolrDocumentCreator)
 │       ├── SolrDocumentCreator.java        # Common interface for document creators
 │       ├── FieldNameSanitizer.java         # Field name sanitization utility
 │       └── DocumentProcessingException.java # Indexing exceptions
-└── metadata/                           # Collection management functionality
+└── collection/                           # Collection management functionality
     ├── CollectionService.java         # MCP tools for collection operations
     ├── SchemaService.java             # MCP tool for schema retrieval
     ├── CollectionUtils.java           # Collection utility methods
@@ -53,19 +53,25 @@ Spring Boot configuration using properties files:
 
 ### Document Creators
 
-Strategy pattern implementation for parsing different document formats:
+Server-side parsing exists only for JSON and Markdown, the formats Solr's update
+handlers do not accept directly:
 
 - Automatically sanitizes field names to comply with Solr schema requirements
 - Supports nested JSON structures and multi-valued fields
 - Delegation via service composition (IndexingDocumentCreator) to the appropriate format-specific creator
 
+CSV and Solr update XML are forwarded to Solr as-is, field names as given. The only
+server-side step is `SolrUpdateXml`, which rejects any XML root other than `<add>`
+so the indexing tool cannot carry `<delete>` or `<commit>`.
+
 ### DTOs
 
-Plain Java classes (POJOs) used as data transfer objects:
+Java `record` types used as data transfer objects:
 
-- No Lombok dependency; simple, explicit types
+- No Lombok dependency; the record declaration is the whole definition
 - Designed for straightforward serialization/deserialization
-- Favor clarity; immutability can be introduced where it adds value
+- Records are immutable by construction, so the response types handed to
+  MCP clients cannot be mutated after they are built
 
 ## Design Decisions
 
@@ -132,24 +138,39 @@ The document creator pattern allows for:
 ### Test Structure
 ```
 src/test/java/org/apache/solr/mcp/server/
+├── MainTest.java                      # Application bootstrap
 ├── McpToolRegistrationTest.java       # MCP tool registration tests
+├── McpClientIntegrationTest.java      # MCP workflow over the in-process client
+├── McpClientStdioIntegrationTest.java # MCP workflow against `java -jar` over STDIO
 ├── BuildInfoReader.java               # Test utility for build metadata
 ├── SampleClient.java                  # Example MCP client
 ├── search/
-│   ├── SearchServiceTest.java         # Unit tests
-│   └── SearchServiceDirectTest.java   # Integration tests
+│   ├── SearchServiceTest.java             # Unit tests
+│   └── SearchServiceIntegrationTest.java  # Testcontainers
 ├── indexing/
 │   ├── IndexingServiceTest.java
-│   ├── IndexingServiceDirectTest.java
-│   ├── CsvIndexingTest.java
-│   └── XmlIndexingTest.java
-├── metadata/
+│   ├── IndexingServiceIntegrationTest.java
+│   ├── SolrUpdateXmlTest.java             # <add>-only gate
+│   ├── MarkdownIndexingTest.java
+│   └── ShowsSampleDataIntegrationTest.java  # JSON/CSV/XML parity
+├── collection/
 │   ├── CollectionServiceTest.java
+│   ├── CollectionUtilsTest.java
 │   ├── CollectionServiceIntegrationTest.java
+│   └── ConferenceEndToEndIntegrationTest.java
+├── schema/
 │   ├── SchemaServiceTest.java
 │   └── SchemaServiceIntegrationTest.java
-└── containerization/
+├── config/
+│   ├── JsonResponseParserTest.java
+│   ├── SolrConfigUrlNormalizationTest.java
+│   └── SolrConfigIntegrationTest.java
+├── observability/
+│   ├── DistributedTracingTest.java
+│   └── OtlpExportIntegrationTest.java
+└── containerization/                  # @Tag("docker-integration") only
     ├── DockerImageStdioIntegrationTest.java
+    ├── DockerImageMcpClientStdioIntegrationTest.java
     └── DockerImageHttpIntegrationTest.java
 ```
 
@@ -179,9 +200,9 @@ All dependencies are managed via Gradle version catalogs in `gradle/libs.version
 ### Potential Enhancements
 
 1. **Authentication & Authorization**
-   - OAuth2 support for HTTP mode
-   - Token-based authentication
    - Role-based access control
+   (OAuth2 resource-server support and bearer-token authentication for HTTP
+   mode are already implemented — see `security/HttpSecurityConfiguration`.)
 
 2. **Additional Tools**
    - Bulk operations

@@ -73,15 +73,20 @@ run_one() {
 	local cid
 	local t_start t_ready rss_mb prev_rss=0 stable_count=0
 	t_start="$(date +%s%N)"
-	# Do not use --rm so we can reliably inspect and clean up the container
-	cid="$(docker run -d \
+	# Do not use --rm so we can reliably inspect and clean up the container.
+	# -i keeps stdin open: the default (stdio) profile reads MCP JSON-RPC from
+	# stdin and exits immediately on EOF, which would make every run look like
+	# a crash.
+	cid="$(docker run -d -i \
 		-e SOLR_URL="${SOLR_URL}" \
 		-e SPRING_DOCKER_COMPOSE_ENABLED=false \
 		"${image}")"
 
 	# Poll at 25ms intervals for up to 60s
 	for i in $(seq 1 2400); do
-		if ! docker inspect "${cid}" >/dev/null 2>&1; then
+		# Check that the container is still *running*. `docker inspect` also
+		# succeeds for an exited container, so it never detected a crash.
+		if [[ "$(docker inspect -f '{{.State.Running}}' "${cid}" 2>/dev/null)" != "true" ]]; then
 			docker logs "${cid}" >&2 || true
 			docker rm -f "${cid}" >/dev/null 2>&1 || true
 			echo "container exited prematurely" >&2

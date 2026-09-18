@@ -26,6 +26,8 @@ import java.util.OptionalDouble;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
+import org.apache.solr.common.SolrException;
+import org.apache.solr.mcp.server.TestDocuments;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.junit.jupiter.api.BeforeEach;
@@ -169,7 +171,7 @@ class SearchServiceIntegrationTest {
 					]
 					""";
 
-			indexingService.indexJsonDocuments(COLLECTION_NAME, sampleData);
+			indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(sampleData));
 			solrClient.commit(COLLECTION_NAME);
 			initialized = true;
 		}
@@ -182,6 +184,117 @@ class SearchServiceIntegrationTest {
 		List<Map<String, Object>> documents = result.documents();
 		assertFalse(documents.isEmpty());
 		assertEquals(10, documents.size());
+	}
+
+	/**
+	 * Zero matches is an ordinary search outcome, not an error. Solr writes an
+	 * empty facet as {@code []}, which must still reach SolrJ as a NamedList —
+	 * {@code QueryResponse.getFacetFields()} casts to one, so a plain list surfaces
+	 * as {@code ClassCastException: ArrayList cannot be cast to
+	 * NamedList} instead of an empty result.
+	 *
+	 * <p>
+	 * {@link org.apache.solr.mcp.server.config.JsonResponseParserTest} pins the
+	 * same behaviour at the parser boundary against a hand-written payload. This
+	 * test is the end-to-end counterpart: it proves a real Solr actually emits
+	 * {@code []} for a zero-hit facet, which is the premise the unit tests assume.
+	 */
+	@Test
+	void facetingAQueryThatMatchesNothingReturnsEmptyFacets() throws SolrServerException, IOException {
+		SearchResponse result = searchService.search(COLLECTION_NAME, "genre_s:no_such_genre_exists", null,
+				List.of("genre_s"), null, null, 0);
+
+		assertNotNull(result);
+		assertEquals(0, result.numFound(), "the filter is designed to match nothing");
+		assertNotNull(result.facets(), "facets must be present even when nothing matched");
+		assertTrue(result.facets().getOrDefault("genre_s", Map.of()).isEmpty(),
+				() -> "expected no facet buckets, got: " + result.facets().get("genre_s"));
+	}
+
+	/**
+	 * Remediation hints classify Solr's error text, which this server cannot see at
+	 * compile time — the strings are produced by solr-core, and only solr-solrj is
+	 * on the classpath. These tests therefore provoke each failure on a real Solr
+	 * server and assert the hint survives: they are the only thing standing between
+	 * a reworded Solr message and a hint that silently stops appearing.
+	 *
+	 * <p>
+	 * Each asserts on the hint constant, never on the token being matched — an
+	 * assertion routed through the same token the matcher uses would pass even if
+	 * Solr changed its wording, which is exactly the regression being guarded.
+	 */
+	@Test
+	void searchWithUndefinedFieldInQueryReturnsGetSchemaHint() {
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> searchService
+				.search(COLLECTION_NAME, "definitely_not_a_field:value", null, null, null, null, null));
+		assertTrue(e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
+				() -> "expected get-schema hint, got: " + e.getMessage());
+	}
+
+	@Test
+	void searchWithUndefinedFieldInFilterQueryReturnsGetSchemaHint() {
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> searchService
+				.search(COLLECTION_NAME, "*:*", List.of("definitely_not_a_field:value"), null, null, null, null));
+		assertTrue(e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
+				() -> "expected get-schema hint, got: " + e.getMessage());
+	}
+
+	/** Faceting words it differently: {@code undefined field: "name"}. */
+	@Test
+	void searchWithUndefinedFacetFieldReturnsGetSchemaHint() {
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> searchService
+				.search(COLLECTION_NAME, "*:*", null, List.of("definitely_not_a_field"), null, null, null));
+		assertTrue(e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
+				() -> "expected get-schema hint, got: " + e.getMessage());
+	}
+
+	/**
+	 * Sorting words it differently again: {@code sort param field can't be found},
+	 * which is why the matcher carries a second undefined-field token.
+	 */
+	@Test
+	void searchWithUndefinedSortFieldReturnsGetSchemaHint() {
+		List<SortClause> sort = List.of(new SortClause("definitely_not_a_field", "asc"));
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+				() -> searchService.search(COLLECTION_NAME, "*:*", null, null, sort, null, null));
+		assertTrue(e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
+				() -> "expected get-schema hint, got: " + e.getMessage());
+	}
+
+	@Test
+	void searchWithUnparseableQueryReturnsLuceneSyntaxHint() {
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+				() -> searchService.search(COLLECTION_NAME, "name:(", null, null, null, null, null));
+		assertTrue(e.getMessage().contains(SearchService.LUCENE_SYNTAX_HINT),
+				() -> "expected Lucene syntax hint, got: " + e.getMessage());
+	}
+
+	/**
+	 * An unknown collection is a 404 whose body is Solr's HTML page, so the message
+	 * names neither the collection nor "404" — it reads
+	 * {@code Expected mime type in
+	 * [application/json, text/plain] but got text/html}. Matched on
+	 * {@link org.apache.solr.common.SolrException#code()} instead.
+	 */
+	@Test
+	void searchOnMissingCollectionReturnsListCollectionsHint() {
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+				() -> searchService.search("definitely_not_a_collection", "*:*", null, null, null, null, null));
+		assertTrue(e.getMessage().contains(SearchService.LIST_COLLECTIONS_HINT),
+				() -> "expected list-collections hint, got: " + e.getMessage());
+	}
+
+	/**
+	 * A Solr error we have no advice for must reach the client untouched. Negative
+	 * {@code rows} is structurally identical to the undefined-field failures — a
+	 * 400 carrying a generic {@code SolrException} — so it also pins that the text
+	 * matching is not over-broad.
+	 */
+	@Test
+	void searchWithUnrecognizedSolrErrorPropagatesWithoutHint() {
+		SolrException e = assertThrows(SolrException.class,
+				() -> searchService.search(COLLECTION_NAME, "*:*", null, null, null, null, -5));
+		assertFalse(e.getMessage().contains("Hint:"), () -> "expected no hint, got: " + e.getMessage());
 	}
 
 	@Test
@@ -230,7 +343,7 @@ class SearchServiceIntegrationTest {
 
 	@Test
 	void testSortByPriceAscending() throws Exception {
-		List<Map<String, String>> sortClauses = List.of(Map.of("item", "price", "order", "asc"));
+		List<SortClause> sortClauses = List.of(new SortClause("price", "asc"));
 		SearchResponse result = searchService.search(COLLECTION_NAME, null, null, null, sortClauses, null, null);
 		assertNotNull(result);
 		List<Map<String, Object>> documents = result.documents();
@@ -248,7 +361,7 @@ class SearchServiceIntegrationTest {
 
 	@Test
 	void testSortByPriceDescending() throws Exception {
-		List<Map<String, String>> sortClauses = List.of(Map.of("item", "price", "order", "desc"));
+		List<SortClause> sortClauses = List.of(new SortClause("price", "desc"));
 		SearchResponse result = searchService.search(COLLECTION_NAME, null, null, null, sortClauses, null, null);
 		assertNotNull(result);
 		List<Map<String, Object>> documents = result.documents();
@@ -266,7 +379,7 @@ class SearchServiceIntegrationTest {
 
 	@Test
 	void testSortBySequence() throws Exception {
-		List<Map<String, String>> sortClauses = List.of(Map.of("item", "sequence_i", "order", "asc"));
+		List<SortClause> sortClauses = List.of(new SortClause("sequence_i", "asc"));
 		List<String> filterQueries = List.of("series_s:\"A Song of Ice and Fire\"");
 		SearchResponse result = searchService.search(COLLECTION_NAME, null, filterQueries, null, sortClauses, null,
 				null);
@@ -314,7 +427,7 @@ class SearchServiceIntegrationTest {
 
 	@Test
 	void testCombinedSortingAndFiltering() throws Exception {
-		List<Map<String, String>> sortClauses = List.of(Map.of("item", "price", "order", "desc"));
+		List<SortClause> sortClauses = List.of(new SortClause("price", "desc"));
 		List<String> filterQueries = List.of("genre_s:fantasy");
 		SearchResponse result = searchService.search(COLLECTION_NAME, null, filterQueries, null, sortClauses, null,
 				null);
@@ -380,7 +493,7 @@ class SearchServiceIntegrationTest {
 				  }
 				]
 				""";
-		indexingService.indexJsonDocuments(COLLECTION_NAME, specialJson);
+		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(specialJson));
 		solrClient.commit(COLLECTION_NAME);
 		String query = "id:special001";
 		SearchResponse result = searchService.search(COLLECTION_NAME, query, null, null, null, null, null);

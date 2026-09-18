@@ -16,8 +16,8 @@
  */
 package org.apache.solr.mcp.server.indexing.documentcreator;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.springframework.stereotype.Service;
@@ -27,10 +27,11 @@ import org.springframework.stereotype.Service;
  * various data formats.
  *
  * <p>
- * This service handles the conversion of JSON, CSV, and XML documents into
+ * This service handles the conversion of JSON and Markdown documents into
  * Solr-compatible format using a schema-less approach where Solr automatically
  * detects field types, eliminating the need for predefined schema
- * configuration.
+ * configuration. CSV and XML have no creator: those payloads are forwarded to
+ * Solr's own update handlers.
  *
  * <p>
  * <strong>Core Features:</strong>
@@ -40,10 +41,8 @@ import org.springframework.stereotype.Service;
  * detection by Solr
  * <li><strong>JSON Processing</strong>: Support for complex nested JSON
  * documents
- * <li><strong>CSV Processing</strong>: Support for comma-separated value files
- * with headers
- * <li><strong>XML Processing</strong>: Support for XML documents with element
- * flattening and attribute handling
+ * <li><strong>Markdown Processing</strong>: Support for markdown documents with
+ * front matter, title, and heading extraction
  * <li><strong>Field Sanitization</strong>: Automatic cleanup of field names for
  * Solr compatibility
  * </ul>
@@ -54,29 +53,23 @@ import org.springframework.stereotype.Service;
 @Service
 public class IndexingDocumentCreator {
 
-	private static final int MAX_XML_SIZE_BYTES = 10 * 1024 * 1024; // 10MB limit
-
-	private final XmlDocumentCreator xmlDocumentCreator;
-
-	private final CsvDocumentCreator csvDocumentCreator;
-
 	private final JsonDocumentCreator jsonDocumentCreator;
 
+	private final MarkdownDocumentCreator markdownDocumentCreator;
+
 	/**
-	 * Constructs the orchestrator with the per-format document creators.
+	 * Constructs the orchestrator with the per-format document creators. CSV and
+	 * XML have no creator: those payloads go to Solr's own update handlers.
 	 *
-	 * @param xmlDocumentCreator
-	 *            converts XML input into {@code SolrInputDocument} batches
-	 * @param csvDocumentCreator
-	 *            converts CSV input into {@code SolrInputDocument} batches
 	 * @param jsonDocumentCreator
 	 *            converts JSON input into {@code SolrInputDocument} batches
+	 * @param markdownDocumentCreator
+	 *            converts Markdown input into {@code SolrInputDocument} batches
 	 */
-	public IndexingDocumentCreator(XmlDocumentCreator xmlDocumentCreator, CsvDocumentCreator csvDocumentCreator,
-			JsonDocumentCreator jsonDocumentCreator) {
-		this.xmlDocumentCreator = xmlDocumentCreator;
-		this.csvDocumentCreator = csvDocumentCreator;
+	public IndexingDocumentCreator(JsonDocumentCreator jsonDocumentCreator,
+			MarkdownDocumentCreator markdownDocumentCreator) {
 		this.jsonDocumentCreator = jsonDocumentCreator;
+		this.markdownDocumentCreator = markdownDocumentCreator;
 	}
 
 	/**
@@ -98,50 +91,44 @@ public class IndexingDocumentCreator {
 	}
 
 	/**
-	 * Creates a list of schema-less SolrInputDocument objects from a CSV string.
+	 * Creates schema-less documents from already-parsed JSON objects, one per map.
 	 *
-	 * <p>
-	 * This method delegates CSV processing to the CsvDocumentProcessor utility
-	 * class.
-	 *
-	 * @param csv
-	 *            CSV string containing document data (first row must be headers)
+	 * @param documents
+	 *            the documents as field-name-to-value maps
 	 * @return list of SolrInputDocument objects ready for indexing
 	 * @throws DocumentProcessingException
-	 *             if CSV parsing fails or the structure is invalid
-	 * @see CsvDocumentCreator
+	 *             if the list is {@code null} or empty
+	 * @see JsonDocumentCreator#create(List)
 	 */
-	public List<SolrInputDocument> createSchemalessDocumentsFromCsv(String csv) throws DocumentProcessingException {
-		return csvDocumentCreator.create(csv);
+	public List<SolrInputDocument> createSchemalessDocumentsFromJson(List<Map<String, Object>> documents)
+			throws DocumentProcessingException {
+		return jsonDocumentCreator.create(documents);
 	}
 
 	/**
-	 * Creates a list of schema-less SolrInputDocument objects from an XML string.
+	 * Creates a list of schema-less SolrInputDocument objects from a markdown
+	 * string.
 	 *
 	 * <p>
-	 * This method delegates XML processing to the XmlDocumentProcessor utility
-	 * class.
+	 * This method delegates markdown processing to the MarkdownDocumentCreator
+	 * utility class.
 	 *
-	 * @param xml
-	 *            XML string containing document data
+	 * @param markdown
+	 *            markdown string containing document content, optionally starting
+	 *            with YAML front matter
 	 * @return list of SolrInputDocument objects ready for indexing
 	 * @throws DocumentProcessingException
-	 *             if XML parser configuration fails
-	 * @see XmlDocumentCreator
+	 *             if markdown parsing fails or input validation fails
+	 * @see MarkdownDocumentCreator
 	 */
-	public List<SolrInputDocument> createSchemalessDocumentsFromXml(String xml) throws DocumentProcessingException {
+	public List<SolrInputDocument> createSchemalessDocumentsFromMarkdown(String markdown)
+			throws DocumentProcessingException {
 
 		// Input validation
-		if (xml == null || xml.trim().isEmpty()) {
-			throw new DocumentProcessingException("XML input cannot be null or empty");
+		if (markdown == null || markdown.trim().isEmpty()) {
+			throw new DocumentProcessingException("Markdown input cannot be null or empty");
 		}
 
-		byte[] xmlBytes = xml.getBytes(StandardCharsets.UTF_8);
-		if (xmlBytes.length > MAX_XML_SIZE_BYTES) {
-			throw new DocumentProcessingException(
-					"XML document too large: " + xmlBytes.length + " bytes (max: " + MAX_XML_SIZE_BYTES + ")");
-		}
-
-		return xmlDocumentCreator.create(xml);
+		return markdownDocumentCreator.create(markdown);
 	}
 }

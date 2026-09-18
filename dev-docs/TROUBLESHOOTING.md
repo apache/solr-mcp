@@ -255,8 +255,12 @@ The following files had format violations:
 
 **Solution:**
 ```bash
-# Clean Gradle cache
+# Remove build outputs and bypass the build cache for this run
+# (this does NOT purge the cache itself)
 ./gradlew clean --no-build-cache
+
+# Actually purge the Gradle build cache
+rm -rf ~/.gradle/caches/build-cache-1
 
 # Nuclear option: delete .gradle directory
 rm -rf .gradle
@@ -404,8 +408,10 @@ If you're still having issues:
 ### Server Logs
 
 ```bash
-# STDIO mode - logs to stderr
-./gradlew bootRun 2>&1 | tee server.log
+# STDIO mode - logs go to stderr; capture stderr ONLY.
+# Do not use 2>&1: that merges diagnostics into stdout, which carries the
+# MCP JSON-RPC stream and must stay clean.
+./gradlew bootRun 2> server.log
 
 # HTTP mode - Spring Boot logging
 PROFILES=http ./gradlew bootRun

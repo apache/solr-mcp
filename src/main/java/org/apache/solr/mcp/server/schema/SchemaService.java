@@ -33,6 +33,8 @@ import org.apache.solr.client.solrj.request.schema.FieldTypeDefinition;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
 import org.apache.solr.mcp.server.util.PromptNames;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.annotation.McpArg;
 import org.springaicommunity.mcp.annotation.McpPrompt;
 import org.springaicommunity.mcp.annotation.McpResource;
@@ -137,6 +139,8 @@ import org.springframework.stereotype.Service;
 @Observed
 public class SchemaService {
 
+	private static final Logger logger = LoggerFactory.getLogger(SchemaService.class);
+
 	/** SolrJ client for communicating with Solr server */
 	private final SolrClient solrClient;
 
@@ -185,7 +189,11 @@ public class SchemaService {
 		try {
 			return toJson(objectMapper, getSchema(collection));
 		} catch (Exception e) {
-			return "{\"error\": \"" + e.getMessage() + "\"}";
+			logger.error("Failed to get schema for collection: {}", collection, e);
+			// Serialise via Jackson rather than concatenating: an exception message
+			// containing a quote, backslash or newline would otherwise emit invalid
+			// JSON to the MCP client.
+			return toJson(objectMapper, Map.of("error", String.valueOf(e.getMessage())));
 		}
 	}
 
@@ -261,9 +269,11 @@ public class SchemaService {
 	 *            the name of the Solr collection to retrieve schema information for
 	 * @return complete schema representation containing all field and type
 	 *         definitions
-	 * @throws Exception
-	 *             if collection does not exist, access is denied, or communication
-	 *             fails
+	 * @throws SolrServerException
+	 *             if the Solr server returns an error; a missing collection
+	 *             surfaces as an unchecked {@code SolrException} (404)
+	 * @throws IOException
+	 *             if communication with the Solr server fails
 	 * @see SchemaRepresentation
 	 * @see SchemaRequest
 	 * @see org.apache.solr.client.solrj.response.schema.SchemaResponse
@@ -273,7 +283,7 @@ public class SchemaService {
 			name = "get-schema",
 			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
 			description = "Get schema for a Solr collection")
-	public SchemaRepresentation getSchema(String collection) throws Exception {
+	public SchemaRepresentation getSchema(String collection) throws SolrServerException, IOException {
 		SchemaRequest schemaRequest = new SchemaRequest();
 		return schemaRequest.process(solrClient, collection).getSchemaRepresentation();
 	}
@@ -316,7 +326,7 @@ public class SchemaService {
 		List<String> names = new ArrayList<>(fields.size());
 		List<SchemaRequest.Update> updates = new ArrayList<>(fields.size());
 		for (Map<String, Object> field : fields) {
-			names.add((String) field.get("name"));
+			names.add(requireName(field, "field"));
 			updates.add(new SchemaRequest.AddField(field));
 		}
 
@@ -366,12 +376,35 @@ public class SchemaService {
 		List<String> names = new ArrayList<>(fieldTypes.size());
 		List<SchemaRequest.Update> updates = new ArrayList<>(fieldTypes.size());
 		for (Map<String, Object> fieldType : fieldTypes) {
-			names.add((String) fieldType.get("name"));
+			names.add(requireName(fieldType, "field type"));
 			updates.add(new SchemaRequest.AddFieldType(toFieldTypeDefinition(fieldType)));
 		}
 
 		new SchemaRequest.MultiUpdate(updates).process(solrClient, collection);
 		return new SchemaUpdateResult(collection, names);
+	}
+
+	/**
+	 * Extracts and validates the {@code name} entry of a schema definition.
+	 *
+	 * <p>
+	 * Casting {@code get("name")} directly would record a {@code null} name for a
+	 * definition that omits it, or throw a bare {@link ClassCastException} if it is
+	 * not a string - neither tells the caller which entry was malformed.
+	 *
+	 * @param definition
+	 *            the caller-supplied field or field-type definition
+	 * @param kind
+	 *            human-readable noun used in the error message
+	 * @return the validated name
+	 */
+	private static String requireName(Map<String, Object> definition, String kind) {
+		Object name = definition.get("name");
+		if (!(name instanceof String s) || s.isBlank()) {
+			throw new IllegalArgumentException(
+					"Each " + kind + " definition requires a non-empty string 'name'; got: " + name);
+		}
+		return s;
 	}
 
 	/**

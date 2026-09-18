@@ -87,12 +87,23 @@ public class BuildInfoReader {
 	}
 
 	/**
-	 * Gets the Docker image name in the format "artifact:version".
+	 * Gets the Docker image name in the format {@code artifact:version<suffix>}.
 	 *
-	 * @return Docker image name (e.g., "solr-mcp:1.0.0-SNAPSHOT")
+	 * <p>
+	 * The optional {@code solr.mcp.docker.image.tag.suffix} system property is
+	 * appended to the tag so that the native {@code dockerIntegrationTest} runs
+	 * target the per-profile Paketo images ({@code -native-stdio} /
+	 * {@code -native-http}). For the JVM (Jib) path the property is unset and
+	 * defaults to an empty string, yielding the plain {@code artifact:version} tag.
+	 * Appending here (rather than at every call site) keeps the suffix applied
+	 * exactly once.
+	 *
+	 * @return Docker image name (e.g., "solr-mcp:1.0.0-SNAPSHOT" or
+	 *         "solr-mcp:1.0.0-SNAPSHOT-native-stdio")
 	 */
 	public static String getDockerImageName() {
-		return String.format("%s:%s", getArtifact(), getVersion());
+		String suffix = System.getProperty("solr.mcp.docker.image.tag.suffix", "");
+		return String.format("%s:%s%s", getArtifact(), getVersion(), suffix);
 	}
 
 	/**

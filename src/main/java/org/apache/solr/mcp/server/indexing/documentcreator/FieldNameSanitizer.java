@@ -16,6 +16,7 @@
  */
 package org.apache.solr.mcp.server.indexing.documentcreator;
 
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 /**
@@ -88,15 +89,21 @@ public final class FieldNameSanitizer {
 	 * @param fieldName
 	 *            the original field name to sanitize
 	 * @return sanitized field name compatible with Solr requirements, or "field" if
-	 *         input is null/empty
+	 *         the input is empty or sanitizes away to nothing
 	 * @see <a href=
 	 *      "https://solr.apache.org/guide/solr/latest/indexing-guide/fields.html">Solr
 	 *      Field Guide</a>
 	 */
 	public static String sanitizeFieldName(String fieldName) {
 
-		// Convert to lowercase and replace invalid characters with underscores
-		String sanitized = INVALID_CHARACTERS_PATTERN.matcher(fieldName.toLowerCase()).replaceAll("_");
+		// No null guard: this package is @NullMarked and NullAway enforces the
+		// non-null contract at compile time. An empty input falls through to the
+		// isEmpty() check below and yields the default name.
+
+		// Convert to lowercase and replace invalid characters with underscores.
+		// Locale.ROOT keeps this deterministic - the default locale would map
+		// 'I' to a dotless 'ı' under a Turkish locale and produce a different field.
+		String sanitized = INVALID_CHARACTERS_PATTERN.matcher(fieldName.toLowerCase(Locale.ROOT)).replaceAll("_");
 
 		// Remove leading/trailing underscores and collapse multiple underscores
 		sanitized = LEADING_TRAILING_UNDERSCORES_PATTERN.matcher(sanitized).replaceAll("");

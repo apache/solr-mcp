@@ -43,9 +43,10 @@ import org.testcontainers.utility.DockerImageName;
  * lines and {@code initialize()} will fail.
  *
  * <p>
- * Image under test: {@link BuildInfoReader#getDockerImageName()} plus the
- * {@code solr.mcp.docker.image.tag.suffix} system property (set to
- * {@code -native} for {@code dockerIntegrationTest -Pnative}, empty otherwise).
+ * Image under test: {@link BuildInfoReader#getDockerImageName()}, which appends
+ * the {@code solr.mcp.docker.image.tag.suffix} system property
+ * ({@code -native-stdio} / {@code -native-http} under
+ * {@code dockerIntegrationTest -Pnative}, empty on the JVM/Jib path).
  */
 @Tag("docker-integration")
 @Testcontainers(disabledWithoutDocker = true)

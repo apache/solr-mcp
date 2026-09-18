@@ -27,7 +27,7 @@ cyclonedx-plugin = "2.4.1"
 # Main dependencies
 spring-ai = "1.1.7"
 solr = "10.0.0"
-commons-csv = "1.14.1"
+commonmark = "0.28.0"
 jspecify = "1.0.0"
 mcp-server-security = "0.0.6"
 
@@ -38,6 +38,13 @@ nullaway = "0.13.1"
 
 # Test dependencies
 testcontainers = "1.21.3"
+# Docker images started by Testcontainers. Exact tags only (never "latest" or a
+# moving minor tag). Forwarded to tests as the solr.test.image / lgtm.test.image
+# system properties, which also override them for a single run; the literal
+# default at each Testcontainers call site (TestcontainersConfiguration,
+# OtlpExportIntegrationTest) must be bumped along with these pins.
+test-image-solr = "solr:9.9.0-slim"
+test-image-lgtm = "grafana/otel-lgtm:0.33.0"
 awaitility = "4.3.0"
 opentelemetry-instrumentation-bom = "2.26.1"
 
@@ -50,6 +57,7 @@ spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-
 spring-boot-starter-oauth2-resource-server = { module = "org.springframework.boot:spring-boot-starter-oauth2-resource-server" }
 spring-boot-docker-compose = { module = "org.springframework.boot:spring-boot-docker-compose" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+spring-security-test = { module = "org.springframework.security:spring-security-test" }
 spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
 # Spring AI
 spring-ai-starter-mcp-server-webmvc = { module = "org.springframework.ai:spring-ai-starter-mcp-server-webmvc" }
@@ -63,8 +71,9 @@ mcp-server-security = { module = "org.springaicommunity:mcp-server-security", ve
 # Solr
 solr-solrj = { module = "org.apache.solr:solr-solrj", version.ref = "solr" }
 
-# Apache Commons
-commons-csv = { module = "org.apache.commons:commons-csv", version.ref = "commons-csv" }
+# CommonMark (markdown parsing)
+commonmark = { module = "org.commonmark:commonmark", version.ref = "commonmark" }
+commonmark-ext-yaml-front-matter = { module = "org.commonmark:commonmark-ext-yaml-front-matter", version.ref = "commonmark" }
 
 # Null safety
 jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
@@ -102,6 +111,7 @@ spring-boot-dev = [
 
 test = [
     "spring-boot-starter-test",
+    "spring-security-test",
     "spring-boot-testcontainers",
     "spring-ai-spring-boot-testcontainers",
     "testcontainers-junit-jupiter",

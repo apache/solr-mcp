@@ -25,8 +25,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.observation.annotation.Observed;
 import io.modelcontextprotocol.spec.McpSchema.CompleteRequest;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import org.apache.solr.client.solrj.SolrClient;
@@ -40,10 +40,14 @@ import org.apache.solr.client.solrj.response.CollectionAdminResponse;
 import org.apache.solr.client.solrj.response.LukeResponse;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
+import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
 import org.apache.solr.mcp.server.util.PromptNames;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springaicommunity.mcp.annotation.McpArg;
 import org.springaicommunity.mcp.annotation.McpComplete;
 import org.springaicommunity.mcp.annotation.McpPrompt;
@@ -135,6 +139,8 @@ import org.springframework.stereotype.Service;
 @Observed
 public class CollectionService {
 
+	private static final Logger logger = LoggerFactory.getLogger(CollectionService.class);
+
 	// ========================================
 	// Constants for API Parameters and Paths
 	// ========================================
@@ -144,6 +150,14 @@ public class CollectionService {
 
 	/** Suffix pattern used to identify shard names in SolrCloud deployments */
 	private static final String SHARD_SUFFIX = "_shard";
+
+	/**
+	 * Matches a SolrCloud shard/replica suffix at the end of a core name, e.g.
+	 * {@code _shard1} or {@code _shard1_replica_n1}. Anchored so that collection
+	 * names merely containing "_shard" are left intact.
+	 */
+	private static final java.util.regex.Pattern SHARD_SUFFIX_PATTERN = java.util.regex.Pattern
+			.compile("_shard\\d+(_replica.*)?$");
 
 	/** Request parameter name for specifying response writer type */
 	private static final String WT_PARAM = "wt";
@@ -504,7 +518,9 @@ public class CollectionService {
 	@McpTool(
 			name = "get-collection-stats",
 			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
-			description = "Get stats/metrics on a Solr collection")
+			description = "Get stats/metrics on a Solr collection. On Solr 10+ cacheStats and"
+					+ " handlerStats are always null because the /admin/mbeans endpoint was removed"
+					+ " from Solr; this is expected and not an error.")
 	public SolrMetrics getCollectionStats(
 			@McpToolParam(description = "Solr collection to get stats/metrics for") String collection)
 			throws SolrServerException, IOException {
@@ -513,7 +529,8 @@ public class CollectionService {
 
 		// Validate collection exists
 		if (!validateCollectionExists(actualCollection)) {
-			throw new IllegalArgumentException(COLLECTION_NOT_FOUND_ERROR + actualCollection);
+			throw new IllegalArgumentException(COLLECTION_NOT_FOUND_ERROR + actualCollection
+					+ ". Hint: call list-collections to see available collections.");
 		}
 
 		// Index statistics using Luke
@@ -525,7 +542,7 @@ public class CollectionService {
 		QueryResponse statsResponse = solrClient.query(actualCollection, new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
 
 		return new SolrMetrics(buildIndexStats(lukeResponse), buildQueryStats(statsResponse),
-				fetchCacheMetrics(actualCollection), fetchHandlerMetrics(actualCollection), new Date());
+				fetchCacheMetrics(actualCollection), fetchHandlerMetrics(actualCollection), Instant.now());
 	}
 
 	/**
@@ -561,7 +578,7 @@ public class CollectionService {
 	 * @see IndexStats
 	 * @see LukeResponse
 	 */
-	public IndexStats buildIndexStats(LukeResponse lukeResponse) {
+	IndexStats buildIndexStats(LukeResponse lukeResponse) {
 		NamedList<Object> indexInfo = lukeResponse.getIndexInfo();
 
 		// Extract index information using helper methods
@@ -602,7 +619,7 @@ public class CollectionService {
 	 * @see QueryStats
 	 * @see QueryResponse
 	 */
-	public QueryStats buildQueryStats(QueryResponse response) {
+	QueryStats buildQueryStats(QueryResponse response) {
 
 		return new QueryStats(response.getQTime(), response.getResults().getNumFound(),
 				response.getResults().getStart(), response.getResults().getMaxScore());
@@ -657,7 +674,7 @@ public class CollectionService {
 	 * @see #extractCacheStats(NamedList)
 	 * @see #isCacheStatsEmpty(CacheStats)
 	 */
-	public CacheStats getCacheMetrics(String collection) throws SolrServerException, IOException {
+	@Nullable CacheStats getCacheMetrics(String collection) throws SolrServerException, IOException {
 		String actualCollection = extractCollectionName(collection);
 
 		if (!validateCollectionExists(actualCollection)) {
@@ -671,16 +688,17 @@ public class CollectionService {
 	 * Internal cache metrics fetch that assumes the collection has already been
 	 * validated and the name has been extracted from any shard identifier.
 	 */
-	private CacheStats fetchCacheMetrics(String collection) {
+	private @Nullable CacheStats fetchCacheMetrics(String collectionName) {
 		try {
-			NamedList<Object> coreMetrics = fetchMetrics(collection, CACHE_METRIC_PREFIX);
+			NamedList<Object> coreMetrics = fetchMetrics(collectionName, CACHE_METRIC_PREFIX);
 			if (coreMetrics == null) {
 				return null;
 			}
 
 			CacheStats stats = extractCacheStats(coreMetrics);
 			return isCacheStatsEmpty(stats) ? null : stats;
-		} catch (SolrServerException | IOException | RuntimeException _) {
+		} catch (SolrServerException | IOException | SolrException e) {
+			logger.debug("Cache metrics unavailable for collection: {}", collectionName, e);
 			return null;
 		}
 	}
@@ -697,7 +715,7 @@ public class CollectionService {
 	 *            the cache statistics to evaluate
 	 * @return true if the stats are null or all cache types are null
 	 */
-	private boolean isCacheStatsEmpty(CacheStats stats) {
+	private boolean isCacheStatsEmpty(@Nullable CacheStats stats) {
 		return stats == null
 				|| (stats.queryResultCache() == null && stats.documentCache() == null && stats.filterCache() == null);
 	}
@@ -716,7 +734,7 @@ public class CollectionService {
 	}
 
 	@SuppressWarnings("unchecked")
-	private CacheInfo extractSingleCacheInfo(NamedList<Object> coreMetrics, String key) {
+	private @Nullable CacheInfo extractSingleCacheInfo(NamedList<Object> coreMetrics, String key) {
 		NamedList<Object> cache = (NamedList<Object>) coreMetrics.get(key);
 		if (cache == null) {
 			return null;
@@ -773,7 +791,7 @@ public class CollectionService {
 	 * @see #fetchFlatHandlerInfo(String, String, String)
 	 * @see #isHandlerStatsEmpty(HandlerStats)
 	 */
-	public HandlerStats getHandlerMetrics(String collection) throws SolrServerException, IOException {
+	@Nullable HandlerStats getHandlerMetrics(String collection) throws SolrServerException, IOException {
 		String actualCollection = extractCollectionName(collection);
 
 		if (!validateCollectionExists(actualCollection)) {
@@ -787,18 +805,19 @@ public class CollectionService {
 	 * Internal handler metrics fetch that assumes the collection has already been
 	 * validated and the name has been extracted from any shard identifier.
 	 */
-	private HandlerStats fetchHandlerMetrics(String collection) {
+	private @Nullable HandlerStats fetchHandlerMetrics(String collectionName) {
 		try {
 			// Handler metrics are flat keys (e.g. QUERY./select.requests) so we
 			// fetch each handler prefix separately and reconstruct HandlerInfo
-			HandlerInfo selectHandler = fetchFlatHandlerInfo(collection, SELECT_HANDLER_METRIC_PREFIX,
+			HandlerInfo selectHandler = fetchFlatHandlerInfo(collectionName, SELECT_HANDLER_METRIC_PREFIX,
 					SELECT_HANDLER_KEY);
-			HandlerInfo updateHandler = fetchFlatHandlerInfo(collection, UPDATE_HANDLER_METRIC_PREFIX,
+			HandlerInfo updateHandler = fetchFlatHandlerInfo(collectionName, UPDATE_HANDLER_METRIC_PREFIX,
 					UPDATE_HANDLER_KEY);
 
 			HandlerStats stats = new HandlerStats(selectHandler, updateHandler);
 			return isHandlerStatsEmpty(stats) ? null : stats;
-		} catch (SolrServerException | IOException | RuntimeException _) {
+		} catch (SolrServerException | IOException | SolrException e) {
+			logger.debug("Handler metrics unavailable for collection: {}", collectionName, e);
 			return null;
 		}
 	}
@@ -829,7 +848,8 @@ public class CollectionService {
 	 * @return the core-level metrics NamedList, or null if unavailable
 	 */
 	@SuppressWarnings("unchecked")
-	private NamedList<Object> fetchMetrics(String collection, String prefix) throws SolrServerException, IOException {
+	private @Nullable NamedList<Object> fetchMetrics(String collection, String prefix)
+			throws SolrServerException, IOException {
 		ModifiableSolrParams params = new ModifiableSolrParams();
 		params.set(GROUP_PARAM, CORE_GROUP);
 		params.set(PREFIX_PARAM, prefix);
@@ -874,7 +894,7 @@ public class CollectionService {
 	 *            {@code QUERY./select.})
 	 * @return HandlerInfo with stats, or null if unavailable
 	 */
-	private HandlerInfo fetchFlatHandlerInfo(String collection, String metricPrefix, String keyPrefix)
+	private @Nullable HandlerInfo fetchFlatHandlerInfo(String collection, String metricPrefix, String keyPrefix)
 			throws SolrServerException, IOException {
 		NamedList<Object> coreMetrics = fetchMetrics(collection, metricPrefix);
 		if (coreMetrics == null) {
@@ -894,7 +914,7 @@ public class CollectionService {
 	 * @return HandlerInfo reconstructed from flat keys, or null if no requests key
 	 *         found
 	 */
-	private HandlerInfo extractFlatHandlerInfo(NamedList<Object> coreMetrics, String keyPrefix) {
+	private @Nullable HandlerInfo extractFlatHandlerInfo(NamedList<Object> coreMetrics, String keyPrefix) {
 		Long requests = getLong(coreMetrics, keyPrefix + REQUESTS_FIELD);
 		if (requests == null) {
 			return null;
@@ -946,15 +966,10 @@ public class CollectionService {
 			return collectionOrShard;
 		}
 
-		// Check if this looks like a shard name (contains "_shard" pattern)
-		if (collectionOrShard.contains(SHARD_SUFFIX)) {
-			// Extract collection name before "_shard"
-			int shardIndex = collectionOrShard.indexOf(SHARD_SUFFIX);
-			return collectionOrShard.substring(0, shardIndex);
-		}
-
-		// If it doesn't look like a shard name, return as-is
-		return collectionOrShard;
+		// Strip only a real SolrCloud shard/replica suffix. Matching a bare
+		// "_shard" anywhere would truncate legitimate collection names such as
+		// "orders_shard_archive" down to "orders".
+		return SHARD_SUFFIX_PATTERN.matcher(collectionOrShard).replaceFirst("");
 	}
 
 	/**
@@ -1069,10 +1084,11 @@ public class CollectionService {
 					new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
 
 			return new SolrHealthStatus(true, null, pingResponse.getElapsedTime(),
-					statsResponse.getResults().getNumFound(), new Date(), actualCollection, null, null);
+					statsResponse.getResults().getNumFound(), Instant.now(), actualCollection);
 
 		} catch (Exception e) {
-			return new SolrHealthStatus(false, e.getMessage(), null, null, new Date(), actualCollection, null, null);
+			logger.warn("Health check failed for collection: {}", collection, e);
+			return new SolrHealthStatus(false, e.getMessage(), null, null, Instant.now(), actualCollection);
 		}
 	}
 
@@ -1116,13 +1132,15 @@ public class CollectionService {
 					+ "configSet defaults to _default, numShards and replicationFactor default to 1.")
 	public CollectionCreationResult createCollection(
 			@McpToolParam(description = "Name of the collection to create") String name,
-			@McpToolParam(description = "Configset name. Defaults to _default.", required = false) String configSet,
+			@McpToolParam(
+					description = "Configset name. Defaults to _default.",
+					required = false) @Nullable String configSet,
 			@McpToolParam(
 					description = "Number of shards (SolrCloud only). Defaults to 1.",
-					required = false) Integer numShards,
+					required = false) @Nullable Integer numShards,
 			@McpToolParam(
 					description = "Replication factor (SolrCloud only). Defaults to 1.",
-					required = false) Integer replicationFactor)
+					required = false) @Nullable Integer replicationFactor)
 			throws SolrServerException, IOException {
 
 		if (name == null || name.isBlank()) {
@@ -1136,7 +1154,7 @@ public class CollectionService {
 		CollectionAdminRequest.createCollection(name, effectiveConfigSet, effectiveShards, effectiveRf)
 				.process(solrClient);
 
-		return new CollectionCreationResult(name, true, "Collection created successfully", new Date());
+		return new CollectionCreationResult(name, true, "Collection created successfully", Instant.now());
 	}
 
 	/**

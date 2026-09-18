@@ -92,18 +92,23 @@ until curl -s "http://localhost:8983/solr/admin/collections?action=LIST" | grep 
   sleep 2
 done
 
+# Both fields go in a single "add-field" array. Repeating the key instead
+# would leave duplicate JSON members, and the second silently wins - so the
+# "name" field was never actually created.
 curl -X POST -H 'Content-type:application/json' --data-binary '{
-  "add-field": {
-    "name":"name",
-    "type":"text_general",
-    "multiValued":false,
-    "stored":true
-  },
-  "add-field": {
-    "name":"initial_release_date",
-    "type":"pdate",
-    "stored":true
-  }
+  "add-field": [
+    {
+      "name":"name",
+      "type":"text_general",
+      "multiValued":false,
+      "stored":true
+    },
+    {
+      "name":"initial_release_date",
+      "type":"pdate",
+      "stored":true
+    }
+  ]
 }' http://localhost:8983/solr/films/schema
 
 ## Post the books.csv data

@@ -98,10 +98,12 @@ Trigger the release publish workflow:
 # Build to local Docker daemon
 ./gradlew jibDockerBuild
 
-# Build and push to registry
-./gradlew jib -Djib.to.image=myregistry/solr-mcp:my-tag \
-              -Djib.to.auth.username=USERNAME \
-              -Djib.to.auth.password=TOKEN
+# Build and push to registry.
+# Pass credentials through the environment, not -Djib.to.auth.*: command-line
+# arguments are visible to any process that can run `ps` on the machine.
+export JIB_TO_AUTH_USERNAME=USERNAME
+export JIB_TO_AUTH_PASSWORD=TOKEN
+./gradlew jib -Djib.to.image=myregistry/solr-mcp:my-tag
 ```
 
 ### Multi-platform Build

@@ -32,8 +32,9 @@ re-derive it imperfectly every call:
 
 - **Indexing resilience** — 1000-doc batches, single commit, per-doc retry to
   salvage valid docs from a failed batch.
-- **Format hardening** — nested-object flattening, field sanitization, 10 MB
-  guards, **XXE-hardened XML parsing**.
+- **Format hardening** — nested-object flattening and field sanitization for
+  JSON and markdown; for XML, an **XXE-hardened `<add>`-only pre-check** so
+  `<delete>`/`<commit>` cannot ride in on an indexing call.
 - **Metric aggregation** — `get-collection-stats` folds Luke + Metrics APIs,
   normalizes shard names, and degrades gracefully on Solr 10.
 - **Typed contracts** — every tool returns the same typed record; the model
@@ -72,15 +73,15 @@ Anthropic puts it, *"tool descriptions occupy more context window
 space"*, and at scale agents *"need to process hundreds of thousands of
 tokens before reading a request."*[code-execution]
 
-For this server (27 tools across search, indexing, schema, and
+For this server (11 tools across search, indexing, schema, and
 collections), the upfront overhead is a few thousand tokens — real but
 bounded.
 
 Two factors close the gap at runtime:
 
-- **Typed, compact returns.** Every tool returns the same typed record
-  (e.g. `SearchResponse`, `SolrHealthStatus`), not raw Solr JSON the
-  model must reparse. Over a multi-turn agent run, leaner tool output
+- **Typed, compact returns.** Every tool returns its own purpose-built
+  typed record (`SearchResponse`, `SolrHealthStatus`, `IndexStats`, …),
+  not raw Solr JSON the model must reparse. Over a multi-turn agent run, leaner tool output
   offsets the upfront schema cost.
 - **Code execution with MCP.** Anthropic's pattern of discovering tool
   definitions on demand inside a code-execution loop cut a reference

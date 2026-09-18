@@ -17,6 +17,7 @@
 package org.apache.solr.mcp.server.collection;
 
 import org.apache.solr.common.util.NamedList;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Utility class providing type-safe helper methods for extracting values from
@@ -113,7 +114,7 @@ public class CollectionUtils {
 	 * @see Number#longValue()
 	 * @see Long#parseLong(String)
 	 */
-	public static Long getLong(NamedList<Object> response, String key) {
+	public static @Nullable Long getLong(NamedList<Object> response, String key) {
 		Object value = response.get(key);
 		if (value == null)
 			return null;
@@ -148,12 +149,13 @@ public class CollectionUtils {
 	 * numeric types returned by Solr.
 	 *
 	 * <p>
-	 * <strong>Default Value Behavior:</strong>
+	 * <strong>Missing Value Behavior:</strong>
 	 *
 	 * <p>
-	 * Returns {@code 0.0f} for missing or null values, which is typically the
-	 * desired behavior for metrics like hit ratios, performance averages, and
-	 * statistical calculations where missing data should be interpreted as zero.
+	 * Returns {@code null} when the key is absent or its value is null, so callers
+	 * can distinguish "no data reported" from a measured zero. A Solr endpoint that
+	 * is unavailable reports no metric at all, which is not the same as a hit ratio
+	 * of 0.
 	 *
 	 * <p>
 	 * <strong>Common Use Cases:</strong>
@@ -164,23 +166,14 @@ public class CollectionUtils {
 	 * <li>Statistical calculations and performance indicators
 	 * </ul>
 	 *
-	 * <p>
-	 * <strong>Note:</strong>
-	 *
-	 * <p>
-	 * This method differs from {@link #getLong(NamedList, String)} by returning a
-	 * default value instead of null, which is more appropriate for Float metrics
-	 * that represent rates, ratios, or averages.
-	 *
 	 * @param stats
 	 *            the NamedList containing the metric data to extract from
 	 * @param key
 	 *            the key to look up in the NamedList
-	 * @return the Float value if found, or 0.0f if the key doesn't exist or value
-	 *         is null
+	 * @return the Float value if found and convertible, {@code null} otherwise
 	 * @see Number#floatValue()
 	 */
-	public static Float getFloat(NamedList<Object> stats, String key) {
+	public static @Nullable Float getFloat(NamedList<Object> stats, String key) {
 		Object value = stats.get(key);
 		if (value == null)
 			return null;
@@ -260,7 +253,7 @@ public class CollectionUtils {
 	 * @see Integer#parseInt(String)
 	 * @see #getLong(NamedList, String)
 	 */
-	public static Integer getInteger(NamedList<Object> response, String key) {
+	public static @Nullable Integer getInteger(NamedList<Object> response, String key) {
 		Object value = response.get(key);
 		if (value == null)
 			return null;

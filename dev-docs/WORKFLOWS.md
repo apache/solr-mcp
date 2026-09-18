@@ -62,8 +62,9 @@ This guide explains when and how to use each GitHub Actions workflow in the proj
 #### When to Use
 
 - ✅ Automatic on every commit to `main`
-- ✅ Automatic on pull requests (build + test only)
 - ✅ When you merge a PR and want development images published
+
+(Pull requests are built by `ci.yml`, not by this workflow.)
 
 #### When NOT to Use
 
@@ -77,10 +78,12 @@ on:
   push:
     branches: [main]
     tags: ['v*']  # ⚠️ Avoid using tags; prefer release-publish.yml
-  pull_request:
-    branches: [main]
   workflow_dispatch:  # Manual trigger
 ```
+
+There is deliberately **no `pull_request` trigger**: this workflow publishes
+images, and pull requests must not be able to push to a registry. PR builds are
+covered by `ci.yml`.
 
 #### What It Does
 
@@ -162,7 +165,10 @@ on:
 
 1. **Validates** release tag exists (`v1.0.0-rc1`)
 2. **Builds** the project from approved RC tag
-3. **Signs** artifacts (placeholder for future automation)
+3. **Signs** artifacts — placeholder only; this step logs a message and does
+   not produce or verify a signature. Publication below is **not** gated on a
+   verified signature, so the Release Manager must still sign manually per the
+   ATR guidance.
 4. **Publishes Docker images** to:
     - Docker Hub: `apache/solr-mcp:1.0.0`, `apache/solr-mcp:1.0`, `apache/solr-mcp:1`, `apache/solr-mcp:latest`
     - GitHub Container Registry: `ghcr.io/apache/solr-mcp:1.0.0`, `latest`

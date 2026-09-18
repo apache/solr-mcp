@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -64,9 +63,6 @@ class CollectionServiceIntegrationTest {
 	@Autowired
 	private SearchService searchService;
 
-	@Autowired
-	private ObjectMapper objectMapper;
-
 	@BeforeAll
 	void setupCollectionWithData() throws Exception {
 		// 1. Create collection via CollectionService MCP tool
@@ -84,8 +80,7 @@ class CollectionServiceIntegrationTest {
 			doc.put("count_i", i);
 			docs.add(doc);
 		}
-		String json = objectMapper.writeValueAsString(docs);
-		indexingService.indexJsonDocuments(TEST_COLLECTION, json);
+		indexingService.indexJsonDocuments(TEST_COLLECTION, docs);
 		log.debug("Indexed {} documents via IndexingService", DOC_COUNT);
 
 		// 3. Run searches via SearchService MCP tool to populate caches and handler
@@ -173,7 +168,7 @@ class CollectionServiceIntegrationTest {
 		assertEquals((long) DOC_COUNT, status.totalDocuments(), "Health check should report indexed document count");
 
 		assertNotNull(status.lastChecked());
-		assertTrue(System.currentTimeMillis() - status.lastChecked().getTime() < 5000);
+		assertTrue(java.time.Duration.between(status.lastChecked(), java.time.Instant.now()).toMillis() < 5000);
 	}
 
 	@Test
@@ -233,8 +228,10 @@ class CollectionServiceIntegrationTest {
 		HandlerInfo select = handlerStats.selectHandler();
 		assertNotNull(select);
 		assertTrue(select.requests() > 0, "Select handler requests should be positive after queries");
-		assertNull(select.errors());
-		assertNull(select.timeouts());
+		// Solr may omit these counters entirely or report an explicit 0 - both mean
+		// "nothing went wrong". Requiring null made the test depend on which.
+		assertTrue(select.errors() == null || select.errors() == 0L, "Select handler should report no errors");
+		assertTrue(select.timeouts() == null || select.timeouts() == 0L, "Select handler should report no timeouts");
 
 		// Update handler: indexing 50 docs should have driven request counts > 0
 		HandlerInfo update = handlerStats.updateHandler();

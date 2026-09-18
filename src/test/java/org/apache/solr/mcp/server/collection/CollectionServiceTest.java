@@ -152,9 +152,22 @@ class CollectionServiceTest {
 	void extractCollectionName_EdgeCases_ShouldHandleCorrectly() {
 		// Test various edge cases
 		assertEquals("a", collectionService.extractCollectionName("a_shard1"));
-		assertEquals("collection", collectionService.extractCollectionName("collection_shard"));
+		// "collection_shard" has no shard number, so it is not a SolrCloud core
+		// name - it is a collection that merely ends in "_shard" and must survive
+		// unchanged. Stripping it would also corrupt names like
+		// "orders_shard_archive".
+		assertEquals("collection_shard", collectionService.extractCollectionName("collection_shard"));
 		assertEquals("test_name", collectionService.extractCollectionName("test_name"));
 		assertEquals("", collectionService.extractCollectionName("_shard1"));
+	}
+
+	@Test
+	void extractCollectionName_WithShardWordInsideName_ShouldNotTruncate() {
+		// Regression: a bare "contains(_shard)" check truncated this to "orders".
+		assertEquals("orders_shard_archive", collectionService.extractCollectionName("orders_shard_archive"));
+		// ...while a genuine core name for that same collection still resolves.
+		assertEquals("orders_shard_archive",
+				collectionService.extractCollectionName("orders_shard_archive_shard2_replica_n1"));
 	}
 
 	@Test
@@ -170,15 +183,17 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void extractCollectionName_WithMultipleOccurrencesOfShard_ShouldUseFirst() {
-		// Given
+	void extractCollectionName_WithMultipleOccurrencesOfShard_ShouldStripOnlyTheCoreSuffix() {
+		// Given - a collection whose own name ends in "_shard1". SolrCloud names
+		// its cores "<collection>_shard<N>_replica_<type><M>", so this core belongs
+		// to the collection "data_shard1", not "data".
 		String name = "data_shard1_shard2_replica_n1";
 
 		// When
 		String result = collectionService.extractCollectionName(name);
 
 		// Then
-		assertEquals("data", result, "Should use first occurrence of '_shard'");
+		assertEquals("data_shard1", result, "Should strip only the trailing shard/replica suffix");
 	}
 
 	// Health check tests

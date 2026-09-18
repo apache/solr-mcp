@@ -28,6 +28,7 @@ import java.util.Base64;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledInNativeImage;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +46,10 @@ import org.springframework.util.ReflectionUtils;
  * encoding.
  */
 @JsonTest
+// Reflects into SolrJ's private basicAuthAuthorizationStr field, which is not
+// registered for reflection under GraalVM's closed-world model. The basic-auth
+// wiring logic itself is fully covered by the JVM test run.
+@DisabledInNativeImage
 class SolrConfigAuthTest {
 
 	@Autowired

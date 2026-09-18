@@ -33,7 +33,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Import(TestcontainersConfiguration.class)
 @Tag("integration")
 @Testcontainers(disabledWithoutDocker = true)
-class SolrConfigTest {
+class SolrConfigIntegrationTest {
 
 	@Autowired
 	private SolrClient solrClient;
