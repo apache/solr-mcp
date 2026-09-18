@@ -1,5 +1,46 @@
 # https://cwiki.apache.org/confluence/display/INFRA/Git+-+.asf.yaml+features
 
+# ATR project metadata and release policy. Changes on the default branch sync
+# to the existing Solr MCP project in Apache Trusted Releases.
+project:
+  metadata:
+    key: solr-mcp
+    committee: solr
+    name: Apache Solr MCP
+    description: >-
+      Solr MCP is a Model Context Protocol server that lets AI assistants
+      search, index, and manage Apache Solr collections.
+    short_description: Model Context Protocol server for Apache Solr.
+    homepage: https://github.com/apache/solr-mcp
+    download_page: https://solr.apache.org/mcp/downloads.html
+    bug_database: https://github.com/apache/solr-mcp/issues
+    repositories:
+      - git+ssh://git@github.com:apache/solr-mcp.git
+    categories:
+      - web-framework
+      - network-server
+      - search
+      - java
+    programming_languages:
+      - java
+    version_method: simple
+    version_pattern: '^\d+\.\d+\.\d+$'
+  policy:
+    vote_mode: email
+    min_hours: 72
+    license_check_mode: Both
+    vote_recipients:
+      to: dev@solr.apache.org
+    announce_recipients:
+      to: announce@apache.org
+    source_artifact_paths:
+      - "solr-mcp-*-src.tgz"
+    binary_artifact_paths:
+      - "solr-mcp-*.jar"
+    download_path_suffix: "mcp/{{VERSION}}"
+  features:
+    atr_sync: true
+
 github:
   description: "Solr MCP Server"
   homepage: https://solr.apache.org/
