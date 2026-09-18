@@ -77,10 +77,35 @@ The Quick Start below is ordered to satisfy both.
 
 You do **not** need to start Solr yourself. `application-http.properties` sets
 `spring.docker.compose.enabled=true`, so `./gradlew bootRun` starts the Solr,
-ZooKeeper and LGTM containers from `compose.yaml` before the application
-context comes up.
+ZooKeeper, LGTM and Keycloak containers from `compose.yaml` before the
+application context comes up.
 
 ## Quick Start
+
+> **The `http` profile now brings its own Keycloak.** `compose.yaml` defines a `keycloak` service
+> that imports `keycloak/solr-mcp-realm.json` on startup, so the realm, both clients and the
+> audience mapper exist before the server asks for a token — and because the service declares a
+> healthcheck, Spring Boot waits for it rather than failing on an unresolvable issuer. Point the
+> server at the imported realm and start it; Spring Boot's Docker Compose support brings Keycloak up
+> (it sits behind the `http` compose profile, so start it by hand with
+> `docker compose --profile http up -d` if you are not using `bootRun`):
+>
+> ```bash
+> export PROFILES=http
+> export OAUTH2_ISSUER_URI=http://localhost:8180/realms/solr-mcp
+> ./gradlew bootRun
+> ```
+>
+> The imported realm provides `solr-mcp-service` (confidential, service accounts, secret
+> `dev-only-not-a-secret`) for machine-to-machine callers, `solr-mcp-client` (public) for MCP
+> Inspector, and `testuser` / `testpassword`. These are development credentials committed on
+> purpose; a real deployment provisions its own. With this realm, skip the client-creation steps
+> below and use `solr-mcp-service` / `dev-only-not-a-secret` wherever a confidential client is needed.
+>
+> The manual walkthrough below remains the reference for what that import contains, and for setting
+> the same thing up against an existing Keycloak. It binds its own container to the same port,
+> 8180, so use one or the other: if you follow it, start the server with
+> `SPRING_DOCKER_COMPOSE_ENABLED=false` so Boot does not bring up a second Keycloak.
 
 This block is runnable end to end — copy the whole thing. It waits for
 Keycloak, creates the realm, client, audience mapper and test user, verifies
