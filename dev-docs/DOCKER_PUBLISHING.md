@@ -8,6 +8,7 @@ The Solr MCP project publishes Docker images to multiple registries:
 
 1. **GitHub Container Registry (GHCR)**: `ghcr.io/apache/solr-mcp`
 2. **Docker Hub Official**: `apache/solr-mcp` (requires Apache PMC credentials)
+3. **Docker Hub Nightly**: `apache/solr-mcp-nightly` (unstable preview builds from `main`)
 
 ## Build System
 
@@ -28,7 +29,37 @@ Currently, this repository does not define an automated workflow for per-merge d
   - `ghcr.io/{owner}/solr-mcp:latest`
 - No ASF vote required for dev images (they are not releases and must be clearly marked as such).
 
-### 2. Official Releases
+### 2. Nightly Builds (apache/solr-mcp-nightly)
+
+**Workflow**: `.github/workflows/nightly-build.yml`
+
+- **Trigger**: Scheduled (2 AM UTC daily) or manual (`workflow_dispatch`)
+- **Images Published**:
+  - `apache/solr-mcp-nightly:nightly-YYYYMMDD-SHORTSHA`
+  - `apache/solr-mcp-nightly:latest`
+- **Scope**: Docker image only, built from `main`. Reuses the same
+  `DOCKERHUB_APACHE_USERNAME` / `DOCKERHUB_APACHE_TOKEN` secrets as official
+  releases; the job fails loudly (rather than silently skipping) if they're
+  unset.
+- **Not an ASF release**: no vote, no signing, no `dist.apache.org` artifacts,
+  no GitHub pre-release. This is a convenience preview image only.
+- **Guarded to `apache/solr-mcp`**: the workflow no-ops on forks (`if:
+  github.repository == 'apache/solr-mcp'`), since scheduled workflows also run
+  on forks with Actions enabled and forks don't have (and shouldn't have) the
+  Docker Hub secrets.
+
+**Deferred**: publishing source/SBOM snapshots to `nightlies.apache.org` (see
+[apache/solr-mcp#15](https://github.com/apache/solr-mcp/issues/15)) is a
+separate, self-service WebDAV mechanism
+(`curl -u <asfid> -T file https://nightlies.apache.org/...`, see
+[nightlies.apache.org/authoring.html](https://nightlies.apache.org/authoring.html))
+authenticated with an individual ASF committer's LDAP credentials — not an
+INFRA-ticket-gated rsync area as an earlier draft of this workflow assumed.
+Putting a personal ASF password into a repo secret isn't something to do
+without first confirming the right way to provision it with INFRA, so this
+isn't wired up yet.
+
+### 3. Official Releases
 
 **Workflow**: `.github/workflows/release-publish.yml`
 
@@ -130,11 +161,30 @@ For Apache official images, set these secrets in GitHub:
 
 Create token at: https://hub.docker.com/settings/security
 
-### Apache Nightlies
+### Apache Nightlies Docker Image
 
-Requires Apache committer credentials:
-- `APACHE_NIGHTLIES_USER`
-- `APACHE_NIGHTLIES_KEY`
+The `apache/solr-mcp-nightly` image published by `nightly-build.yml` reuses
+the same `DOCKERHUB_APACHE_USERNAME` / `DOCKERHUB_APACHE_TOKEN` secrets above
+— no separate credential.
+
+### nightlies.apache.org (not yet wired up)
+
+Uploading source/SBOM snapshots to `nightlies.apache.org` is a different,
+self-service mechanism: WebDAV over HTTPS, authenticated with an individual
+ASF committer's own LDAP (ASF account) credentials, e.g.:
+
+```bash
+curl -u yourasfid -X MKCOL 'https://nightlies.apache.org/solr-mcp/'
+curl -u yourasfid -T solr-mcp-nightly.tar.gz 'https://nightlies.apache.org/solr-mcp/'
+```
+
+See [nightlies.apache.org/authoring.html](https://nightlies.apache.org/authoring.html).
+There's no `APACHE_NIGHTLIES_USER` / `APACHE_NIGHTLIES_KEY` secret pair —
+that was a guess in an earlier, never-implemented draft of this workflow.
+Putting a personal ASF password into a GitHub repo secret needs a
+provisioning decision (role account vs. INFRA-managed credential) before
+this can be automated; see
+[apache/solr-mcp#15](https://github.com/apache/solr-mcp/issues/15).
 
 ## MCP Registry Integration
 
