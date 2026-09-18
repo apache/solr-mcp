@@ -1,0 +1,154 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║                         NIGHTLY BUILD WORKFLOW                             ║
+# ║                        (Latest Unstable Builds)                            ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# PURPOSE: Publish an unstable preview Docker image built from main, for people
+# who want to try the latest changes without waiting for a voted release.
+#
+# WHEN TO USE:
+# -----------
+# ✅ Automatic daily at 2 AM UTC
+# ✅ For testing latest main branch changes
+# ✅ Provides unstable/preview builds
+# ✅ Publishes to apache/solr-mcp-nightly
+# ❌ DO NOT use for production releases
+# ❌ NOT the release of record — never treat this as an ASF release; no vote,
+#    no signing, no dist.apache.org artifacts.
+#
+# COMPARISON WITH OTHER WORKFLOWS:
+# --------------------------------
+# nightly-build.yml (THIS FILE):
+#   - Purpose: Nightly builds
+#   - Trigger: Scheduled (2 AM UTC)
+#   - Docker Hub: apache/solr-mcp-nightly
+#   - Stability: Unstable/preview
+#   - Use for: Testing latest changes
+#
+# build-and-publish.yml:
+#   - Purpose: Development CI/CD
+#   - Trigger: Automatic (push/PR)
+#   - Docker Hub: none (build + test only)
+#   - Use for: Daily development work
+#
+# release-publish.yml:
+#   - Purpose: Official ASF releases
+#   - Trigger: Manual (after vote)
+#   - Docker Hub: apache/solr-mcp
+#   - Stability: Stable/production
+#   - Use for: Production releases
+#
+# atr-release.yml:
+#   - Purpose: Future ATR automation
+#   - Status: Blocked (needs automated signing)
+#   - Use for: When ATR is ready
+#
+# ────────────────────────────────────────────────────────────────────────────
+#
+# History (see PR #155 / issue #15):
+# -----------------------------------
+# An earlier version of this workflow failed at GitHub Actions *parse time*
+# (permanent red X on main, zero jobs ever ran) because it referenced
+# `secrets.*` inside an `if:` condition — the `secrets` context is not legal
+# there. It also created a daily GitHub pre-release with a source tarball
+# attached, which added Releases-page noise nobody wanted. It was deleted
+# rather than fixed.
+#
+# This version fixes the parse-time bug by checking secret presence inside a
+# `run:` step (shell `[[ -n ... ]]`, same pattern release-publish.yml already
+# uses) instead of an `if:`, and drops the GitHub pre-release / source tarball
+# step entirely — this workflow now does exactly one thing: publish a Docker
+# Hub preview image from main.
+#
+# A second publishing channel discussed in issue #15 — uploading source/SBOM
+# snapshots to nightlies.apache.org — is intentionally NOT implemented here.
+# That target is self-service WebDAV authenticated with an individual ASF
+# committer's LDAP credentials (see https://nightlies.apache.org/authoring.html),
+# and putting a personal ASF password into a repo secret is not something to
+# do without first confirming the right way to provision it with INFRA. Add it
+# as a separate job once that's resolved.
+
+name: Nightly Build
+
+on:
+    schedule:
+        # 2 AM UTC daily
+        -   cron: '0 2 * * *'
+    workflow_dispatch:  # Allow maintainers to trigger a preview build manually
+
+jobs:
+    nightly-docker:
+        name: Publish nightly Docker image
+        runs-on: ubuntu-latest
+        # Scheduled workflows also run on forks that have Actions enabled on
+        # their default branch. Forks don't have the Docker Hub secrets (and
+        # shouldn't be publishing to the apache/ namespace), so skip entirely
+        # rather than fail loudly there.
+        if: github.repository == 'apache/solr-mcp'
+
+        permissions:
+            contents: read
+
+        steps:
+            -   name: Checkout code
+                uses: actions/checkout@v4
+
+            -   name: Set up Java
+                uses: ./.github/actions/setup-java
+
+            -   name: Generate nightly tag
+                id: version
+                run: |
+                    DATE_STAMP=$(date +%Y%m%d)
+                    SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
+                    echo "tag=nightly-${DATE_STAMP}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+            -   name: Build and publish to apache/solr-mcp-nightly
+                env:
+                    # Jib reads these directly; passing them as -Djib.to.auth.* would put
+                    # the token in the process argument list, visible to anything on the
+                    # runner.
+                    JIB_TO_AUTH_USERNAME: ${{ secrets.DOCKERHUB_APACHE_USERNAME }}
+                    JIB_TO_AUTH_PASSWORD: ${{ secrets.DOCKERHUB_APACHE_TOKEN }}
+                    NIGHTLY_TAG: ${{ steps.version.outputs.tag }}
+                run: |
+                    set -euo pipefail
+                    # A nightly build that silently no-ops on missing credentials would
+                    # report green while shipping nothing; fail loudly instead, same as
+                    # release-publish.yml.
+                    if [[ -z "${JIB_TO_AUTH_USERNAME}" || -z "${JIB_TO_AUTH_PASSWORD}" ]]; then
+                      echo "ERROR: Apache Docker Hub credentials (DOCKERHUB_APACHE_USERNAME / DOCKERHUB_APACHE_TOKEN) are not configured" >&2
+                      exit 1
+                    fi
+
+                    ./gradlew jib \
+                        -Djib.to.image="apache/solr-mcp-nightly:${NIGHTLY_TAG}" \
+                        -Djib.to.tags=latest
+
+            -   name: Summary
+                env:
+                    NIGHTLY_TAG: ${{ steps.version.outputs.tag }}
+                run: |
+                    {
+                      echo "### Nightly Image Published"
+                      echo ""
+                      echo "\`apache/solr-mcp-nightly:${NIGHTLY_TAG}\`"
+                      echo "\`apache/solr-mcp-nightly:latest\`"
+                      echo ""
+                      echo "This is an unstable preview build from \`main\` — not an ASF release."
+                    } >> "$GITHUB_STEP_SUMMARY"

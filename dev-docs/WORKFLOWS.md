@@ -8,6 +8,7 @@ This guide explains when and how to use each GitHub Actions workflow in the proj
 |------------------------------------------------|-----------------------|----------------------|------------|------------------------|
 | [build-and-publish.yml](#build-and-publishyml) | Development CI/CD     | Automatic (push/PR)  | ✅ Active   | Daily development      |
 | [release-publish.yml](#release-publishyml)     | Official ASF releases | Manual (after vote)  | ✅ Active   | Production releases    |
+| [nightly-build.yml](#nightly-buildyml)         | Nightly builds        | Scheduled (2 AM UTC) | ✅ Active   | Latest unstable builds |
 | [atr-release-test.yml](#atr-release-testyml)   | ATR testing           | Manual (safe mode)   | ✅ Ready    | Testing ATR workflow   |
 | [atr-release.yml](#atr-releaseyml)             | ATR production        | Manual (blocked)     | ⚠️ Blocked | Future ATR releases    |
 
@@ -241,6 +242,79 @@ on:
 
 ---
 
+### nightly-build.yml
+
+**Purpose**: Publish an unstable preview Docker image built from `main`
+
+#### When to Use
+
+- ✅ Automatic daily at 2 AM UTC
+- ✅ For testing bleeding-edge changes
+- ✅ When you want the absolute latest build
+
+#### When NOT to Use
+
+- ❌ For production use (unstable)
+- ❌ For official releases — no vote, no signing, not the release of record
+
+#### Triggers
+
+```yaml
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 2 AM UTC daily
+  workflow_dispatch:
+```
+
+#### What It Does
+
+1. **Builds** the project from `main`
+2. **Publishes Docker image** to Docker Hub:
+   - `apache/solr-mcp-nightly:nightly-YYYYMMDD-SHORTSHA`
+   - `apache/solr-mcp-nightly:latest`
+
+That's it. It does not create a GitHub pre-release, does not build a source
+tarball, and does not upload to `nightlies.apache.org` — an earlier version
+of this workflow did all three and was deleted (see PR #155) after it broke
+at GitHub Actions parse time and the daily pre-release turned out to be
+unwanted noise. Scope was deliberately kept to "one Docker image, one
+purpose" on the rebuild.
+
+Guarded with `if: github.repository == 'apache/solr-mcp'` so scheduled runs
+on forks (which lack the secrets and shouldn't publish to the `apache/`
+namespace) no-op instead of failing.
+
+#### Required Secrets
+
+- `DOCKERHUB_APACHE_USERNAME` / `DOCKERHUB_APACHE_TOKEN` — same secrets
+  `release-publish.yml` uses. The job fails loudly if they're unset rather
+  than silently skipping the publish step.
+
+#### How to Use
+
+**Automatic (default)**: runs every night at 2 AM UTC, no action needed.
+
+**Manual trigger**:
+
+```bash
+gh workflow run nightly-build.yml
+```
+
+**Using nightly images**:
+
+```bash
+docker pull apache/solr-mcp-nightly:latest
+docker pull apache/solr-mcp-nightly:nightly-20260101-a1b2c3d
+```
+
+#### Example Use Cases
+
+- Testing unreleased features
+- Catching bugs early in development
+- Providing preview builds to early adopters
+
+---
+
 ### atr-release-test.yml
 
 **Purpose**: Test Apache Trusted Releases (ATR) workflow safely
@@ -410,16 +484,16 @@ gh workflow run atr-release.yml \
 
 ## Workflow Comparison Matrix
 
-| Feature              | build-and-publish | release-publish | atr-release-test | atr-release |
-|----------------------|-------------------|-----------------|------------------|-------------|
-| **Status**           | ✅ Active          | ✅ Active        | ✅ Ready          | ⚠️ Blocked  |
-| **Trigger**          | Automatic         | Manual          | Manual           | Manual      |
-| **Docker Namespace** | Personal/GHCR     | `apache/*`      | Test             | `apache/*`  |
-| **MCP Registry**     | ❌ No              | ✅ Yes           | ❌ No             | ✅ Yes       |
-| **ASF Vote**         | ❌ Not required    | ✅ Required      | ❌ Not required   | ✅ Required  |
-| **Signing**          | ❌ No              | ⚠️ Manual       | ⚠️ Simulated     | ✅ Automated |
-| **Production Ready** | ❌ No              | ✅ Yes           | ❌ No             | ⚠️ Future   |
-| **Can Test Now**     | ✅ Yes             | ✅ Yes           | ✅ Yes            | ❌ No        |
+| Feature              | build-and-publish | release-publish | nightly-build       | atr-release-test | atr-release |
+|----------------------|-------------------|-----------------|---------------------|-------------------|-------------|
+| **Status**           | ✅ Active          | ✅ Active        | ✅ Active            | ✅ Ready          | ⚠️ Blocked  |
+| **Trigger**          | Automatic         | Manual          | Scheduled           | Manual           | Manual      |
+| **Docker Namespace** | Personal/GHCR     | `apache/*`      | `apache/*-nightly`  | Test             | `apache/*`  |
+| **MCP Registry**     | ❌ No              | ✅ Yes           | ❌ No                | ❌ No             | ✅ Yes       |
+| **ASF Vote**         | ❌ Not required    | ✅ Required      | ❌ Not required      | ❌ Not required   | ✅ Required  |
+| **Signing**          | ❌ No              | ⚠️ Manual       | ❌ No                | ⚠️ Simulated     | ✅ Automated |
+| **Production Ready** | ❌ No              | ✅ Yes           | ❌ No                | ❌ No             | ⚠️ Future   |
+| **Can Test Now**     | ✅ Yes             | ✅ Yes           | ✅ Yes               | ✅ Yes            | ❌ No        |
 
 ---
 
@@ -452,7 +526,16 @@ gh workflow run release-publish.yml \
   -f release_candidate=rc1
 ```
 
-### Scenario 3: I want to prepare for ATR
+### Scenario 3: I want to test the latest unreleased code
+
+**Use**: `nightly-build.yml` (automatic daily)
+
+```bash
+# Pull the latest nightly
+docker pull apache/solr-mcp-nightly:latest
+```
+
+### Scenario 4: I want to prepare for ATR
 
 **Use**: `atr-release-test.yml` (manual testing)
 
@@ -462,7 +545,7 @@ gh workflow run atr-release-test.yml \
   -f dry_run=true  # Safe mode - no uploads
 ```
 
-### Scenario 4: I'm ready to use ATR for releases
+### Scenario 5: I'm ready to use ATR for releases
 
 **Use**: `atr-release.yml` (blocked - see prerequisites)
 
@@ -547,6 +630,7 @@ gh secret set ASF_USERNAME --body "your-asf-id"
 # Trigger workflows manually
 gh workflow run build-and-publish.yml
 gh workflow run release-publish.yml -f release_version=1.0.0 -f release_candidate=rc1
+gh workflow run nightly-build.yml
 gh workflow run atr-release-test.yml -f dry_run=true
 
 # View workflow runs
