@@ -1,0 +1,153 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║                       NIGHTLY JAR SNAPSHOT WORKFLOW                        ║
+# ║                (Nightly SNAPSHOT jars to ASF Nexus)                        ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# PURPOSE: Publish a nightly SNAPSHOT jar built from main to the Apache Nexus
+# snapshot repository, for people who want to consume the latest changes as a
+# Maven/Gradle dependency without waiting for a voted release.
+#
+# WHEN TO USE:
+# -----------
+# ✅ Automatic daily at 2 AM UTC (same cadence as nightly-build.yml's Docker image)
+# ✅ For consuming the latest main branch changes as a Maven dependency
+# ✅ Publishes org.apache.solr:solr-mcp:1.0.0-SNAPSHOT (or whatever the
+#    current `version` in build.gradle.kts is) to
+#    https://repository.apache.org/content/repositories/snapshots
+# ❌ DO NOT use for production releases — Maven Central never accepts
+#    SNAPSHOT/nightly artifacts; that is a hard Sonatype/Central platform
+#    rule, not a choice made here.
+# ❌ NOT the release of record — never treat this as an ASF release; no vote,
+#    no signing, no dist.apache.org artifacts.
+#
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │ ⚠️  REQUIRES CREDENTIALS THAT DO NOT EXIST YET  ⚠️                        │
+# │                                                                         │
+# │ This workflow needs the repo secrets ASF_NEXUS_USERNAME /               │
+# │ ASF_NEXUS_PASSWORD. They are NOT provisioned as of this writing. An ASF │
+# │ committer with org.apache.solr Nexus deploy rights (Eric Pugh or Jan    │
+# │ Høydahl) needs to add them as GitHub Actions repo secrets before this   │
+# │ workflow can succeed.                                                  │
+# │                                                                         │
+# │ Until then, the scheduled run WILL fail loudly (see the credential-     │
+# │ check step below) — that is intentional fail-loud behavior, not a bug. │
+# │ See dev-docs/NIGHTLY_JAR.md for the full explanation and the open      │
+# │ question of whether org.apache.solr is already pre-provisioned in      │
+# │ ASF's Nexus for this sub-project.                                     │
+# └─────────────────────────────────────────────────────────────────────────┘
+#
+# COMPARISON WITH OTHER WORKFLOWS:
+# --------------------------------
+# nightly-jar.yml (THIS FILE):
+#   - Purpose: Nightly SNAPSHOT jar publishing
+#   - Trigger: Scheduled (2 AM UTC)
+#   - Target: ASF Nexus snapshot repository (Maven/Gradle dependency)
+#   - Stability: Unstable/preview
+#   - Use for: Consuming the latest main as a library dependency
+#
+# nightly-build.yml:
+#   - Purpose: Nightly Docker image builds
+#   - Trigger: Scheduled (2 AM UTC)
+#   - Target: apache/solr-mcp-nightly (Docker Hub)
+#   - Use for: Running the latest main as a container
+#
+# build-and-publish.yml:
+#   - Purpose: Development CI/CD
+#   - Trigger: Automatic (push/PR)
+#   - Use for: Daily development work
+#
+# release-publish.yml:
+#   - Purpose: Official ASF releases
+#   - Trigger: Manual (after vote)
+#   - Use for: Production releases
+#
+# ────────────────────────────────────────────────────────────────────────────
+#
+# Known pitfall this workflow deliberately avoids (see PR #155 / issue #15,
+# and nightly-build.yml's own history): an earlier nightly workflow attempt
+# referenced `secrets.*` directly inside a YAML `if:` condition. The
+# `secrets` context is not legal there, so the workflow failed at GitHub
+# Actions *parse time* — a permanent red X with zero jobs ever running. This
+# workflow instead checks secret presence inside a `run:` step (shell
+# `[[ -n ... ]]`), the same pattern nightly-build.yml and release-publish.yml
+# already use.
+
+name: Nightly Jar Snapshot
+
+on:
+    schedule:
+        # 2 AM UTC daily — matches nightly-build.yml's Docker image cadence.
+        -   cron: '0 2 * * *'
+    workflow_dispatch:  # Allow maintainers to trigger a snapshot publish manually
+
+jobs:
+    nightly-jar:
+        name: Publish nightly SNAPSHOT jar
+        runs-on: ubuntu-latest
+        # Scheduled workflows also run on forks that have Actions enabled on
+        # their default branch. Forks don't have the ASF Nexus secrets (and
+        # shouldn't be publishing under the org.apache.solr groupId), so skip
+        # entirely rather than fail loudly there.
+        if: github.repository == 'apache/solr-mcp'
+
+        permissions:
+            contents: read
+
+        steps:
+            -   name: Checkout code
+                uses: actions/checkout@v4
+
+            -   name: Set up Java
+                uses: ./.github/actions/setup-java
+
+            -   name: Check ASF Nexus credentials are configured
+                env:
+                    ASF_NEXUS_USERNAME: ${{ secrets.ASF_NEXUS_USERNAME }}
+                    ASF_NEXUS_PASSWORD: ${{ secrets.ASF_NEXUS_PASSWORD }}
+                run: |
+                    set -euo pipefail
+                    # A nightly publish that silently no-ops on missing credentials would
+                    # report green while shipping nothing; fail loudly instead, same as
+                    # nightly-build.yml and release-publish.yml.
+                    #
+                    # These secrets are NOT yet provisioned in this repo (see the banner
+                    # at the top of this file and dev-docs/NIGHTLY_JAR.md). Until an ASF
+                    # committer with org.apache.solr Nexus deploy rights (Eric Pugh or Jan
+                    # Høydahl) adds them, this step is EXPECTED to fail every scheduled run.
+                    if [[ -z "${ASF_NEXUS_USERNAME}" || -z "${ASF_NEXUS_PASSWORD}" ]]; then
+                      echo "ERROR: ASF Nexus deploy credentials (ASF_NEXUS_USERNAME / ASF_NEXUS_PASSWORD) are not configured" >&2
+                      echo "See dev-docs/NIGHTLY_JAR.md — an ASF committer with org.apache.solr Nexus deploy rights" >&2
+                      echo "(Eric Pugh or Jan Høydahl) needs to provision these as GitHub Actions repo secrets." >&2
+                      exit 1
+                    fi
+
+            -   name: Publish SNAPSHOT jar to ASF Nexus
+                env:
+                    ASF_NEXUS_USERNAME: ${{ secrets.ASF_NEXUS_USERNAME }}
+                    ASF_NEXUS_PASSWORD: ${{ secrets.ASF_NEXUS_PASSWORD }}
+                run: ./gradlew publish
+
+            -   name: Summary
+                run: |
+                    {
+                      echo "### Nightly SNAPSHOT Jar Published"
+                      echo ""
+                      echo "Published to https://repository.apache.org/content/repositories/snapshots"
+                      echo ""
+                      echo "This is an unstable SNAPSHOT build from \`main\` — not an ASF release."
+                    } >> "$GITHUB_STEP_SUMMARY"

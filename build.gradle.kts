@@ -120,6 +120,22 @@ java {
 // - solr-mcp-{version}-sources.jar (source code)
 // - solr-mcp-{version}-javadoc.jar (API documentation)
 // - solr-mcp-{version}.pom (Maven POM with dependencies)
+//
+// Publishing nightly snapshots to the ASF Nexus snapshot repository:
+// -------------------------------------------------------------------
+// Maven Central never accepts SNAPSHOT/nightly artifacts (a hard Sonatype/
+// Central platform rule), so `org.apache.*` groupIds instead publish
+// SNAPSHOT versions to the Apache Nexus snapshot repository at
+// https://repository.apache.org/content/repositories/snapshots — see
+// dev-docs/NIGHTLY_JAR.md for the full picture (including the credentials
+// that still need to be provisioned before this can run in CI).
+//
+//   ASF_NEXUS_USERNAME=... ASF_NEXUS_PASSWORD=... ./gradlew publish
+//
+// Credentials are read lazily via `providers.environmentVariable(...)`, so
+// every other Gradle task (build, test, publishToMavenLocal, ...) keeps
+// working with zero env vars set. Only `publish` itself fails, loudly, when
+// credentials are missing — see the doFirst check below.
 publishing {
     publications {
         create<MavenPublication>("maven") {
@@ -127,6 +143,40 @@ publishing {
             // This automatically includes sources and javadoc JARs when
             // withSourcesJar() and withJavadocJar() are configured above
             from(components["java"])
+        }
+    }
+    repositories {
+        maven {
+            name = "asfNexusSnapshots"
+            url = uri("https://repository.apache.org/content/repositories/snapshots")
+            credentials {
+                // .orNull evaluates lazily and simply yields null when unset —
+                // it never throws, so `./gradlew build`/`test`/etc. are
+                // unaffected for contributors who don't have these env vars.
+                username = providers.environmentVariable("ASF_NEXUS_USERNAME").orNull
+                password = providers.environmentVariable("ASF_NEXUS_PASSWORD").orNull
+            }
+        }
+    }
+}
+
+// Fail loudly — only when someone actually runs `publish` against the ASF
+// Nexus snapshot repository — if the deploy credentials aren't set, instead
+// of letting Gradle attempt an anonymous upload and fail with an opaque HTTP
+// 401 deep in the Maven-publish plugin. See dev-docs/NIGHTLY_JAR.md.
+tasks.withType<PublishToMavenRepository>().configureEach {
+    doFirst {
+        if (repository.name == "asfNexusSnapshots") {
+            val hasCredentials =
+                providers.environmentVariable("ASF_NEXUS_USERNAME").isPresent &&
+                    providers.environmentVariable("ASF_NEXUS_PASSWORD").isPresent
+            if (!hasCredentials) {
+                throw GradleException(
+                    "ASF Nexus deploy credentials are not configured. Set the " +
+                        "ASF_NEXUS_USERNAME and ASF_NEXUS_PASSWORD environment variables " +
+                        "before running ./gradlew publish. See dev-docs/NIGHTLY_JAR.md.",
+                )
+            }
         }
     }
 }
