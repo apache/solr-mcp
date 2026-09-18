@@ -53,9 +53,10 @@ prefixes; that's what `git log` and `gh pr view` are for.
    ```bash
    ./gradlew getChangelog --console=plain -q --no-header --project-version=1.0.0
    ```
-4. **Commit `CHANGELOG.md`** as part of the release branch (see `dev-docs/release-process.md`
-   for where this fits relative to building and signing artifacts — do it before signing, since
-   it's source, not a build output).
+4. **Commit `CHANGELOG.md`** as part of the release branch (see the release process doc,
+   [apache/solr-mcp#157](https://github.com/apache/solr-mcp/pull/157) — will land as
+   `dev-docs/release-process.md` — for where this fits relative to building and signing
+   artifacts; do it before signing, since it's source, not a build output).
 
 Useful read-only commands while iterating:
 

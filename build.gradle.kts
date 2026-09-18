@@ -350,12 +350,12 @@ spotless {
 // extracts one version's notes for reuse (e.g. as a GitHub Release body).
 //
 //   ./gradlew patchChangelog                                   # cut [Unreleased] -> version section
-//   ./gradlew getChangelog --console=plain -q --no-header --project-version=Unreleased  # unreleased notes
-//   ./gradlew getChangelog --console=plain -q --no-header --project-version=1.0.0        # one version's notes
+//   ./gradlew getChangelog --console=plain -q --no-header --unreleased            # unreleased notes
+//   ./gradlew getChangelog --console=plain -q --no-header --project-version=1.0.0 # one version's notes
 //
-// `--project-version` is required: without it the task resolves against Gradle's own
-// `project.version` (e.g. "1.0.0-SNAPSHOT"), which won't match any changelog heading
-// until `patchChangelog` has cut that version's section.
+// getChangelog requires either --unreleased or --project-version=<x>: it does not fall back to
+// Gradle's own `project.version` (e.g. "1.0.0-SNAPSHOT") and fails with MissingVersionException
+// if neither is given.
 //
 // See the release process doc (apache/solr-mcp#157; will land as dev-docs/release-process.md)
 // for where this fits in an ASF release.
