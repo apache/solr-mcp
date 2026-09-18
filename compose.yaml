@@ -71,8 +71,11 @@ services:
   #
   # The healthcheck is not decoration: the server resolves the issuer at startup and fails to boot
   # if the realm is not yet answering, so Spring Boot must wait for this container to be healthy
-  # before the application context starts. Keycloak's image ships neither curl nor wget, hence
-  # bash's /dev/tcp.
+  # before the application context starts.
+  # Keycloak 26's minimal image (UBI 9) intentionally omits curl and wget, and health endpoints are
+  # exposed on the dedicated management port 9000. This probe follows Keycloak's official Containerfile
+  # HEALTHCHECK recommendation (https://www.keycloak.org/observability/health#_healthcheck) using
+  # bash's built-in /dev/tcp socket redirection.
   keycloak:
     profiles: [ http ]
     image: quay.io/keycloak/keycloak:26.0
@@ -87,7 +90,7 @@ services:
     volumes:
       - ./keycloak:/opt/keycloak/data/import:ro
     healthcheck:
-      test: [ "CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && cat <&3 | grep -q '\"status\": \"UP\"'" ]
+      test: [ "CMD-SHELL", "{ printf 'HEAD /health/ready HTTP/1.0\\r\\n\\r\\n' >&0; grep 'HTTP/1.0 200'; } 0<>/dev/tcp/localhost/9000" ]
       interval: 5s
       timeout: 5s
       retries: 30
