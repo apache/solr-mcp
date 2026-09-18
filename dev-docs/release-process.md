@@ -8,12 +8,18 @@ Replace the example version and candidate number throughout.
 
 ## 1. Prepare
 
-1. Confirm that your signing key is available to `gpg`, is associated with
-   Solr in Apache Trusted Releases (ATR), and appears in the published
-   [Solr KEYS](https://downloads.apache.org/solr/KEYS). Confirm access to the
-   production [ATR](https://releases.apache.org/) Solr MCP project. If it is
-   unavailable, agree on staging with the PMC and ASF Tooling before voting.
-   `release-test.apache.org` is for testing, not the production release.   **ERIC: IS THIS TRUE?  APPARENTLY MY KEYS ARE NOT IN SOLR/KEYS SO HOW COULD I HAVE STARTED THE RELEASE PROCESS**
+1. Confirm access to the production [ATR](https://releases.apache.org/) Solr
+   MCP project and that your signing key is available to `gpg` and associated
+   with the Solr committee in ATR. ATR links personal keys to ASF accounts
+   through an email address registered at `id.apache.org`. The signing key
+   must also appear in the published
+   [Solr KEYS](https://downloads.apache.org/solr/KEYS) **before publication**.
+   ATR's default KEYS mode imports from the distribution SVN, so a key absent
+   from that file must be added through the committee's configured KEYS
+   management process; uploading it to your ATR account alone may not update
+   the published file. See [ATR signing](https://releases.apache.org/docs/signing-artifacts)
+   and [KEYS management](https://releases.apache.org/docs/promoting-to-release#the-keys-file).
+   `release-test.apache.org` is for testing, not the production release.
 2. Create or update the release branch as described below.
 
 ### Create or update the release branch
@@ -41,11 +47,10 @@ changes intended for this release.
 
 Set the exact release version in `build.gradle.kts`.
 
-**ERIC: how are we handling release notes?**
-Prepare release notes in
-`dev-docs/release-notes-1.0.0.md` describing the changes users should know
-about. Then, to fix version labels in the soruce, on Linux, run these commands from the repository root, then review and
-publish the branch:
+Prepare a short change summary for the vote. A separate release-notes file in
+the source archive is optional; GitHub Release notes can be published after
+the vote. To update version labels on Linux, run these commands from the
+repository root, then review and publish the branch:
 
 ```bash
 sed -i 's/version = "1\.0\.0-SNAPSHOT"/version = "1.0.0"/' build.gradle.kts
@@ -53,15 +58,14 @@ rg -l -0 '1\.0\.0-SNAPSHOT' README.md dev-docs -g '*.md' -g '!release-process.md
   | xargs -0 -r sed -i 's/1\.0\.0-SNAPSHOT/1.0.0/g'
 git diff --check
 git diff -- build.gradle.kts README.md dev-docs
-cat dev-docs/release-notes-1.0.0.md
 git add build.gradle.kts README.md dev-docs
 git commit -m "chore(release): prepare 1.0.0"
 git status --short                # expected: no output
 git push -u origin branch_1_0_0
 ```
 
-Confirm `build.gradle.kts` contains `version = "1.0.0"` and the release notes
-are committed before creating the candidate tag below.
+Confirm `build.gradle.kts` contains `version = "1.0.0"` before creating the
+candidate tag below.
 
 ## 2. Build an immutable candidate
 
@@ -98,7 +102,8 @@ ls -lh build/release/
 ```
 
 The archive should have a `solr-mcp-1.0.0/` top-level directory containing
-the the uberjar, the -plain jar, source, LICENSE, and NOTICE. Verify it builds on its own:
+the Gradle wrapper, source, LICENSE, and NOTICE. It does not contain the built
+JARs. Verify it builds on its own:
 
 ```bash
 mkdir -p build/release-check
@@ -125,64 +130,57 @@ done
 ```
 
 Expect `Good signature` and `OK` for each artifact. In production ATR,
-create candidate `1.0.0-rc1`, upload all 15 files from `build/release/`,
-and resolve any candidate check failures. ATR stages fixed candidate bytes and
-runs mechanical checks; it does not replace the RM's licensing, provenance,
-build, and functional review or the PMC vote. Copy the ATR candidate URL for
-the vote. Do not give voters a second artifact copy.
+start the release with version `1.0.0` and upload all 15 files from
+`build/release/`. Use `1.0.0`, not `1.0.0-rc1`, in ATR because its version
+is the version published after the vote. The `rc1` suffix identifies the Git
+candidate tag, not the ATR release version. Wait for the revision checks to
+finish. Check that ATR recognizes the
+`.tgz` as a source artifact under the project's policy and verifies each
+signature and checksum. Investigate concerns and resolve blockers before
+starting the vote. Do not include a `KEYS` file in the upload bundle; ATR
+manages committee keys separately. ATR stages fixed candidate bytes and runs
+mechanical checks; it does not replace the RM's licensing, provenance, build,
+and functional review or the PMC vote. Copy the ATR candidate URL for the
+vote. Do not give voters a second artifact copy.
 
 See [ATR staging and voting](https://releases.apache.org/docs/staging-and-voting)
-for upload methods and candidate checks.
+for upload methods and [ATR checks](https://releases.apache.org/docs/checks)
+for check results and source classification.
 
 ## 4. Vote on dev@solr.apache.org
 
-Use ATR's vote template or the following outline. State a closing time at
-least 72 hours away, with timezone:
-
-**ERIC: WE MAY NOT NEED THE TEXT HERE, DEFAULT ATR TEXT IS FINE**
-
-**ERIC: ACTUALLY WE COULD DO SMOKETEST BY FIRING UP A SOLR AND HTNE USE https://adityamparikh.github.io/solr-mcp/**
-
-```
-https://adityamparikh.github.io/solr-mcp?download=httpds://dist.apache.rog/releases/solr-mcp/1.0.0-rc1/solr-mcp-1.0.0-rc1.jar
-```
-
-```text
-Subject: [VOTE] Release Apache Solr MCP 1.0.0 RC1
-
-I propose releasing Apache Solr MCP 1.0.0 from RC1.
-Candidate: <ATR candidate URL>
-Source tag: releases/solr-mcp/1.0.0-rc1 (<commit SHA>)
-Signing keys: https://downloads.apache.org/solr/KEYS
-Artifacts: solr-mcp-1.0.0-src.tgz and the boot, -plain, -sources,
-           and -javadoc JARs; each has .asc and .sha512 files.
-Changes: <release notes URL>
-Verification performed: <build, test, and manual checks>
-
-Please vote +1 or -1 by <date, time, and timezone>.
-```
+Start the vote in ATR using the mode configured for the project. Review its
+default vote text and ensure the `dev@solr.apache.org` thread identifies the
+RC, source tag and commit, the ATR candidate URL, the Solr `KEYS` URL, and a
+closing time at least 72 hours away. Link to the **ATR candidate page** as
+the sole source of voted artifacts; ATR pins the candidate to a revision.
+Do not use a `dist/dev` or download-server URL for this vote. The candidate
+page provides a command for voters to download every file.
 
 Voters should download the signed source, verify its signature and checksum,
 build it, and test it. A passing vote requires at least three binding +1 votes
 from Solr PMC members and more binding +1 than binding -1 votes. A -1 is not
-a veto. After the normal 72-hour period, reply with a `[RESULT]` message
-listing binding and nonbinding totals and link to the vote thread. If the vote
-fails or the bytes need changing, cancel the candidate in ATR and make a new
-RC. Never replace voted files.
+a veto. After the normal 72-hour period, record the binding and nonbinding
+totals and the vote result on the dev list, then have an authorized Solr PMC
+member resolve the vote in ATR. If the vote fails or the bytes need changing,
+cancel the candidate in ATR and make a new RC. Never replace voted files.
 
 ## 5. Publish and announce
 
 After a passing vote, use ATR's Finish / Publish action on the approved
-candidate. Check its proposed destination before publishing; for this Solr
-PMC project, use the versioned `solr/mcp/1.0.0/` path so files appear at
-`https://downloads.apache.org/solr/mcp/1.0.0/`. Adjust ATR's download path
-suffix if needed. ATR commits approved files to the ASF distribution SVN, so
-there is no separate `svn mv` when using its publication action. Do not
+candidate. If automatic publication was selected when starting the vote,
+confirm that ATR completed it instead of publishing twice. Check ATR's
+destination: set its download path suffix to `mcp/1.0.0`. ATR supplies the
+`solr/` committee prefix, yielding
+`https://downloads.apache.org/solr/mcp/1.0.0/`. Confirm the complete
+destination shown in ATR **before** publication. ATR commits approved files
+to the ASF distribution SVN,
+so there is no separate `svn mv` when using its publication action. Do not
 rebuild or replace the voted artifacts.
 
 Verify that all five artifacts, their signatures, and checksums are reachable
 from that URL. Wait at least one hour for distribution caches before updating
-the download page or announcing. **ERIC: DO WE NEED MORE DETAILS ON ALL THIS???** Update the Solr MCP website download page
+the download page or announcing. Update the Solr MCP website download page
 with an ASF source download link and HTTPS links to the matching `.asc`,
 `.sha512`, and KEYS files; verify those links. As in the
 [Solr Operator release process](https://github.com/apache/solr-operator/blob/main/hack/release/wizard/releaseWizard.yaml),
@@ -198,13 +196,17 @@ git push origin releases/solr-mcp/1.0.0
 Publish a GitHub Release from the final tag with notes linking to ASF
 downloads.
 
-Announce on the appropriate Solr and ASF announcement lists, with a short
-project description and links to the updated download page and release notes.
-**ERIC FIND THIS OUT** ATR may offer an announcement action; check whether it sent the email before
-sending one manually. Finally, bump `main` to the next `-SNAPSHOT` version.
+After publication and a manual check that the artifacts have propagated to
+`downloads.apache.org`, fill in and submit ATR's announcement form with a
+short project description and links to the updated download page and release
+notes. ATR also verifies download availability before sending the announcement
+email and adding the release to its catalog; if propagation is incomplete,
+retry the form later. Check the sent announcement rather than sending a
+duplicate manually. Finally, bump `main` to the next `-SNAPSHOT` version.
+See [ATR's announcement instructions](https://releases.apache.org/docs/promoting-to-release#announcing).
 
 ## References
 
 - [ASF release policy](https://www.apache.org/legal/release-policy.html)
 - [ASF release distribution policy](https://infra.apache.org/release-distribution)
-- [ATR user guide](https://releases.apache.org/docs/user-guide) and [promotion guide](https://releases.apache.org/docs/promoting-to-release)
+- [ATR user guide](https://releases.apache.org/docs/user-guide), [signing](https://releases.apache.org/docs/signing-artifacts), [checks](https://releases.apache.org/docs/checks), [staging and voting](https://releases.apache.org/docs/staging-and-voting), and [promoting to release](https://releases.apache.org/docs/promoting-to-release)
