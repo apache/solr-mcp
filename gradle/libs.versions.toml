@@ -30,6 +30,10 @@ solr = "10.0.0"
 commonmark = "0.28.0"
 jspecify = "1.0.0"
 mcp-server-security = "0.0.6"
+# Pinned below Spring Boot 3.5.x's managed OTel SDK; 2.26.1 needs
+# io.opentelemetry.common.ComponentLoader, which that SDK doesn't ship yet, and
+# breaks native AOT. See dev-docs/graalvm-native-image.md "Why not just bump OTel?".
+opentelemetry-instrumentation-bom = "2.11.0"
 
 # Error Prone and analysis tools
 errorprone-core = "2.48.0"
@@ -46,7 +50,6 @@ testcontainers = "1.21.3"
 test-image-solr = "solr:9.9.0-slim"
 test-image-lgtm = "grafana/otel-lgtm:0.33.0"
 awaitility = "4.3.0"
-opentelemetry-instrumentation-bom = "2.26.1"
 
 [libraries]
 # Spring
@@ -84,6 +87,10 @@ nullaway = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }
 
 # Micrometer Tracing
 micrometer-tracing-bridge-otel = { module = "io.micrometer:micrometer-tracing-bridge-otel" }
+
+# OpenTelemetry Instrumentation
+opentelemetry-instrumentation-bom = { module = "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom", version.ref = "opentelemetry-instrumentation-bom" }
+opentelemetry-spring-boot-starter = { module = "io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter" }
 
 # Test dependencies
 testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter" }

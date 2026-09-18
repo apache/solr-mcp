@@ -15,12 +15,23 @@ This starts the Inspector UI at `http://localhost:6274`.
 
 ***
 
-## STDIO Mode ##
+## STDIO Mode (Recommended) ##
+
+**JAR:**
 
 1. In MCP Inspector, select **STDIO** transport
 2. **Command**: `java`
 3. **Arguments**: `-jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar`
 4. Click **Connect**
+
+**Docker (local image — build first with `./gradlew jibDockerBuild`):**
+
+1. In MCP Inspector, select **STDIO** transport
+2. **Command**: `docker`
+3. **Arguments**: `run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ solr-mcp:latest`
+4. Click **Connect**
+
+**Linux users**: add `--add-host=host.docker.internal:host-gateway` to the arguments.
 
 ***
 
