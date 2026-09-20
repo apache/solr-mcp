@@ -15,7 +15,7 @@ project:
     download_page: https://solr.apache.org/mcp/downloads.html
     bug_database: https://github.com/apache/solr-mcp/issues
     repositories:
-      - git+ssh://git@github.com:apache/solr-mcp.git
+      - git+ssh://git@github.com/apache/solr-mcp.git
     categories:
       - web-framework
       - network-server
