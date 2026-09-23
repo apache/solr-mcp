@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -140,6 +141,15 @@ class SchemaServiceTest {
 		assertThrows(Exception.class, () -> {
 			schemaService.getSchema("");
 		});
+	}
+
+	@Test
+	void getSchema_blankCollection_throwsWithoutSolrCall() {
+		assertThrows(IllegalArgumentException.class, () -> schemaService.getSchema(null));
+		assertThrows(IllegalArgumentException.class, () -> schemaService.getSchema(""));
+		assertThrows(IllegalArgumentException.class, () -> schemaService.getSchema("   "));
+
+		verifyNoInteractions(solrClient);
 	}
 
 	@Test

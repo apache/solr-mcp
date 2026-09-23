@@ -284,6 +284,7 @@ public class SchemaService {
 			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
 			description = "Get schema for a Solr collection")
 	public SchemaRepresentation getSchema(String collection) throws SolrServerException, IOException {
+		requireCollection(collection);
 		SchemaRequest schemaRequest = new SchemaRequest();
 		return schemaRequest.process(solrClient, collection).getSchemaRepresentation();
 	}
