@@ -52,9 +52,9 @@ import org.springframework.stereotype.Service;
  * <p>
  * This service handles the conversion of JSON, CSV, XML, and markdown documents
  * into Solr-compatible format and manages the indexing process with robust
- * error handling and batch processing capabilities. It employs a schema-less
- * approach where Solr automatically detects field types, eliminating the need
- * for predefined schema configuration.
+ * error handling. It employs a schema-less approach where Solr automatically
+ * detects field types, eliminating the need for predefined schema
+ * configuration.
  *
  * <p>
  * <strong>Core Features:</strong>
@@ -70,10 +70,8 @@ import org.springframework.stereotype.Service;
  * forwarded to Solr's XML update handler
  * <li><strong>Markdown Processing</strong>: Support for markdown documents with
  * front matter, title, and heading extraction
- * <li><strong>Batch Processing</strong>: Efficient bulk indexing with
- * configurable batch sizes
- * <li><strong>Error Resilience</strong>: Individual document fallback when
- * batch operations fail
+ * <li><strong>Error Resilience</strong>: Individual document fallback when Solr
+ * rejects a document
  * <li><strong>Field Names</strong>: Used as given in every format; nested JSON
  * objects are flattened with underscores
  * </ul>
@@ -95,13 +93,12 @@ import org.springframework.stereotype.Service;
  * arrays by converting them to multi-valued fields that Solr natively supports.
  *
  * <p>
- * <strong>Batch Processing Strategy:</strong>
+ * <strong>Error Recovery:</strong>
  *
  * <p>
- * Uses configurable batch sizes (default 1000 documents) for optimal
- * performance. If a batch fails, the service automatically retries by indexing
- * documents individually to identify and skip problematic documents while
- * preserving valid ones.
+ * JSON and markdown documents are sent in one update request. If Solr rejects
+ * it because of a bad document, the service retries the documents individually
+ * to skip the problematic ones while preserving valid ones.
  *
  * <p>
  * <strong>Example Usage:</strong>
@@ -125,8 +122,6 @@ import org.springframework.stereotype.Service;
 public class IndexingService {
 
 	private static final Logger logger = LoggerFactory.getLogger(IndexingService.class);
-
-	private static final int DEFAULT_BATCH_SIZE = 1000;
 
 	/** SolrJ client for communicating with Solr server */
 	private final SolrClient solrClient;
@@ -181,7 +176,7 @@ public class IndexingService {
 	 * <ol>
 	 * <li>Parse JSON string into structured documents
 	 * <li>Convert to schema-less SolrInputDocument objects
-	 * <li>Execute batch indexing with error handling
+	 * <li>Index them in one request, with error handling
 	 * <li>Commit changes to make documents searchable
 	 * </ol>
 	 *
@@ -430,149 +425,53 @@ public class IndexingService {
 	}
 
 	/**
-	 * Indexes a list of SolrInputDocument objects into a Solr collection using
-	 * batch processing.
+	 * Indexes documents into a Solr collection in one update request that also
+	 * carries the soft commit, as {@link #forward} does for CSV and XML, so the
+	 * documents are searchable when this returns.
 	 *
 	 * <p>
-	 * This method implements a robust batch indexing strategy that optimizes
-	 * performance while providing resilience against individual document failures.
-	 * It processes documents in configurable batches and includes fallback
-	 * mechanisms for error recovery.
-	 *
-	 * <p>
-	 * <strong>Batch Processing Strategy:</strong>
-	 *
-	 * <ul>
-	 * <li><strong>Batch Size</strong>: Configurable (default 1000) for optimal
-	 * performance
-	 * <li><strong>Error Recovery</strong>: Individual document retry on batch
-	 * failure
-	 * <li><strong>Success Tracking</strong>: Accurate count of successfully indexed
-	 * documents
-	 * <li><strong>Commit Strategy</strong>: Single soft commit, carried on the same
-	 * request as the last batch's add rather than a separate round trip
-	 * </ul>
-	 *
-	 * <p>
-	 * <strong>Error Handling Workflow:</strong>
-	 *
-	 * <ol>
-	 * <li>Attempt batch indexing for optimal performance
-	 * <li>On batch failure, retry each document individually
-	 * <li>Track successful vs failed document counts
-	 * <li>Continue processing remaining batches despite failures
-	 * <li>Commit all successful changes at the end
-	 * </ol>
-	 *
-	 * <p>
-	 * <strong>Performance Considerations:</strong>
-	 *
-	 * <p>
-	 * Batch processing significantly improves indexing performance compared to
-	 * individual document operations. The fallback to individual processing ensures
-	 * maximum document ingestion even when some documents have issues.
-	 *
-	 * <p>
-	 * <strong>Transaction Behavior:</strong>
-	 *
-	 * <p>
-	 * The method soft-commits after all batches are processed, making indexed
-	 * documents immediately searchable. This ensures atomicity at the operation
-	 * level while maintaining performance through batching.
+	 * If Solr rejects the request with a 400 (a document with an unknown field or a
+	 * value of the wrong type), the documents are retried one at a time so the
+	 * valid ones are still indexed, then committed. Any other failure (unknown
+	 * collection, auth, 5xx, Solr unreachable) would fail every retry the same way,
+	 * so it propagates unchanged.
 	 *
 	 * @param collection
 	 *            the name of the Solr collection to index into
 	 * @param documents
-	 *            list of SolrInputDocument objects to index
+	 *            the documents to index
 	 * @return the number of documents successfully indexed
 	 * @throws SolrServerException
-	 *             if there are critical errors in Solr communication
+	 *             if Solr cannot be reached or the commit fails
 	 * @throws IOException
-	 *             if there are critical errors in commit operations
-	 * @see SolrInputDocument
-	 * @see SolrClient#add(String, java.util.Collection)
-	 * @see SolrClient#commit(String, boolean, boolean, boolean)
+	 *             if there are I/O errors during communication
 	 */
 	public int indexDocuments(String collection, List<SolrInputDocument> documents)
 			throws SolrServerException, IOException {
-		if (documents.isEmpty()) {
-			// Unreachable from the MCP tools (their document creators reject empty
-			// input), but an empty list needs no round trip to Solr at all.
-			return 0;
+		UpdateRequest request = new UpdateRequest();
+		request.add(documents);
+		request.setAction(AbstractUpdateRequest.ACTION.COMMIT, false, true, true);
+		try {
+			request.process(solrClient, collection);
+			return documents.size();
+		} catch (SolrException e) {
+			if (e.code() != SolrException.ErrorCode.BAD_REQUEST.code) {
+				throw e;
+			}
+			logger.warn("Solr rejected the batch, retrying documents individually", e);
 		}
 
 		int successCount = 0;
-		final int batchSize = DEFAULT_BATCH_SIZE;
-
-		for (int i = 0; i < documents.size(); i += batchSize) {
-			final int endIndex = Math.min(i + batchSize, documents.size());
-			final List<SolrInputDocument> batch = documents.subList(i, endIndex);
-			final boolean lastBatch = endIndex == documents.size();
-
+		for (SolrInputDocument doc : documents) {
 			try {
-				if (lastBatch) {
-					// Carry the soft commit on the last batch's request rather than a
-					// separate round trip (same params as commit() below).
-					UpdateRequest request = new UpdateRequest();
-					request.add(batch);
-					request.setAction(AbstractUpdateRequest.ACTION.COMMIT, false, true, true);
-					request.process(solrClient, collection);
-				} else {
-					solrClient.add(collection, batch);
-				}
-				successCount += batch.size();
-			} catch (SolrServerException | IOException | RuntimeException e) {
-				if (!isBadRequest(e)) {
-					// Only bad documents (a 400) can be salvaged one at a time; a missing
-					// collection, auth failure, 5xx or outage would fail every retry.
-					throw e;
-				}
-				logger.warn("Batch indexing rejected with a Solr 400, retrying individually", e);
-				// Try indexing documents individually to identify problematic ones
-				for (SolrInputDocument doc : batch) {
-					try {
-						solrClient.add(collection, doc);
-						successCount++;
-					} catch (SolrServerException | IOException | RuntimeException e2) {
-						logger.debug("Failed to index individual document", e2);
-						// Document failed to index - this is expected behavior for problematic
-						// documents
-						// We continue processing the rest of the batch
-					}
-				}
-				if (lastBatch) {
-					// The failed batch's embedded commit never ran, so commit here.
-					commit(collection);
-				}
+				solrClient.add(collection, doc);
+				successCount++;
+			} catch (SolrException e) {
+				logger.debug("Failed to index individual document", e);
 			}
 		}
-
+		solrClient.commit(collection, false, true, true);
 		return successCount;
-	}
-
-	/**
-	 * Soft-commits a collection: {@code waitFlush=false, waitSearcher=true,
-	 * softCommit=true}. The documents are searchable when this method returns,
-	 * while the hard commit (segment fsync) is left to Solr's {@code autoCommit},
-	 * so many small calls do not each force one.
-	 */
-	private void commit(String collection) throws SolrServerException, IOException {
-		try {
-			solrClient.commit(collection, false, true, true);
-		} catch (SolrServerException | IOException e) {
-			logger.error("Failed to commit after indexing to collection: {}", collection, e);
-			throw e;
-		}
-	}
-
-	/**
-	 * Distinguishes a Solr-rejected batch (bad documents, worth retrying one at a
-	 * time to salvage the valid ones) from every other failure (unknown collection,
-	 * auth, 5xx, connection failure), which per-document retry cannot fix and would
-	 * only multiply round trips.
-	 */
-	private static boolean isBadRequest(Exception e) {
-		return e instanceof SolrException se && se.code() == SolrException.ErrorCode.BAD_REQUEST.code;
 	}
 
 	/**

@@ -78,9 +78,7 @@ class IndexingServiceTest {
 		indexingService.indexJsonDocuments("test_collection", json);
 
 		verify(indexingDocumentCreator).createSchemalessDocumentsFromJson(json);
-		// A single batch is the last (and only) batch, so the add and the commit ride
-		// on one UpdateRequest instead of a separate solrClient.add +
-		// solrClient.commit.
+		// the add and the commit ride on one request
 		ArgumentCaptor<UpdateRequest> captor = ArgumentCaptor.forClass(UpdateRequest.class);
 		verify(solrClient).request(captor.capture(), eq("test_collection"));
 		assertEquals(1, captor.getValue().getDocuments().size());
@@ -120,80 +118,48 @@ class IndexingServiceTest {
 	}
 
 	@Test
-	void indexDocuments_WithLargeBatch_ShouldProcessInBatches() throws Exception {
+	void indexDocuments_WithManyDocuments_SendsOneRequest() throws Exception {
 		List<SolrInputDocument> docs = createMockDocuments(2500);
-		when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
 		when(solrClient.request(any(UpdateRequest.class), eq("test_collection"))).thenReturn(new NamedList<>());
 
 		int result = indexingService.indexDocuments("test_collection", docs);
 
 		assertEquals(2500, result);
-		// 2500 docs at batch size 1000: two plain adds (batches 1-2), then the last
-		// (500-doc) batch carries add + commit on a single UpdateRequest.
-		verify(solrClient, times(2)).add(eq("test_collection"), any(Collection.class));
 		ArgumentCaptor<UpdateRequest> captor = ArgumentCaptor.forClass(UpdateRequest.class);
 		verify(solrClient).request(captor.capture(), eq("test_collection"));
-		assertEquals(500, captor.getValue().getDocuments().size());
-		assertEquals("true", captor.getValue().getParams().get("commit"));
-		verify(solrClient, never()).commit(anyString(), anyBoolean(), anyBoolean(), anyBoolean());
+		assertEquals(2500, captor.getValue().getDocuments().size());
+		verify(solrClient, never()).add(anyString(), any(Collection.class));
 	}
-
 	@Test
-	void indexDocuments_WhenBatchFails_ShouldRetryIndividually() throws Exception {
+	void indexDocuments_WhenSolrRejectsTheRequest_ShouldRetryIndividually() throws Exception {
 		List<SolrInputDocument> docs = createMockDocuments(3);
-
-		// Only a Solr 400 triggers per-document fallback; a single batch is the last
-		// (and only) one, so it's attempted via the combined add+commit UpdateRequest.
 		when(solrClient.request(any(UpdateRequest.class), eq("test_collection")))
 				.thenThrow(new RemoteSolrException("http://localhost:8983/solr", 400, "Batch error", null));
-
 		when(solrClient.add(eq("test_collection"), any(SolrInputDocument.class))).thenReturn(null);
-		when(solrClient.commit("test_collection", false, true, true)).thenReturn(null);
 
 		int result = indexingService.indexDocuments("test_collection", docs);
 
 		assertEquals(3, result);
-		verify(solrClient).request(any(UpdateRequest.class), eq("test_collection"));
 		verify(solrClient, times(3)).add(eq("test_collection"), any(SolrInputDocument.class));
-		// The failed batch's embedded commit never ran, so the fallback commits once
-		// on its own, separately from the doc adds.
+		// the rejected request's commit never ran
 		verify(solrClient).commit("test_collection", false, true, true);
 	}
-
 	@Test
 	void indexDocuments_WhenSomeIndividualDocumentsFail_ShouldIndexSuccessfulOnes() throws Exception {
 		List<SolrInputDocument> docs = createMockDocuments(3);
-
-		when(solrClient.request(any(UpdateRequest.class), eq("test_collection")))
-				.thenThrow(new RemoteSolrException("http://localhost:8983/solr", 400, "Batch error", null));
-
-		when(solrClient.add(eq("test_collection"), any(SolrInputDocument.class))).thenReturn(null)
-				.thenThrow(new SolrServerException("Document error")).thenReturn(null);
-
-		when(solrClient.commit("test_collection", false, true, true)).thenReturn(null);
+		RemoteSolrException badRequest = new RemoteSolrException("http://localhost:8983/solr", 400, "Bad doc", null);
+		when(solrClient.request(any(UpdateRequest.class), eq("test_collection"))).thenThrow(badRequest);
+		when(solrClient.add(eq("test_collection"), any(SolrInputDocument.class))).thenReturn(null).thenThrow(badRequest)
+				.thenReturn(null);
 
 		int result = indexingService.indexDocuments("test_collection", docs);
 
 		assertEquals(2, result);
-		verify(solrClient).request(any(UpdateRequest.class), eq("test_collection"));
 		verify(solrClient, times(3)).add(eq("test_collection"), any(SolrInputDocument.class));
 		verify(solrClient).commit("test_collection", false, true, true);
 	}
-
 	@Test
-	void indexDocuments_WithEmptyList_ShouldNeedNoRequest() throws Exception {
-		List<SolrInputDocument> emptyDocs = new ArrayList<>();
-
-		int result = indexingService.indexDocuments("test_collection", emptyDocs);
-
-		assertEquals(0, result);
-		// Unreachable from the MCP tools (their document creators reject empty
-		// input), but if it does happen there is nothing worth sending to Solr.
-		verifyNoInteractions(solrClient);
-	}
-
-	@Test
-	void indexDocuments_WhenTheCombinedAddCommitRequestFails_ShouldPropagateException() throws Exception {
+	void indexDocuments_WhenTheRequestFails_ShouldPropagateException() throws Exception {
 		List<SolrInputDocument> docs = createMockDocuments(2);
 		when(solrClient.request(any(UpdateRequest.class), eq("test_collection")))
 				.thenThrow(new IOException("Commit failed"));
@@ -202,7 +168,7 @@ class IndexingServiceTest {
 			indexingService.indexDocuments("test_collection", docs);
 		});
 		verify(solrClient).request(any(UpdateRequest.class), eq("test_collection"));
-		// Not a Solr 400: no per-document fallback and no separate commit attempt.
+		// not a Solr 400: no per-document fallback
 		verify(solrClient, never()).add(anyString(), any(SolrInputDocument.class));
 		verify(solrClient, never()).commit(anyString(), anyBoolean(), anyBoolean(), anyBoolean());
 	}
@@ -214,8 +180,7 @@ class IndexingServiceTest {
 
 		indexingService.indexDocuments("test_collection", docs);
 
-		// waitFlush=false, waitSearcher=true, softCommit=true, carried on the same
-		// UpdateRequest as the add rather than a separate solrClient.commit call.
+		// waitFlush=false, waitSearcher=true, softCommit=true, on the add request.
 		// waitSearcher is what keeps the documents searchable the moment the tool
 		// returns; softCommit is what avoids an fsync per call. Measured against
 		// Solr: 8.6 ms versus 18.9 ms for a hard commit, and a p90 of 10.7 ms versus
@@ -230,22 +195,7 @@ class IndexingServiceTest {
 	}
 
 	@Test
-	void indexDocuments_ShouldBatchCorrectly() throws Exception {
-		List<SolrInputDocument> docs = createMockDocuments(1000);
-		when(solrClient.request(any(UpdateRequest.class), eq("test_collection"))).thenReturn(new NamedList<>());
-
-		int result = indexingService.indexDocuments("test_collection", docs);
-
-		assertEquals(1000, result);
-
-		ArgumentCaptor<UpdateRequest> captor = ArgumentCaptor.forClass(UpdateRequest.class);
-		verify(solrClient).request(captor.capture(), eq("test_collection"));
-		assertEquals(1000, captor.getValue().getDocuments().size());
-		verify(solrClient, never()).commit(anyString(), anyBoolean(), anyBoolean(), anyBoolean());
-	}
-
-	@Test
-	void indexDocuments_WhenBatchFailsWith404_ShouldPropagateWithoutRetrying() throws Exception {
+	void indexDocuments_WhenCollectionIsMissing_ShouldPropagateWithoutRetrying() throws Exception {
 		List<SolrInputDocument> docs = createMockDocuments(3);
 
 		when(solrClient.request(any(UpdateRequest.class), eq("test_collection")))
@@ -253,8 +203,6 @@ class IndexingServiceTest {
 
 		assertThrows(RemoteSolrException.class, () -> indexingService.indexDocuments("test_collection", docs));
 
-		// A missing collection is not a per-document problem: exactly one request,
-		// no per-document fallback, no separate commit.
 		verify(solrClient, times(1)).request(any(UpdateRequest.class), eq("test_collection"));
 		verify(solrClient, never()).add(anyString(), any(SolrInputDocument.class));
 		verify(solrClient, never()).add(anyString(), any(Collection.class));
@@ -266,8 +214,7 @@ class IndexingServiceTest {
 		List<Map<String, Object>> json = List.of(Map.of("id", "1"));
 		List<SolrInputDocument> mockDocs = createMockDocuments(1);
 		when(indexingDocumentCreator.createSchemalessDocumentsFromJson(json)).thenReturn(mockDocs);
-		// Not a Solr 400 (e.g. Solr down, connection refused): must propagate
-		// immediately rather than retry per document and report a false "0 of 1".
+		// Solr unreachable: propagate rather than retry and report "0 of 1"
 		when(solrClient.request(any(UpdateRequest.class), eq("test_collection")))
 				.thenThrow(new SolrServerException("Solr connection error"));
 
@@ -352,8 +299,6 @@ class IndexingServiceTest {
 	void indexDocuments_WithRuntimeException_ShouldPropagateWithoutRetrying() throws Exception {
 		List<SolrInputDocument> docs = createMockDocuments(2);
 
-		// A generic RuntimeException is not a Solr 400, so it must not trigger the
-		// per-document fallback.
 		when(solrClient.request(any(UpdateRequest.class), eq("test_collection")))
 				.thenThrow(new RuntimeException("Unexpected error"));
 
