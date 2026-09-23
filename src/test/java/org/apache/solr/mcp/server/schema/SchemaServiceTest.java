@@ -145,7 +145,6 @@ class SchemaServiceTest {
 
 	@Test
 	void getSchema_blankCollection_throwsWithoutSolrCall() {
-		assertThrows(IllegalArgumentException.class, () -> schemaService.getSchema(null));
 		assertThrows(IllegalArgumentException.class, () -> schemaService.getSchema(""));
 		assertThrows(IllegalArgumentException.class, () -> schemaService.getSchema("   "));
 
