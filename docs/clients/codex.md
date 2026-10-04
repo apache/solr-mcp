@@ -120,3 +120,15 @@ bearer_token_env_var = "SOLR_MCP_TOKEN"
 ```
 
 The `aud` claim of the token must match the URL Codex dials. Codex re-reads the variable each time it starts, so restart it after refreshing an expired token. See the [HTTP security model](../security/http.md) for server-side OAuth2 setup, and the [Keycloak](../security/keycloak.md) and [Auth0](../security/auth0.md) guides for obtaining a token.
+
+### Troubleshooting ###
+
+**`codex mcp list` shows the server and Codex finds its tools, but every call returns `Access Denied`.** The server is running with security on (the default in HTTP mode) and Codex is not sending a token. This is not a protocol-version problem — the server negotiates every MCP version. Either restart the server with `HTTP_SECURITY_ENABLED=false` for local use, or follow the secured-HTTP steps above. Confirm which one you have without involving Codex:
+
+```bash
+curl -s -X POST http://localhost:8080/mcp \
+  -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list-collections","arguments":{}}}'
+```
+
+`Access Denied` in the result means security is on.
