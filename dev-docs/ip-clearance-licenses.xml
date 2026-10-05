@@ -21,5 +21,7 @@
                     <li>org.springframework.boot:spring-boot-starter-security — Apache-2.0</li>
                     <li>org.springframework.boot:spring-boot-starter-web — Apache-2.0</li>
                   </ul>
+                  All licenses are Category A (Apache-2.0, BSD-2-Clause), compatible with
+                  the Apache License per ASF policy.
               </td>
             </tr>
