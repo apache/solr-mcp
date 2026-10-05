@@ -125,7 +125,7 @@
                     <li>org.slf4j:slf4j-api — MIT</li>
                     <li>org.snakeyaml:snakeyaml-engine — Apache-2.0</li>
                     <li>org.springaicommunity:mcp-annotations — MIT</li>
-                    <li>org.springaicommunity:mcp-server-security — Apache-1.0</li>
+                    <li>org.springaicommunity:mcp-server-security — Apache-2.0</li>
                     <li>org.springframework.ai:spring-ai-autoconfigure-mcp-server-common — Apache-2.0</li>
                     <li>org.springframework.ai:spring-ai-autoconfigure-mcp-server-webmvc — Apache-2.0</li>
                     <li>org.springframework.ai:spring-ai-commons — Apache-2.0</li>
