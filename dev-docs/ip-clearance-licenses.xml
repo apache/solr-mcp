@@ -1,0 +1,169 @@
+            <tr>
+              <td>2026-10-05</td>
+              <td>Check and make sure that all items depended upon by the project are
+                  covered by one or more of the following approved licenses: Apache,
+                  BSD, Artistic, MIT/X, MIT/W3C, MPL 1.1, or something with
+                  essentially the same terms. — All runtime dependencies bundled in the
+                  release (derived from the CycloneDX SBOM, as reported there; the full list
+                  is also in <code>META-INF/LICENSE</code> of the executable JAR):
+                  <ul>
+                    <li>aopalliance:aopalliance — Public Domain</li>
+                    <li>ch.qos.logback:logback-classic — EPL-2.0 / GNU Lesser General Public License</li>
+                    <li>ch.qos.logback:logback-core — EPL-2.0 / GNU Lesser General Public License</li>
+                    <li>com.ethlo.time:itu — Apache-2.0</li>
+                    <li>com.fasterxml.jackson.core:jackson-annotations — Apache-2.0</li>
+                    <li>com.fasterxml.jackson.core:jackson-core — Apache-2.0</li>
+                    <li>com.fasterxml.jackson.core:jackson-databind — Apache-2.0</li>
+                    <li>com.fasterxml.jackson.dataformat:jackson-dataformat-yaml — Apache-2.0</li>
+                    <li>com.fasterxml.jackson.datatype:jackson-datatype-jdk8 — Apache-2.0</li>
+                    <li>com.fasterxml.jackson.datatype:jackson-datatype-jsr310 — Apache-2.0</li>
+                    <li>com.fasterxml.jackson.module:jackson-module-jsonSchema — Apache-2.0</li>
+                    <li>com.fasterxml.jackson.module:jackson-module-parameter-names — Apache-2.0</li>
+                    <li>com.fasterxml:classmate — Apache-2.0</li>
+                    <li>com.github.stephenc.jcip:jcip-annotations — Apache-2.0</li>
+                    <li>com.github.victools:jsonschema-generator — Apache-2.0</li>
+                    <li>com.github.victools:jsonschema-module-jackson — Apache-2.0</li>
+                    <li>com.github.victools:jsonschema-module-swagger-2 — Apache-2.0</li>
+                    <li>com.google.cloud.opentelemetry:detector-resources-support — Apache-2.0</li>
+                    <li>com.knuddels:jtokkit — MIT</li>
+                    <li>com.networknt:json-schema-validator — Apache-2.0</li>
+                    <li>com.nimbusds:nimbus-jose-jwt — Apache-2.0</li>
+                    <li>com.squareup.okhttp3:okhttp — Apache-2.0</li>
+                    <li>com.squareup.okio:okio-jvm — Apache-2.0</li>
+                    <li>io.micrometer:context-propagation — Apache-2.0</li>
+                    <li>io.micrometer:micrometer-commons — Apache-2.0</li>
+                    <li>io.micrometer:micrometer-core — Apache-2.0</li>
+                    <li>io.micrometer:micrometer-jakarta9 — Apache-2.0</li>
+                    <li>io.micrometer:micrometer-observation — Apache-2.0</li>
+                    <li>io.micrometer:micrometer-registry-prometheus — Apache-2.0</li>
+                    <li>io.micrometer:micrometer-tracing — Apache-2.0</li>
+                    <li>io.micrometer:micrometer-tracing-bridge-otel — Apache-2.0</li>
+                    <li>io.modelcontextprotocol.sdk:mcp — MIT</li>
+                    <li>io.modelcontextprotocol.sdk:mcp-core — MIT</li>
+                    <li>io.modelcontextprotocol.sdk:mcp-json-jackson2 — MIT</li>
+                    <li>io.modelcontextprotocol.sdk:mcp-spring-webmvc — MIT</li>
+                    <li>io.opentelemetry.contrib:opentelemetry-aws-resources — Apache-2.0</li>
+                    <li>io.opentelemetry.contrib:opentelemetry-baggage-processor — Apache-2.0</li>
+                    <li>io.opentelemetry.contrib:opentelemetry-gcp-resources — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations-support — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-instrumentation-api — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-instrumentation-api-incubator — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-jdbc — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-kafka-clients-2.6 — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-kafka-clients-common — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-log4j-appender-2.17 — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-log4j-context-data-2.17-autoconfigure — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0 — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-logback-mdc-1.0 — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-micrometer-1.5 — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-mongo-3.1 — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-reactor-3.1 — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-resources — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-sdk-autoconfigure-support — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-spring-boot-autoconfigure — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-spring-kafka-2.7 — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-spring-web-3.1 — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-spring-webflux-5.3 — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-spring-webmvc-5.3 — Apache-2.0</li>
+                    <li>io.opentelemetry.instrumentation:opentelemetry-spring-webmvc-6.0 — Apache-2.0</li>
+                    <li>io.opentelemetry.semconv:opentelemetry-semconv — Apache-2.0</li>
+                    <li>io.opentelemetry.semconv:opentelemetry-semconv-incubating — Apache-2.0</li>
+                    <li>io.opentelemetry:opentelemetry-api — Apache-2.0</li>
+                    <li>io.opentelemetry:opentelemetry-api-incubator — Apache-2.0</li>
+                    <li>io.opentelemetry:opentelemetry-context — Apache-2.0</li>
+                    <li>io.opentelemetry:opentelemetry-exporter-common — Apache-2.0</li>
+                    <li>io.opentelemetry:opentelemetry-exporter-logging — Apache-2.0</li>
+                    <li>io.opentelemetry:opentelemetry-exporter-otlp — Apache-2.0</li>
+                    <li>io.opentelemetry:opentelemetry-exporter-otlp-common — Apache-2.0</li>
+                    <li>io.opentelemetry:opentelemetry-exporter-sender-okhttp — Apache-2.0</li>
+                    <li>io.opentelemetry:opentelemetry-extension-trace-propagators — Apache-2.0</li>
+                    <li>io.opentelemetry:opentelemetry-sdk — Apache-2.0</li>
+                    <li>io.opentelemetry:opentelemetry-sdk-common — Apache-2.0</li>
+                    <li>io.opentelemetry:opentelemetry-sdk-extension-autoconfigure — Apache-2.0</li>
+                    <li>io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi — Apache-2.0</li>
+                    <li>io.opentelemetry:opentelemetry-sdk-extension-incubator — Apache-2.0</li>
+                    <li>io.opentelemetry:opentelemetry-sdk-logs — Apache-2.0</li>
+                    <li>io.opentelemetry:opentelemetry-sdk-metrics — Apache-2.0</li>
+                    <li>io.opentelemetry:opentelemetry-sdk-trace — Apache-2.0</li>
+                    <li>io.projectreactor:reactor-core — Apache-2.0</li>
+                    <li>io.prometheus:prometheus-metrics-config — Apache-2.0</li>
+                    <li>io.prometheus:prometheus-metrics-core — Apache-2.0</li>
+                    <li>io.prometheus:prometheus-metrics-exposition-formats — Apache-2.0</li>
+                    <li>io.prometheus:prometheus-metrics-exposition-textformats — Apache-2.0</li>
+                    <li>io.prometheus:prometheus-metrics-model — Apache-2.0</li>
+                    <li>io.prometheus:prometheus-metrics-tracer-common — Apache-2.0</li>
+                    <li>io.swagger.core.v3:swagger-annotations-jakarta — Apache-2.0</li>
+                    <li>jakarta.annotation:jakarta.annotation-api — EPL-2.0 / GPL-2.0-with-classpath-exception</li>
+                    <li>jakarta.ws.rs:jakarta.ws.rs-api — EPL-2.0 / GPL-2.0-with-classpath-exception</li>
+                    <li>javax.validation:validation-api — Apache-2.0</li>
+                    <li>org.antlr:ST4 — BSD-4-Clause</li>
+                    <li>org.antlr:antlr-runtime — BSD licence</li>
+                    <li>org.antlr:antlr4-runtime — BSD-3-Clause</li>
+                    <li>org.apache.logging.log4j:log4j-api — Apache-2.0</li>
+                    <li>org.apache.logging.log4j:log4j-to-slf4j — Apache-2.0</li>
+                    <li>org.apache.solr:solr-api — Apache-2.0</li>
+                    <li>org.apache.solr:solr-solrj — Apache-2.0</li>
+                    <li>org.apache.tomcat.embed:tomcat-embed-core — Apache-2.0</li>
+                    <li>org.apache.tomcat.embed:tomcat-embed-el — Apache-2.0</li>
+                    <li>org.apache.tomcat.embed:tomcat-embed-websocket — Apache-2.0</li>
+                    <li>org.aspectj:aspectjweaver — EPL-2.0</li>
+                    <li>org.commonmark:commonmark — BSD-2-Clause</li>
+                    <li>org.commonmark:commonmark-ext-yaml-front-matter — BSD-2-Clause</li>
+                    <li>org.hdrhistogram:HdrHistogram — CC0-1.0 / BSD-2-Clause</li>
+                    <li>org.jetbrains.kotlin:kotlin-stdlib — Apache-2.0</li>
+                    <li>org.jetbrains.kotlin:kotlin-stdlib-jdk7 — Apache-2.0</li>
+                    <li>org.jetbrains.kotlin:kotlin-stdlib-jdk8 — Apache-2.0</li>
+                    <li>org.jetbrains:annotations — Apache-2.0</li>
+                    <li>org.jspecify:jspecify — Apache-2.0</li>
+                    <li>org.latencyutils:LatencyUtils — CC0-1.0</li>
+                    <li>org.reactivestreams:reactive-streams — MIT-0</li>
+                    <li>org.semver4j:semver4j — MIT</li>
+                    <li>org.slf4j:jcl-over-slf4j — Apache-2.0</li>
+                    <li>org.slf4j:jul-to-slf4j — MIT</li>
+                    <li>org.slf4j:slf4j-api — MIT</li>
+                    <li>org.snakeyaml:snakeyaml-engine — Apache-2.0</li>
+                    <li>org.springaicommunity:mcp-annotations — MIT</li>
+                    <li>org.springaicommunity:mcp-server-security — Apache-1.0</li>
+                    <li>org.springframework.ai:spring-ai-autoconfigure-mcp-server-common — Apache-2.0</li>
+                    <li>org.springframework.ai:spring-ai-autoconfigure-mcp-server-webmvc — Apache-2.0</li>
+                    <li>org.springframework.ai:spring-ai-commons — Apache-2.0</li>
+                    <li>org.springframework.ai:spring-ai-mcp — Apache-2.0</li>
+                    <li>org.springframework.ai:spring-ai-mcp-annotations — Apache-2.0</li>
+                    <li>org.springframework.ai:spring-ai-model — Apache-2.0</li>
+                    <li>org.springframework.ai:spring-ai-starter-mcp-server-webmvc — Apache-2.0</li>
+                    <li>org.springframework.ai:spring-ai-template-st — Apache-2.0</li>
+                    <li>org.springframework.boot:spring-boot — Apache-2.0</li>
+                    <li>org.springframework.boot:spring-boot-actuator — Apache-2.0</li>
+                    <li>org.springframework.boot:spring-boot-actuator-autoconfigure — Apache-2.0</li>
+                    <li>org.springframework.boot:spring-boot-autoconfigure — Apache-2.0</li>
+                    <li>org.springframework.boot:spring-boot-starter — Apache-2.0</li>
+                    <li>org.springframework.boot:spring-boot-starter-actuator — Apache-2.0</li>
+                    <li>org.springframework.boot:spring-boot-starter-aop — Apache-2.0</li>
+                    <li>org.springframework.boot:spring-boot-starter-json — Apache-2.0</li>
+                    <li>org.springframework.boot:spring-boot-starter-logging — Apache-2.0</li>
+                    <li>org.springframework.boot:spring-boot-starter-oauth2-resource-server — Apache-2.0</li>
+                    <li>org.springframework.boot:spring-boot-starter-security — Apache-2.0</li>
+                    <li>org.springframework.boot:spring-boot-starter-tomcat — Apache-2.0</li>
+                    <li>org.springframework.boot:spring-boot-starter-web — Apache-2.0</li>
+                    <li>org.springframework.security:spring-security-config — Apache-2.0</li>
+                    <li>org.springframework.security:spring-security-core — Apache-2.0</li>
+                    <li>org.springframework.security:spring-security-crypto — Apache-2.0</li>
+                    <li>org.springframework.security:spring-security-oauth2-core — Apache-2.0</li>
+                    <li>org.springframework.security:spring-security-oauth2-jose — Apache-2.0</li>
+                    <li>org.springframework.security:spring-security-oauth2-resource-server — Apache-2.0</li>
+                    <li>org.springframework.security:spring-security-web — Apache-2.0</li>
+                    <li>org.springframework:spring-aop — Apache-2.0</li>
+                    <li>org.springframework:spring-beans — Apache-2.0</li>
+                    <li>org.springframework:spring-context — Apache-2.0</li>
+                    <li>org.springframework:spring-core — Apache-2.0</li>
+                    <li>org.springframework:spring-expression — Apache-2.0</li>
+                    <li>org.springframework:spring-jcl — Apache-2.0</li>
+                    <li>org.springframework:spring-messaging — Apache-2.0</li>
+                    <li>org.springframework:spring-web — Apache-2.0</li>
+                    <li>org.springframework:spring-webmvc — Apache-2.0</li>
+                    <li>org.yaml:snakeyaml — Apache-2.0</li>
+                  </ul>
+              </td>
+            </tr>
