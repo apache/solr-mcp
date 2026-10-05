@@ -1,0 +1,18 @@
+            <tr>
+              <td>2026-10-05</td>
+              <td>Check and make sure that all items depended upon by the project are
+                  covered by one or more of the following approved licenses: Apache,
+                  BSD, Artistic, MIT/X, MIT/W3C, MPL 1.1, or something with
+                  essentially the same terms. — The direct runtime dependencies of the imported code base,
+                  <a href="https://github.com/adityamparikh/solr-mcp-server/tree/cda37f2964195c6d2734899234faeff2a4bc71d4">adityamparikh/solr-mcp-server @ cda37f29</a>,
+                  as declared in its <code>build.gradle.kts</code>:
+                  <ul>
+                    <li>org.apache.commons:commons-csv — Apache-2.0</li>
+                    <li>org.apache.solr:solr-solrj — Apache-2.0</li>
+                    <li>org.jspecify:jspecify — Apache-2.0</li>
+                    <li>org.springframework.ai:spring-ai-starter-mcp-server-webmvc — Apache-2.0</li>
+                    <li>org.springframework.boot:spring-boot-starter-actuator — Apache-2.0</li>
+                    <li>org.springframework.boot:spring-boot-starter-web — Apache-2.0</li>
+                  </ul>
+              </td>
+            </tr>
