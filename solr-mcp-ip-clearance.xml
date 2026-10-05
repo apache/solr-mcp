@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document>
+  <properties>
+    <title>Solr MCP Codebase Intellectual Property (IP) Clearance Status</title>
+  </properties>
+  <body>
+    <section id="Solr+MCP+Codebase+Intellectual+Property+%28IP%29+Clearance+Status">
+      <title>Solr MCP Codebase Intellectual Property (IP) Clearance Status</title>
+    </section>
+
+    <section id="Description">
+      <title>Description</title>
+      <p>
+        Solr MCP lets you Search, index, and manage Apache Solr collections using natural language — 
+        no need to hand-craft Solr queries, build filter expressions, or memorize the admin API using the MCP protocol.
+      </p>
+      <p>
+        Provenance chain:
+      </p>
+      <ul>
+        <li>Donated by Aditya Parikh via a CLA</li>
+      </ul>
+    </section>
+
+    <section id="Project+info">
+      <title>Project info</title>
+      <ul>
+        <li>Which PMC will be responsible for the code: <strong>Apache Solr PMC</strong></li>
+      </ul>
+      <ul>
+        <li>Into which existing project/module: <strong>Solr MCP</strong> — a new
+            sub-project under the Apache Solr umbrella</li>
+      </ul>
+      <ul>
+        <li>Officer or member managing donation: <strong>Eric Pugh</strong>
+            (Apache Member, epugh@apache.org)</li>
+      </ul>
+      <p>
+        <em>Completed tasks are shown by the completion date (YYYY-MM-dd).</em>
+      </p>
+
+      <section id="Identify+the+codebase">
+        <title>Identify the codebase</title>
+        <table>
+            <tr>
+              <th>date</th>
+              <th>item</th>
+            </tr>
+            <tr>
+              <td>2025-07-05</td>
+              <td>Initial commit from https://github.com/adityamparikh/solr-mcp-server
+                  commit <code>fcce0327923e974d6bf53c671aba0539c76aa32f</code>
+                  with commit-date <code>2026-07-05</code> into <code>solr-mcp</code></td>
+            </tr>           
+        </table>
+        <p>
+          SHA1 sum for donated software: <code>c17ddc0fea1c7b31d23d252a7aad8cb5905614c6</code>
+          (computed via <code>git archive main | sha1sum</code> on branch
+          <code>main</code>, HEAD commit <code>fcce0327923e974d6bf53c671aba0539c76aa32f</code>,
+          repository https://github.com/apache/solr-mcp).
+        </p>       
+
+        <section id="Copyright">
+          <title>Copyright</title>
+          <table>
+            <tr>
+              <th>date</th>
+              <th>item</th>
+            </tr>
+            <tr>
+              <td>2026-10-04</td>
+              <td>Check and make sure that the papers that transfer rights to the ASF
+                  have been received. — <strong>No Software Grant Agreement is
+                  required.</strong> All code in the donation is licensed under the
+                  Apache License 2.0, which already grants the ASF (and everyone else)
+                  the necessary rights to use, modify, and redistribute the software.
+                  The upstream project https://github.com/adityamparikh/solr-mcp-server
+                  is Apache-2.0. 
+              </td>
+            </tr>
+            <tr>
+              <td>2026-10-04</td>
+              <td>Check and make sure that the files that have been donated have been
+                  updated to reflect the new ASF copyright. — All source files carry
+                  an updated SPDX header (<code>SPDX-License-Identifier: Apache-2.0</code>.
+                  A NOTICE file documents the complete attribution chain.</td>
+            </tr>
+          </table>
+          <p>
+            Identify name recorded for software grant: <em>N/A — No Software Grant
+            Agreement is being filed. All donated code is Apache-2.0 licensed; the
+            Apache-2.0 license itself constitutes sufficient rights transfer.
+            See the repository NOTICE file for the full attribution
+            record.</em>
+          </p>
+        </section>
+
+        <section id="Verify+distribution+rights">
+          <title>Verify distribution rights</title>
+          <p>
+            Corporations and individuals holding existing distribution rights:
+          </p>
+          <ul>
+            <li>Aditya Parikh — Apache Contributor, ICLA on file</li>           
+          </ul>
+          <table>
+            <tr>
+              <th>date</th>
+              <th>item</th>
+            </tr>
+            <tr>
+              <td>2026-10-05</td>
+              <td>Check and make sure that all items depended upon by the project are
+                  covered by one or more of the following approved licenses: Apache,
+                  BSD, Artistic, MIT/X, MIT/W3C, MPL 1.1, or something with
+                  essentially the same terms. — The direct runtime dependencies of the imported code base,
+                  <a href="https://github.com/adityamparikh/solr-mcp-server/tree/cda37f2964195c6d2734899234faeff2a4bc71d4">adityamparikh/solr-mcp-server @ cda37f29</a>,
+                  as declared in its <code>build.gradle.kts</code>:
+                  <ul>
+                    <li>org.apache.commons:commons-csv — Apache-2.0</li>
+                    <li>org.apache.solr:solr-solrj — Apache-2.0</li>
+                    <li>org.jspecify:jspecify — Apache-2.0</li>
+                    <li>org.springframework.ai:spring-ai-starter-mcp-server-webmvc — Apache-2.0</li>
+                    <li>org.springframework.boot:spring-boot-starter-actuator — Apache-2.0</li>
+                    <li>org.springframework.boot:spring-boot-starter-web — Apache-2.0</li>
+                  </ul>
+                  All licenses are Category A (Apache-2.0), compatible with the Apache
+                  License per ASF policy.
+              </td>
+            </tr>            
+            <tr>
+              <td>2026-10-04</td>
+              <td>Check that all active committers have a signed CLA on record. —
+                  Aditya Parikh (original author of new Solr MCP code) has an ICLA on
+                  file.  Other committers and contributors are Solr project members with ICLA on file.</td>
+            </tr>
+            <tr>
+              <td>2026-10-04</td>
+              <td>Remind active committers that they are responsible for ensuring
+                  that a Corporate CLA is recorded if such is required to authorize
+                  their contributions under their individual CLA. — Acknowledged.
+                  Aditya Parikh contributes as an individual; no CCLA required.</td>
+            </tr>
+            <tr>
+              <td>2026-10-04</td>
+              <td>Check and make sure that for all items included with the distribution
+                  that are not under the Apache license, we have the right to combine
+                  with Apache-licensed code and redistribute. — All files distributed
+                  directly in the Solr MCP source tree are Apache-2.0 licensed.
+                  No non-Apache files are bundled in the source distribution.</td>
+            </tr>
+            <tr>
+              <td>2025-10-24</td>
+              <td>Discussion about how best to accept the code.  See https://issues.apache.org/jira/browse/LEGAL-716.</td>
+          </table>
+          <p>The result of the above checks: the codebase is 100% Apache-2.0.
+          </p>
+        </section>
+      </section>
+
+      <section id="Organizational+acceptance+of+responsibility+for+the+project">
+        <title>Organizational acceptance of responsibility for the project</title>
+        <p>
+          Related VOTEs:
+        </p>
+        <ul>
+          <li>VOTE thread on dev@solr.apache.org:
+              <a href="???">
+              ???</a></li>
+          <li>VOTE result:
+              <a href="???">
+                ???</a></li>
+        </ul>
+      </section>
+    </section>
+  </body>
+</document>
