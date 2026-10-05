@@ -98,8 +98,8 @@
                     <li>jakarta.annotation:jakarta.annotation-api — EPL-2.0 / GPL-2.0-with-classpath-exception</li>
                     <li>jakarta.ws.rs:jakarta.ws.rs-api — EPL-2.0 / GPL-2.0-with-classpath-exception</li>
                     <li>javax.validation:validation-api — Apache-2.0</li>
-                    <li>org.antlr:ST4 — BSD-4-Clause</li>
-                    <li>org.antlr:antlr-runtime — BSD licence</li>
+                    <li>org.antlr:ST4 — BSD-3-Clause</li>
+                    <li>org.antlr:antlr-runtime — BSD-3-Clause</li>
                     <li>org.antlr:antlr4-runtime — BSD-3-Clause</li>
                     <li>org.apache.logging.log4j:log4j-api — Apache-2.0</li>
                     <li>org.apache.logging.log4j:log4j-to-slf4j — Apache-2.0</li>
