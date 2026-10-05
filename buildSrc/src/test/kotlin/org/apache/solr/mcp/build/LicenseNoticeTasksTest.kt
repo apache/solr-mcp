@@ -135,6 +135,52 @@ class LicenseNoticeTasksTest {
         assertFalse(text.contains("NOTICES FROM BUNDLED"), "no section header when there are no lifted notices")
     }
 
+    // ---- GenerateIpClearanceLicenseReport -----------------------------------------
+
+    @Test
+    fun `ip clearance report lists each dependency with its SBOM licenses verbatim and makes no judgement`() {
+        val task = project().tasks.create("ipReport", GenerateIpClearanceLicenseReport::class.java)
+        write(
+            "sbom.json",
+            """{"components":[
+               {"group":"org.apache.solr","name":"solr-solrj","version":"10.0.0","licenses":[{"license":{"id":"Apache-2.0"}}]},
+               {"group":"ch.qos.logback","name":"logback-classic","version":"1.5.0",
+                "licenses":[{"license":{"id":"EPL-1.0"}},{"license":{"id":"LGPL-2.1-only"}}]},
+               {"group":"x","name":"gpl-lib","version":"1","licenses":[{"license":{"id":"GPL-3.0-only"}}]}]}""",
+        ).let(task.sbom::set)
+        task.bundledCoordinates.set(
+            listOf("x:gpl-lib:1", "org.apache.solr:solr-solrj:10.0.0", "ch.qos.logback:logback-classic:1.5.0"),
+        )
+        task.date.set("2026-10-04")
+        val out = File(tempDir, "out/ip.xml")
+        task.outputFile.set(out)
+
+        task.generate()
+
+        val xml = out.readText()
+        assertTrue(xml.trimStart().startsWith("<tr>") && xml.trimEnd().endsWith("</tr>"))
+        assertTrue(xml.contains("<td>2026-10-04</td>"), "completion date column")
+        assertTrue(xml.contains("<li>org.apache.solr:solr-solrj \u2014 Apache-2.0</li>"))
+        assertTrue(xml.contains("<li>ch.qos.logback:logback-classic \u2014 EPL-1.0 / LGPL-2.1-only</li>"))
+        assertTrue(xml.contains("<li>x:gpl-lib \u2014 GPL-3.0-only</li>"), "licenses are reported, not filtered")
+        assertFalse(xml.contains("Category"), "no A/B judgement is made")
+        assertTrue(xml.indexOf("ch.qos.logback") < xml.indexOf("org.apache.solr"), "entries are sorted")
+        javax.xml.parsers.DocumentBuilderFactory.newInstance().newDocumentBuilder()
+            .parse(org.xml.sax.InputSource(java.io.StringReader(xml)))
+    }
+
+    @Test
+    fun `ip clearance report fails when a bundled dependency is absent from the SBOM`() {
+        val task = project().tasks.create("ipReport", GenerateIpClearanceLicenseReport::class.java)
+        write("sbom.json", """{"components":[]}""").let(task.sbom::set)
+        task.bundledCoordinates.set(listOf("missing:dep:1.0"))
+        task.date.set("2026-10-04")
+        task.outputFile.set(File(tempDir, "out/ip.xml"))
+
+        val ex = assertThrows(GradleException::class.java) { task.generate() }
+        assertTrue(ex.message!!.contains("missing:dep:1.0"))
+    }
+
     // ---- helpers ------------------------------------------------------------------
 
     private fun project() = ProjectBuilder.builder().withProjectDir(tempDir).build()

@@ -40,6 +40,7 @@
 
 import org.apache.solr.mcp.build.GenerateBinaryLicense
 import org.apache.solr.mcp.build.GenerateBinaryNotice
+import org.apache.solr.mcp.build.GenerateIpClearanceLicenseReport
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 
 // The project's source-form LICENSE/NOTICE at the repo root (the plain Apache-2.0 text
@@ -110,6 +111,30 @@ val generateBinaryNotice =
         outputFile.set(layout.buildDirectory.file("generated/license/NOTICE"))
     }
 
+// The dependency/license row of the Incubator IP-clearance status document, as a paste-ready
+// XML <tr>, derived from the same SBOM and shipped classpath as the binary LICENSE. A
+// disclosure, not a gate or policy. Output: build/generated/license/ip-clearance-licenses.xml
+val generateIpClearanceLicenseReport =
+    tasks.register<GenerateIpClearanceLicenseReport>("generateIpClearanceLicenseReport") {
+        description = "Renders the IP-clearance 'approved licenses' dependency row (XML) from the SBOM."
+        group = "documentation"
+        dependsOn("cyclonedxBom")
+        sbom.set(layout.buildDirectory.file("reports/application.cdx.json"))
+        bundledCoordinates.set(shippedCoordinates)
+        date.set(java.time.LocalDate.now().toString())
+        outputFile.set(layout.buildDirectory.file("generated/license/ip-clearance-licenses.xml"))
+    }
+
+// One entry point for everything license-related: binary LICENSE, binary NOTICE and the
+// IP-clearance row all land in build/generated/license/ (the SBOM they derive from is
+// build/reports/application.cdx.json). Wired into `check` below, so a plain
+// `./gradlew build` produces all of them; CI uploads the directory.
+tasks.register("generateLicenseDocs") {
+    description = "Generates all license documents: binary LICENSE, binary NOTICE, IP-clearance row."
+    group = "documentation"
+    dependsOn(generateBinaryLicense, generateBinaryNotice, generateIpClearanceLicenseReport)
+}
+
 // `metaInf { from(file) }` adds files to a jar's `META-INF/` directory. The source-form
 // artifacts — the thin `jar`, `-sources`, `-javadoc` (everything except `bootJar`) — get
 // the base LICENSE/NOTICE unchanged. `configureEach` applies this to each matching jar
@@ -133,6 +158,8 @@ tasks.named<Jar>("bootJar") {
     }
 }
 
-// Run the LICENSE task — and therefore its completeness gate — as part of `check`, so a
-// plain `./gradlew build` fails if a bundled dependency is missing from the SBOM.
-tasks.named("check") { dependsOn(generateBinaryLicense) }
+// Run every license document — and therefore the completeness gate that LICENSE and the
+// IP-clearance row share — as part of `check`, so a plain `./gradlew build` fails if a
+// bundled dependency is missing from the SBOM and always leaves all three files in
+// build/generated/license/.
+tasks.named("check") { dependsOn("generateLicenseDocs") }

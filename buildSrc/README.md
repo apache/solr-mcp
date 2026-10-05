@@ -51,6 +51,8 @@ small. (Think of it as a tiny library that only this project's build uses.)
 | `src/main/kotlin/.../GenerateBinaryNotice.kt`  | A custom Gradle **task** that writes the binary `NOTICE` (our `NOTICE` + the `NOTICE` files of bundled dependencies). |
 | `src/main/kotlin/org.apache.solr.mcp.license-notice.gradle.kts` | A **convention plugin** that creates the two tasks above and wires them into the build. |
 | `src/test/kotlin/.../LicenseNoticeTasksTest.kt` | Unit tests for the two tasks. |
+| `src/main/kotlin/.../GenerateIpClearanceLicenseReport.kt` | A custom Gradle **task** that renders the dependency/license row of the Incubator IP-clearance status document as an XML `<tr>`, from the same SBOM data (no license judgement). `./gradlew generateLicenseDocs` runs it together with the LICENSE and NOTICE tasks, and `check` (so `build`) depends on that. |
+| `src/main/kotlin/.../SbomLicenses.kt` | Shared SBOM license lookup used by the LICENSE and IP-clearance tasks. |
 | `src/main/kotlin/.../RatExcludes.kt` | Pure helper that translates `.gitignore` entries into Apache RAT (Ant-style) exclude globs. |
 | `src/main/kotlin/org.apache.solr.mcp.rat.gradle.kts` | A **convention plugin** that applies Apache RAT and configures its excludes (`.gitignore`-derived + an explicit list). |
 | `src/test/kotlin/.../RatExcludesTest.kt` | Unit tests for the gitignore→glob translation. |

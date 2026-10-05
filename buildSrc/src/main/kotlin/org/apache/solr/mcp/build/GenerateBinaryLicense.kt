@@ -16,7 +16,6 @@
  */
 package org.apache.solr.mcp.build
 
-import groovy.json.JsonSlurper
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.RegularFileProperty
@@ -84,42 +83,18 @@ abstract class GenerateBinaryLicense : DefaultTask() {
     @get:OutputFile
     abstract val outputFile: RegularFileProperty
 
-    /** One license entry in the appendix: a display label and an optional link to its text. */
-    private data class License(val label: String, val url: String?)
-
     /** Gradle runs this method when the task executes (`@TaskAction`). */
     @TaskAction
     fun generate() {
-        val slurper = JsonSlurper()
-
-        // 1. Index every SBOM component's licenses by "group:name" and "group:name:version".
-        //    The version-keyed map is preferred so the exact shipped version wins; the
-        //    coarser key is the fallback when versions differ between SBOM and classpath.
-        @Suppress("UNCHECKED_CAST")
-        val sbomJson = slurper.parse(sbom.get().asFile) as Map<String, Any?>
-
-        @Suppress("UNCHECKED_CAST")
-        val components = (sbomJson["components"] as? List<Map<String, Any?>>).orEmpty()
-        val byGroupArtifact = HashMap<String, List<License>>()
-        val byGroupArtifactVersion = HashMap<String, List<License>>()
-        for (component in components) {
-            val group = component["group"] as? String ?: continue
-            val name = component["name"] as? String ?: continue
-            val licenses = licensesOf(component)
-            byGroupArtifact["$group:$name"] = licenses
-            (component["version"] as? String)?.let { byGroupArtifactVersion["$group:$name:$it"] = licenses }
-        }
+        // 1. Index the licenses the SBOM reports for each component (exact version preferred).
+        val sbomLicenses = SbomLicenses(sbom.get().asFile)
 
         // 2. For each dependency that actually ships, look up its license(s) in the SBOM and
         //    append a row. Collect any coordinate the SBOM does not cover for the gate below.
         val notInSbom = mutableListOf<String>()
         val rows = StringBuilder()
         for (coordinate in bundledCoordinates.get()) {
-            val groupArtifact = coordinate.substringBeforeLast(':')
-            val licenses =
-                byGroupArtifactVersion[coordinate]
-                    ?: byGroupArtifact[groupArtifact]
-                    ?: emptyList()
+            val licenses = sbomLicenses.lookup(coordinate)
             if (licenses.isEmpty()) {
                 notInSbom += coordinate
                 continue
@@ -164,27 +139,4 @@ abstract class GenerateBinaryLicense : DefaultTask() {
             append(rows)
         })
     }
-
-    /** Distinct (label, url?) licenses of an SBOM component; prefers SPDX id, else name/expression. */
-    private fun licensesOf(component: Map<String, Any?>): List<License> {
-        val out = LinkedHashMap<String, String?>()
-
-        @Suppress("UNCHECKED_CAST")
-        val nodes = component["licenses"] as? List<Map<String, Any?>> ?: return emptyList()
-        for (node in nodes) {
-            @Suppress("UNCHECKED_CAST")
-            val license = node["license"] as? Map<String, Any?>
-            if (license != null) {
-                val id = license["id"] as? String
-                val label = id ?: (license["name"] as? String) ?: "Unspecified"
-                val url = (license["url"] as? String) ?: id?.let { spdxUrl(it) }
-                out.putIfAbsent(label, url)
-            } else {
-                (node["expression"] as? String)?.let { out.putIfAbsent(it, null) }
-            }
-        }
-        return out.map { License(it.key, it.value) }
-    }
-
-    private fun spdxUrl(spdxId: String): String = "https://spdx.org/licenses/$spdxId.html"
 }
