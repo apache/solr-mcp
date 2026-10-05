@@ -27,8 +27,13 @@ import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
-import java.io.StringWriter
-import javax.xml.stream.XMLOutputFactory
+
+import kotlinx.html.code
+import kotlinx.html.li
+import kotlinx.html.stream.appendHTML
+import kotlinx.html.td
+import kotlinx.html.tr
+import kotlinx.html.ul
 
 /**
  * Generates the dependency/license row for the Incubator IP-clearance status document
@@ -84,49 +89,35 @@ abstract class GenerateIpClearanceLicenseReport : DefaultTask() {
             .associate { (coordinate, licenses) -> coordinate.substringBeforeLast(':') to licenses }
             .toSortedMap()
 
-        val xml = StringWriter().also { sw ->
-            XMLOutputFactory.newFactory().createXMLStreamWriter(sw).run {
-                fun text(s: String) = writeCharacters(s)
-                fun element(name: String, body: () -> Unit) {
-                    writeStartElement(name)
-                    body()
-                    writeEndElement()
-                }
-
-                text("            ")
-                element("tr") {
-                    text("\n              ")
-                    element("td") { text(date.get()) }
-                    text("\n              ")
-                    element("td") {
-                        text(
-                            "Check and make sure that all items depended upon by the project are\n" +
-                                "                  covered by one or more of the following approved licenses: Apache,\n" +
-                                "                  BSD, Artistic, MIT/X, MIT/W3C, MPL 1.1, or something with\n" +
-                                "                  essentially the same terms. \u2014 All runtime dependencies bundled in the\n" +
-                                "                  release (derived from the CycloneDX SBOM, as reported there; the full list\n" +
-                                "                  is also in ",
-                        )
-                        element("code") { text("META-INF/LICENSE") }
-                        text(" of the executable JAR):\n                  ")
-                        element("ul") {
-                            items.forEach { (groupArtifact, licenses) ->
-                                text("\n                    ")
-                                element("li") { text("$groupArtifact \u2014 ${licenses.joinToString(" / ") { it.label }}") }
-                            }
-                            text("\n                  ")
+        val xml = buildString {
+            appendHTML(prettyPrint = true).tr {
+                td { +date.get() }
+                td {
+                    +CHECKLIST_WORDING
+                    code { +"META-INF/LICENSE" }
+                    +" of the executable JAR):"
+                    ul {
+                        items.forEach { (groupArtifact, licenses) ->
+                            li { +"$groupArtifact \u2014 ${licenses.joinToString(" / ") { it.label }}" }
                         }
-                        text("\n              ")
                     }
-                    text("\n            ")
                 }
-                flush()
-                close()
             }
-        }.toString() + "\n"
+        }.prependIndent(ROW_INDENT)
 
         val out = outputFile.get().asFile
         out.parentFile.mkdirs()
-        out.writeText(xml)
+        out.writeText(xml + "\n")
+    }
+
+    private companion object {
+        /** Indent that lines the row up with the sibling rows of the status document's table. */
+        const val ROW_INDENT = "            "
+
+        const val CHECKLIST_WORDING =
+            "Check and make sure that all items depended upon by the project are covered by one or more " +
+                "of the following approved licenses: Apache, BSD, Artistic, MIT/X, MIT/W3C, MPL 1.1, or " +
+                "something with essentially the same terms. \u2014 All runtime dependencies bundled in the " +
+                "release (derived from the CycloneDX SBOM, as reported there; the full list is also in "
     }
 }

@@ -36,6 +36,9 @@ dependencies {
     // the plugin's upstream releases.
     implementation("org.nosphere.apache.rat:org.nosphere.apache.rat.gradle.plugin:0.8.1")
 
+    // Type-safe HTML/XML DSL (escapes text itself) used to build the IP-clearance row.
+    implementation("org.jetbrains.kotlinx:kotlinx-html-jvm:0.12.0")
+
     // Only used by the task unit tests under src/test (the main code needs no extra deps;
     // the Gradle API is provided by the kotlin-dsl plugin).
     testImplementation("org.junit.jupiter:junit-jupiter:5.12.2")
