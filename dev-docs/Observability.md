@@ -56,25 +56,22 @@ This single container replaces what would otherwise require deploying and config
 
 ## Quick Start
 
-Thanks to the `spring-boot-docker-compose` dependency, **Docker containers are automatically started** when you run the application locally. Simply run:
+The `lgtm` service in `compose.yaml` carries `org.springframework.boot.ignore: "true"`, so
+Spring Boot's Docker Compose support never starts or stops it. Start it yourself, then run
+the server in HTTP mode:
 
 ```bash
-# Run the MCP server in HTTP mode - Docker containers start automatically!
+docker compose up -d lgtm
 PROFILES=http ./gradlew bootRun
 ```
 
-Spring Boot detects the `compose.yaml` file and automatically:
-1. Starts the `lgtm` container (Grafana, Loki, Tempo, Prometheus, Pyroscope)
-2. Starts the `solr` and `zoo` containers
-3. Configures OTLP endpoints to point to the running containers
-4. Waits for containers to be healthy before accepting requests
+In HTTP mode `bootRun` starts (and stops) the `solr` and `zoo` containers through the
+`spring-boot-docker-compose` dependency and waits for them to be healthy. It does not wire
+the OTLP endpoints: those come from the `localhost:4318` defaults in
+`application-http.properties`, which match the ports `lgtm` publishes.
 
 Once running, open Grafana at **http://localhost:3000** to explore your telemetry data.
-
-**Note:** To start containers manually (e.g., for debugging), use:
-```bash
-docker compose up -d lgtm solr
-```
+`lgtm` keeps everything in memory, so `docker compose stop lgtm` discards it.
 
 ## Architecture
 
@@ -89,7 +86,7 @@ docker compose up -d lgtm solr
 │  └───────────────┘  │                     │                  │             │  │
 │  ┌───────────────┐  │                     │  ┌────────────┐  │ - Dashboards│  │
 │  │ Metrics       │──┼─────────────────────┼─▶│ Prometheus │  │ - Explore   │  │
-│  │ (actuator)    │  │                     │  └────────────┘  │ - Alerts    │  │
+│  │ (Micrometer)  │  │                     │  └────────────┘  │ - Alerts    │  │
 │  └───────────────┘  │                     │                  └─────────────┘  │
 │  ┌───────────────┐  │                     │  ┌────────────┐                   │
 │  │ Logs          │──┼─────────────────────┼─▶│ Loki       │                   │
@@ -121,7 +118,7 @@ Grafana's **Drilldown** feature provides an integrated view for exploring traces
 2. Go to **Drilldown** > **Traces** in the sidebar
 3. Select **Tempo** as the datasource
 4. Filter traces by:
-   - Service name: `solr-mcp-server`
+   - Service name: `solr-mcp`
    - Span name (e.g., `http post /mcp`)
    - Duration
    - URL path
@@ -137,7 +134,8 @@ span. A representative `/mcp` search request looks like this:
 
 The Drilldown sidebar provides quick access to related telemetry:
 - **Metrics** - View application and JVM metrics (request rates, latencies, memory usage)
-- **Logs** - View correlated logs with the same trace ID
+- **Logs** - View correlated logs with the same trace ID (empty for a request that logged
+  nothing, which is every successful tool call; the services log only on failure)
 - **Traces** - The current distributed trace view
 - **Profiles** - CPU and memory profiling data (if configured)
 
@@ -145,8 +143,10 @@ This unified view makes it easy to investigate issues by correlating traces with
 
 **Example TraceQL query:**
 ```
-{resource.service.name="solr-mcp-server"}
+{resource.service.name="solr-mcp"}
 ```
+
+The Solr call inside a tool is not a separate span; its time is part of the tool span.
 
 ### Viewing Logs
 
@@ -158,14 +158,21 @@ This unified view makes it easy to investigate issues by correlating traces with
 **Example queries:**
 ```logql
 # All logs from the MCP server
-{service_name="solr-mcp-server"}
+{service_name="solr-mcp"}
 
-# Error logs only
-{service_name="solr-mcp-server"} |= "ERROR"
+# Warnings and errors only
+{service_name="solr-mcp"} | detected_level=~"warn|error"
+
+# Only lines written during a request
+{service_name="solr-mcp"} | trace_id != ""
 
 # Logs with specific trace ID
-{service_name="solr-mcp-server"} | json | trace_id="<your-trace-id>"
+{service_name="solr-mcp"} | trace_id="<your-trace-id>"
 ```
+
+The level, `trace_id` and `span_id` are record attributes, not part of the message text, so
+filter them with `| name=value`; `|= "ERROR"` matches nothing, and the records are not JSON,
+so a `| json` stage only adds a parse error.
 
 ### Viewing Metrics
 
@@ -176,18 +183,25 @@ This unified view makes it easy to investigate issues by correlating traces with
 
 **Example queries:**
 ```promql
-# HTTP request rate
-rate(http_server_requests_seconds_count{application="solr-mcp-server"}[5m])
+# MCP request rate, by method and status
+sum by (method, status) (rate(http_server_requests_milliseconds_count{job="solr-mcp", uri="/mcp"}[5m]))
 
-# Request latency (p99)
-histogram_quantile(0.99, rate(http_server_requests_seconds_bucket{application="solr-mcp-server"}[5m]))
+# Average latency per tool (ms), from the @Observed service methods
+sum by (class, method) (rate(method_observed_milliseconds_sum{job="solr-mcp"}[5m]))
+  / sum by (class, method) (rate(method_observed_milliseconds_count{job="solr-mcp"}[5m]))
 
 # JVM memory usage
-jvm_memory_used_bytes{application="solr-mcp-server"}
+sum by (area) (jvm_memory_used_bytes{job="solr-mcp"})
 
-# Active threads
-jvm_threads_live_threads{application="solr-mcp-server"}
+# Live threads
+jvm_threads_live{job="solr-mcp"}
 ```
+
+The OTLP registry exports timers in milliseconds (`_milliseconds_*`, not `_seconds_*`) and
+labels series with `job="solr-mcp"` / `service_name="solr-mcp"`; there is no `application`
+label. Percentiles need histogram buckets, which timers publish only when enabled, e.g.
+`management.metrics.distribution.percentiles-histogram.http.server.requests=true`; the p99
+query is in [docs/observability.md](../docs/observability.md).
 
 ## Configuration
 
@@ -261,7 +275,7 @@ If your OTLP collector requires authentication, configure headers in your OpenTe
 Add deployment-specific attributes for better filtering:
 
 ```properties
-spring.application.name=solr-mcp-server-prod
+spring.application.name=solr-mcp-prod
 ```
 
 ## Troubleshooting
@@ -309,7 +323,7 @@ If the LGTM container uses too much memory:
 ```yaml
 # compose.yaml
 lgtm:
-  image: grafana/otel-lgtm:latest
+  image: grafana/otel-lgtm:0.30.0
   deploy:
     resources:
       limits:

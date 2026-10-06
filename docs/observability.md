@@ -2,12 +2,12 @@
 
 ## Overview ##
 
-When running in **HTTP mode**, the Solr MCP Server exports telemetry data via OpenTelemetry to the **LGTM stack** (Loki, Grafana, Tempo, Mimir) for full observability.
+When running in **HTTP mode**, the Solr MCP Server exports telemetry data via OpenTelemetry to the Grafana **LGTM stack** (Loki, Grafana, Tempo, and Prometheus for metrics) for full observability.
 
 | Signal | Backend | What it shows |
 |--------|---------|---------------|
 | **Traces** | Tempo | A trace per HTTP request, with a span for the MCP tool it invoked |
-| **Metrics** | Mimir/Prometheus | HTTP request rate and latency, per-tool latency, JVM, Tomcat and Spring Security metrics |
+| **Metrics** | Prometheus | HTTP request rate and latency, per-tool latency, JVM, Tomcat and Spring Security metrics |
 | **Logs** | Loki | Application logs, each tagged with the trace and span it was written under |
 
 Every MCP tool invocation creates a span named after the service class and method, such as

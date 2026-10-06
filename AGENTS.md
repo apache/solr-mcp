@@ -6,7 +6,7 @@ This file provides guidance to AI coding assistants when working with code in th
 
 Solr MCP Server is a Spring AI Model Context Protocol (MCP) server that enables AI assistants to interact with Apache Solr. It provides tools for searching, indexing, and managing Solr collections through the MCP protocol.
 
-- **Status:** Apache incubating project (v0.0.2-SNAPSHOT)
+- **Status:** Apache incubating project (v1.0.0-SNAPSHOT)
 - **Java:** 25+ (centralized in build.gradle.kts)
 - **Framework:** Spring Boot 4.1.1, Spring AI 2.0.1
 - **License:** Apache 2.0
@@ -25,7 +25,11 @@ Solr MCP Server is a Spring AI Model Context Protocol (MCP) server that enables 
 ./gradlew test jacocoTestReport              # Tests with coverage report
 
 # SBOM (Software Bill of Materials)
-./gradlew cyclonedxBom                       # Generate build/reports/application.cdx.json
+./gradlew cyclonedxBom                       # Generate build/reports/cyclonedx/application.cdx.json
+
+# Gradle wrapper upgrade (run twice so the new version regenerates the wrapper jar;
+# wrapper settings such as retries live on tasks.wrapper in build.gradle.kts)
+./gradlew wrapper --gradle-version latest
 
 # Code formatting (REQUIRED before commit)
 ./gradlew spotlessApply            # Apply formatting
@@ -152,8 +156,9 @@ graph and owns `includeConfigs`, while `cyclonedxBom` only aggregates its output
 at defaults the direct task scans every configuration, which adds ~100 test/build-only
 components (JUnit, AssertJ, ByteBuddy, docker-java, JaCoCo, Error Prone, NullAway) that
 are not in the fat jar. `build.gradle.kts` therefore sets
-`includeConfigs = [productionRuntimeClasspath]` **on `cyclonedxDirectBom`**, giving a
-141-component SBOM that matches `generateBinaryLicense`'s completeness gate exactly.
+`includeConfigs = [productionRuntimeClasspath]` **on `cyclonedxDirectBom`**, giving an
+SBOM that lists exactly the shipped classpath `generateBinaryLicense`'s completeness gate
+checks against.
 
 > **Do not drop that scoping.** Nothing in the build would catch it: the LICENSE appendix
 > filters to shipped coordinates, and the completeness gate only fails on *missing*
@@ -292,8 +297,8 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
   container, so it works on any host OS (macOS, Linux, Windows). Multi-arch
   (amd64+arm64) is handled in CI via a GitHub Actions matrix; local builds
   produce a single image for the host architecture.
-- **OTel build-time init:** OTel instrumentation BOM 2.11.0 lacks native metadata;
-  `--initialize-at-build-time` is set for `io.opentelemetry.api`, `io.opentelemetry.context`,
+- **OTel build-time init:** the OTel logback appender (`opentelemetry-logback-appender-1.0`)
+  ships no native metadata; `--initialize-at-build-time` is set for `io.opentelemetry.api`, `io.opentelemetry.context`,
   `io.opentelemetry.instrumentation.api`, and `io.opentelemetry.instrumentation.logback`.
   Do **NOT** add `io.opentelemetry.instrumentation.spring` — it contains CGLIB proxies.
 - **Reflection hints:** `SolrNativeHints.java` registers hints that Spring AOT does
@@ -301,11 +306,18 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
   - **SolrJ types** (no native metadata): `QueryResponse`, `UpdateResponse`, `NamedList`,
     `SimpleOrderedMap`, `SolrDocument`, `SolrDocumentList`, `SolrInputDocument`,
     `SolrInputField`, `FacetField`, `FacetField.Count`
+  - **Solr API model types** used by `CoreAdminResponse.getCoreStatus()`:
+    `SolrJerseyResponse`, `ErrorInfo`, `CoreStatusResponse` and their nested types
   - **MCP tool response records** (invisible to AOT because the MCP framework uses
-    generic `Object` dispatch): `CollectionCreationResult`, `SolrHealthStatus`,
-    `SolrMetrics`, `IndexStats`, `QueryStats`, `CacheStats`, `CacheInfo`,
-    `HandlerStats`, `HandlerInfo`, `SearchResponse`
-  - **Resource**: `logback-spring.xml` (see Logging Architecture above)
+    generic `Object` dispatch): `AliasResult`, `CollectionCreationResult`,
+    `SolrHealthStatus`, `SolrMetrics`, `IndexStats`, `QueryStats`, `CacheStats`,
+    `CacheInfo`, `HandlerStats`, `HandlerInfo`, `SearchResponse`, `SortClause`,
+    `SchemaUpdateResult`
+  - **Spring AI**: `org.springframework.ai.mcp.annotation.context.DefaultMetaProvider`,
+    which `MetaUtils` instantiates reflectively
+  - **Resources**: `logback-spring.xml` (see Logging Architecture above), and SolrJ's
+    `EnvToSyspropMappings.properties` / `DeprecatedSystemPropertyMappings.properties`,
+    which `EnvUtils` loads in its static initializer
 - **Wire format:** `SolrConfig` uses `XMLRequestWriter` instead of the default
   `JavaBinRequestWriter`. The JavaBin binary codec uses deep reflection that would
   require extensive additional native image hints.
@@ -326,7 +338,8 @@ changed these things; keep them in mind when reading older docs or PRs:
 - **MCP Annotations:** Package moved from `org.springaicommunity.mcp.annotation` to
   `org.springframework.ai.mcp.annotation` in Spring AI 2.0.
 - **Testcontainers 2.x:** Module names changed (e.g., `testcontainers-junit-jupiter`, `testcontainers-solr`).
-- **JSpecify:** Built into Spring Boot 4 — no separate dependency needed.
+- **JSpecify:** Comes transitively from Spring Framework 7 (`spring-core`), so there is no
+  separate dependency.
 - **`spring-boot-starter-aop` removed:** Replaced by `spring-boot-starter-aspectj` for
   `@Observed` annotation support.
 - **Observability:** Uses `spring-boot-starter-opentelemetry` for traces, metrics, and log

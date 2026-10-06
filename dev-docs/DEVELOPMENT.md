@@ -63,7 +63,7 @@ The build produces a [CycloneDX](https://cyclonedx.org/) 1.6 Software Bill of Ma
 
 ```bash
 ./gradlew cyclonedxBom
-cat build/reports/application.cdx.json
+cat build/reports/cyclonedx/application.cdx.json
 ```
 
 ### Where the SBOM ships
@@ -139,7 +139,7 @@ The server will start on http://localhost:8080
 
 The `lgtm` service in `compose.yaml` carries `org.springframework.boot.ignore: "true"`, which
 opts it out of Spring Boot's Docker Compose lifecycle management. Start it by hand if you want
-the Grafana/Loki/Tempo/Mimir stack, regardless of run mode:
+the Grafana/Loki/Tempo/Prometheus stack, regardless of run mode:
 
 ```bash
 docker compose up -d lgtm
@@ -377,8 +377,8 @@ resource error:
   have headroom.
 - **First Paketo build is large:** `bootBuildImage` downloads a ~1 GB builder on
   first run; CI caching mitigates this.
-- **OpenTelemetry build-time init:** the pinned OTel instrumentation BOM lacks
-  native metadata, so the build adds `--initialize-at-build-time` for four OTel
+- **OpenTelemetry build-time init:** the OTel logback appender ships no native
+  metadata, so the build adds `--initialize-at-build-time` for four OTel
   packages (see `SolrNativeHints`/`build.gradle.kts`). Do **not** add
   `io.opentelemetry.instrumentation.spring` — it contains CGLIB proxies that
   cannot be build-time initialized. The OTel SDK itself is managed by Spring
