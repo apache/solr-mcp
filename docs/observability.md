@@ -6,11 +6,17 @@ When running in **HTTP mode**, the Solr MCP Server exports telemetry data via Op
 
 | Signal | Backend | What it shows |
 |--------|---------|---------------|
-| **Traces** | Tempo | Distributed traces for every MCP tool invocation, Solr query, and HTTP request |
-| **Metrics** | Mimir/Prometheus | JVM stats, HTTP request rates, Solr query latencies, cache hit ratios |
-| **Logs** | Loki | Structured application logs correlated with trace IDs |
+| **Traces** | Tempo | A trace per HTTP request, with a span for the MCP tool it invoked |
+| **Metrics** | Mimir/Prometheus | HTTP request rate and latency, per-tool latency, JVM, Tomcat and Spring Security metrics |
+| **Logs** | Loki | Application logs, each tagged with the trace and span it was written under |
 
-Every MCP tool invocation creates a trace span: search, indexing (JSON, CSV, XML), collection operations (list, stats, health, create), and schema retrieval. All incoming HTTP requests and outgoing Solr calls are automatically traced.
+Every MCP tool invocation creates a span named after the service class and method, such as
+`SearchService#search` or `CollectionService#checkHealth`, inside the trace of the HTTP
+request that carried it. The call to Solr is not a separate span; its time is part of the
+tool span.
+
+All Micrometer metrics, JVM and Tomcat included, are exported over OTLP. There is no
+`/actuator/prometheus` scrape endpoint.
 
 ***
 
@@ -32,6 +38,28 @@ This starts:
 | OTLP HTTP | localhost:4318 | Trace/metric/log ingestion — **the port this server exports to** |
 | OTLP gRPC | localhost:4317 | Also accepted by the collector; not used by this server |
 
+**LGTM is never auto-started.** The `lgtm` service carries
+`org.springframework.boot.ignore: "true"` in `compose.yaml`, which opts it out of Spring
+Boot's Docker Compose lifecycle management. This is independent of transport mode: even
+in HTTP mode, where `PROFILES=http ./gradlew bootRun` auto-starts (and stops) the `solr`
+and `zoo` services, LGTM is untouched. Start it explicitly, either with the
+`docker compose up -d` above (which starts everything) or, if `solr`/`zoo` are already
+running via `bootRun`'s auto-start, on its own:
+
+```bash
+docker compose up -d lgtm
+```
+
+Because it's Boot-ignored, `bootRun` won't stop it either&mdash;bring it down by hand
+when you're done:
+
+```bash
+docker compose stop lgtm
+```
+
+The `grafana/otel-lgtm` container stores everything in memory with no persistent volume,
+so a restart discards all traces, metrics, and logs.
+
 ### Run the Server with Observability ###
 
 ```bash
@@ -50,6 +78,44 @@ management.opentelemetry.logging.export.otlp.endpoint=${OTEL_LOGS_URL:http://loc
 Export goes over **OTLP/HTTP on port 4318**, with a separate full URL per signal.
 Each endpoint is a complete path ending in `/v1/traces`, `/v1/metrics` or
 `/v1/logs` — not a base address.
+When the server runs in a container and LGTM on the host, `localhost` is the container
+itself; point all three variables at the host, e.g.
+`OTEL_TRACES_URL=http://host.docker.internal:4318/v1/traces` (plus
+`--add-host=host.docker.internal:host-gateway` on Linux).
+
+### Generate Some Activity ###
+
+Grafana has nothing to show until at least one tool call runs. Any MCP client works
+(the [Quick Start](tutorial.md) prompts are enough), or call the HTTP endpoint directly.
+`HTTP_SECURITY_ENABLED=false` skips the OAuth2 setup for this local check&mdash;see
+[Security](security/http.md) to keep it on:
+
+```bash
+HTTP_SECURITY_ENABLED=false PROFILES=http ./gradlew bootRun
+```
+
+```bash
+curl -s -X POST http://localhost:8080/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","method":"tools/call","id":1,"params":{"name":"list-collections","arguments":{}}}'
+```
+
+Run it a few times&mdash;each call is one trace and one more request in the metrics.
+
+A successful call writes no log lines, so it has nothing to show in Loki. To see a trace
+with a log attached, make one call that fails; a health check on a collection that does not
+exist logs a `WARN` inside the request:
+
+```bash
+curl -s -X POST http://localhost:8080/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","method":"tools/call","id":2,"params":{"name":"check-health","arguments":{"collection":"no-such-collection"}}}'
+```
+
+Traces take up to a minute to become searchable in Tempo, and metrics are exported once
+a minute, so an empty Grafana right after the calls is expected.
 
 ***
 
@@ -64,30 +130,62 @@ Open [http://localhost:3000](http://localhost:3000) and click **Explore** in the
 
         {.service.name="solr-mcp"}
 
-3. Click on a trace to see the span waterfall&mdash;each MCP tool invocation, Solr query, and HTTP request is a separate span
+3. Click on an `http post /mcp` trace to see the span waterfall: the security filter
+   chain, then one span for the tool (`SearchService#search`,
+   `CollectionService#checkHealth`, &hellip;) with its duration
 
 ### View Logs (Loki) ###
 
 1. Select **Loki** as the data source
 2. Use LogQL to search:
 
-        {service_name="solr-mcp"} |= "search"
+        {service_name="solr-mcp"} | trace_id != ""
 
-3. Logs are automatically correlated with trace IDs&mdash;click a log line to jump to its trace
+   That keeps only lines written during a request; drop the filter to include startup
+   and lifecycle lines, which have no trace.
+3. Expand a line and follow its **Trace** link to open the request in Tempo.
 
 ### View Metrics (Prometheus) ###
 
 1. Select **Prometheus** as the data source
 2. Example queries:
 
-        # HTTP request rate
-        rate(http_server_requests_seconds_count[5m])
+        # MCP request rate, by method and status
+        sum by (method, status) (rate(http_server_requests_milliseconds_count{job="solr-mcp", uri="/mcp"}[5m]))
 
-        # JVM memory usage
-        jvm_memory_used_bytes
+        # Average MCP request latency (ms)
+        sum(rate(http_server_requests_milliseconds_sum{job="solr-mcp", uri="/mcp"}[5m]))
+          / sum(rate(http_server_requests_milliseconds_count{job="solr-mcp", uri="/mcp"}[5m]))
 
-        # Request latency (p99)
-        histogram_quantile(0.99, rate(http_server_requests_seconds_bucket[5m]))
+        # Average latency per tool (ms)
+        sum by (class, method) (rate(method_observed_milliseconds_sum{job="solr-mcp"}[5m]))
+          / sum by (class, method) (rate(method_observed_milliseconds_count{job="solr-mcp"}[5m]))
+
+        # JVM memory, heap vs non-heap
+        sum by (area) (jvm_memory_used_bytes{job="solr-mcp"})
+
+   Timers are exported over OTLP in **milliseconds**, so their names end in
+   `_milliseconds_*`; queries written for `http_server_requests_seconds_*` return nothing.
+   Timers publish only the `+Inf` bucket by default, so percentiles return `NaN` unless
+   `management.metrics.distribution.percentiles-histogram.http.server.requests=true` is set.
+
+### Pivoting Between the Three ###
+
+The fastest way through all three signals for one request:
+
+1. Find the trace in **Tempo** (TraceQL query above) and open it.
+2. Each span carries a **Logs for this span** link&mdash;click it to jump to the
+   matching lines in **Loki**, filtered by trace ID. This works because the OTEL logback
+   appender (`logback-spring.xml`) tags every log line with the active trace and span ID.
+   The link filters on the trace, so it finds the same lines from any span in it.
+3. The link comes up empty for a trace that logged nothing, which is every successful
+   tool call: the services log only on failure. The `check-health` call above is the one
+   to follow; its `WARN` sits under the `CollectionService#checkHealth` span.
+4. From a log line, the **Trace** link takes you back to its trace.
+5. **Metrics** aren't per-request the same way&mdash;there's no single span/log &harr;
+   metric-sample link&mdash;but the PromQL queries above will show the aggregate effect
+   (e.g. a rise in `http_server_requests_milliseconds_count`) of whatever activity you
+   just generated.
 
 ***
 
@@ -101,6 +199,21 @@ curl http://localhost:8080/actuator/info          # Build info
 curl http://localhost:8080/actuator/metrics       # Available metrics
 curl http://localhost:8080/actuator/loggers       # Logger levels
 ```
+
+***
+
+## Troubleshooting ##
+
+| Symptom | Likely cause | Fix |
+|---------|-------------|-----|
+| No traces/metrics/logs show up in Grafana at all | LGTM was never started&mdash;`bootRun` does not start it in either mode | `docker compose up -d lgtm` |
+| Tempo finds nothing right after the calls | Traces take up to a minute to become searchable; metrics are exported once a minute | Wait and re-run the query |
+| **Logs for this span** is empty | The request logged nothing; successful tool calls never do | Expected; follow a failing call such as `check-health` on a missing collection |
+| `http_server_requests_seconds_*` returns nothing in Grafana | Timers are exported over OTLP in milliseconds | Query `http_server_requests_milliseconds_*` |
+| Traces appear but stop after a restart | The `otel-lgtm` container has no persistent volume | Expected; re-run your workload after restarting `lgtm` |
+| OTLP export connection refused | Running the server outside the `search` Docker network (e.g. inside its own container) while LGTM is on the host | Point `OTEL_TRACES_URL`, `OTEL_METRICS_URL` and `OTEL_LOGS_URL` at a reachable host, or join the same Docker network |
+| Traces are sparse or missing under load | `management.tracing.sampling.probability` is below 1.0 | Raise it for the session you're debugging; keep it low in production |
+| No data in **STDIO** mode | Tracing/metrics export is an HTTP-mode feature&mdash;STDIO has no servlet layer to instrument | Run `PROFILES=http ./gradlew bootRun` instead |
 
 ***
 

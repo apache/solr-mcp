@@ -26,9 +26,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import org.apache.solr.client.solrj.RemoteSolrException;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.ContentStreamUpdateRequest;
+import org.apache.solr.client.solrj.request.UpdateRequest;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingException;
@@ -71,14 +73,19 @@ class IndexingServiceTest {
 		List<Map<String, Object>> json = List.of(Map.of("id", "1", "title", "Test"));
 		List<SolrInputDocument> mockDocs = createMockDocuments(1);
 		when(indexingDocumentCreator.createSchemalessDocumentsFromJson(json)).thenReturn(mockDocs);
-		when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
-		when(solrClient.commit("test_collection", false, true, true)).thenReturn(null);
+		when(solrClient.request(any(UpdateRequest.class), eq("test_collection"))).thenReturn(new NamedList<>());
 
 		indexingService.indexJsonDocuments("test_collection", json);
 
 		verify(indexingDocumentCreator).createSchemalessDocumentsFromJson(json);
-		verify(solrClient).add(eq("test_collection"), any(Collection.class));
-		verify(solrClient).commit("test_collection", false, true, true);
+		// the add and the commit ride on one request
+		ArgumentCaptor<UpdateRequest> captor = ArgumentCaptor.forClass(UpdateRequest.class);
+		verify(solrClient).request(captor.capture(), eq("test_collection"));
+		assertEquals(1, captor.getValue().getDocuments().size());
+		assertEquals("true", captor.getValue().getParams().get("commit"));
+		assertEquals("true", captor.getValue().getParams().get("softCommit"));
+		verify(solrClient, never()).add(anyString(), any(Collection.class));
+		verify(solrClient, never()).commit(anyString(), anyBoolean(), anyBoolean(), anyBoolean());
 	}
 
 	@Test
@@ -97,119 +104,109 @@ class IndexingServiceTest {
 	@Test
 	void indexDocuments_WithSmallBatch_ShouldIndexSuccessfully() throws Exception {
 		List<SolrInputDocument> docs = createMockDocuments(5);
-		when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
-		when(solrClient.commit("test_collection", false, true, true)).thenReturn(null);
+		when(solrClient.request(any(UpdateRequest.class), eq("test_collection"))).thenReturn(new NamedList<>());
 
 		int result = indexingService.indexDocuments("test_collection", docs);
 
 		assertEquals(5, result);
-		verify(solrClient).add(eq("test_collection"), any(Collection.class));
-		verify(solrClient).commit("test_collection", false, true, true);
+		ArgumentCaptor<UpdateRequest> captor = ArgumentCaptor.forClass(UpdateRequest.class);
+		verify(solrClient).request(captor.capture(), eq("test_collection"));
+		assertEquals(5, captor.getValue().getDocuments().size());
+		assertEquals("true", captor.getValue().getParams().get("commit"));
+		verify(solrClient, never()).add(anyString(), any(Collection.class));
+		verify(solrClient, never()).commit(anyString(), anyBoolean(), anyBoolean(), anyBoolean());
 	}
 
 	@Test
-	void indexDocuments_WithLargeBatch_ShouldProcessInBatches() throws Exception {
+	void indexDocuments_WithManyDocuments_SendsOneRequest() throws Exception {
 		List<SolrInputDocument> docs = createMockDocuments(2500);
-		when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
-		when(solrClient.commit(eq("test_collection"), eq(false), eq(true), eq(true))).thenReturn(null);
+		when(solrClient.request(any(UpdateRequest.class), eq("test_collection"))).thenReturn(new NamedList<>());
 
 		int result = indexingService.indexDocuments("test_collection", docs);
 
 		assertEquals(2500, result);
-		verify(solrClient, times(3)).add(eq("test_collection"), any(Collection.class));
-		verify(solrClient).commit("test_collection", false, true, true);
+		ArgumentCaptor<UpdateRequest> captor = ArgumentCaptor.forClass(UpdateRequest.class);
+		verify(solrClient).request(captor.capture(), eq("test_collection"));
+		assertEquals(2500, captor.getValue().getDocuments().size());
+		verify(solrClient, never()).add(anyString(), any(Collection.class));
 	}
-
 	@Test
-	void indexDocuments_WhenBatchFails_ShouldRetryIndividually() throws Exception {
+	void indexDocuments_WhenSolrRejectsTheRequest_ShouldRetryIndividually() throws Exception {
 		List<SolrInputDocument> docs = createMockDocuments(3);
-
-		when(solrClient.add(eq("test_collection"), any(List.class))).thenThrow(new SolrServerException("Batch error"));
-
+		when(solrClient.request(any(UpdateRequest.class), eq("test_collection")))
+				.thenThrow(new RemoteSolrException("http://localhost:8983/solr", 400, "Batch error", null));
 		when(solrClient.add(eq("test_collection"), any(SolrInputDocument.class))).thenReturn(null);
-		when(solrClient.commit("test_collection", false, true, true)).thenReturn(null);
 
 		int result = indexingService.indexDocuments("test_collection", docs);
 
 		assertEquals(3, result);
-		verify(solrClient).add(eq("test_collection"), any(Collection.class));
 		verify(solrClient, times(3)).add(eq("test_collection"), any(SolrInputDocument.class));
+		// the rejected request's commit never ran
 		verify(solrClient).commit("test_collection", false, true, true);
 	}
-
 	@Test
 	void indexDocuments_WhenSomeIndividualDocumentsFail_ShouldIndexSuccessfulOnes() throws Exception {
 		List<SolrInputDocument> docs = createMockDocuments(3);
-
-		when(solrClient.add(eq("test_collection"), any(List.class))).thenThrow(new SolrServerException("Batch error"));
-
-		when(solrClient.add(eq("test_collection"), any(SolrInputDocument.class))).thenReturn(null)
-				.thenThrow(new SolrServerException("Document error")).thenReturn(null);
-
-		when(solrClient.commit("test_collection", false, true, true)).thenReturn(null);
+		RemoteSolrException badRequest = new RemoteSolrException("http://localhost:8983/solr", 400, "Bad doc", null);
+		when(solrClient.request(any(UpdateRequest.class), eq("test_collection"))).thenThrow(badRequest);
+		when(solrClient.add(eq("test_collection"), any(SolrInputDocument.class))).thenReturn(null).thenThrow(badRequest)
+				.thenReturn(null);
 
 		int result = indexingService.indexDocuments("test_collection", docs);
 
 		assertEquals(2, result);
-		verify(solrClient).add(eq("test_collection"), any(Collection.class));
 		verify(solrClient, times(3)).add(eq("test_collection"), any(SolrInputDocument.class));
 		verify(solrClient).commit("test_collection", false, true, true);
 	}
-
 	@Test
-	void indexDocuments_WithEmptyList_ShouldStillCommit() throws Exception {
-		List<SolrInputDocument> emptyDocs = new ArrayList<>();
-		when(solrClient.commit("test_collection", false, true, true)).thenReturn(null);
-
-		int result = indexingService.indexDocuments("test_collection", emptyDocs);
-
-		assertEquals(0, result);
-		verify(solrClient, never()).add(anyString(), any(List.class));
-		verify(solrClient).commit("test_collection", false, true, true);
-	}
-
-	@Test
-	void indexDocuments_WhenCommitFails_ShouldPropagateException() throws Exception {
+	void indexDocuments_WhenTheRequestFails_ShouldPropagateException() throws Exception {
 		List<SolrInputDocument> docs = createMockDocuments(2);
-		when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
-		when(solrClient.commit("test_collection", false, true, true)).thenThrow(new IOException("Commit failed"));
+		when(solrClient.request(any(UpdateRequest.class), eq("test_collection")))
+				.thenThrow(new IOException("Commit failed"));
 
 		assertThrows(IOException.class, () -> {
 			indexingService.indexDocuments("test_collection", docs);
 		});
-		verify(solrClient).add(eq("test_collection"), any(Collection.class));
-		verify(solrClient).commit("test_collection", false, true, true);
+		verify(solrClient).request(any(UpdateRequest.class), eq("test_collection"));
+		// not a Solr 400: no per-document fallback
+		verify(solrClient, never()).add(anyString(), any(SolrInputDocument.class));
+		verify(solrClient, never()).commit(anyString(), anyBoolean(), anyBoolean(), anyBoolean());
 	}
 
 	@Test
 	void indexDocuments_SoftCommitsSoDocumentsAreSearchableWithoutForcingAnFsync() throws Exception {
 		List<SolrInputDocument> docs = createMockDocuments(2);
-		when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
+		when(solrClient.request(any(UpdateRequest.class), eq("test_collection"))).thenReturn(new NamedList<>());
 
 		indexingService.indexDocuments("test_collection", docs);
 
-		// waitFlush=false, waitSearcher=true, softCommit=true. waitSearcher is what
-		// keeps the documents searchable the moment the tool returns; softCommit is
-		// what avoids an fsync per call. Measured against Solr: 8.6 ms versus 18.9 ms
-		// for a hard commit, and a p90 of 10.7 ms versus 41.3 ms.
-		verify(solrClient).commit("test_collection", false, true, true);
+		// waitFlush=false, waitSearcher=true, softCommit=true, on the add request.
+		// waitSearcher is what keeps the documents searchable the moment the tool
+		// returns; softCommit is what avoids an fsync per call. Measured against
+		// Solr: 8.6 ms versus 18.9 ms for a hard commit, and a p90 of 10.7 ms versus
+		// 41.3 ms.
+		ArgumentCaptor<UpdateRequest> captor = ArgumentCaptor.forClass(UpdateRequest.class);
+		verify(solrClient).request(captor.capture(), eq("test_collection"));
+		assertEquals("true", captor.getValue().getParams().get("commit"));
+		assertEquals("true", captor.getValue().getParams().get("softCommit"));
+		assertEquals("true", captor.getValue().getParams().get("waitSearcher"));
+		verify(solrClient, never()).commit(anyString(), anyBoolean(), anyBoolean(), anyBoolean());
 		verify(solrClient, never()).commit(anyString());
 	}
 
 	@Test
-	void indexDocuments_ShouldBatchCorrectly() throws Exception {
-		List<SolrInputDocument> docs = createMockDocuments(1000);
-		when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
-		when(solrClient.commit("test_collection", false, true, true)).thenReturn(null);
+	void indexDocuments_WhenCollectionIsMissing_ShouldPropagateWithoutRetrying() throws Exception {
+		List<SolrInputDocument> docs = createMockDocuments(3);
 
-		int result = indexingService.indexDocuments("test_collection", docs);
+		when(solrClient.request(any(UpdateRequest.class), eq("test_collection")))
+				.thenThrow(new RemoteSolrException("http://localhost:8983/solr", 404, "Collection not found", null));
 
-		assertEquals(1000, result);
+		assertThrows(RemoteSolrException.class, () -> indexingService.indexDocuments("test_collection", docs));
 
-		ArgumentCaptor<Collection<SolrInputDocument>> captor = ArgumentCaptor.forClass(Collection.class);
-		verify(solrClient).add(eq("test_collection"), captor.capture());
-		assertEquals(1000, captor.getValue().size());
-		verify(solrClient).commit("test_collection", false, true, true);
+		verify(solrClient, times(1)).request(any(UpdateRequest.class), eq("test_collection"));
+		verify(solrClient, never()).add(anyString(), any(SolrInputDocument.class));
+		verify(solrClient, never()).add(anyString(), any(Collection.class));
+		verify(solrClient, never()).commit(anyString(), anyBoolean(), anyBoolean(), anyBoolean());
 	}
 
 	@Test
@@ -217,16 +214,15 @@ class IndexingServiceTest {
 		List<Map<String, Object>> json = List.of(Map.of("id", "1"));
 		List<SolrInputDocument> mockDocs = createMockDocuments(1);
 		when(indexingDocumentCreator.createSchemalessDocumentsFromJson(json)).thenReturn(mockDocs);
-		when(solrClient.add(eq("test_collection"), any(List.class)))
+		// Solr unreachable: propagate rather than retry and report "0 of 1"
+		when(solrClient.request(any(UpdateRequest.class), eq("test_collection")))
 				.thenThrow(new SolrServerException("Solr connection error"));
-		when(solrClient.add(eq("test_collection"), any(SolrInputDocument.class)))
-				.thenThrow(new SolrServerException("Solr connection error"));
-		when(solrClient.commit("test_collection", false, true, true)).thenReturn(null);
 
-		indexingService.indexJsonDocuments("test_collection", json);
+		assertThrows(SolrServerException.class, () -> indexingService.indexJsonDocuments("test_collection", json));
 
-		verify(solrClient).add(eq("test_collection"), any(List.class));
-		verify(solrClient).add(eq("test_collection"), any(SolrInputDocument.class));
+		verify(solrClient).request(any(UpdateRequest.class), eq("test_collection"));
+		verify(solrClient, never()).add(anyString(), any(SolrInputDocument.class));
+		verify(solrClient, never()).commit(anyString(), anyBoolean(), anyBoolean(), anyBoolean());
 	}
 
 	@Test
@@ -300,21 +296,17 @@ class IndexingServiceTest {
 	}
 
 	@Test
-	void indexDocuments_WithRuntimeException_ShouldRetryIndividually() throws Exception {
+	void indexDocuments_WithRuntimeException_ShouldPropagateWithoutRetrying() throws Exception {
 		List<SolrInputDocument> docs = createMockDocuments(2);
 
-		when(solrClient.add(eq("test_collection"), any(List.class)))
+		when(solrClient.request(any(UpdateRequest.class), eq("test_collection")))
 				.thenThrow(new RuntimeException("Unexpected error"));
 
-		when(solrClient.add(eq("test_collection"), any(SolrInputDocument.class))).thenReturn(null);
-		when(solrClient.commit("test_collection", false, true, true)).thenReturn(null);
+		assertThrows(RuntimeException.class, () -> indexingService.indexDocuments("test_collection", docs));
 
-		int result = indexingService.indexDocuments("test_collection", docs);
-
-		assertEquals(2, result);
-		verify(solrClient).add(eq("test_collection"), any(Collection.class));
-		verify(solrClient, times(2)).add(eq("test_collection"), any(SolrInputDocument.class));
-		verify(solrClient).commit("test_collection", false, true, true);
+		verify(solrClient).request(any(UpdateRequest.class), eq("test_collection"));
+		verify(solrClient, never()).add(anyString(), any(SolrInputDocument.class));
+		verify(solrClient, never()).commit(anyString(), anyBoolean(), anyBoolean(), anyBoolean());
 	}
 
 	private List<SolrInputDocument> createMockDocuments(int count) {
@@ -326,6 +318,27 @@ class IndexingServiceTest {
 			docs.add(doc);
 		}
 		return docs;
+	}
+
+	@Test
+	void indexMarkdownDocuments_IndexesEachElementAsItsOwnDocument() throws Exception {
+		when(indexingDocumentCreator.createSchemalessDocumentsFromMarkdown("# One")).thenReturn(createMockDocuments(1));
+		when(indexingDocumentCreator.createSchemalessDocumentsFromMarkdown("# Two")).thenReturn(createMockDocuments(1));
+		when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
+
+		String result = indexingService.indexMarkdownDocuments("test_collection", List.of("# One", "# Two"));
+
+		assertTrue(result.contains("2 of 2"), result);
+		verify(indexingDocumentCreator).createSchemalessDocumentsFromMarkdown("# One");
+		verify(indexingDocumentCreator).createSchemalessDocumentsFromMarkdown("# Two");
+		verify(solrClient, times(1)).add(eq("test_collection"), any(Collection.class));
+	}
+
+	@Test
+	void indexMarkdownDocuments_WithNullDocuments_ThrowsIllegalArgumentException() {
+		IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+				() -> indexingService.indexMarkdownDocuments("test_collection", null));
+		assertEquals("documents cannot be null", ex.getMessage());
 	}
 
 	@Test

@@ -23,6 +23,7 @@ jib = "3.5.4"
 spotless = "8.9.0"
 graalvm-native = "1.1.14"
 cyclonedx-plugin = "3.4.1"
+changelog-plugin = "2.5.0"
 
 # Main dependencies
 spring-ai = "2.0.1"
@@ -159,3 +160,4 @@ jib = { id = "com.google.cloud.tools.jib", version.ref = "jib" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 graalvm-native = { id = "org.graalvm.buildtools.native", version.ref = "graalvm-native" }
 cyclonedx = { id = "org.cyclonedx.bom", version.ref = "cyclonedx-plugin" }
+changelog = { id = "org.jetbrains.changelog", version.ref = "changelog-plugin" }

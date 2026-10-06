@@ -54,7 +54,9 @@ import tools.jackson.databind.ObjectMapper;
  * {@link NamedList} (Solr's {@code json.nl=flat} facet encoding)</li>
  * <li>All other JSON arrays → {@link List}</li>
  * <li>JSON integers → {@link Integer} or {@link Long} (by value size)</li>
- * <li>JSON decimals → {@link Double}</li>
+ * <li>JSON decimals → {@link Float}, matching the JavaBin codec; SolrJ response
+ * classes cast to it (e.g. {@code SchemaResponse} reads the schema version as a
+ * {@code Float})</li>
  * <li>JSON booleans → {@link Boolean}</li>
  * <li>JSON strings → {@link String}</li>
  * </ul>
@@ -82,9 +84,9 @@ class JsonResponseParser extends ResponseParser {
 
 	@Override
 	public Collection<String> getContentTypes() {
-		// Some Solr endpoints (notably /admin/ping and some standalone-mode handlers)
-		// return JSON-encoded bodies with Content-Type: text/plain. Accept it so SolrJ
-		// does not reject otherwise-valid responses.
+		// Some Solr endpoints (notably /admin/ping) return JSON-encoded bodies with
+		// Content-Type: text/plain. Accept it so SolrJ does not reject otherwise-valid
+		// responses.
 		return List.of(MediaType.APPLICATION_JSON_VALUE, MediaType.TEXT_PLAIN_VALUE);
 	}
 

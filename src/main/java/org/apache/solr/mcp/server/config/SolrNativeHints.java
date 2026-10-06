@@ -65,7 +65,7 @@ public class SolrNativeHints {
 	 * parameters in native image. Registered by name because some are
 	 * package-private.
 	 */
-	private static final List<String> MCP_TOOL_RECORDS = List.of(
+	private static final List<String> MCP_TOOL_RECORDS = List.of("org.apache.solr.mcp.server.collection.AliasResult",
 			"org.apache.solr.mcp.server.collection.CollectionCreationResult",
 			"org.apache.solr.mcp.server.collection.SolrHealthStatus",
 			"org.apache.solr.mcp.server.collection.SolrMetrics", "org.apache.solr.mcp.server.collection.IndexStats",
