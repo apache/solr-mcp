@@ -121,6 +121,10 @@ spring-ai-mcp = [
     "spring-ai-starter-mcp-server-webmvc"
 ]
 
+spring-boot-dev = [
+    "spring-boot-docker-compose",
+    "spring-ai-spring-boot-docker-compose"
+]
 
 test = [
     "spring-boot-starter-test",

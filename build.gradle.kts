@@ -172,15 +172,7 @@ repositories {
 
 dependencies {
 
-    developmentOnly(libs.spring.boot.docker.compose)
-    // Spring AI's docker-compose module declares starters for every vector store it can
-    // detect, so it drags in spring-boot-starter-mongodb transitively. That starter's
-    // autoconfiguration then tries to build a Mongo client at startup even though this
-    // application has no Mongo. Excluded rather than tolerated: it is developmentOnly, so
-    // the failure would surface as a confusing local `bootRun` error and never in CI.
-    developmentOnly(libs.spring.ai.spring.boot.docker.compose) {
-        exclude(group = "org.springframework.boot", module = "spring-boot-starter-mongodb")
-    }
+    developmentOnly(libs.bundles.spring.boot.dev)
 
     implementation(libs.spring.boot.starter.webmvc)
     implementation(libs.spring.boot.starter.json)
