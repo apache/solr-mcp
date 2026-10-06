@@ -27,8 +27,10 @@ import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.AbstractUpdateRequest;
 import org.apache.solr.client.solrj.request.ContentStreamUpdateRequest;
+import org.apache.solr.client.solrj.request.UpdateRequest;
 import org.apache.solr.client.solrj.response.UpdateResponse;
 import org.apache.solr.client.solrj.util.ClientUtils;
+import org.apache.solr.common.SolrException;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.util.ContentStreamBase;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
@@ -447,8 +449,8 @@ public class IndexingService {
 	 * failure
 	 * <li><strong>Success Tracking</strong>: Accurate count of successfully indexed
 	 * documents
-	 * <li><strong>Commit Strategy</strong>: Single soft commit after all batches
-	 * for consistency
+	 * <li><strong>Commit Strategy</strong>: Single soft commit, carried on the same
+	 * request as the last batch's add rather than a separate round trip
 	 * </ul>
 	 *
 	 * <p>
@@ -493,18 +495,39 @@ public class IndexingService {
 	 */
 	public int indexDocuments(String collection, List<SolrInputDocument> documents)
 			throws SolrServerException, IOException {
+		if (documents.isEmpty()) {
+			// Unreachable from the MCP tools (their document creators reject empty
+			// input), but an empty list needs no round trip to Solr at all.
+			return 0;
+		}
+
 		int successCount = 0;
 		final int batchSize = DEFAULT_BATCH_SIZE;
 
 		for (int i = 0; i < documents.size(); i += batchSize) {
 			final int endIndex = Math.min(i + batchSize, documents.size());
 			final List<SolrInputDocument> batch = documents.subList(i, endIndex);
+			final boolean lastBatch = endIndex == documents.size();
 
 			try {
-				solrClient.add(collection, batch);
+				if (lastBatch) {
+					// Carry the soft commit on the last batch's request rather than a
+					// separate round trip (same params as commit() below).
+					UpdateRequest request = new UpdateRequest();
+					request.add(batch);
+					request.setAction(AbstractUpdateRequest.ACTION.COMMIT, false, true, true);
+					request.process(solrClient, collection);
+				} else {
+					solrClient.add(collection, batch);
+				}
 				successCount += batch.size();
 			} catch (SolrServerException | IOException | RuntimeException e) {
-				logger.warn("Batch indexing failed, retrying individually", e);
+				if (!isBadRequest(e)) {
+					// Only bad documents (a 400) can be salvaged one at a time; a missing
+					// collection, auth failure, 5xx or outage would fail every retry.
+					throw e;
+				}
+				logger.warn("Batch indexing rejected with a Solr 400, retrying individually", e);
 				// Try indexing documents individually to identify problematic ones
 				for (SolrInputDocument doc : batch) {
 					try {
@@ -517,19 +540,39 @@ public class IndexingService {
 						// We continue processing the rest of the batch
 					}
 				}
+				if (lastBatch) {
+					// The failed batch's embedded commit never ran, so commit here.
+					commit(collection);
+				}
 			}
 		}
 
+		return successCount;
+	}
+
+	/**
+	 * Soft-commits a collection: {@code waitFlush=false, waitSearcher=true,
+	 * softCommit=true}. The documents are searchable when this method returns,
+	 * while the hard commit (segment fsync) is left to Solr's {@code autoCommit},
+	 * so many small calls do not each force one.
+	 */
+	private void commit(String collection) throws SolrServerException, IOException {
 		try {
-			// waitFlush=false, waitSearcher=true, softCommit=true: the documents are
-			// searchable when this method returns, while the hard commit (segment fsync)
-			// is left to Solr's autoCommit, so many small calls do not each force one.
 			solrClient.commit(collection, false, true, true);
 		} catch (SolrServerException | IOException e) {
 			logger.error("Failed to commit after indexing to collection: {}", collection, e);
 			throw e;
 		}
-		return successCount;
+	}
+
+	/**
+	 * Distinguishes a Solr-rejected batch (bad documents, worth retrying one at a
+	 * time to salvage the valid ones) from every other failure (unknown collection,
+	 * auth, 5xx, connection failure), which per-document retry cannot fix and would
+	 * only multiply round trips.
+	 */
+	private static boolean isBadRequest(Exception e) {
+		return e instanceof SolrException se && se.code() == SolrException.ErrorCode.BAD_REQUEST.code;
 	}
 
 	/**
