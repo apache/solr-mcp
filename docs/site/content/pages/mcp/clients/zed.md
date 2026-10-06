@@ -78,8 +78,8 @@ Start the server in HTTP mode first (`PROFILES=http java -jar build/libs/solr-mc
 }
 ```
 
-The HTTP transport is secured by default and answers 401 until an OAuth2 issuer is configured. For a local experiment on your own machine only, add `HTTP_SECURITY_ENABLED=false` to the server's environment; see [Security](/mcp/security.html) before exposing it to anyone else.
+The HTTP transport is secured by default: without a bearer token the client still connects and lists the tools, but every tool call returns `Access Denied`. The server never answers `/mcp` with `401`, so no OAuth login starts. For a local experiment on your own machine only, add `HTTP_SECURITY_ENABLED=false` to the server's environment; see [Security](/mcp/security.html) before exposing it to anyone else.
 
-The configuration is the same for secured and unsecured HTTP. When the server answers 401, Zed starts the standard MCP OAuth flow; with security disabled it connects without prompting. To send a fixed token instead, add `"headers": { "Authorization": "Bearer <token>" }` to the entry.
+With security disabled the entry above connects as is. With security on, send a token from your identity provider by adding `"headers": { "Authorization": "Bearer <token>" }` to the entry; the token's `aud` claim must contain the exact URL given here.
 
 See the [Zed MCP documentation](https://zed.dev/docs/ai/mcp) for the latest configuration format.
