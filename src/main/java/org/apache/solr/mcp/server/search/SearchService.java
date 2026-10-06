@@ -348,13 +348,17 @@ public class SearchService {
 	 *            the Solr exception raised by the query
 	 * @param collection
 	 *            the collection that was queried
-	 * @return an exception carrying safe guidance without a cause
+	 * @return an exception carrying safe guidance; never with a cause, which MCP
+	 *         would unwrap in place of the guidance
 	 */
 	private static RuntimeException withRemediationHint(SolrException e, String collection) {
 		final String message = String.valueOf(e.getMessage());
 
-		// Keep diagnostics in server logs, not in the client-facing exception chain.
-		logger.debug("Solr query failed on collection {}", collection, e);
+		// Deliberately no cause on the exceptions below: the MCP annotation layer
+		// reports the ROOT cause's message as the tool error, so attaching the Solr
+		// failure would discard the guidance and the client would never see it. This
+		// log is therefore the only server-side record of the failure.
+		logger.warn("Solr query failed on collection {}", collection, e);
 
 		// An unknown collection is a 404 whose body is Solr's HTML "not found" page,
 		// so SolrJ reports it as a mime-type mismatch and leaves getMetadata() null.
