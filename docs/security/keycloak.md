@@ -515,9 +515,16 @@ every call — no browser opens. So pass the token yourself.
 Keycloak's default access-token lifetime is 300 s, which is shorter than most
 trial sessions. Raise it on the realm before handing out tokens (one hour here;
 `$ADMIN_TOKEN` is from the Quick Start and itself expires after 300 s, so
-re-request it if the call returns `401`):
+re-request it if the call returns `401`). The realm imported by `compose.yaml`
+uses the same admin login, client and test user, so the commands below work
+against it too:
 
 ```bash
+KC=http://localhost:8180
+ADMIN_TOKEN=$(curl -s -X POST "$KC/realms/master/protocol/openid-connect/token" \
+  -d client_id=admin-cli -d username=admin -d password=admin \
+  -d grant_type=password | jq -r .access_token)
+
 curl -s -o /dev/null -w "%{http_code}\n" -X PUT "$KC/admin/realms/solr-mcp" \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
   -d '{"accessTokenLifespan":3600}'
