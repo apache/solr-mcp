@@ -28,10 +28,9 @@ import org.springframework.http.MediaType;
  * {@link JsonResponseParser}.
  *
  * <p>
- * Some Solr request handlers (notably {@code /admin/ping} and certain
- * standalone-mode paths) return JSON-encoded bodies with Content-Type
- * {@code text/plain} rather than {@code application/json}. SolrJ rejects the
- * response unless the configured
+ * Some Solr request handlers (notably {@code /admin/ping}) return JSON-encoded
+ * bodies with Content-Type {@code text/plain} rather than
+ * {@code application/json}. SolrJ rejects the response unless the configured
  * {@link org.apache.solr.client.solrj.response.ResponseParser} advertises that
  * Content-Type, so the parser must tolerate both.
  */

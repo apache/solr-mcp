@@ -1093,14 +1093,11 @@ public class CollectionService {
 	}
 
 	/**
-	 * Creates a new Solr collection (SolrCloud) or core (standalone Solr).
+	 * Creates a new Solr collection in the SolrCloud cluster.
 	 *
 	 * <p>
-	 * Automatically detects the deployment type and uses the appropriate API:
-	 *
-	 * <p>
-	 * Uses the Collections API, which works with any SolrClient pointing to a
-	 * SolrCloud deployment.
+	 * Uses the SolrCloud Collections API. Standalone Solr instances are not
+	 * supported.
 	 *
 	 * <p>
 	 * Optional parameters default to sensible values when not provided by the MCP
@@ -1136,10 +1133,10 @@ public class CollectionService {
 					description = "Configset name. Defaults to _default.",
 					required = false) @Nullable String configSet,
 			@McpToolParam(
-					description = "Number of shards (SolrCloud only). Defaults to 1.",
+					description = "Number of shards. Defaults to 1.",
 					required = false) @Nullable Integer numShards,
 			@McpToolParam(
-					description = "Replication factor (SolrCloud only). Defaults to 1.",
+					description = "Replication factor. Defaults to 1.",
 					required = false) @Nullable Integer replicationFactor)
 			throws SolrServerException, IOException {
 
