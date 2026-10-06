@@ -939,8 +939,8 @@ class CollectionServiceTest {
 
 	@Test
 	void completeCollection_NullValueRejectedAtSdkBoundary() {
-		// The MCP SDK (io.modelcontextprotocol >= 0.16) validates that
-		// CompleteArgument.value is non-null at construction time, so the
+		// Since MCP Java SDK 2.0, CompleteArgument's constructor rejects a null
+		// value (1.x and earlier accept it), so the
 		// CollectionService#completeCollection null-value branch is unreachable
 		// from a real MCP client. Document the SDK contract here.
 		assertThrows(IllegalArgumentException.class, () -> new CompleteRequest.CompleteArgument("collection", null));
