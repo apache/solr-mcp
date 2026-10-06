@@ -395,6 +395,19 @@ tasks.build {
     dependsOn(tasks.spotlessApply)
 }
 
+// Gradle Wrapper
+// ==============
+// gradle-wrapper.properties is generated, so its settings live here rather than as hand
+// edits that the next `./gradlew wrapper` would silently reset. Upgrade with
+// `./gradlew wrapper --gradle-version latest`, run twice so the new version regenerates
+// the wrapper jar itself. `retries` covers downloading the Gradle distribution, which
+// happens before the build exists: the generator's default of 0 turns a transient
+// services.gradle.org failure into a red build.
+tasks.wrapper {
+    distributionType = Wrapper.DistributionType.BIN
+    retries = 3
+}
+
 spotless {
     java {
         target("src/**/*.java")
