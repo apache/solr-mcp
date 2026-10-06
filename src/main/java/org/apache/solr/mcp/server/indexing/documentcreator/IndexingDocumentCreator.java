@@ -43,8 +43,6 @@ import org.springframework.stereotype.Service;
  * documents
  * <li><strong>Markdown Processing</strong>: Support for markdown documents with
  * front matter, title, and heading extraction
- * <li><strong>Field Sanitization</strong>: Automatic cleanup of field names for
- * Solr compatibility
  * </ul>
  *
  * @see SolrInputDocument

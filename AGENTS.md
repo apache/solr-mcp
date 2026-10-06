@@ -110,7 +110,6 @@ in `indexing/documentcreator/`:
 - `SolrDocumentCreator` - Common interface
 - `JsonDocumentCreator`, `MarkdownDocumentCreator` - Format implementations (Jackson, commonmark)
 - `IndexingDocumentCreator` - Orchestrator that delegates to the format-specific creator
-- `FieldNameSanitizer` - Automatic field name validation for Solr compatibility
 
 CSV and XML are forwarded unchanged to Solr's own update handlers (`/update` with
 `text/csv` or `application/xml`); the server does not parse them and field names

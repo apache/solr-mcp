@@ -52,7 +52,7 @@ import org.springframework.stereotype.Component;
  *
  * <ul>
  * <li><strong>YAML Front Matter</strong>: Each front matter entry becomes a
- * document field with a sanitized name. Entries with multiple values become
+ * document field under its own name. Entries with multiple values become
  * multi-valued fields.
  * <li><strong>id</strong>: Taken from the {@code id} front matter entry when
  * present, otherwise derived deterministically from a SHA-256 hash of the input
@@ -85,7 +85,6 @@ import org.springframework.stereotype.Component;
  * }</pre>
  *
  * @see SolrInputDocument
- * @see FieldNameSanitizer#sanitizeFieldName(String)
  */
 @Component
 public class MarkdownDocumentCreator implements SolrDocumentCreator {
@@ -179,10 +178,9 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
 		document.accept(frontMatterVisitor);
 
 		frontMatterVisitor.getData().forEach((key, values) -> {
-			String fieldName = FieldNameSanitizer.sanitizeFieldName(key);
 			for (String value : flattenFlowSequences(values)) {
 				if (!value.isEmpty()) {
-					doc.addField(fieldName, value);
+					doc.addField(key, value);
 				}
 			}
 		});

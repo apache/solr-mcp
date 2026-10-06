@@ -72,9 +72,8 @@ import org.springframework.stereotype.Service;
  * configurable batch sizes
  * <li><strong>Error Resilience</strong>: Individual document fallback when
  * batch operations fail
- * <li><strong>Field Sanitization</strong>: Automatic cleanup of JSON and
- * markdown field names for Solr compatibility; CSV and XML field names are used
- * as given
+ * <li><strong>Field Names</strong>: Used as given in every format; nested JSON
+ * objects are flattened with underscores
  * </ul>
  *
  * <p>
@@ -220,8 +219,7 @@ public class IndexingService {
 			annotations = @McpTool.McpAnnotations(idempotentHint = true),
 			description = "Index documents passed as a JSON array of objects into Solr collection; one object"
 					+ " per document, multi-valued fields as arrays, nested objects flattened with underscores."
-					+ " Pass the array itself, not a JSON string. Field names are sanitized for Solr"
-					+ " compatibility (lowercased, special characters replaced with underscores); the response"
+					+ " Pass the array itself, not a JSON string. Field names are used as given; the response"
 					+ " lists the field names as indexed")
 	public String indexJsonDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(
@@ -339,7 +337,7 @@ public class IndexingService {
 	 *
 	 * <ul>
 	 * <li><strong>YAML Front Matter</strong>: Each entry becomes a document field
-	 * with a sanitized name (multi-valued where applicable)
+	 * under its own name (multi-valued where applicable)
 	 * <li><strong>title</strong>: From the {@code title} front matter entry, or the
 	 * first level-1 heading
 	 * <li><strong>headings</strong>: Multi-valued field with the text of every
@@ -407,11 +405,9 @@ public class IndexingService {
 	private static final int MAX_REPORTED_FIELDS = 50;
 
 	/**
-	 * Summarizes the field names that were actually indexed. Document creators
-	 * sanitize input field names for Solr compatibility (lowercasing, replacing
-	 * special characters with underscores), so the indexed names can differ from
-	 * the input; reporting them lets MCP clients query the right fields instead of
-	 * assuming the input names survived.
+	 * Summarizes the field names that were indexed. Nested JSON objects are
+	 * flattened with underscores, so the indexed names can differ from the input;
+	 * reporting them lets MCP clients query the right fields.
 	 *
 	 * @param documents
 	 *            the documents that were submitted for indexing
@@ -428,7 +424,7 @@ public class IndexingService {
 		String elided = fieldNames.size() > MAX_REPORTED_FIELDS
 				? " and " + (fieldNames.size() - MAX_REPORTED_FIELDS) + " more"
 				: "";
-		return ". Indexed field names (input names are sanitized for Solr compatibility): " + listed + elided;
+		return ". Indexed field names: " + listed + elided;
 	}
 
 	/**
