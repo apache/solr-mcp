@@ -324,14 +324,16 @@ class IndexingServiceTest {
 	void indexMarkdownDocuments_IndexesEachElementAsItsOwnDocument() throws Exception {
 		when(indexingDocumentCreator.createSchemalessDocumentsFromMarkdown("# One")).thenReturn(createMockDocuments(1));
 		when(indexingDocumentCreator.createSchemalessDocumentsFromMarkdown("# Two")).thenReturn(createMockDocuments(1));
-		when(solrClient.add(eq("test_collection"), any(Collection.class))).thenReturn(null);
+		when(solrClient.request(any(UpdateRequest.class), eq("test_collection"))).thenReturn(new NamedList<>());
 
 		String result = indexingService.indexMarkdownDocuments("test_collection", List.of("# One", "# Two"));
 
 		assertTrue(result.contains("2 of 2"), result);
 		verify(indexingDocumentCreator).createSchemalessDocumentsFromMarkdown("# One");
 		verify(indexingDocumentCreator).createSchemalessDocumentsFromMarkdown("# Two");
-		verify(solrClient, times(1)).add(eq("test_collection"), any(Collection.class));
+		ArgumentCaptor<UpdateRequest> captor = ArgumentCaptor.forClass(UpdateRequest.class);
+		verify(solrClient, times(1)).request(captor.capture(), eq("test_collection"));
+		assertEquals(2, captor.getValue().getDocuments().size());
 	}
 
 	@Test
