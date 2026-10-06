@@ -323,7 +323,7 @@ If the LGTM container uses too much memory:
 ```yaml
 # compose.yaml
 lgtm:
-  image: grafana/otel-lgtm:0.30.0
+  image: grafana/otel-lgtm:0.33.0
   deploy:
     resources:
       limits:

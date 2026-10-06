@@ -61,7 +61,7 @@ services:
   #
   # Pre-configured datasources: Prometheus (default), Loki, Tempo, Pyroscope.
   lgtm:
-    image: grafana/otel-lgtm:0.30.0
+    image: grafana/otel-lgtm:0.33.0
     labels:
       # Prevent Spring Boot auto-configuration from trying to manage this service
       org.springframework.boot.ignore: "true"
