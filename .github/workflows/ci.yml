@@ -144,13 +144,14 @@ jobs:
     # ========================================================================
     # Tests against multiple Solr versions to catch compatibility regressions.
     # Runs on every PR so a version-specific failure shows up before merge,
-    # not on the next push to main.
+    # not on the next push to main. Depends only on build, like the other test
+    # jobs, so a unit or integration failure does not turn it into a skip.
     # Solr 9.9 is omitted since it is already tested in integration-tests.
     # ========================================================================
     solr-compatibility:
         name: Solr ${{ matrix.solr-version }} Compatibility
         runs-on: ubuntu-latest
-        needs: integration-tests
+        needs: build
         timeout-minutes: 30
 
         strategy:
