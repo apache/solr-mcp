@@ -45,6 +45,8 @@ claude mcp add solr-mcp \
     solr-mcp:latest
 ```
 
+**Linux users**: add `--add-host=host.docker.internal:host-gateway` to the `docker run` command.
+
 ### `.mcp.json` ###
 
 Add to your project root:
@@ -64,7 +66,7 @@ Add to your project root:
 }
 ```
 
-**Docker (local image):**
+**Docker (local image — build first with `./gradlew jibDockerBuild`):**
 
 ```json
 {
@@ -86,7 +88,23 @@ Add to your project root:
 
 ## HTTP Mode ##
 
-Start the server first (see [Running the Server](https://github.com/apache/solr-mcp#running-the-server)), then:
+### Start the Server ###
+
+```bash
+# JAR
+PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
+
+# Or Gradle
+PROFILES=http ./gradlew bootRun
+
+# Or Docker (local image — build first with ./gradlew jibDockerBuild)
+docker run -p 8080:8080 --rm \
+    -e PROFILES=http \
+    -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+    solr-mcp:latest
+```
+
+**Linux users** (Docker option): add `--add-host=host.docker.internal:host-gateway` to the `docker run` command.
 
 ### CLI ###
 
