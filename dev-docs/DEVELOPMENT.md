@@ -383,7 +383,7 @@ resource error:
   `io.opentelemetry.instrumentation.spring` — it contains CGLIB proxies that
   cannot be build-time initialized. The OTel SDK itself is managed by Spring
   Boot; see "OTel dependency alignment" in `dev-docs/graalvm-native-image.md`
-  for how the logback appender version and the proto pin stay in step with it.
+  for how the logback appender version stays in step with it.
 
 ## IDE Setup
 

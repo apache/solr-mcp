@@ -212,10 +212,10 @@ is built against a newer API that the Boot BOM would downgrade, risking a
 `NoSuchMethodError` (an older one pulls an incubator lacking
 `DeclarativeConfigProperties.get(String)`, which SB4's `OpenTelemetrySdk`
 autoconfiguration calls); bump the appender in step with Boot's
-`opentelemetry.version`. A `resolutionStrategy` in `build.gradle.kts` pins
-`opentelemetry-proto` to `1.3.2-alpha` (the `1.8.0-alpha` line is incompatible
-with protobuf 3.x). The OTLP exporter is
-only wired in the `http` profile, so the `stdio` native image never exercises
+`opentelemetry.version`. `opentelemetry-proto` (used only by
+`micrometer-registry-otlp`) is not pinned: it resolves to the version Micrometer
+is built against, which matches the protobuf 4 line Boot manages. The OTLP
+exporter is only wired in the `http` profile, so the `stdio` native image never exercises
 its reflection surface anyway.
 
 The **native test binary** needs a few extra entries beyond the shared args
