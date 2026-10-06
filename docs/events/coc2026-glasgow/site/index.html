@@ -2549,13 +2549,15 @@ curl -s -X POST http://localhost:8080/mcp -H "Content-Type: application/json" \
   --header "Authorization: Bearer $TOKEN"
 claude mcp list      # ✔ Connected — true with or without the header, so also run:
 claude -p "Call the list-collections tool on the solr-mcp MCP server and reply with its raw result"
-# ["shows-auto", ...]   ← the proof. "Access Denied" here means the header did not reach the server.</code></pre></div>
+# ["shows-auto", ...]   ← the proof. "Access Denied" here means the header did not reach the server.
+# Tools missing, or the server fails to connect: the token reached it and was rejected (expired, or wrong aud) with HTTP 401.</code></pre></div>
           <div class="codeblock" data-os="windows"><button class="copy" type="button">Copy</button><pre><code><span class="tok-c"># PowerShell</span>
 claude mcp add --transport http solr-mcp http://localhost:8080/mcp `
   --header "Authorization: Bearer $TOKEN"
 claude mcp list      <span class="tok-c"># ✔ Connected — true with or without the header, so also run:</span>
 claude -p "Call the list-collections tool on the solr-mcp MCP server and reply with its raw result"
-<span class="tok-c"># ["shows-auto", ...]   ← the proof. "Access Denied" here means the header did not reach the server.</span></code></pre></div>
+<span class="tok-c"># ["shows-auto", ...]   ← the proof. "Access Denied" here means the header did not reach the server.</span>
+<span class="tok-c"># Tools missing, or the server fails to connect: the token reached it and was rejected (expired, or wrong aud) with HTTP 401.</span></code></pre></div>
         </div>
 
         <!-- ── Codex ── -->
@@ -2570,13 +2572,15 @@ claude -p "Call the list-collections tool on the solr-mcp MCP server and reply w
 codex mcp add solr-mcp --url http://localhost:8080/mcp --bearer-token-env-var SOLR_MCP_TOKEN
 codex mcp list       # Auth: Bearer token — true with or without a valid token, so also run:
 codex exec "Call the list-collections tool on the solr-mcp MCP server and reply with its raw result"
-# ["shows-auto", ...]   ← the proof. "Access Denied" here means the token did not reach the server.</code></pre></div>
+# ["shows-auto", ...]   ← the proof. "Access Denied" here means the token did not reach the server.
+# Tools missing, or the server fails to connect: the token reached it and was rejected (expired, or wrong aud) with HTTP 401.</code></pre></div>
           <div class="codeblock" data-os="windows"><button class="copy" type="button">Copy</button><pre><code><span class="tok-c"># PowerShell</span>
 $env:SOLR_MCP_TOKEN = $TOKEN
 codex mcp add solr-mcp --url http://localhost:8080/mcp --bearer-token-env-var SOLR_MCP_TOKEN
 codex mcp list       <span class="tok-c"># Auth: Bearer token — true with or without a valid token, so also run:</span>
 codex exec "Call the list-collections tool on the solr-mcp MCP server and reply with its raw result"
-<span class="tok-c"># ["shows-auto", ...]   ← the proof. "Access Denied" here means the token did not reach the server.</span></code></pre></div>
+<span class="tok-c"># ["shows-auto", ...]   ← the proof. "Access Denied" here means the token did not reach the server.</span>
+<span class="tok-c"># Tools missing, or the server fails to connect: the token reached it and was rejected (expired, or wrong aud) with HTTP 401.</span></code></pre></div>
           <p style="font-size:.86rem;color:var(--ink-2)">
             The token expires after about five minutes; restart Codex after refreshing it so it re-reads the variable.
           </p>
