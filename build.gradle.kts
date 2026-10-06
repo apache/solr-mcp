@@ -186,11 +186,6 @@ dependencies {
     implementation(libs.spring.boot.starter.json)
     implementation(libs.spring.boot.starter.actuator)
     implementation(libs.spring.ai.starter.mcp.server.webmvc)
-    // Spring AI 2.0.0-M7 marked the common autoconfigure module as optional in the
-    // webmvc starter POM (#6088), so it is no longer pulled transitively even though
-    // the webmvc autoconfig classes still reference McpServerStdioDisabledCondition
-    // and other types from it.
-    implementation(libs.spring.ai.autoconfigure.mcp.server.common)
     implementation(libs.solr.solrj)
     // CommonMark for markdown parsing
     implementation(libs.commonmark)
