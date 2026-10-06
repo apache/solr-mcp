@@ -2220,8 +2220,8 @@ docker run -p 8080:8080 --rm --add-host=host.docker.internal:host-gateway \
 ./gradlew nativeCompile -Pnative
 SOLR_URL=http://localhost:8983/solr/ build/native/nativeCompile/solr-mcp
 
-<span class="tok-c"># http (a separate build: the transport is baked in)</span>
-./gradlew nativeCompile -Pnative -Pprofile=http
+<span class="tok-c"># http (a separate build: the transport and the security switch are baked in)</span>
+HTTP_SECURITY_ENABLED=false ./gradlew nativeCompile -Pnative -Pprofile=http
 PROFILES=http HTTP_SECURITY_ENABLED=false SOLR_URL=http://localhost:8983/solr/ \
   build/native/nativeCompile/solr-mcp</code></pre></div>
 
@@ -2250,7 +2250,7 @@ docker run -i --rm --add-host=host.docker.internal:host-gateway \
   solr-mcp:latest-native-stdio
 
 <span class="tok-c"># http</span>
-./gradlew bootBuildImage -Pnative -Pprofile=http <span class="tok-c"># solr-mcp:latest-native-http</span>
+HTTP_SECURITY_ENABLED=false ./gradlew bootBuildImage -Pnative -Pprofile=http <span class="tok-c"># solr-mcp:latest-native-http</span>
 docker run -p 8080:8080 --rm --add-host=host.docker.internal:host-gateway \
   -e PROFILES=http -e HTTP_SECURITY_ENABLED=false \
   -e SOLR_URL=http://host.docker.internal:8983/solr/ \
@@ -2261,6 +2261,18 @@ docker run -p 8080:8080 --rm --add-host=host.docker.internal:host-gateway \
           The <code class="inline">-native-stdio</code> image has no web server in it, and the
           <code class="inline">-native-http</code> image has no stdio transport. Pointing a client
           at the wrong one gives a timeout, not a helpful error.
+        </p>
+      </div>
+      <div class="note warn">
+        <span class="tag">Native http picks its security when it is built</span>
+        <p>
+          Spring AOT fixes the security setup inside the binary, so
+          <code class="inline">HTTP_SECURITY_ENABLED</code> only counts at build time; at run time
+          a native http server ignores it. That is why the build commands above set it. Built
+          without it, every tool answers <q>Access Denied</q> until you configure OAuth2
+          (<a href="#secured">Security setup</a>). The prebuilt
+          <code class="inline">coc2026-native-http</code> image is built with security off, for
+          use on your own machine only.
         </p>
       </div>
       <p style="font-size:.86rem;color:var(--ink-2)">
