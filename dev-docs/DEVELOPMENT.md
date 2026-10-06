@@ -355,7 +355,7 @@ sdk install java 25.0.2-graalce
 ```
 
 or download from <https://www.graalvm.org>. CI provisions it with
-`graalvm/setup-graalvm`.
+`actions/setup-java` (`distribution: graalvm`).
 
 **Build and test.**
 
