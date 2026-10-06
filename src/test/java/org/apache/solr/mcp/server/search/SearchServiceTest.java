@@ -130,6 +130,30 @@ class SearchServiceTest {
 		assertNotNull(result);
 	}
 
+	/**
+	 * The score must be requested on every search so Solr populates {@code score}
+	 * on each document and {@code maxScore} on the response — otherwise both stay
+	 * {@code null}/absent even though {@link SearchResponse}'s javadoc and the
+	 * search-collection prompt promise them.
+	 */
+	@Test
+	void search_ShouldRequestScoreInFieldList() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		QueryResponse mockResponse = mock(QueryResponse.class);
+		SolrDocumentList mockDocuments = createMockDocumentList();
+		when(mockResponse.getResults()).thenReturn(mockDocuments);
+		when(mockResponse.getFacetFields()).thenReturn(null);
+		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenAnswer(invocation -> {
+			SolrQuery q = invocation.getArgument(1);
+			assertTrue(List.of(q.getFields().split(",")).contains("score"),
+					() -> "expected fl to request score, got: " + q.getFields());
+			return mockResponse;
+		});
+		SearchService localService = new SearchService(mockClient);
+		SearchResponse result = localService.search("test_collection", "name:foo", null, null, null, null, null);
+		assertNotNull(result);
+	}
+
 	@Test
 	void search_WithCustomQuery_ShouldUseProvidedQuery() throws Exception {
 		SolrClient mockClient = mock(SolrClient.class);
@@ -332,6 +356,49 @@ class SearchServiceTest {
 		assertEquals(2, result.documents().size());
 		assertNotNull(result.facets());
 		assertFalse(result.facets().isEmpty());
+	}
+
+	/**
+	 * Documents come back as the raw {@link SolrDocument} (which implements
+	 * {@code Map<String, Object>}, backed by a {@link java.util.LinkedHashMap}), so
+	 * field order must survive unchanged rather than being scrambled by a
+	 * {@link java.util.HashMap} copy.
+	 */
+	@Test
+	void searchResponse_ShouldPreserveDocumentFieldOrder() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		QueryResponse mockResponse = mock(QueryResponse.class);
+		SolrDocumentList mockDocuments = createMockDocumentListWithData();
+		when(mockResponse.getResults()).thenReturn(mockDocuments);
+		when(mockResponse.getFacetFields()).thenReturn(null);
+		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenReturn(mockResponse);
+		SearchService localService = new SearchService(mockClient);
+		SearchResponse result = localService.search("test_collection", null, null, null, null, null, null);
+		var firstDoc = result.documents().getFirst();
+		assertEquals(List.of("id", "name", "author_ss", "price", "genre_s"), List.copyOf(firstDoc.keySet()),
+				"document field order must match Solr's original order");
+	}
+
+	/**
+	 * Solr already sorts facet buckets by count ({@code facet.sort=count}, the
+	 * default this service sets); a {@link java.util.HashMap} would discard that
+	 * order before the LLM ever sees it.
+	 */
+	@Test
+	void searchResponse_ShouldPreserveFacetOrder() throws Exception {
+		SolrClient mockClient = mock(SolrClient.class);
+		QueryResponse mockResponse = mock(QueryResponse.class);
+		SolrDocumentList mockDocuments = createMockDocumentList();
+		when(mockResponse.getResults()).thenReturn(mockDocuments);
+		when(mockResponse.getFacetFields()).thenReturn(createMockFacetFields());
+		when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenReturn(mockResponse);
+		SearchService localService = new SearchService(mockClient);
+		SearchResponse result = localService.search("test_collection", null, null, List.of("genre_s", "author_ss"),
+				null, null, null);
+		assertEquals(List.of("genre_s", "author_ss"), List.copyOf(result.facets().keySet()),
+				"facet field order must match Solr's response order");
+		assertEquals(List.of("technology", "fiction"), List.copyOf(result.facets().get("genre_s").keySet()),
+				"facet bucket order (count-sorted by Solr) must be preserved");
 	}
 
 	private SolrDocumentList createMockDocumentList() {

@@ -18,8 +18,8 @@ package org.apache.solr.mcp.server.search;
 
 import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -28,7 +28,6 @@ import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.SolrQuery;
 import org.apache.solr.client.solrj.response.FacetField;
 import org.apache.solr.client.solrj.response.QueryResponse;
-import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.FacetParams;
@@ -162,63 +161,18 @@ public class SearchService {
 	}
 
 	/**
-	 * Converts a SolrDocumentList to a List of Maps for optimized JSON
-	 * serialization.
-	 *
-	 * <p>
-	 * This method transforms Solr's native document format into a structure that
-	 * can be easily serialized to JSON and consumed by MCP clients. Each document
-	 * becomes a flat map of field names to field values, preserving all data types.
-	 *
-	 * <p>
-	 * <strong>Conversion Process:</strong>
-	 *
-	 * <ul>
-	 * <li>Iterates through each SolrDocument in the list
-	 * <li>Extracts all field names and their corresponding values
-	 * <li>Creates a HashMap for each document with field-value pairs
-	 * <li>Preserves original data types (strings, numbers, dates, arrays)
-	 * </ul>
-	 *
-	 * <p>
-	 * <strong>Performance Optimization:</strong>
-	 *
-	 * <p>
-	 * Pre-allocates the ArrayList with the known document count to minimize memory
-	 * allocations and improve conversion performance for large result sets.
-	 *
-	 * @param documents
-	 *            the SolrDocumentList to convert from Solr's native format
-	 * @return a List of Maps where each Map represents a document with field names
-	 *         as keys
-	 * @see SolrDocument
-	 * @see SolrDocumentList
-	 */
-	private static List<Map<String, Object>> getDocs(SolrDocumentList documents) {
-		List<Map<String, Object>> docs = new ArrayList<>(documents.size());
-		documents.forEach(doc -> {
-			Map<String, Object> docMap = new HashMap<>();
-			for (String fieldName : doc.getFieldNames()) {
-				docMap.put(fieldName, doc.getFieldValue(fieldName));
-			}
-			docs.add(docMap);
-		});
-		return docs;
-	}
-
-	/**
 	 * Extracts facet information from a QueryResponse.
 	 *
 	 * @param queryResponse
 	 *            The QueryResponse containing facet results
 	 * @return A Map where keys are facet field names and values are Maps of facet
-	 *         values to counts
+	 *         values to counts, both in Solr's original (count-sorted) order
 	 */
 	private static Map<String, Map<String, Long>> getFacets(QueryResponse queryResponse) {
-		Map<String, Map<String, Long>> facets = new HashMap<>();
+		Map<String, Map<String, Long>> facets = new LinkedHashMap<>();
 		if (queryResponse.getFacetFields() != null && !queryResponse.getFacetFields().isEmpty()) {
 			queryResponse.getFacetFields().forEach(facetField -> {
-				Map<String, Long> facetValues = new HashMap<>();
+				Map<String, Long> facetValues = new LinkedHashMap<>();
 				for (FacetField.Count count : facetField.getValues()) {
 					facetValues.put(count.getName(), count.getCount());
 				}
@@ -313,6 +267,9 @@ public class SearchService {
 			solrQuery.setQuery(query);
 		}
 
+		// fl=score,* — Solr only returns maxScore and per-document score when asked
+		solrQuery.setIncludeScore(true);
+
 		// filter queries
 		if (!CollectionUtils.isEmpty(filterQueries)) {
 			solrQuery.setFilterQueries(filterQueries.toArray(new String[0]));
@@ -351,7 +308,8 @@ public class SearchService {
 		final SolrDocumentList documents = queryResponse.getResults();
 
 		// Convert SolrDocuments to Maps
-		final var docs = getDocs(documents);
+		// SolrDocument is a Map in Solr's field order, so no per-document copy
+		final List<Map<String, Object>> docs = Collections.unmodifiableList(documents);
 
 		// Add facets if present
 		final var facets = getFacets(queryResponse);
@@ -464,8 +422,9 @@ public class SearchService {
 				                 * Many results: add a `filterQueries` constraint to narrow, or pass
 				                   `facetFields` on a relevant `string`/`strings` field to surface the distribution
 				                   and pick a sharper filter.
-				   - Inspect `documents` for the actual content. The response includes `maxScore` when
-				     the query is not `*:*`; use it as a relative confidence signal across queries.
+				   - Inspect `documents` for the actual content. Each document carries a relevance
+				     `score`, and the response's `maxScore` is the top score among them; both are most
+				     meaningful as a relative confidence signal for non-`*:*` queries.
 
 				5. Summarize.
 				   - Answer the user's question grounded in the documents found, citing concrete field

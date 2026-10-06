@@ -54,7 +54,9 @@ import org.springframework.http.MediaType;
  * {@link NamedList} (Solr's {@code json.nl=flat} facet encoding)</li>
  * <li>All other JSON arrays → {@link List}</li>
  * <li>JSON integers → {@link Integer} or {@link Long} (by value size)</li>
- * <li>JSON decimals → {@link Double}</li>
+ * <li>JSON decimals → {@link Float}, matching the JavaBin codec; SolrJ response
+ * classes cast to it (e.g. {@code SchemaResponse} reads the schema version as a
+ * {@code Float})</li>
  * <li>JSON booleans → {@link Boolean}</li>
  * <li>JSON strings → {@link String}</li>
  * </ul>

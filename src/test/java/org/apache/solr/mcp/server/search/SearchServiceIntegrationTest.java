@@ -297,6 +297,25 @@ class SearchServiceIntegrationTest {
 		assertFalse(e.getMessage().contains("Hint:"), () -> "expected no hint, got: " + e.getMessage());
 	}
 
+	/**
+	 * The search tool always requests the relevance score (fl=score,*), so a
+	 * non-{@code *:*} query — which actually produces a meaningful ranking — must
+	 * come back with a non-null {@code maxScore} and a {@code score} on every
+	 * document. Both were silently dropped before this fix: Solr only populates
+	 * them when {@code score} is in the field list, which this service never set.
+	 */
+	@Test
+	void testSearchWithQueryPopulatesMaxScoreAndDocumentScore() throws SolrServerException, IOException {
+		SearchResponse result = searchService.search(COLLECTION_NAME, "genre_s:fantasy", null, null, null, null, null);
+		assertNotNull(result);
+		assertNotNull(result.maxScore(), "maxScore must be populated for a non-*:* query");
+		assertTrue(result.maxScore() > 0, "maxScore should be a positive relevance score");
+		assertFalse(result.documents().isEmpty());
+		for (Map<String, Object> book : result.documents()) {
+			assertNotNull(book.get("score"), "each document should carry its relevance score");
+		}
+	}
+
 	@Test
 	void testSearchWithQuery() throws SolrServerException, IOException {
 		SearchResponse result = searchService.search(COLLECTION_NAME, "name:\"Game of Thrones\"", null, null, null,
