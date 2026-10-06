@@ -1839,7 +1839,7 @@ Set in a dystopian future, a woman is forced to live as a concubine under a fund
 
     <div class="prompts">
       <div class="prompt">
-        <q>Show me the breakdown of shows-auto by platform.<span class="why">calls <b>search</b> with a facet — this will not go well</span></q>
+        <q>Show me the breakdown of shows-auto by platform.<span class="why">calls <b>search</b> with a facet — this may not go the way you expect</span></q>
         <button class="copy-sm" type="button" data-copy="Show me the breakdown of shows-auto by platform.">Copy</button>
       </div>
       <div class="prompt">
@@ -1877,10 +1877,17 @@ Set in a dystopian future, a woman is forced to live as a concubine under a fund
     <div class="note bug">
       <span class="tag">What you'll see</span>
       <p>
-        An empty breakdown — <code class="inline">"facets": { "platform": {} }</code>. No error,
-        no wrong buckets, just nothing: <code class="inline">text_general</code> yields no facet
-        buckets at all. Step 5 gives <code class="inline">platform</code> real buckets, and the
-        question starts answering itself.
+        Either an empty breakdown — <code class="inline">"facets": { "platform": {} }</code> — or,
+        if your assistant read the schema first, real buckets on
+        <code class="inline">platform_str</code>. Schemaless mode quietly copies every text field
+        into a <code class="inline">*_str</code> string field, and a schema-aware assistant facets
+        on the copy instead. Ask it to <q>facet on the platform field itself</q> and you get the
+        empty result: <code class="inline">text_general</code> yields no facet buckets at all.
+      </p>
+      <p>
+        The copies are a patch, not a design: one per text field, capped at 256 characters, and no
+        help for the numbers. Step 5 gives <code class="inline">platform</code> real buckets, and
+        the question starts answering itself.
       </p>
     </div>
 
@@ -2001,9 +2008,13 @@ docker run -d --name solr-mcp-demo -p 8983:8983 solr:9-slim solr start -c -f</co
         <q>Which shows have "dragon" in the title?<span class="why"><b>q</b> · full-text on an analyzed field → 1 hit, House of the Dragon</span></q>
         <button class="copy-sm" type="button" data-copy="Which shows have &quot;dragon&quot; in the title?">Copy</button>
       </div>
-      <div class="prompt">
+      <div class="prompt" data-format="json csv xml">
         <q>Find shows whose description contains the exact phrase "a group of".<span class="why"><b>q</b> · phrase query → 2 hits, The Boys and Stranger Things</span></q>
         <button class="copy-sm" type="button" data-copy="Find shows whose description contains the exact phrase &quot;a group of&quot;.">Copy</button>
+      </div>
+      <div class="prompt" data-format="markdown">
+        <q>Find shows whose content field contains the exact phrase "a group of".<span class="why"><b>q</b> · phrase query → 2 hits, The Boys and Stranger Things (Markdown puts the description in <code>content</code>)</span></q>
+        <button class="copy-sm" type="button" data-copy="Find shows whose content field contains the exact phrase &quot;a group of&quot;.">Copy</button>
       </div>
       <div class="prompt">
         <q>Show me everything on Netflix.<span class="why"><b>fq</b> · exact string filter → 20 hits</span></q>
