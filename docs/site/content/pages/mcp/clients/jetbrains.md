@@ -79,6 +79,8 @@ docker run -p 8080:8080 --rm \
 
 ### Configure the IDE ###
 
+The HTTP transport is secured by default: without a bearer token the client still connects and lists the tools, but every tool call returns `Access Denied`. The server never answers `/mcp` with `401`, so no OAuth login starts. For a local experiment on your own machine only, add `HTTP_SECURITY_ENABLED=false` to the server's environment; see [Security](/mcp/security.html) before exposing it to anyone else.
+
 ```json
 {
   "mcpServers": {
