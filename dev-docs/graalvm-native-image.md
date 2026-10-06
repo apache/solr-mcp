@@ -188,7 +188,7 @@ container and value types.
 
 Spring Boot 4 provides idiomatic OpenTelemetry via
 `spring-boot-starter-opentelemetry` (traces, metrics, and OTLP log export); the
-OTel logback appender (`opentelemetry-logback-appender-1.0`, `2.21.0-alpha`) is
+OTel logback appender (`opentelemetry-logback-appender-1.0`, `2.28.1-alpha`) is
 declared separately in the version catalog. The appender ships **no**
 native-image reachability metadata, and its `LoggingEventMapper` holds static
 `AttributeKey` fields (via `InternalAttributeKeyImpl`) that land in the image
@@ -204,15 +204,17 @@ four `--initialize-at-build-time` entries in `nativeImageBuildArgs`:
 proxy classes that cannot be build-time initialized; including it breaks the
 build.
 
-**OTel dependency alignment.** Spring Boot 4.1.0 manages the OpenTelemetry SDK
-(`opentelemetry-api:1.62.0`) through the starter, but the logback appender
-(`opentelemetry-instrumentation 2.21.0-alpha`) transitively pins
-`opentelemetry-api-incubator` to `1.55.0-alpha`, which lacks
-`DeclarativeConfigProperties.get(String)` used by SB4's `OpenTelemetrySdk`
-autoconfiguration — a `NoSuchMethodError` at context startup. A
-`resolutionStrategy` in `build.gradle.kts` forces `opentelemetry-api-incubator`
-to `1.62.0-alpha` to match, and pins `opentelemetry-proto` to `1.3.2-alpha`
-(the `1.8.0-alpha` line is incompatible with protobuf 3.x). The OTLP exporter is
+**OTel dependency alignment.** Spring Boot 4.1 manages the OpenTelemetry SDK
+(`opentelemetry-api:1.62.0`) through the starter, so the logback appender is
+held at `2.28.1-alpha` — the newest release built against `1.62.0`, whose
+transitive `opentelemetry-api-incubator:1.62.0-alpha` matches. A newer appender
+is built against a newer API that the Boot BOM would downgrade, risking a
+`NoSuchMethodError` (an older one pulls an incubator lacking
+`DeclarativeConfigProperties.get(String)`, which SB4's `OpenTelemetrySdk`
+autoconfiguration calls); bump the appender in step with Boot's
+`opentelemetry.version`. A `resolutionStrategy` in `build.gradle.kts` pins
+`opentelemetry-proto` to `1.3.2-alpha` (the `1.8.0-alpha` line is incompatible
+with protobuf 3.x). The OTLP exporter is
 only wired in the `http` profile, so the `stdio` native image never exercises
 its reflection surface anyway.
 
@@ -220,8 +222,10 @@ The **native test binary** needs a few extra entries beyond the shared args
 (see the `named("test")` block): `io.opentelemetry.sdk` (a build-time
 `ServiceLoader` provider), `--initialize-at-run-time` for
 `AndroidFriendlyRandomHolder` (it seeds a `java.util.Random` in `<clinit>`,
-which GraalVM forbids in the image heap), and the JUnit Platform launcher/engine
-packages (the native JUnit launcher embeds the test plan in the image heap).
+which GraalVM forbids in the image heap). JUnit Platform needs no entries: since
+native build tools 0.11 the plugin's JUnit feature handles the test plan's
+build-time initialization itself, and forcing `org.junit.platform.launcher` to
+build time puts a JUnit logger in the image heap and fails the build.
 
 ## Security and profiles under native
 

@@ -18,10 +18,10 @@
 # Build plugins
 spring-boot = "4.1.1"
 spring-dependency-management = "1.1.7"
-errorprone-plugin = "5.1.0"
-jib = "3.5.3"
-spotless = "7.0.2"
-graalvm-native = "0.10.6"
+errorprone-plugin = "5.1.1"
+jib = "3.5.4"
+spotless = "8.9.0"
+graalvm-native = "1.1.14"
 cyclonedx-plugin = "3.4.1"
 
 # Main dependencies
@@ -36,16 +36,16 @@ mcp-server-security = "0.1.14"
 mcp-sdk = "2.0.1"
 
 # OpenTelemetry
-opentelemetry-logback-appender = "2.21.0-alpha"
+opentelemetry-logback-appender = "2.28.1-alpha"
 
-commonmark = "0.28.0"
+commonmark = "0.30.0"
 
 # Error Prone and analysis tools
-errorprone-core = "2.48.0"
-nullaway = "0.13.1"
+errorprone-core = "2.50.0"
+nullaway = "0.14.2"
 
 # Test dependencies
-testcontainers = "2.0.2"
+testcontainers = "2.0.5"
 # Docker images started by Testcontainers. Exact tags only (never "latest" or a
 # moving minor tag). Forwarded to tests as the solr.test.image / lgtm.test.image
 # system properties, which also override them for a single run; the literal

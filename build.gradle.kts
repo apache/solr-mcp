@@ -237,16 +237,6 @@ configurations.all {
             useVersion("1.3.2-alpha")
             because("Version 1.8.0-alpha has protobuf 4.x incompatibility causing NoSuchMethodError")
         }
-        // Align the OpenTelemetry incubator API with the stable API version managed by
-        // the Spring Boot 4.1.0 BOM (opentelemetry-api:1.62.0). The logback-appender
-        // (opentelemetry-instrumentation 2.21.0-alpha) transitively pins
-        // opentelemetry-api-incubator to 1.55.0-alpha, which lacks
-        // DeclarativeConfigProperties.get(String) used by SB4's OpenTelemetrySdk
-        // autoconfiguration — causing a NoSuchMethodError at context startup.
-        if (requested.group == "io.opentelemetry" && requested.name == "opentelemetry-api-incubator") {
-            useVersion("1.62.0-alpha")
-            because("Must match Spring Boot 4.1.0-managed opentelemetry-api:1.62.0")
-        }
     }
 }
 
@@ -411,7 +401,10 @@ spotless {
         // with cutting-edge JDKs (e.g., 25) which can trigger NoSuchMethodError
         // against internal javac classes. Override only the annotation-argument
         // alignment so multi-arg @Mcp* annotations render one-arg-per-line.
-        eclipse().configFile("config/spotless/eclipse-java-formatter.properties")
+        // Pinned to the JDT version Spotless 7.0.2 defaulted to: Spotless 8's
+        // default JDT (4.39) collapses Javadoc <pre>{@code} blocks and folds
+        // @param/@see tags into the preceding paragraph.
+        eclipse("4.34").configFile("config/spotless/eclipse-java-formatter.properties")
         removeUnusedImports()
         trimTrailingWhitespace()
         endWithNewline()
@@ -420,7 +413,8 @@ spotless {
     }
     kotlinGradle {
         target("*.gradle.kts")
-        ktlint()
+        // Spotless 7.0.2's default; 1.8.0 rewrites every multi-line `when` branch.
+        ktlint("1.5.0")
     }
 }
 
@@ -639,11 +633,6 @@ if (nativeBuild) {
                     // AndroidFriendlyRandomHolder creates a java.util.Random in <clinit>,
                     // which GraalVM forbids in the image heap (stale seed).
                     "--initialize-at-run-time=io.opentelemetry.sdk.internal.AndroidFriendlyRandomHolder",
-                    // The GraalVM native JUnit launcher embeds test discovery results
-                    // (InternalTestPlan, descriptors, TestTag, etc.) in the image heap.
-                    "--initialize-at-build-time=org.junit.platform.launcher",
-                    "--initialize-at-build-time=org.junit.platform.engine",
-                    "--initialize-at-build-time=org.junit.jupiter.engine.descriptor",
                 )
             }
         }
