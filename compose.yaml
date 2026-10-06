@@ -57,6 +57,45 @@ services:
           # Prevent Spring Boot auto-configuration from trying to manage this service
           org.springframework.boot.ignore: "true"
 
+  # =============================================================================
+  # Keycloak - the identity provider the http profile authenticates against
+  # =============================================================================
+  # Gated behind the `http` compose profile so a plain `docker compose up -d` (STDIO users) does not
+  # start it; the http Spring profile activates it via spring.docker.compose.profiles.active. The realm is
+  # imported from keycloak/solr-mcp-realm.json, so the clients and — critically — the audience
+  # protocol mapper exist before the server ever asks for a token.
+  #
+  # The mapper is what makes tokens acceptable here. Keycloak does not honour the RFC 8707
+  # `resource=` parameter, so without it a token is issued normally and then rejected by
+  # validateAudienceClaim(true) with a 401. See docs/security/keycloak.md.
+  #
+  # The healthcheck is not decoration: the server resolves the issuer at startup and fails to boot
+  # if the realm is not yet answering, so Spring Boot must wait for this container to be healthy
+  # before the application context starts.
+  # Keycloak 26's minimal image (UBI 9) intentionally omits curl and wget, and health endpoints are
+  # exposed on the dedicated management port 9000. This probe follows Keycloak's official Containerfile
+  # HEALTHCHECK recommendation (https://www.keycloak.org/observability/health#_healthcheck) using
+  # bash's built-in /dev/tcp socket redirection.
+  keycloak:
+    profiles: [ http ]
+    image: quay.io/keycloak/keycloak:26.0
+    ports:
+      - "8180:8080"
+    networks: [ search ]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HEALTH_ENABLED: "true"
+    command: [ "start-dev", "--import-realm" ]
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "{ printf 'HEAD /health/ready HTTP/1.0\\r\\n\\r\\n' >&0; grep 'HTTP/1.0 200'; } 0<>/dev/tcp/localhost/9000" ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
 volumes:
   data:
 

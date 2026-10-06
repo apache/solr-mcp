@@ -26,21 +26,25 @@ import io.modelcontextprotocol.spec.McpSchema.CompleteRequest;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.IntStream;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.client.solrj.request.CollectionAdminRequest;
+import org.apache.solr.client.solrj.request.GenericSolrRequest;
+import org.apache.solr.client.solrj.request.LukeRequest;
 import org.apache.solr.client.solrj.response.LukeResponse;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.SolrDocumentList;
+import org.apache.solr.common.SolrException;
 import org.apache.solr.common.util.NamedList;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -378,65 +382,82 @@ class CollectionServiceTest {
 		assertNull(result.segmentCount());
 	}
 
-	// Collection validation tests
+	// Collection stats tests
 	@Test
 	void getCollectionStats_NotFound() throws Exception {
-		CollectionService spyService = spy(collectionService);
-		doReturn(Collections.emptyList()).when(spyService).listCollections();
+		SolrException notFound = new SolrException(SolrException.ErrorCode.NOT_FOUND, "not found");
+		when(solrClient.request(any(LukeRequest.class), eq("non_existent"))).thenThrow(notFound);
 
 		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-				() -> spyService.getCollectionStats("non_existent"));
+				() -> collectionService.getCollectionStats("non_existent"));
 
 		assertTrue(exception.getMessage().contains("Collection not found: non_existent"));
+		assertSame(notFound, exception.getCause());
+		verify(solrClient, never()).request(any(CollectionAdminRequest.List.class), any());
 	}
 
 	@Test
-	void validateCollectionExists() throws Exception {
-		CollectionService spyService = spy(collectionService);
-		List<String> collections = Arrays.asList("collection1", "films_shard1_replica_n1");
-		doReturn(collections).when(spyService).listCollections();
+	void getCollectionStats_OtherSolrException_Propagates() throws Exception {
+		SolrException serverError = new SolrException(SolrException.ErrorCode.SERVER_ERROR, "boom");
+		when(solrClient.request(any(LukeRequest.class), eq("test_collection"))).thenThrow(serverError);
 
-		Method method = CollectionService.class.getDeclaredMethod("validateCollectionExists", String.class);
-		method.setAccessible(true);
+		SolrException exception = assertThrows(SolrException.class,
+				() -> collectionService.getCollectionStats("test_collection"));
 
-		assertTrue((boolean) method.invoke(spyService, "collection1"));
-		assertTrue((boolean) method.invoke(spyService, "films"));
-		assertFalse((boolean) method.invoke(spyService, "non_existent"));
+		assertSame(serverError, exception);
 	}
 
 	@Test
-	void validateCollectionExists_WithEmptyList() throws Exception {
-		CollectionService spyService = spy(collectionService);
-		doReturn(Collections.emptyList()).when(spyService).listCollections();
+	void getCollectionStats_MakesExactlyOneMetricsRequestAndNoListCall() throws Exception {
+		// Luke response: only the "index" section is needed for buildIndexStats.
+		NamedList<Object> lukeIndexSection = new NamedList<>();
+		lukeIndexSection.add("numDocs", 42);
+		lukeIndexSection.add("segmentCount", 3);
+		NamedList<Object> lukeRaw = new NamedList<>();
+		lukeRaw.add("index", lukeIndexSection);
+		when(solrClient.request(any(LukeRequest.class), eq("test_collection"))).thenReturn(lukeRaw);
 
-		Method method = CollectionService.class.getDeclaredMethod("validateCollectionExists", String.class);
-		method.setAccessible(true);
+		SolrDocumentList docList = new SolrDocumentList();
+		docList.setNumFound(7);
+		when(solrClient.query(eq("test_collection"), any())).thenReturn(queryResponse);
+		when(queryResponse.getResults()).thenReturn(docList);
 
-		assertFalse((boolean) method.invoke(spyService, "any_collection"));
+		NamedList<Object> metricsResponse = wrapInMetricsResponse(createCacheCoreMetrics(), "test_collection");
+		when(solrClient.request(argThat(r -> r instanceof GenericSolrRequest))).thenReturn(metricsResponse);
+
+		SolrMetrics result = collectionService.getCollectionStats("test_collection");
+
+		assertNotNull(result);
+		assertEquals(42, result.indexStats().numDocs());
+		assertEquals(3, result.indexStats().segmentCount());
+		assertNotNull(result.cacheStats());
+
+		// Exactly one metrics call (combined cache+handler prefixes), no
+		// list-collections pre-flight, and exactly one Luke request.
+		verify(solrClient, never()).request(any(CollectionAdminRequest.List.class), any());
+		verify(solrClient, times(1)).request(argThat(r -> r instanceof GenericSolrRequest));
+		ArgumentCaptor<LukeRequest> luke = ArgumentCaptor.forClass(LukeRequest.class);
+		verify(solrClient).request(luke.capture(), eq("test_collection"));
+		assertEquals("index", luke.getValue().getParams().get("show"), "only the index section, not every field");
 	}
 
 	// Cache metrics tests
 	@Test
 	void getCacheMetrics_WithNonExistentCollection_ShouldReturnNull() throws Exception {
-		CollectionService spyService = spy(collectionService);
-		doReturn(Collections.emptyList()).when(spyService).listCollections();
+		// The metrics response has no core registry for this collection.
+		when(solrClient.request(any(SolrRequest.class))).thenReturn(emptyMetricsResponse());
 
-		// When - collection not found in empty list
-		CacheStats result = spyService.getCacheMetrics("nonexistent");
+		CacheStats result = collectionService.getCacheMetrics("nonexistent");
 
-		// Then
 		assertNull(result);
 	}
 
 	@Test
 	void getCacheMetrics_Success() throws Exception {
-		CollectionService spyService = spy(collectionService);
-		doReturn(Arrays.asList("test_collection")).when(spyService).listCollections();
-
 		NamedList<Object> mbeans = createMockCacheData();
 		when(solrClient.request(any(SolrRequest.class))).thenReturn(mbeans);
 
-		CacheStats result = spyService.getCacheMetrics("test_collection");
+		CacheStats result = collectionService.getCacheMetrics("test_collection");
 
 		assertNotNull(result);
 		assertNotNull(result.queryResultCache());
@@ -445,61 +466,48 @@ class CollectionServiceTest {
 
 	@Test
 	void getCacheMetrics_CollectionNotFound() throws Exception {
-		CollectionService spyService = spy(collectionService);
-		doReturn(Collections.emptyList()).when(spyService).listCollections();
+		when(solrClient.request(any(SolrRequest.class))).thenReturn(emptyMetricsResponse());
 
-		CacheStats result = spyService.getCacheMetrics("non_existent");
+		CacheStats result = collectionService.getCacheMetrics("non_existent");
 
 		assertNull(result);
 	}
 
 	@Test
 	void getCacheMetrics_SolrServerException() throws Exception {
-		CollectionService spyService = spy(collectionService);
-		doReturn(Arrays.asList("test_collection")).when(spyService).listCollections();
-
 		when(solrClient.request(any(SolrRequest.class))).thenThrow(new SolrServerException("Error"));
 
-		CacheStats result = spyService.getCacheMetrics("test_collection");
+		CacheStats result = collectionService.getCacheMetrics("test_collection");
 
 		assertNull(result);
 	}
 
 	@Test
 	void getCacheMetrics_IOException() throws Exception {
-		CollectionService spyService = spy(collectionService);
-		doReturn(Arrays.asList("test_collection")).when(spyService).listCollections();
-
 		when(solrClient.request(any(SolrRequest.class))).thenThrow(new IOException("IO Error"));
 
-		CacheStats result = spyService.getCacheMetrics("test_collection");
+		CacheStats result = collectionService.getCacheMetrics("test_collection");
 
 		assertNull(result);
 	}
 
 	@Test
 	void getCacheMetrics_EmptyStats() throws Exception {
-		CollectionService spyService = spy(collectionService);
-		doReturn(Arrays.asList("test_collection")).when(spyService).listCollections();
-
 		// Metrics response with core metrics that contain no cache keys
 		NamedList<Object> response = wrapInMetricsResponse(new NamedList<>());
 		when(solrClient.request(any(SolrRequest.class))).thenReturn(response);
 
-		CacheStats result = spyService.getCacheMetrics("test_collection");
+		CacheStats result = collectionService.getCacheMetrics("test_collection");
 
 		assertNull(result);
 	}
 
 	@Test
 	void getCacheMetrics_WithShardName() throws Exception {
-		CollectionService spyService = spy(collectionService);
-		doReturn(Arrays.asList("films_shard1_replica_n1")).when(spyService).listCollections();
-
 		NamedList<Object> response = wrapInMetricsResponse(createCacheCoreMetrics(), "films");
 		when(solrClient.request(any(SolrRequest.class))).thenReturn(response);
 
-		CacheStats result = spyService.getCacheMetrics("films_shard1_replica_n1");
+		CacheStats result = collectionService.getCacheMetrics("films_shard1_replica_n1");
 
 		assertNotNull(result);
 	}
@@ -562,26 +570,20 @@ class CollectionServiceTest {
 	// Handler metrics tests
 	@Test
 	void getHandlerMetrics_WithNonExistentCollection_ShouldReturnNull() throws Exception {
-		CollectionService spyService = spy(collectionService);
-		doReturn(Collections.emptyList()).when(spyService).listCollections();
+		// The metrics response has no core registry for this collection.
+		when(solrClient.request(any(SolrRequest.class))).thenReturn(emptyMetricsResponse());
 
-		// When - collection not found in empty list
-		HandlerStats result = spyService.getHandlerMetrics("nonexistent");
+		HandlerStats result = collectionService.getHandlerMetrics("nonexistent");
 
-		// Then
 		assertNull(result);
 	}
 
 	@Test
 	void getHandlerMetrics_Success() throws Exception {
-		CollectionService spyService = spy(collectionService);
-		doReturn(Arrays.asList("test_collection")).when(spyService).listCollections();
-
-		// getHandlerMetrics makes two fetchMetrics calls (select then update);
-		// return select handler data for both calls (second has no update keys -> null)
+		// select handler data only, so the update handler is null
 		when(solrClient.request(any(SolrRequest.class))).thenReturn(createMockSelectHandlerData());
 
-		HandlerStats result = spyService.getHandlerMetrics("test_collection");
+		HandlerStats result = collectionService.getHandlerMetrics("test_collection");
 
 		assertNotNull(result);
 		assertNotNull(result.selectHandler());
@@ -590,60 +592,47 @@ class CollectionServiceTest {
 
 	@Test
 	void getHandlerMetrics_CollectionNotFound() throws Exception {
-		CollectionService spyService = spy(collectionService);
-		doReturn(Collections.emptyList()).when(spyService).listCollections();
+		when(solrClient.request(any(SolrRequest.class))).thenReturn(emptyMetricsResponse());
 
-		HandlerStats result = spyService.getHandlerMetrics("non_existent");
+		HandlerStats result = collectionService.getHandlerMetrics("non_existent");
 
 		assertNull(result);
 	}
 
 	@Test
 	void getHandlerMetrics_SolrServerException() throws Exception {
-		CollectionService spyService = spy(collectionService);
-		doReturn(Arrays.asList("test_collection")).when(spyService).listCollections();
-
 		when(solrClient.request(any(SolrRequest.class))).thenThrow(new SolrServerException("Error"));
 
-		HandlerStats result = spyService.getHandlerMetrics("test_collection");
+		HandlerStats result = collectionService.getHandlerMetrics("test_collection");
 
 		assertNull(result);
 	}
 
 	@Test
 	void getHandlerMetrics_IOException() throws Exception {
-		CollectionService spyService = spy(collectionService);
-		doReturn(Arrays.asList("test_collection")).when(spyService).listCollections();
-
 		when(solrClient.request(any(SolrRequest.class))).thenThrow(new IOException("IO Error"));
 
-		HandlerStats result = spyService.getHandlerMetrics("test_collection");
+		HandlerStats result = collectionService.getHandlerMetrics("test_collection");
 
 		assertNull(result);
 	}
 
 	@Test
 	void getHandlerMetrics_EmptyStats() throws Exception {
-		CollectionService spyService = spy(collectionService);
-		doReturn(Arrays.asList("test_collection")).when(spyService).listCollections();
-
 		// Metrics response with core metrics that contain no handler keys
 		NamedList<Object> response = wrapInMetricsResponse(new NamedList<>());
 		when(solrClient.request(any(SolrRequest.class))).thenReturn(response);
 
-		HandlerStats result = spyService.getHandlerMetrics("test_collection");
+		HandlerStats result = collectionService.getHandlerMetrics("test_collection");
 
 		assertNull(result);
 	}
 
 	@Test
 	void getHandlerMetrics_WithShardName() throws Exception {
-		CollectionService spyService = spy(collectionService);
-		doReturn(Arrays.asList("films_shard1_replica_n1")).when(spyService).listCollections();
-
 		when(solrClient.request(any(SolrRequest.class))).thenReturn(createMockSelectHandlerData("films"));
 
-		HandlerStats result = spyService.getHandlerMetrics("films_shard1_replica_n1");
+		HandlerStats result = collectionService.getHandlerMetrics("films_shard1_replica_n1");
 
 		assertNotNull(result);
 	}
@@ -840,6 +829,16 @@ class CollectionServiceTest {
 		metrics.add("solr.core." + collection + ".shard1.replica_n1", coreMetrics);
 		NamedList<Object> response = new NamedList<>();
 		response.add("metrics", metrics);
+		return response;
+	}
+
+	/**
+	 * A Metrics API response with no core registries at all — models an unknown
+	 * collection, which has no matching {@code solr.core.<name>.} entry.
+	 */
+	private NamedList<Object> emptyMetricsResponse() {
+		NamedList<Object> response = new NamedList<>();
+		response.add("metrics", new NamedList<>());
 		return response;
 	}
 
