@@ -18,6 +18,8 @@ package org.apache.solr.mcp.server.indexing;
 
 import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -404,6 +406,111 @@ public class IndexingService {
 	}
 
 	/**
+	 * The parse-and-index behind {@code index-markdown-documents}, shared with
+	 * {@code index-url}, which fetches one Markdown file as a single string.
+	 */
+	String indexMarkdown(String collection, String markdown) throws IOException, SolrServerException {
+		return indexMarkdownDocuments(collection, List.of(markdown));
+	}
+
+	/**
+	 * Trailing sentence for indexing tool descriptions: prepare the schema before
+	 * indexing rather than relying on schemaless guesses.
+	 */
+	static final String SCHEMA_FIRST_GUIDANCE = "Before indexing, use get-schema and add-fields (or design-schema) "
+			+ "to define compatible fields. Use string with docValues for categories/facets, text_general for prose, "
+			+ "and explicit numeric types and multiValued settings. Do not rely on schemaless type guessing; "
+			+ "existing field types cannot be changed with these tools.";
+
+	/**
+	 * Streams a JSON, CSV or XML document from {@code body} to Solr's own handler
+	 * for its format, without committing. Used by {@code index-url}, so the
+	 * document is never held in memory: SolrJ copies the stream into the request as
+	 * it is read.
+	 *
+	 * <p>
+	 * No commit is sent here because SolrJ only logs a failure to read the body and
+	 * then ends the upload early, which Solr can accept as a shorter but valid
+	 * document. The caller checks that the whole body arrived and only then calls
+	 * {@link #commitStreamed}.
+	 *
+	 * <p>
+	 * CSV goes to {@code /update} with {@code header=true}, as
+	 * {@code index-csv-documents} sends it; XML to {@code /update} after the same
+	 * {@code <add>}-only check as {@code index-xml-documents}; JSON to
+	 * {@code /update/json/docs}, which treats each object as a document (on
+	 * {@code /update}, a nested object such as {@code {"set": ...}} would be read
+	 * as an atomic-update instruction).
+	 *
+	 * @param collection
+	 *            target collection
+	 * @param format
+	 *            {@code json}, {@code csv} or {@code xml}
+	 * @param body
+	 *            the document as it arrives
+	 * @param charset
+	 *            the body's charset, declared to Solr
+	 * @throws IOException
+	 *             on Solr communication failure
+	 * @throws SolrServerException
+	 *             if Solr rejects the update
+	 */
+	void sendUncommitted(String collection, String format, InputStream body, Charset charset)
+			throws IOException, SolrServerException {
+		InputStream content = body;
+		String path = "/update";
+		String mediaType;
+		switch (format) {
+			case "csv" -> mediaType = "text/csv";
+			case "xml" -> {
+				content = SolrUpdateXml.requireAddBlock(body);
+				mediaType = "application/xml";
+			}
+			case "json" -> {
+				path = "/update/json/docs";
+				mediaType = "application/json";
+			}
+			default -> throw new IllegalArgumentException("Unsupported streamed format: " + format);
+		}
+		ContentStreamUpdateRequest request = new ContentStreamUpdateRequest(path);
+		if ("csv".equals(format)) {
+			request.setParam("header", "true");
+		}
+		InputStream stream = content;
+		ContentStreamBase contentStream = new ContentStreamBase() {
+			@Override
+			public InputStream getStream() {
+				return stream;
+			}
+		};
+		contentStream.setContentType(mediaType + "; charset=" + charset.name());
+		request.addContentStream(contentStream);
+		request.process(solrClient, collection);
+	}
+
+	/**
+	 * Soft-commits what {@link #sendUncommitted} sent, keeping the documents
+	 * searchable the moment the tool returns, as the inline tools do.
+	 *
+	 * @param collection
+	 *            target collection
+	 * @param payload
+	 *            what was sent, for the message (e.g. {@code "CSV document"})
+	 * @param bytes
+	 *            how many bytes of it were streamed
+	 * @return Solr's acceptance; Solr's update response carries no document count
+	 * @throws IOException
+	 *             on Solr communication failure
+	 * @throws SolrServerException
+	 *             if Solr fails the commit
+	 */
+	String commitStreamed(String collection, String payload, long bytes) throws IOException, SolrServerException {
+		UpdateResponse response = solrClient.commit(collection, false, true, true);
+		return "Solr accepted the " + payload + " (" + bytes + " bytes) for collection '" + collection
+				+ "' and committed it (status " + response.getStatus() + ", " + response.getQTime() + " ms)";
+	}
+
+	/**
 	 * Maximum number of distinct field names listed in an indexing response before
 	 * the remainder is elided.
 	 */
@@ -564,7 +671,20 @@ public class IndexingService {
 				%s
 
 				3. Index the documents.
-				   - Call `%s` with `collection=%s` and `%s=<%s>`.
+				   - If the data is reachable at an http(s) URL, prefer `index-url` with `collection` and
+				     `url`, whatever its size; optionally override the detected `format`. The URL is
+				     fetched by the MCP server, so it must be reachable from the server's network and its
+				     host must be on the server's allow-list (GitHub raw content by default).
+				   - If the data is a file on the user's machine that is too large to paste, do not push
+				     it through this conversation. Give the user this
+				     command to run where the file is, with their collection name and Solr URL filled
+				     in, then continue with step 4:
+				     `bin/solr post -c <collection> <file>`
+				     or `curl -X POST '<solr-url>/<collection>/update?commit=true' -H 'Content-Type: application/json' --data-binary @<file>`
+				     (use `Content-Type: text/csv` or `application/xml` for those formats).
+				   - Otherwise, for small pasted or attached data, call `%s` with `collection=%s` and
+				     `%s=<%s>`. Use one path only; do not also send inline data after a successful URL
+				     call.
 				   - The tool commits at the end. For JSON and markdown the return value is the count
 				     of successfully indexed documents; for CSV and XML it confirms that Solr accepted
 				     the whole payload, and step 4 is where you learn the count.
@@ -579,7 +699,8 @@ public class IndexingService {
 
 				Next step suggestion: once data is indexed, the `search-collection` prompt drives
 				searching it.
-				""".formatted(indexTool.format(), collection, collection, sampleSection, indexTool.name(), collection,
-				indexTool.paramName(), indexTool.payload(), collection);
+				"""
+				.formatted(indexTool.format(), collection, collection, sampleSection, indexTool.name(), collection,
+						indexTool.paramName(), indexTool.payload(), collection);
 	}
 }

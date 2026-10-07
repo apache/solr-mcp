@@ -16,6 +16,9 @@
  */
 package org.apache.solr.mcp.server.indexing;
 
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.StringReader;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
@@ -60,21 +63,55 @@ final class SolrUpdateXml {
 			throw new DocumentProcessingException("XML input cannot be empty");
 		}
 		try {
-			XMLStreamReader reader = INPUT_FACTORY.createXMLStreamReader(new StringReader(xml));
-			try {
-				// nextTag() skips the prolog, comments and whitespace and throws on
-				// anything else before the root, a DOCTYPE included.
-				reader.nextTag();
-				String root = reader.getLocalName();
-				if (!"add".equals(root)) {
-					throw new DocumentProcessingException("XML input must be a Solr <add> block containing <doc>"
-							+ " elements; <" + root + "> is not accepted by this tool");
-				}
-			} finally {
-				reader.close();
-			}
+			requireAddRoot(INPUT_FACTORY.createXMLStreamReader(new StringReader(xml)));
 		} catch (XMLStreamException e) {
 			throw new DocumentProcessingException("Failed to parse XML document", e);
+		}
+	}
+
+	/**
+	 * The same check on a document that is still arriving, for {@code index-url}:
+	 * reads only up to the root element, through a buffer marked at the start, then
+	 * rewinds so the returned stream yields the whole document from its first byte.
+	 *
+	 * @return the document, from its first byte
+	 * @throws DocumentProcessingException
+	 *             as {@link #requireAddBlock(String)}, or if the root element does
+	 *             not start within the first {@value #ROOT_WITHIN_BYTES} bytes
+	 */
+	static InputStream requireAddBlock(InputStream xml) {
+		BufferedInputStream buffered = new BufferedInputStream(xml, ROOT_WITHIN_BYTES);
+		buffered.mark(ROOT_WITHIN_BYTES);
+		try {
+			requireAddRoot(INPUT_FACTORY.createXMLStreamReader(buffered));
+			buffered.reset();
+		} catch (XMLStreamException e) {
+			throw new DocumentProcessingException("Failed to parse XML document", e);
+		} catch (IOException e) {
+			throw new DocumentProcessingException(
+					"XML input must start its <add> element within the first " + ROOT_WITHIN_BYTES + " bytes", e);
+		}
+		return buffered;
+	}
+
+	/**
+	 * How far into a streamed document its root element must start: the mark limit
+	 * of the buffer the check reads through.
+	 */
+	static final int ROOT_WITHIN_BYTES = 64 * 1024;
+
+	private static void requireAddRoot(XMLStreamReader reader) throws XMLStreamException {
+		try {
+			// nextTag() skips the prolog, comments and whitespace and throws on
+			// anything else before the root, a DOCTYPE included.
+			reader.nextTag();
+			String root = reader.getLocalName();
+			if (!"add".equals(root)) {
+				throw new DocumentProcessingException("XML input must be a Solr <add> block containing <doc>"
+						+ " elements; <" + root + "> is not accepted by this tool");
+			}
+		} finally {
+			reader.close();
 		}
 	}
 }

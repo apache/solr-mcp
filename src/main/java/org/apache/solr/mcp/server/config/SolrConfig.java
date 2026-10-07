@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.apache.solr.client.solrj.request.XMLRequestWriter;
+import org.apache.solr.mcp.server.indexing.UrlIndexingProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -101,7 +102,7 @@ import org.springframework.util.StringUtils;
  * @see org.springframework.boot.context.properties.EnableConfigurationProperties
  */
 @Configuration
-@EnableConfigurationProperties(SolrConfigurationProperties.class)
+@EnableConfigurationProperties({SolrConfigurationProperties.class, UrlIndexingProperties.class})
 public class SolrConfig {
 
 	private static final int CONNECTION_TIMEOUT_MS = 10000;
