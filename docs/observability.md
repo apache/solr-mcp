@@ -103,9 +103,10 @@ curl -s -X POST http://localhost:8080/mcp \
 
 Run it a few times&mdash;each call is one trace and one more request in the metrics.
 
-A successful call writes no log lines, so it has nothing to show in Loki. To see a trace
-with a log attached, make one call that fails; a health check on a collection that does not
-exist logs a `WARN` inside the request:
+A successful `list-collections` call writes no log lines, so it has nothing to show in Loki.
+Of the tools, only `search` logs when it succeeds: one `INFO` line with the collection and
+the hit count. Failures log too; a health check on a collection that does not exist logs a
+`WARN` inside the request:
 
 ```bash
 curl -s -X POST http://localhost:8080/mcp \
@@ -178,9 +179,10 @@ The fastest way through all three signals for one request:
    matching lines in **Loki**, filtered by trace ID. This works because the OTEL logback
    appender (`logback-spring.xml`) tags every log line with the active trace and span ID.
    The link filters on the trace, so it finds the same lines from any span in it.
-3. The link comes up empty for a trace that logged nothing, which is every successful
-   tool call: the services log only on failure. The `check-health` call above is the one
-   to follow; its `WARN` sits under the `CollectionService#checkHealth` span.
+3. The link comes up empty for a trace that logged nothing. A successful `search` logs
+   its collection and hit count, but the other tools log only on failure. The
+   `check-health` call above is one to follow; its `WARN` sits under the
+   `CollectionService#checkHealth` span.
 4. From a log line, the **Trace** link takes you back to its trace.
 5. **Metrics** aren't per-request the same way&mdash;there's no single span/log &harr;
    metric-sample link&mdash;but the PromQL queries above will show the aggregate effect
@@ -208,7 +210,7 @@ curl http://localhost:8080/actuator/loggers       # Logger levels
 |---------|-------------|-----|
 | No traces/metrics/logs show up in Grafana at all | LGTM was never started&mdash;`bootRun` does not start it in either mode | `docker compose up -d lgtm` |
 | Tempo finds nothing right after the calls | Traces take up to a minute to become searchable; metrics are exported once a minute | Wait and re-run the query |
-| **Logs for this span** is empty | The request logged nothing; successful tool calls never do | Expected; follow a failing call such as `check-health` on a missing collection |
+| **Logs for this span** is empty | The request logged nothing; of the successful tool calls, only `search` logs | Expected; follow a `search`, or a failing call such as `check-health` on a missing collection |
 | `http_server_requests_seconds_*` returns nothing in Grafana | Timers are exported over OTLP in milliseconds | Query `http_server_requests_milliseconds_*` |
 | Traces appear but stop after a restart | The `otel-lgtm` container has no persistent volume | Expected; re-run your workload after restarting `lgtm` |
 | OTLP export connection refused | Running the server outside the `search` Docker network (e.g. inside its own container) while LGTM is on the host | Point `OTEL_TRACES_URL`, `OTEL_METRICS_URL` and `OTEL_LOGS_URL` at a reachable host, or join the same Docker network |
