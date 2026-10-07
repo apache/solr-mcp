@@ -429,7 +429,7 @@ public abstract class McpClientIntegrationTestBase {
 				""";
 
 		CallToolResult indexResult = mcpClient.callTool(new CallToolRequest("index-markdown-documents",
-				Map.of("collection", COLLECTION, "markdown", markdown)));
+				Map.of("collection", COLLECTION, "documents", List.of(markdown))));
 
 		assertNotNull(indexResult);
 		assertNotError(indexResult);
@@ -837,6 +837,32 @@ public abstract class McpClientIntegrationTestBase {
 		assertNotNull(result.completion());
 		assertTrue(result.completion().values().contains(COLLECTION),
 				"view-schema prompt completion should resolve the created collection: " + result.completion().values());
+	}
+
+	@Test
+	@Order(39)
+	void blankOptionalSearchEntriesAreIgnoredThroughMcp() throws Exception {
+		var result = mcpClient.callTool(new CallToolRequest("search",
+				Map.of("collection", SHOWS_COLLECTION, "query", "*:*", "rows", 0, "filterQueries", List.of(" "),
+						"facetFields", List.of("", "platform"), "sortClauses",
+						List.of(Map.of("field", "", "order", "")))));
+		assertNotError(result);
+		Map<String, Object> response = OBJECT_MAPPER.readValue(extractText(result), new TypeReference<>() {
+		});
+		assertEquals(SHOWS_DOC_COUNT, getNumFound(response));
+		Map<?, ?> facets = (Map<?, ?>) response.get("facets");
+		Map<?, ?> platforms = (Map<?, ?>) facets.get("platform");
+		assertEquals(20, ((Number) platforms.get("Netflix")).intValue());
+	}
+
+	@Test
+	@Order(40)
+	void searchFailureIsAnActionableMcpToolError() {
+		var result = mcpClient.callTool(new CallToolRequest("search",
+				Map.of("collection", SHOWS_COLLECTION, "facetFields", List.of("nonexistent_field_xyz"))));
+		assertEquals(Boolean.TRUE, result.isError());
+		assertTrue(extractText(result).contains("get-schema"), extractText(result));
+		assertFalse(extractText(result).contains("Exception"), extractText(result));
 	}
 
 	private static String extractFirstMessageText(GetPromptResult result) {

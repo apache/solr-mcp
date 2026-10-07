@@ -288,7 +288,7 @@ names via your client's tool inspector before assuming the data is wrong.
 
 ## Where to go next
 
-- **[Client setup guides](clients/)** — Claude Desktop, Claude Code, VS Code /
+- **[Client setup guides](clients/)** — Claude Desktop, Claude Code, Codex, ChatGPT, VS Code /
   Copilot, Cursor, JetBrains, MCP Inspector
 - **[Security](security/)** — the deployment model, the HTTP transport, and OAuth2
   setup with Auth0 or Keycloak

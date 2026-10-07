@@ -43,8 +43,13 @@ Solr MCP Server is a Spring AI Model Context Protocol (MCP) server that enables 
 ./gradlew nativeCompile -Pnative             # Compile native binary (host OS only)
 ./gradlew nativeTest -Pnative                # Run tests as native image
 
-# Run locally (requires `docker compose up -d` for Solr)
-./gradlew bootRun                  # STDIO mode (default)
+# Run locally
+# STDIO disables Docker Compose auto-start (spring.docker.compose.enabled=false in
+# application-stdio.properties) — run `docker compose up -d` first, same as for the
+# packaged jar/Docker/native image or to start the boot-ignored `lgtm` service.
+docker compose up -d && ./gradlew bootRun    # STDIO mode (default)
+# HTTP mode enables it (application-http.properties), so bootRun auto-starts/stops
+# compose.yaml's solr/zoo via the developmentOnly spring-boot-docker-compose starter.
 PROFILES=http ./gradlew bootRun    # HTTP mode
 ```
 
@@ -111,7 +116,6 @@ in `indexing/documentcreator/`:
 - `SolrDocumentCreator` - Common interface
 - `JsonDocumentCreator`, `MarkdownDocumentCreator` - Format implementations (Jackson, commonmark)
 - `IndexingDocumentCreator` - Orchestrator that delegates to the format-specific creator
-- `FieldNameSanitizer` - Automatic field name validation for Solr compatibility
 
 CSV and XML are forwarded unchanged to Solr's own update handlers (`/update` with
 `text/csv` or `application/xml`); the server does not parse them and field names

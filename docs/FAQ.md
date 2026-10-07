@@ -32,8 +32,7 @@ re-derive it imperfectly every call:
 
 - **Indexing resilience** — 1000-doc batches, single commit, per-doc retry to
   salvage valid docs from a failed batch.
-- **Format hardening** — nested-object flattening and field sanitization for
-  JSON and markdown; for XML, an **XXE-hardened `<add>`-only pre-check** so
+- **Format hardening** — nested-object flattening for JSON; for XML, an **XXE-hardened `<add>`-only pre-check** so
   `<delete>`/`<commit>` cannot ride in on an indexing call.
 - **Metric aggregation** — `get-collection-stats` folds Luke + Metrics APIs,
   normalizes shard names, and degrades gracefully on Solr 10.

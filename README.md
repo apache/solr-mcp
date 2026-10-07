@@ -14,7 +14,7 @@ Just ask your AI assistant:
 
 > *"Find sci-fi movies with 'star wars' in the title released after 2000, show me the genre breakdown, and sort by relevance."*
 
-This Spring AI [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server exposes Solr operations as tools that any MCP-compatible AI client (Claude Desktop, Claude Code, VS Code/Copilot, Cursor, JetBrains) can invoke.
+This Spring AI [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server exposes Solr operations as tools that any MCP-compatible AI client (Claude Desktop, Claude Code, Codex, ChatGPT, VS Code/Copilot, Cursor, JetBrains, Zed) can invoke.
 
 ## Quick start
 
@@ -61,9 +61,12 @@ Add the server to your MCP client. For **Claude Desktop**, edit
 Using a different client, or want STDIO/HTTP/Docker options? See the per-client guides:
 **[Claude Desktop](docs/clients/claude-desktop.md)** ·
 **[Claude Code](docs/clients/claude-code.md)** ·
+**[Codex](docs/clients/codex.md)** ·
+**[ChatGPT](docs/clients/chatgpt.md)** (HTTP only) ·
 **[VS Code / Copilot](docs/clients/vs-code.md)** ·
 **[Cursor](docs/clients/cursor.md)** ·
 **[JetBrains](docs/clients/jetbrains.md)** ·
+**[Zed](docs/clients/zed.md)** ·
 **[MCP Inspector](docs/clients/mcp-inspector.md)**.
 
 #### 4. Try it out
@@ -100,7 +103,7 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 | `index-url` | Index a JSON, CSV, Solr update XML or Markdown document from an http(s) URL on the allow-list (both transports; any size: JSON, CSV and XML stream into Solr) |
 | `index-csv-documents` | Index documents from a CSV string via Solr's CSV handler; repeat a column name for multi-valued fields |
 | `index-xml-documents` | Index documents from Solr update XML (`<add><doc><field name="...">`); only `<add>` blocks are accepted |
-| `index-markdown-documents` | Index a markdown document into a collection, extracting front matter, title, headings, and body text |
+| `index-markdown-documents` | Index markdown documents into a collection (one array element per document), extracting front matter, title, headings, and body text |
 | `create-collection` | Create a collection (configSet, numShards, replicationFactor optional — default `_default`, `1`, `1`) |
 | `list-collections` | List all available Solr collections |
 | `get-collection-stats` | Get statistics and metrics for a collection |
@@ -108,6 +111,9 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 | `add-fields` | Add fields to a collection schema (additive only; existing fields cannot be modified) |
 | `add-field-types` | Add field types — custom analyzers, `DenseVectorField` for semantic search, etc. |
 | `get-schema` | Retrieve schema information for a collection |
+| `list-aliases` | List all Solr aliases and the collections they point to |
+| `create-alias` | Create or update a Solr alias pointing to one or more collections |
+| `delete-alias` | Delete a Solr alias (underlying collections are not affected) |
 
 Every tool advertises MCP behavior hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`) so clients can build sensible approval UX — `search` and the metadata tools are read-only, indexing is destructive but idempotent, schema modification is additive.
 
@@ -177,7 +183,7 @@ Running in **HTTP mode** — OAuth2, CORS, and the `HTTP_SECURITY_ENABLED` toggl
 ## Documentation
 
 **Using it**
-- [Quick start](#quick-start) · [Client setup](docs/clients/) — Claude Desktop, Claude Code, VS Code, Cursor, JetBrains, MCP Inspector
+- [Quick start](#quick-start) · [Client setup](docs/clients/) — Claude Desktop, Claude Code, Codex, ChatGPT, VS Code, Cursor, JetBrains, Zed, MCP Inspector
 - [Tutorial: your first collection](docs/tutorial.md) — index a dataset twice, schemaless then with a designed schema, and see why field types matter
 - [Observability](docs/observability.md) — OpenTelemetry traces, metrics, logs
 - Security: [Deployment model (single-tenant)](docs/security/deployment-model.md) · [STDIO model](docs/security/stdio.md) · [HTTP model](docs/security/http.md) · OAuth2 setup: [Auth0](docs/security/auth0.md) · [Keycloak](docs/security/keycloak.md)
@@ -185,7 +191,7 @@ Running in **HTTP mode** — OAuth2, CORS, and the `HTTP_SECURITY_ENABLED` toggl
 **Developing it**
 - [Development guide](dev-docs/DEVELOPMENT.md) — build, run, test, IDE, native image, SBOM · [Architecture](dev-docs/ARCHITECTURE.md)
 - [Deployment](dev-docs/DEPLOYMENT.md) — Docker images, the three-image matrix, registries, Kubernetes · [Troubleshooting](dev-docs/TROUBLESHOOTING.md)
-- [GraalVM native image spec](dev-docs/graalvm-native-image.md) · [Contributing](CONTRIBUTING.md)
+- [GraalVM native image spec](dev-docs/graalvm-native-image.md) · [Changelog guide](dev-docs/CHANGELOG_GUIDE.md) · [Contributing](CONTRIBUTING.md)
 
 > **Container images:** published images are not yet available on a public registry. The Docker examples in the client guides use a **locally built** image — build it with `./gradlew jibDockerBuild` (produces `solr-mcp:latest`). See [Building Docker images](dev-docs/DEPLOYMENT.md#docker-images-with-jib).
 

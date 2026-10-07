@@ -20,6 +20,7 @@ import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,8 +30,10 @@ import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.AbstractUpdateRequest;
 import org.apache.solr.client.solrj.request.ContentStreamUpdateRequest;
+import org.apache.solr.client.solrj.request.UpdateRequest;
 import org.apache.solr.client.solrj.response.UpdateResponse;
 import org.apache.solr.client.solrj.util.ClientUtils;
+import org.apache.solr.common.SolrException;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.util.ContentStreamBase;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
@@ -52,9 +55,9 @@ import org.springframework.stereotype.Service;
  * <p>
  * This service handles the conversion of JSON, CSV, XML, and markdown documents
  * into Solr-compatible format and manages the indexing process with robust
- * error handling and batch processing capabilities. It employs a schema-less
- * approach where Solr automatically detects field types, eliminating the need
- * for predefined schema configuration.
+ * error handling. It employs a schema-less approach where Solr automatically
+ * detects field types, eliminating the need for predefined schema
+ * configuration.
  *
  * <p>
  * <strong>Core Features:</strong>
@@ -70,13 +73,10 @@ import org.springframework.stereotype.Service;
  * forwarded to Solr's XML update handler
  * <li><strong>Markdown Processing</strong>: Support for markdown documents with
  * front matter, title, and heading extraction
- * <li><strong>Batch Processing</strong>: Efficient bulk indexing with
- * configurable batch sizes
- * <li><strong>Error Resilience</strong>: Individual document fallback when
- * batch operations fail
- * <li><strong>Field Sanitization</strong>: Automatic cleanup of JSON and
- * markdown field names for Solr compatibility; CSV and XML field names are used
- * as given
+ * <li><strong>Error Resilience</strong>: Individual document fallback when Solr
+ * rejects a document
+ * <li><strong>Field Names</strong>: Used as given in every format; nested JSON
+ * objects are flattened with underscores
  * </ul>
  *
  * <p>
@@ -96,13 +96,12 @@ import org.springframework.stereotype.Service;
  * arrays by converting them to multi-valued fields that Solr natively supports.
  *
  * <p>
- * <strong>Batch Processing Strategy:</strong>
+ * <strong>Error Recovery:</strong>
  *
  * <p>
- * Uses configurable batch sizes (default 1000 documents) for optimal
- * performance. If a batch fails, the service automatically retries by indexing
- * documents individually to identify and skip problematic documents while
- * preserving valid ones.
+ * JSON and markdown documents are sent in one update request. If Solr rejects
+ * it because of a bad document, the service retries the documents individually
+ * to skip the problematic ones while preserving valid ones.
  *
  * <p>
  * <strong>Example Usage:</strong>
@@ -126,8 +125,6 @@ import org.springframework.stereotype.Service;
 public class IndexingService {
 
 	private static final Logger logger = LoggerFactory.getLogger(IndexingService.class);
-
-	private static final int DEFAULT_BATCH_SIZE = 1000;
 
 	/** SolrJ client for communicating with Solr server */
 	private final SolrClient solrClient;
@@ -182,7 +179,7 @@ public class IndexingService {
 	 * <ol>
 	 * <li>Parse JSON string into structured documents
 	 * <li>Convert to schema-less SolrInputDocument objects
-	 * <li>Execute batch indexing with error handling
+	 * <li>Index them in one request, with error handling
 	 * <li>Commit changes to make documents searchable
 	 * </ol>
 	 *
@@ -222,8 +219,7 @@ public class IndexingService {
 			annotations = @McpTool.McpAnnotations(idempotentHint = true),
 			description = "Index documents passed as a JSON array of objects into Solr collection; one object"
 					+ " per document, multi-valued fields as arrays, nested objects flattened with underscores."
-					+ " Pass the array itself, not a JSON string. Field names are sanitized for Solr"
-					+ " compatibility (lowercased, special characters replaced with underscores); the response"
+					+ " Pass the array itself, not a JSON string. Field names are used as given; the response"
 					+ " lists the field names as indexed")
 	public String indexJsonDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(
@@ -328,7 +324,8 @@ public class IndexingService {
 	}
 
 	/**
-	 * Indexes a document from a markdown string into a specified Solr collection.
+	 * Indexes markdown documents into a specified Solr collection, one array
+	 * element per document.
 	 *
 	 * <p>
 	 * This method serves as the primary entry point for markdown document indexing
@@ -341,7 +338,7 @@ public class IndexingService {
 	 *
 	 * <ul>
 	 * <li><strong>YAML Front Matter</strong>: Each entry becomes a document field
-	 * with a sanitized name (multi-valued where applicable)
+	 * under its own name (multi-valued where applicable)
 	 * <li><strong>title</strong>: From the {@code title} front matter entry, or the
 	 * first level-1 heading
 	 * <li><strong>headings</strong>: Multi-valued field with the text of every
@@ -355,8 +352,7 @@ public class IndexingService {
 	 *
 	 * <p>
 	 * AI clients can invoke this method with natural language requests like "index
-	 * this markdown file into my_collection" or "add this README to the search
-	 * index".
+	 * these markdown documents into my_collection".
 	 *
 	 * <p>
 	 * <strong>Example Markdown Processing:</strong>
@@ -375,9 +371,9 @@ public class IndexingService {
 	 *
 	 * @param collection
 	 *            the name of the Solr collection to index documents into
-	 * @param markdown
-	 *            markdown string to index, optionally starting with YAML front
-	 *            matter
+	 * @param documents
+	 *            the markdown documents, one string per document
+	 * @return a summary of the indexing result
 	 * @throws IOException
 	 *             if there are critical errors in Solr communication
 	 * @throws SolrServerException
@@ -389,25 +385,32 @@ public class IndexingService {
 	@McpTool(
 			name = "index-markdown-documents",
 			annotations = @McpTool.McpAnnotations(idempotentHint = true),
-			description = "Index a document from markdown String into Solr collection, extracting front matter, title, headings, and body text. "
+			description = "Index markdown documents into Solr collection, one array element per document, extracting front matter, title, headings, and body text from each. "
+					+ "Pass many documents in one call rather than one call per document. "
 					+ "Do NOT use for JSON/CSV/XML input; use index-json-documents, index-csv-documents, or index-xml-documents instead. "
 					+ "Only convert source content to markdown when there is no dedicated tool for the source format, and supply a stable 'id' in the YAML front matter when doing so.")
 	public String indexMarkdownDocuments(@McpToolParam(description = "Solr collection to index into") String collection,
 			@McpToolParam(
-					description = "Markdown string to index, optionally starting with YAML front matter") String markdown)
+					description = "Markdown documents to index, one string per document, each optionally starting with YAML front matter") List<String> documents)
 			throws IOException, SolrServerException {
-		return indexMarkdown(collection, markdown);
+		if (documents == null) {
+			throw new IllegalArgumentException("documents cannot be null");
+		}
+		List<SolrInputDocument> schemalessDoc = new ArrayList<>();
+		for (String markdown : documents) {
+			schemalessDoc.addAll(indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown));
+		}
+		int successCount = indexDocuments(collection, schemalessDoc);
+		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
+				+ collection + "'";
 	}
 
 	/**
 	 * The parse-and-index behind {@code index-markdown-documents}, shared with
-	 * {@code index-url}.
+	 * {@code index-url}, which fetches one Markdown file as a single string.
 	 */
 	String indexMarkdown(String collection, String markdown) throws IOException, SolrServerException {
-		List<SolrInputDocument> schemalessDoc = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
-		int successCount = indexDocuments(collection, schemalessDoc);
-		return "Successfully indexed " + successCount + " of " + schemalessDoc.size() + " documents into collection '"
-				+ collection + "'";
+		return indexMarkdownDocuments(collection, List.of(markdown));
 	}
 
 	/**
@@ -514,11 +517,9 @@ public class IndexingService {
 	private static final int MAX_REPORTED_FIELDS = 50;
 
 	/**
-	 * Summarizes the field names that were actually indexed. Document creators
-	 * sanitize input field names for Solr compatibility (lowercasing, replacing
-	 * special characters with underscores), so the indexed names can differ from
-	 * the input; reporting them lets MCP clients query the right fields instead of
-	 * assuming the input names survived.
+	 * Summarizes the field names that were indexed. Nested JSON objects are
+	 * flattened with underscores, so the indexed names can differ from the input;
+	 * reporting them lets MCP clients query the right fields.
 	 *
 	 * @param documents
 	 *            the documents that were submitted for indexing
@@ -535,111 +536,56 @@ public class IndexingService {
 		String elided = fieldNames.size() > MAX_REPORTED_FIELDS
 				? " and " + (fieldNames.size() - MAX_REPORTED_FIELDS) + " more"
 				: "";
-		return ". Indexed field names (input names are sanitized for Solr compatibility): " + listed + elided;
+		return ". Indexed field names: " + listed + elided;
 	}
 
 	/**
-	 * Indexes a list of SolrInputDocument objects into a Solr collection using
-	 * batch processing.
+	 * Indexes documents into a Solr collection in one update request that also
+	 * carries the soft commit, as {@link #forward} does for CSV and XML, so the
+	 * documents are searchable when this returns.
 	 *
 	 * <p>
-	 * This method implements a robust batch indexing strategy that optimizes
-	 * performance while providing resilience against individual document failures.
-	 * It processes documents in configurable batches and includes fallback
-	 * mechanisms for error recovery.
-	 *
-	 * <p>
-	 * <strong>Batch Processing Strategy:</strong>
-	 *
-	 * <ul>
-	 * <li><strong>Batch Size</strong>: Configurable (default 1000) for optimal
-	 * performance
-	 * <li><strong>Error Recovery</strong>: Individual document retry on batch
-	 * failure
-	 * <li><strong>Success Tracking</strong>: Accurate count of successfully indexed
-	 * documents
-	 * <li><strong>Commit Strategy</strong>: Single soft commit after all batches
-	 * for consistency
-	 * </ul>
-	 *
-	 * <p>
-	 * <strong>Error Handling Workflow:</strong>
-	 *
-	 * <ol>
-	 * <li>Attempt batch indexing for optimal performance
-	 * <li>On batch failure, retry each document individually
-	 * <li>Track successful vs failed document counts
-	 * <li>Continue processing remaining batches despite failures
-	 * <li>Commit all successful changes at the end
-	 * </ol>
-	 *
-	 * <p>
-	 * <strong>Performance Considerations:</strong>
-	 *
-	 * <p>
-	 * Batch processing significantly improves indexing performance compared to
-	 * individual document operations. The fallback to individual processing ensures
-	 * maximum document ingestion even when some documents have issues.
-	 *
-	 * <p>
-	 * <strong>Transaction Behavior:</strong>
-	 *
-	 * <p>
-	 * The method soft-commits after all batches are processed, making indexed
-	 * documents immediately searchable. This ensures atomicity at the operation
-	 * level while maintaining performance through batching.
+	 * If Solr rejects the request with a 400 (a document with an unknown field or a
+	 * value of the wrong type), the documents are retried one at a time so the
+	 * valid ones are still indexed, then committed. Any other failure (unknown
+	 * collection, auth, 5xx, Solr unreachable) would fail every retry the same way,
+	 * so it propagates unchanged.
 	 *
 	 * @param collection
 	 *            the name of the Solr collection to index into
 	 * @param documents
-	 *            list of SolrInputDocument objects to index
+	 *            the documents to index
 	 * @return the number of documents successfully indexed
 	 * @throws SolrServerException
-	 *             if there are critical errors in Solr communication
+	 *             if Solr cannot be reached or the commit fails
 	 * @throws IOException
-	 *             if there are critical errors in commit operations
-	 * @see SolrInputDocument
-	 * @see SolrClient#add(String, java.util.Collection)
-	 * @see SolrClient#commit(String, boolean, boolean, boolean)
+	 *             if there are I/O errors during communication
 	 */
 	public int indexDocuments(String collection, List<SolrInputDocument> documents)
 			throws SolrServerException, IOException {
+		UpdateRequest request = new UpdateRequest();
+		request.add(documents);
+		request.setAction(AbstractUpdateRequest.ACTION.COMMIT, false, true, true);
+		try {
+			request.process(solrClient, collection);
+			return documents.size();
+		} catch (SolrException e) {
+			if (e.code() != SolrException.ErrorCode.BAD_REQUEST.code) {
+				throw e;
+			}
+			logger.warn("Solr rejected the batch, retrying documents individually", e);
+		}
+
 		int successCount = 0;
-		final int batchSize = DEFAULT_BATCH_SIZE;
-
-		for (int i = 0; i < documents.size(); i += batchSize) {
-			final int endIndex = Math.min(i + batchSize, documents.size());
-			final List<SolrInputDocument> batch = documents.subList(i, endIndex);
-
+		for (SolrInputDocument doc : documents) {
 			try {
-				solrClient.add(collection, batch);
-				successCount += batch.size();
-			} catch (SolrServerException | IOException | RuntimeException e) {
-				logger.warn("Batch indexing failed, retrying individually", e);
-				// Try indexing documents individually to identify problematic ones
-				for (SolrInputDocument doc : batch) {
-					try {
-						solrClient.add(collection, doc);
-						successCount++;
-					} catch (SolrServerException | IOException | RuntimeException e2) {
-						logger.debug("Failed to index individual document", e2);
-						// Document failed to index - this is expected behavior for problematic
-						// documents
-						// We continue processing the rest of the batch
-					}
-				}
+				solrClient.add(collection, doc);
+				successCount++;
+			} catch (SolrException e) {
+				logger.debug("Failed to index individual document", e);
 			}
 		}
-
-		try {
-			// waitFlush=false, waitSearcher=true, softCommit=true: the documents are
-			// searchable when this method returns, while the hard commit (segment fsync)
-			// is left to Solr's autoCommit, so many small calls do not each force one.
-			solrClient.commit(collection, false, true, true);
-		} catch (SolrServerException | IOException e) {
-			logger.error("Failed to commit after indexing to collection: {}", collection, e);
-			throw e;
-		}
+		solrClient.commit(collection, false, true, true);
 		return successCount;
 	}
 
@@ -667,8 +613,8 @@ public class IndexingService {
 					"the documents as a JSON array of objects, not as a string");
 			case "csv" -> new IndexTool("csv", "index-csv-documents", "csv", "the CSV text");
 			case "xml" -> new IndexTool("xml", "index-xml-documents", "xml", "the XML text");
-			case "markdown", "md" ->
-				new IndexTool("markdown", "index-markdown-documents", "markdown", "the markdown text");
+			case "markdown", "md" -> new IndexTool("markdown", "index-markdown-documents", "documents",
+					"the markdown documents, one string per document, each optionally starting with YAML front matter");
 			default ->
 				throw new IllegalArgumentException("format must be one of json/csv/xml/markdown, got: " + format);
 		};
