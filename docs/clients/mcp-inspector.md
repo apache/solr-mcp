@@ -19,7 +19,7 @@ Servers are added from the **Servers** page with **Add Servers → + Add manuall
 ## STDIO Mode ##
 
 1. **Add Servers → + Add manually**
-2. **Server ID**: `solr-mcp`
+2. **Server ID**: `solr-mcp-stdio`
 3. **Transport**: `stdio (local process)`
 4. **Command**: `java`
 5. **Arguments** (one per line):
@@ -30,7 +30,9 @@ Servers are added from the **Servers** page with **Add Servers → + Add manuall
 6. **Environment**: `SOLR_URL=http://localhost:8983/solr/`
 7. Click **Add**, then switch the server's toggle on
 
-The Inspector runs `java` from the `PATH` of the shell you started it in, and the server needs Java 25. If that `java` is older, put the full path to a Java 25 `java` in **Command**.
+The Inspector runs `java` from the `PATH` of the shell you started it in, and the server needs Java 25. If that `java` is older, the card shows **Failed** and the console on the right shows an `UnsupportedClassVersionError`; put the full path to a Java 25 `java` in **Command**.
+
+Once connected, the protocol log on the right shows the `initialize`, `tools/list`, `prompts/list` and `resources/list` exchange:
 
 ![MCP Inspector connected to the server over STDIO](../../images/mcp-inspector-stdio.png)
 
@@ -62,7 +64,9 @@ The Inspector runs `java` from the `PATH` of the shell you started it in, and th
 
 **Linux users** (Docker option): add `--add-host=host.docker.internal:host-gateway` to the `docker run` command.
 
-![MCP Inspector calling check-health over HTTP](../../images/mcp-inspector-http.png)
+Without a token the Inspector still connects and lists the tools; calling them needs a bearer token (next section).
+
+![MCP Inspector connected to the server over Streamable HTTP](../../images/mcp-inspector-http.png)
 
 ***
 
@@ -79,15 +83,15 @@ Because the server never challenges `/mcp` with `401`, the Inspector's interacti
 
 2. On the server's card, open **Settings → Custom Headers → + Add Header**
 3. Set the key to `Authorization` and the value to `Bearer <token>`
-4. Switch the server's toggle off and on again; headers take effect on the next connect
+4. Close the dialog and click **Reconnect now** on the notice that appears (or switch the server's toggle off and on); headers take effect on the next connect
 
 The token's audience must match the URL the Inspector connects to, so use `http://localhost:8080/mcp` rather than `127.0.0.1` with the Keycloak realm above.
 
 ![MCP Inspector custom Authorization header](../../images/mcp-inspector-http-oauth-headers.png)
 
-With a valid token, tool calls succeed:
+With a valid token, tool calls succeed — here `check-health` on `films`:
 
-![MCP Inspector search succeeding with a bearer token](../../images/mcp-inspector-http-oauth-success.png)
+![MCP Inspector check-health succeeding with a bearer token](../../images/mcp-inspector-http-oauth-success.png)
 
 Without one, every tool call returns `Access Denied`:
 
@@ -97,7 +101,7 @@ See the [HTTP security model](../security/http.md) for server-side OAuth2 setup 
 
 ***
 
-## Resources and completions ##
+## Resources, prompts and completions ##
 
 The **Resources** tab lists `solr://collections` and the `solr://{collection}/schema` template:
 
@@ -106,3 +110,7 @@ The **Resources** tab lists `solr://collections` and the `solr://{collection}/sc
 Typing into the template's `collection` field asks the server for completions, which come back as live collection names:
 
 ![MCP Inspector completing the collection argument](../../images/mcp-inspector-resource-completion.png)
+
+The **Prompts** tab lists the server's six workflow prompts. The `collection` argument of `search-collection` (shown here), `index-data`, `view-schema` and `design-schema` completes the same way:
+
+![MCP Inspector completing a prompt's collection argument](../../images/mcp-inspector-prompt-completion.png)
