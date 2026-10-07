@@ -152,25 +152,25 @@ Suggestions are matched case-insensitively by prefix and capped per request.
 ![Claude Desktop calling Solr MCP tools over STDIO](images/claude-stdio.png)
 
 <details>
-<summary><b>MCP Inspector</b> — STDIO, HTTP, OAuth2, resources and completions</summary>
+<summary><b>MCP Inspector</b> — STDIO, HTTP, OAuth2, resources, prompts and completions</summary>
 
-**STDIO** — the Inspector launches the server with `java -jar`:
+**STDIO** — the Inspector launches the server with `java -jar`; the protocol log shows the tool, prompt and resource lists coming back:
 
 ![MCP Inspector connected to the server over STDIO](images/mcp-inspector-stdio.png)
 
-**HTTP** — `check-health` on `films` over Streamable HTTP at `http://localhost:8080/mcp`:
+**HTTP** — connected over Streamable HTTP at `http://localhost:8080/mcp`. Without a token the client connects and lists tools; calling them needs a bearer token:
 
-![MCP Inspector calling check-health over HTTP](images/mcp-inspector-http.png)
+![MCP Inspector connected to the server over Streamable HTTP](images/mcp-inspector-http.png)
 
 **HTTP with OAuth2** — the bearer token goes in the server's **Settings → Custom Headers**:
 
 ![MCP Inspector custom Authorization header](images/mcp-inspector-http-oauth-headers.png)
 
-With a valid token, tool calls succeed:
+With a valid token, tool calls succeed — here `check-health` on `films`:
 
-![MCP Inspector search succeeding with a bearer token](images/mcp-inspector-http-oauth-success.png)
+![MCP Inspector check-health succeeding with a bearer token](images/mcp-inspector-http-oauth-success.png)
 
-Without one, the client still connects and lists tools, but every tool call returns `Access Denied`:
+Without one, every tool call returns `Access Denied`:
 
 ![MCP Inspector search denied without a bearer token](images/mcp-inspector-http-oauth-failure.png)
 
@@ -181,6 +181,10 @@ Without one, the client still connects and lists tools, but every tool call retu
 **Completions** — the `{collection}` argument of `solr://{collection}/schema` completes to live collection names:
 
 ![MCP Inspector completing the collection argument](images/mcp-inspector-resource-completion.png)
+
+**Prompts** — the `collection` argument of `search-collection` completes the same way:
+
+![MCP Inspector completing a prompt's collection argument](images/mcp-inspector-prompt-completion.png)
 
 </details>
 
