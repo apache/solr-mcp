@@ -322,6 +322,8 @@ public class SearchService {
 			// Add facets if present
 			final var facets = getFacets(queryResponse);
 
+			logger.info("Search on collection {} matched {} documents", collection, documents.getNumFound());
+
 			return new SearchResponse(documents.getNumFound(), documents.getStart(), documents.getMaxScore(), docs,
 					facets);
 		} catch (SolrException e) {
