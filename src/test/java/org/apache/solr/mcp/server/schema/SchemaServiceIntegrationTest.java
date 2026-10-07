@@ -20,7 +20,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 import java.util.Map;
-import org.apache.solr.client.solrj.RemoteSolrException;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
@@ -235,16 +234,8 @@ class SchemaServiceIntegrationTest {
 
 	@Test
 	void addFieldTypes_denseVectorField_schemaRoundTrip() throws Exception {
-		List<Map<String, Object>> vectorType = List.of(Map.of("name", "aft_test_vector", "class",
-				"solr.DenseVectorField", "vectorDimension", 4, "similarityFunction", "cosine"));
-
-		if (TestcontainersConfiguration.solrMajorVersion() < 9) {
-			// DenseVectorField arrived in Solr 9.0; older servers reject the type.
-			assertThrows(RemoteSolrException.class, () -> schemaService.addFieldTypes(TEST_COLLECTION, vectorType));
-			return;
-		}
-
-		schemaService.addFieldTypes(TEST_COLLECTION, vectorType);
+		schemaService.addFieldTypes(TEST_COLLECTION, List.of(Map.of("name", "aft_test_vector", "class",
+				"solr.DenseVectorField", "vectorDimension", 4, "similarityFunction", "cosine")));
 
 		SchemaRepresentation schema = schemaService.getSchema(TEST_COLLECTION);
 		Map<String, Object> vt = schema.getFieldTypes().stream()
