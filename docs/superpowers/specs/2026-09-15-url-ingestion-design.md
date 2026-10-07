@@ -13,6 +13,9 @@ everything else in this spec is unchanged.
 XML now stream into Solr. See
 [`2026-09-24-streaming-and-local-file-ingestion-design.md`](2026-09-24-streaming-and-local-file-ingestion-design.md) §3,
 which supersedes this spec wherever they differ.
+**Amended 2026-10-07:** under STDIO, `index-url` will also take a local file path, so
+"no `index-file`" (§9, D11) now means no *separate* local-file tool. See
+[`2026-09-24-streaming-and-local-file-ingestion-design.md`](2026-09-24-streaming-and-local-file-ingestion-design.md) §4.2.
 
 Written for an implementer with no access to the discussions behind it. §3 lists
 every decision with its reason; §4 to §7 are the specification; §8 is the definition

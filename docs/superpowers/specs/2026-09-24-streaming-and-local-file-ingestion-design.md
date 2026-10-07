@@ -2,7 +2,8 @@
 
 **Date:** 2026-09-24
 **Status:** phase A (§3) implemented in PR #210 on 2026-09-24, with S5 changed to "no
-Markdown limit" (see S5); phase B (§4) not started
+Markdown limit" (see S5). Phase B (§4.2, local paths in `index-url` under STDIO) decided
+2026-10-07, not yet implemented; phase C (SEP-2631) not started
 **Builds on:** [`2026-09-15-url-ingestion-design.md`](2026-09-15-url-ingestion-design.md)
 (`index-url`, PR #210, issue #208), whose §10 this spec replaces.
 
@@ -12,9 +13,10 @@ Two questions, one answer each:
    drop its 10 MB limit and keep a simple interface? *By streaming the download into
    Solr instead of holding it in the server's memory* (§3).
 2. **Files on the user's machine**: how can they be indexed without passing through
-   the model, in both transports? *Today, by Solr's own tooling run on that machine;
-   later, by MCP file upload (SEP-2631). Elicitation was considered and is not the
-   route* (§4).
+   the model? *Under STDIO, by passing the file's path to `index-url`, which streams it
+   like a download. Under HTTP the server cannot see the user's disk, so the file must
+   be at a URL (GitHub, S3); MCP file upload (SEP-2631) can fill that gap later.
+   Elicitation was considered and is not the route* (§4).
 
 ---
 
@@ -32,12 +34,14 @@ itself never crosses it, so what matters is what the **server** can reach:
 |---|---|---|
 | Public web / GitHub | yes, over HTTP | `index-url`, streamed (§3) |
 | S3 / object storage | yes, with a presigned URL on the allow-list | `index-url`, streamed (§3) |
-| User's machine, STDIO | yes (same disk) — but see §4.1 | Solr tooling now; SEP-2631 later (§4) |
-| User's machine, HTTP | no | Solr tooling now; SEP-2631 later (§4) |
+| User's machine, STDIO | yes (same disk) | `index-url` with a local path, streamed (§4.2) |
+| User's machine, HTTP | no | put it at a URL; SEP-2631 later (§4.2) |
 | Small pasted data | arrives in the tool call | the inline `index-*-documents` tools, unchanged |
 
 Rule carried over from PR #194: **no transport-only tools.** Every tool is registered
-identically in STDIO and HTTP, so each route above must work in both.
+identically in STDIO and HTTP. A *source* may still be available in one transport only,
+when the other physically cannot reach it: the user's disk is reachable from a STDIO
+server and not from an HTTP one (§4.2).
 
 ---
 
@@ -186,9 +190,11 @@ index-url(collection, url, format?)
 
 ### 4.1 Options considered
 
-**A. Read a local path on the server (`index-file(path)`).** Works only when the
-server shares the user's disk, i.e. STDIO. Rejected: it was PR #194, closed on
-2026-09-12 as a transport-only tool.
+**A. Read a local path on the server.** Works only when the server shares the user's
+disk, i.e. STDIO. As a separate `index-file(path)` tool it was PR #194, closed on
+2026-09-12 as a transport-only tool. As a source accepted by `index-url`, the tool list
+stays identical in both transports and only the accepted sources differ. **Chosen
+(2026-10-07)** in that form; see §4.2.
 
 **B. Form-mode elicitation.** The server asks the client to show the user a form.
 Form schemas are limited to flat objects of primitive properties (string, number,
@@ -240,16 +246,65 @@ host, and it is where the MCP ecosystem is converging.
 transport the MCP server uses. Its cost is a manual step, and the user's machine must
 be able to reach Solr.
 
-### 4.2 Decision
+### 4.2 Decision (revised 2026-10-07)
 
-- **Now:** E. The `index-data` prompt already tells the model to give the user the
-  `bin/solr post` / `curl` command for local or very large files (PR #210). Keep it.
-- **When SEP-2631 is accepted and supported by Spring AI and at least one major
-  client:** add `index-file(collection, file, format?)` taking a SEP-2631 file
-  reference, registered in both transports, reusing the §3 streaming path unchanged
-  (a file handle is just another input stream).
-- **Revisit C** only if SEP-2631 stalls **and** the HTTP transport has moved to
-  stateful mode for other reasons; even then, STDIO needs its own answer.
+| Source | STDIO | HTTP |
+|---|---|---|
+| Any local file path | ✅ | ❌ refused with a message naming the alternatives |
+| GitHub / S3-style URL on the allow-list | ✅ | ✅ (the only non-inline route) |
+
+**L1. One tool, two kinds of source.** `index-url(collection, url, format?)` keeps its
+name and arguments. Under STDIO, `url` may also be a local path: absolute, `~/…`, or a
+`file:` URL. The file is opened with `ContentStreamBase.FileStream` and goes through
+the same §3 path as a download: JSON, CSV and XML stream to Solr, Markdown is read
+whole, and the commit is sent only after the whole file was read.
+
+**L2. No path allow-list.** Under STDIO the server runs as the user, on the user's
+machine, so any file the user can read can be indexed. The operating system's file
+permissions are the only limit. The path is resolved with `toRealPath()` (it must
+exist and be a regular file) and is not otherwise restricted. In the Docker STDIO
+image the container sees only the directories mounted with `-v`, so "any path" means
+any mounted path there; the JAR and the native binary see the whole disk.
+
+**L3. Local paths are switched on by profile, not by transport code.** A property
+`solr.index-url.local-files` (env `SOLR_INDEX_URL_LOCAL_FILES`) is `true` in
+`application-stdio.properties` and `false` in `application-http.properties`. The tool
+is registered identically in both; only its default differs, as the Docker Compose and
+security defaults already do. An HTTP deployment refuses a path with: `This server
+cannot read files on your machine. Put the file at an http(s) URL on the allow-list
+(for example GitHub or a presigned S3 URL) and pass that URL, or paste small data
+into the inline indexing tools.`
+
+**L4. S3 and S3-compatible storage go through the URL route.** The server holds no
+cloud credentials, so a private bucket needs a presigned URL. The bucket's host must
+be on `allowed-hosts`, whose default stays GitHub only: an operator adds e.g.
+`my-bucket.s3.eu-west-2.amazonaws.com`, or the host of MinIO, R2 or another
+S3-compatible store. `*.amazonaws.com` is not suggested, because it also admits AWS
+API endpoints reachable only from inside a VPC.
+
+**L5. Guidance changes with it.** The server instructions and the `index-data` prompt
+route a local file to `index-url` with its path under STDIO, and under HTTP to a URL
+(or, for a file that exists only on the user's machine, to `bin/solr post` / `curl`
+run where the file is).
+
+**L6. Threat-model impact (to record when implemented).** Under STDIO this is within
+the existing trust boundary: the server already runs as the user. What is new is that
+the model can now choose to read any of the user's files and put the content into
+Solr, where `search` returns it. A prompt injection in data the model reads could use
+that to move e.g. `~/.ssh/id_ed25519` into a Solr collection that other people can
+query. Record it in `THREAT_MODEL.md` §9 (bounded by the client's tool-approval prompt
+and by who can query that Solr) and §11 (misuse: pointing a STDIO server at a shared
+Solr). Under HTTP nothing changes, because the property is off by default; an operator
+who turns it on exposes the server's own disk to every authenticated client, which
+§11 records as misuse.
+
+**Later: SEP-2631.** When SEP-2631 is accepted and supported by Spring AI and at least
+one major client, add a way to pass a SEP-2631 file reference, reusing the §3
+streaming path unchanged (a file handle is just another input stream). That closes the
+HTTP gap for files that exist only on the user's machine.
+
+**Revisit C** only if SEP-2631 stalls **and** the HTTP transport has moved to stateful
+mode for other reasons.
 
 ---
 
@@ -258,7 +313,8 @@ be able to reach Solr.
 | Phase | Scope | Depends on |
 |---|---|---|
 | A (done) | §3: stream JSON/CSV/XML in `index-url`, remove `SOLR_INDEX_URL_MAX_BYTES`, partial-transfer handling | PR #210 |
-| B | §4.2: `index-file` via SEP-2631, both transports, reusing phase A | SEP-2631 accepted; Spring AI support |
+| B | §4.2 L1–L6: local paths in `index-url` under STDIO, refused under HTTP | phase A; planned for PR #210 |
+| C | §4.2 later: SEP-2631 file references, both transports, reusing phase A | SEP-2631 accepted; Spring AI support |
 
 Phase A can land in PR #210 itself or as a follow-up PR; it changes no tool signature.
 
@@ -267,6 +323,8 @@ Phase A can land in PR #210 itself or as a follow-up PR; it changes no tool sign
 1. Whether the concurrency limit and total timeout defaults (4, 5 m) still fit now
    that the size cap is gone; the total timeout is the practical bound on file size.
 2. Whether Markdown should regain a limit (S5).
+3. Whether an HTTP operator should be able to switch `local-files` on at all, or
+   whether it should be impossible outside the `stdio` profile (L3).
 
 Resolved during phase A: S4 (verified, above); the success reply reports the byte
 count; the XML root must start within the first 64 KB
