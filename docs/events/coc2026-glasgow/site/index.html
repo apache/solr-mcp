@@ -2164,18 +2164,19 @@ cd solr-mcp
     <summary>Native builds and every way to run it <span class="hint">jar · native binary · Docker × stdio · http</span></summary>
     <div class="panel-body">
       <p>
-        Six ways to run the server, from one checkout. Each row is a build command and a run
-        command; <b>stdio</b> is launched by your client, <b>http</b> is a process you start
-        yourself (<a href="#s2">step 2</a>). Everything here uses the clone from
-        <a href="#build-local">Build it yourself</a>, with Solr from step 1 running.
+        Each form below has a build command and a run command, for the <b>Run via</b> and
+        <b>Transport</b> you picked in <a href="#s0">step 0</a>. <b>JAR</b> shows what runs
+        directly on your machine, the JVM jar and the native binary. <b>Docker</b> shows the two
+        images. Everything here uses the clone from <a href="#build-local">Build it yourself</a>,
+        with Solr from step 1 running.
       </p>
       <table>
         <thead><tr><th>Form</th><th>stdio</th><th>http</th><th>Needs</th></tr></thead>
         <tbody>
-          <tr><td>JVM jar</td><td><a href="#bn-jar">one build, both</a></td><td><a href="#bn-jar">same jar</a></td><td>JDK 25</td></tr>
-          <tr><td>JVM Docker image (Jib)</td><td><a href="#bn-docker">one image, both</a></td><td><a href="#bn-docker">same image</a></td><td>JDK 25, Docker</td></tr>
-          <tr><td>Native binary</td><td><a href="#bn-bin">build with stdio</a></td><td><a href="#bn-bin">build with http</a></td><td>GraalVM JDK 25</td></tr>
-          <tr><td>Native Docker image</td><td><a href="#bn-ndocker">…-native-stdio</a></td><td><a href="#bn-ndocker">…-native-http</a></td><td>Docker only</td></tr>
+          <tr data-runtime="jar"><td>JVM jar</td><td><a href="#bn-jar">one build, both</a></td><td><a href="#bn-jar">same jar</a></td><td>JDK 25</td></tr>
+          <tr data-runtime="jar"><td>Native binary</td><td><a href="#bn-bin">build with stdio</a></td><td><a href="#bn-bin">build with http</a></td><td>GraalVM JDK 25</td></tr>
+          <tr data-runtime="docker"><td>JVM Docker image (Jib)</td><td><a href="#bn-docker">one image, both</a></td><td><a href="#bn-docker">same image</a></td><td>JDK 25, Docker</td></tr>
+          <tr data-runtime="docker"><td>Native Docker image</td><td><a href="#bn-ndocker">…-native-stdio</a></td><td><a href="#bn-ndocker">…-native-http</a></td><td>Docker only</td></tr>
         </tbody>
       </table>
       <p style="font-size:.86rem;color:var(--ink-2)">
@@ -2186,101 +2187,111 @@ cd solr-mcp
         Solr from step 1.
       </p>
 
+      <div data-runtime="jar">
       <h3 id="bn-jar">JVM jar</h3>
-      <div class="codeblock"><button class="copy" type="button">Copy</button><pre><code>./gradlew build                                  <span class="tok-c"># build/libs/solr-mcp-1.0.0-SNAPSHOT.jar</span>
+      <div class="codeblock" data-transport="stdio"><button class="copy" type="button">Copy</button><pre><code>./gradlew build                                  <span class="tok-c"># build/libs/solr-mcp-1.0.0-SNAPSHOT.jar</span>
 
 <span class="tok-c"># stdio: your client runs this</span>
 SOLR_URL=http://localhost:8983/solr/ \
-  java -jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar
+  java -jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
+      <div class="codeblock" data-transport="http"><button class="copy" type="button">Copy</button><pre><code>./gradlew build                                  <span class="tok-c"># build/libs/solr-mcp-1.0.0-SNAPSHOT.jar</span>
 
 <span class="tok-c"># http: you run this</span>
 PROFILES=http HTTP_SECURITY_ENABLED=false SOLR_URL=http://localhost:8983/solr/ \
   java -jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
-
-      <h3 id="bn-docker">JVM Docker image (Jib)</h3>
-      <div class="codeblock"><button class="copy" type="button">Copy</button><pre><code>./gradlew jibDockerBuild                         <span class="tok-c"># solr-mcp:latest</span>
-
-<span class="tok-c"># stdio: your client runs this (-i keeps stdin open)</span>
-docker run -i --rm --add-host=host.docker.internal:host-gateway \
-  -e SOLR_URL=http://host.docker.internal:8983/solr/ \
-  solr-mcp:latest
-
-<span class="tok-c"># http</span>
-docker run -p 8080:8080 --rm --add-host=host.docker.internal:host-gateway \
-  -e PROFILES=http -e HTTP_SECURITY_ENABLED=false \
-  -e SOLR_URL=http://host.docker.internal:8983/solr/ \
-  solr-mcp:latest</code></pre></div>
 
       <h3 id="bn-bin">Native binary (host OS only)</h3>
       <p>
         Needs GraalVM JDK 25 on <code class="inline">JAVA_HOME</code>. The first compile takes
         several minutes. The binary only runs on the OS and CPU you built it on.
       </p>
-      <div class="codeblock"><button class="copy" type="button">Copy</button><pre><code><span class="tok-c"># stdio</span>
+      <div class="codeblock" data-transport="stdio"><button class="copy" type="button">Copy</button><pre><code><span class="tok-c"># stdio: your client runs the binary</span>
 ./gradlew nativeCompile -Pnative
-SOLR_URL=http://localhost:8983/solr/ build/native/nativeCompile/solr-mcp
-
-<span class="tok-c"># http (a separate build: the transport and the security switch are baked in)</span>
+SOLR_URL=http://localhost:8983/solr/ build/native/nativeCompile/solr-mcp</code></pre></div>
+      <div class="codeblock" data-transport="http"><button class="copy" type="button">Copy</button><pre><code><span class="tok-c"># http (the transport and the security switch are baked in at build time)</span>
 HTTP_SECURITY_ENABLED=false ./gradlew nativeCompile -Pnative -Pprofile=http
 PROFILES=http HTTP_SECURITY_ENABLED=false SOLR_URL=http://localhost:8983/solr/ \
   build/native/nativeCompile/solr-mcp</code></pre></div>
+      </div>
+
+      <div data-runtime="docker">
+      <h3 id="bn-docker">JVM Docker image (Jib)</h3>
+      <div class="codeblock" data-transport="stdio"><button class="copy" type="button">Copy</button><pre><code>./gradlew jibDockerBuild                         <span class="tok-c"># solr-mcp:latest</span>
+
+<span class="tok-c"># stdio: your client runs this (-i keeps stdin open)</span>
+docker run -i --rm --add-host=host.docker.internal:host-gateway \
+  -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+  solr-mcp:latest</code></pre></div>
+      <div class="codeblock" data-transport="http"><button class="copy" type="button">Copy</button><pre><code>./gradlew jibDockerBuild                         <span class="tok-c"># solr-mcp:latest</span>
+
+<span class="tok-c"># http: you run this</span>
+docker run -p 8080:8080 --rm --add-host=host.docker.internal:host-gateway \
+  -e PROFILES=http -e HTTP_SECURITY_ENABLED=false \
+  -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+  solr-mcp:latest</code></pre></div>
 
       <h3 id="bn-ndocker">Native Docker image</h3>
       <p>
         Prebuilt for this event, for Intel and Apple-silicon machines alike — nothing to build:
       </p>
-      <div class="codeblock"><button class="copy" type="button">Copy</button><pre><code><span class="tok-c"># stdio</span>
+      <div class="codeblock" data-transport="stdio"><button class="copy" type="button">Copy</button><pre><code><span class="tok-c"># stdio: your client runs this</span>
 docker run -i --rm --add-host=host.docker.internal:host-gateway \
   -e SOLR_URL=http://host.docker.internal:8983/solr/ \
-  ghcr.io/adityamparikh/solr-mcp:coc2026-native-stdio
-
-<span class="tok-c"># http</span>
+  ghcr.io/adityamparikh/solr-mcp:coc2026-native-stdio</code></pre></div>
+      <div class="codeblock" data-transport="http"><button class="copy" type="button">Copy</button><pre><code><span class="tok-c"># http: you run this</span>
 docker run -p 8080:8080 --rm --add-host=host.docker.internal:host-gateway \
   -e PROFILES=http -e HTTP_SECURITY_ENABLED=false \
   -e SOLR_URL=http://host.docker.internal:8983/solr/ \
   ghcr.io/adityamparikh/solr-mcp:coc2026-native-http</code></pre></div>
       <p>
-        Or build them yourself, inside a Linux builder container, so it works on macOS, Linux and
+        Or build it yourself, inside a Linux builder container, so it works on macOS, Linux and
         Windows without installing GraalVM. Needs Docker and a few minutes.
       </p>
-      <div class="codeblock"><button class="copy" type="button">Copy</button><pre><code><span class="tok-c"># stdio</span>
-./gradlew bootBuildImage -Pnative                <span class="tok-c"># solr-mcp:latest-native-stdio</span>
+      <div class="codeblock" data-transport="stdio"><button class="copy" type="button">Copy</button><pre><code>./gradlew bootBuildImage -Pnative                <span class="tok-c"># solr-mcp:latest-native-stdio</span>
 docker run -i --rm --add-host=host.docker.internal:host-gateway \
   -e SOLR_URL=http://host.docker.internal:8983/solr/ \
-  solr-mcp:latest-native-stdio
-
-<span class="tok-c"># http</span>
-HTTP_SECURITY_ENABLED=false ./gradlew bootBuildImage -Pnative -Pprofile=http <span class="tok-c"># solr-mcp:latest-native-http</span>
+  solr-mcp:latest-native-stdio</code></pre></div>
+      <div class="codeblock" data-transport="http"><button class="copy" type="button">Copy</button><pre><code>HTTP_SECURITY_ENABLED=false ./gradlew bootBuildImage -Pnative -Pprofile=http <span class="tok-c"># solr-mcp:latest-native-http</span>
 docker run -p 8080:8080 --rm --add-host=host.docker.internal:host-gateway \
   -e PROFILES=http -e HTTP_SECURITY_ENABLED=false \
   -e SOLR_URL=http://host.docker.internal:8983/solr/ \
   solr-mcp:latest-native-http</code></pre></div>
+      </div>
+
       <div class="note warn">
         <span class="tag">Mixing them up fails quietly</span>
-        <p>
+        <p data-runtime="docker">
           The <code class="inline">-native-stdio</code> image has no web server in it, and the
           <code class="inline">-native-http</code> image has no stdio transport. Pointing a client
           at the wrong one gives a timeout, not a helpful error.
         </p>
+        <p data-runtime="jar">
+          A native binary built without <code class="inline">-Pprofile=http</code> has no web
+          server in it, and one built with it has no stdio transport. Pointing a client at the
+          wrong one gives a timeout, not a helpful error.
+        </p>
       </div>
-      <div class="note warn">
+      <div class="note warn" data-transport="http">
         <span class="tag">Native http picks its security when it is built</span>
         <p>
           Spring AOT fixes the security setup inside the binary, so
           <code class="inline">HTTP_SECURITY_ENABLED</code> only counts at build time; at run time
           a native http server ignores it. That is why the build commands above set it. Built
           without it, every tool answers <q>Access Denied</q> until you configure OAuth2
-          (<a href="#secured">Security setup</a>). The prebuilt
+          (<a href="#secured">Security setup</a>).<span data-runtime="docker"> The prebuilt
           <code class="inline">coc2026-native-http</code> image is built with security off, for
-          use on your own machine only.
+          use on your own machine only.</span>
         </p>
       </div>
-      <p style="font-size:.86rem;color:var(--ink-2)">
-        To use any of these with a client, take the matching config from
-        <a href="#s2">step 2</a> and swap in the image tag or binary path. Use
-        <code class="inline">solr-mcp:latest</code> where it says
-        <code class="inline">ghcr.io/…</code>, or the binary's absolute path where it says
-        <em>JAR</em>.
+      <p style="font-size:.86rem;color:var(--ink-2)" data-runtime="docker">
+        To use one of these images with a client, take the matching config from
+        <a href="#s2">step 2</a> and put the image tag above where it says
+        <code class="inline">ghcr.io/adityamparikh/solr-mcp:coc2026</code>.
+      </p>
+      <p style="font-size:.86rem;color:var(--ink-2)" data-runtime="jar">
+        To use these with a client, take the matching config from <a href="#s2">step 2</a>. For
+        the native binary, put its absolute path in place of
+        <code class="inline">java -jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code>.
       </p>
     </div>
   </details>
