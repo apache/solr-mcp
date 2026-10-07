@@ -40,7 +40,7 @@ public class TestcontainersConfiguration {
 
 	/**
 	 * Major version of the Solr image under test, read from its tag
-	 * ({@code solr:10-slim} is 10, {@code solr:8.11-slim} is 8), for tests whose
+	 * ({@code solr:10-slim} is 10, {@code solr:9.4-slim} is 9), for tests whose
 	 * expected outcome differs by Solr version.
 	 */
 	public static int solrMajorVersion() {
