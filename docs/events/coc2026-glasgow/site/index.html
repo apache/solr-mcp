@@ -694,10 +694,14 @@ sdk install java 25-tem</code></pre></div>
     </div>
     <p>
       SolrCloud mode with embedded ZooKeeper, which is what the collection tools need.
-      Ready in about seven seconds.
+      Ready in about seven seconds. The first line creates a private Docker network: the server's
+      container joins it later and reaches Solr by its name, <code class="inline">solr-mcp-demo</code>.
+      Solr's port is published on <code class="inline">127.0.0.1</code> only, so it answers on
+      your laptop and nobody else on the conference Wi-Fi can reach it.
     </p>
 
-    <div class="codeblock"><button class="copy" type="button">Copy</button><pre><code>docker run -d --name solr-mcp-demo -p 8983:8983 solr:9-slim solr start -c -f</code></pre></div>
+    <div class="codeblock"><button class="copy" type="button">Copy</button><pre><code>docker network create solr-mcp
+docker run -d --name solr-mcp-demo --network=solr-mcp -p 127.0.0.1:8983:8983 solr:9-slim solr start -c -f</code></pre></div>
 
     <p data-runtime="docker">
       While that boots, pull the server image too. It is ~170 MB, and several clients time out
@@ -774,10 +778,10 @@ sdk install java 25-tem</code></pre></div>
         Every client then connects to <code class="inline">http://localhost:8080/mcp</code>.
       </p>
       <div class="codeblock" data-runtime="docker"><button class="copy" type="button">Copy</button><pre><code>docker run -p 127.0.0.1:8080:8080 --rm \
-  --add-host=host.docker.internal:host-gateway \
+  --network=solr-mcp \
   -e PROFILES=http \
   -e HTTP_SECURITY_ENABLED=false \
-  -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+  -e SOLR_URL=http://solr-mcp-demo:8983/solr/ \
   ghcr.io/adityamparikh/solr-mcp:coc2026</code></pre></div>
       <div class="codeblock" data-runtime="jar" data-os="macos linux wsl"><button class="copy" type="button">Copy</button><pre><code>PROFILES=http SERVER_ADDRESS=127.0.0.1 HTTP_SECURITY_ENABLED=false \
   SOLR_URL=http://localhost:8983/solr/ \
@@ -811,8 +815,8 @@ java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
       <h3>Claude Code</h3>
       <div data-transport="stdio">
       <div class="codeblock" data-runtime="docker"><button class="copy" type="button">Copy</button><pre><code>claude mcp add solr-mcp -- docker run -i --rm \
-  --add-host=host.docker.internal:host-gateway \
-  -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+  --network=solr-mcp \
+  -e SOLR_URL=http://solr-mcp-demo:8983/solr/ \
   ghcr.io/adityamparikh/solr-mcp:coc2026</code></pre></div>
       <div class="codeblock" data-runtime="jar"><button class="copy" type="button">Copy</button><pre><code>claude mcp add solr-mcp \
   -e SOLR_URL=http://localhost:8983/solr/ \
@@ -836,8 +840,8 @@ java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
       <h3>Codex</h3>
       <div data-transport="stdio">
       <div class="codeblock" data-runtime="docker"><button class="copy" type="button">Copy</button><pre><code>codex mcp add solr-mcp -- docker run -i --rm \
-  --add-host=host.docker.internal:host-gateway \
-  -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+  --network=solr-mcp \
+  -e SOLR_URL=http://solr-mcp-demo:8983/solr/ \
   ghcr.io/adityamparikh/solr-mcp:coc2026</code></pre></div>
       <div class="codeblock" data-runtime="jar"><button class="copy" type="button">Copy</button><pre><code>codex mcp add solr-mcp \
   --env SOLR_URL=http://localhost:8983/solr/ \
@@ -932,8 +936,8 @@ java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
     <span class="tok-s">"solr-mcp"</span>: {
       <span class="tok-s">"command"</span>: <span class="tok-s">"docker"</span>,
       <span class="tok-s">"args"</span>: [<span class="tok-s">"run"</span>, <span class="tok-s">"-i"</span>, <span class="tok-s">"--rm"</span>,
-               <span class="tok-s">"--add-host=host.docker.internal:host-gateway"</span>,
-               <span class="tok-s">"-e"</span>, <span class="tok-s">"SOLR_URL=http://host.docker.internal:8983/solr/"</span>,
+               <span class="tok-s">"--network=solr-mcp"</span>,
+               <span class="tok-s">"-e"</span>, <span class="tok-s">"SOLR_URL=http://solr-mcp-demo:8983/solr/"</span>,
                <span class="tok-s">"ghcr.io/adityamparikh/solr-mcp:coc2026"</span>]
     }
   }
@@ -986,8 +990,8 @@ java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
       <span class="tok-s">"type"</span>: <span class="tok-s">"stdio"</span>,
       <span class="tok-s">"command"</span>: <span class="tok-s">"docker"</span>,
       <span class="tok-s">"args"</span>: [<span class="tok-s">"run"</span>, <span class="tok-s">"-i"</span>, <span class="tok-s">"--rm"</span>,
-               <span class="tok-s">"--add-host=host.docker.internal:host-gateway"</span>,
-               <span class="tok-s">"-e"</span>, <span class="tok-s">"SOLR_URL=http://host.docker.internal:8983/solr/"</span>,
+               <span class="tok-s">"--network=solr-mcp"</span>,
+               <span class="tok-s">"-e"</span>, <span class="tok-s">"SOLR_URL=http://solr-mcp-demo:8983/solr/"</span>,
                <span class="tok-s">"ghcr.io/adityamparikh/solr-mcp:coc2026"</span>]
     }
   }
@@ -1026,8 +1030,8 @@ java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
     <span class="tok-s">"solr-mcp"</span>: {
       <span class="tok-s">"command"</span>: <span class="tok-s">"docker"</span>,
       <span class="tok-s">"args"</span>: [<span class="tok-s">"run"</span>, <span class="tok-s">"-i"</span>, <span class="tok-s">"--rm"</span>,
-               <span class="tok-s">"--add-host=host.docker.internal:host-gateway"</span>,
-               <span class="tok-s">"-e"</span>, <span class="tok-s">"SOLR_URL=http://host.docker.internal:8983/solr/"</span>,
+               <span class="tok-s">"--network=solr-mcp"</span>,
+               <span class="tok-s">"-e"</span>, <span class="tok-s">"SOLR_URL=http://solr-mcp-demo:8983/solr/"</span>,
                <span class="tok-s">"ghcr.io/adityamparikh/solr-mcp:coc2026"</span>]
     }
   }
@@ -1066,7 +1070,7 @@ java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
           <tbody>
             <tr><th>Server Name</th><td><code>solr-mcp</code></td></tr>
             <tr><th>Command</th><td><code>docker</code></td></tr>
-            <tr><th>Arguments</th><td><code>run -i --rm --add-host=host.docker.internal:host-gateway -e SOLR_URL=http://host.docker.internal:8983/solr/ ghcr.io/adityamparikh/solr-mcp:coc2026</code></td></tr>
+            <tr><th>Arguments</th><td><code>run -i --rm --network=solr-mcp -e SOLR_URL=http://solr-mcp-demo:8983/solr/ ghcr.io/adityamparikh/solr-mcp:coc2026</code></td></tr>
             <tr><th>Timeout</th><td>60 is fine <em>once the image is pulled</em> — see below</td></tr>
           </tbody>
         </table>
@@ -1104,8 +1108,8 @@ java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
     <span class="tok-s">"solr-mcp"</span>: {
       <span class="tok-s">"command"</span>: <span class="tok-s">"docker"</span>,
       <span class="tok-s">"args"</span>: [<span class="tok-s">"run"</span>, <span class="tok-s">"-i"</span>, <span class="tok-s">"--rm"</span>,
-               <span class="tok-s">"--add-host=host.docker.internal:host-gateway"</span>,
-               <span class="tok-s">"-e"</span>, <span class="tok-s">"SOLR_URL=http://host.docker.internal:8983/solr/"</span>,
+               <span class="tok-s">"--network=solr-mcp"</span>,
+               <span class="tok-s">"-e"</span>, <span class="tok-s">"SOLR_URL=http://solr-mcp-demo:8983/solr/"</span>,
                <span class="tok-s">"ghcr.io/adityamparikh/solr-mcp:coc2026"</span>],
       <span class="tok-s">"env"</span>: {}
     }
@@ -1162,8 +1166,8 @@ java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
     <span class="tok-s">"solr-mcp"</span>: {
       <span class="tok-s">"command"</span>: <span class="tok-s">"docker"</span>,
       <span class="tok-s">"args"</span>: [<span class="tok-s">"run"</span>, <span class="tok-s">"-i"</span>, <span class="tok-s">"--rm"</span>,
-               <span class="tok-s">"--add-host=host.docker.internal:host-gateway"</span>,
-               <span class="tok-s">"-e"</span>, <span class="tok-s">"SOLR_URL=http://host.docker.internal:8983/solr/"</span>,
+               <span class="tok-s">"--network=solr-mcp"</span>,
+               <span class="tok-s">"-e"</span>, <span class="tok-s">"SOLR_URL=http://solr-mcp-demo:8983/solr/"</span>,
                <span class="tok-s">"ghcr.io/adityamparikh/solr-mcp:coc2026"</span>]
     }
   }
@@ -1209,7 +1213,7 @@ java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
         <table>
           <tbody>
             <tr data-runtime="docker"><th>Command</th><td><code>docker</code></td></tr>
-            <tr data-runtime="docker"><th>Arguments</th><td><code>run -i --rm --add-host=host.docker.internal:host-gateway -e SOLR_URL=http://host.docker.internal:8983/solr/ ghcr.io/adityamparikh/solr-mcp:coc2026</code></td></tr>
+            <tr data-runtime="docker"><th>Arguments</th><td><code>run -i --rm --network=solr-mcp -e SOLR_URL=http://solr-mcp-demo:8983/solr/ ghcr.io/adityamparikh/solr-mcp:coc2026</code></td></tr>
             <tr data-runtime="jar"><th>Command</th><td><code>java</code></td></tr>
             <tr data-runtime="jar"><th>Arguments</th><td><code>-jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></td></tr>
           </tbody>
@@ -1927,7 +1931,7 @@ Set in a dystopian future, a woman is forced to live as a concubine under a fund
     </div>
 
     <div class="codeblock"><button class="copy" type="button">Copy</button><pre><code>docker rm -f solr-mcp-demo
-docker run -d --name solr-mcp-demo -p 8983:8983 solr:9-slim solr start -c -f</code></pre></div>
+docker run -d --name solr-mcp-demo --network=solr-mcp -p 127.0.0.1:8983:8983 solr:9-slim solr start -c -f</code></pre></div>
     <p style="font-size:.86rem;color:var(--ink-2)">
       Takes about seven seconds. Wait for the collections endpoint to answer before continuing.
     </p>
@@ -2225,15 +2229,15 @@ PROFILES=http SERVER_ADDRESS=127.0.0.1 HTTP_SECURITY_ENABLED=false \
       <div class="codeblock" data-transport="stdio"><button class="copy" type="button">Copy</button><pre><code>./gradlew jibDockerBuild                         <span class="tok-c"># solr-mcp:latest</span>
 
 <span class="tok-c"># stdio: your client runs this (-i keeps stdin open)</span>
-docker run -i --rm --add-host=host.docker.internal:host-gateway \
-  -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+docker run -i --rm --network=solr-mcp \
+  -e SOLR_URL=http://solr-mcp-demo:8983/solr/ \
   solr-mcp:latest</code></pre></div>
       <div class="codeblock" data-transport="http"><button class="copy" type="button">Copy</button><pre><code>./gradlew jibDockerBuild                         <span class="tok-c"># solr-mcp:latest</span>
 
 <span class="tok-c"># http: you run this</span>
-docker run -p 127.0.0.1:8080:8080 --rm --add-host=host.docker.internal:host-gateway \
+docker run -p 127.0.0.1:8080:8080 --rm --network=solr-mcp \
   -e PROFILES=http -e HTTP_SECURITY_ENABLED=false \
-  -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+  -e SOLR_URL=http://solr-mcp-demo:8983/solr/ \
   solr-mcp:latest</code></pre></div>
 
       <h3 id="bn-ndocker">Native Docker image</h3>
@@ -2241,26 +2245,26 @@ docker run -p 127.0.0.1:8080:8080 --rm --add-host=host.docker.internal:host-gate
         Prebuilt for this event, for Intel and Apple-silicon machines alike — nothing to build:
       </p>
       <div class="codeblock" data-transport="stdio"><button class="copy" type="button">Copy</button><pre><code><span class="tok-c"># stdio: your client runs this</span>
-docker run -i --rm --add-host=host.docker.internal:host-gateway \
-  -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+docker run -i --rm --network=solr-mcp \
+  -e SOLR_URL=http://solr-mcp-demo:8983/solr/ \
   ghcr.io/adityamparikh/solr-mcp:coc2026-native-stdio</code></pre></div>
       <div class="codeblock" data-transport="http"><button class="copy" type="button">Copy</button><pre><code><span class="tok-c"># http: you run this</span>
-docker run -p 127.0.0.1:8080:8080 --rm --add-host=host.docker.internal:host-gateway \
+docker run -p 127.0.0.1:8080:8080 --rm --network=solr-mcp \
   -e PROFILES=http -e HTTP_SECURITY_ENABLED=false \
-  -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+  -e SOLR_URL=http://solr-mcp-demo:8983/solr/ \
   ghcr.io/adityamparikh/solr-mcp:coc2026-native-http</code></pre></div>
       <p>
         Or build it yourself, inside a Linux builder container, so it works on macOS, Linux and
         Windows without installing GraalVM. Needs Docker and a few minutes.
       </p>
       <div class="codeblock" data-transport="stdio"><button class="copy" type="button">Copy</button><pre><code>./gradlew bootBuildImage -Pnative                <span class="tok-c"># solr-mcp:latest-native-stdio</span>
-docker run -i --rm --add-host=host.docker.internal:host-gateway \
-  -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+docker run -i --rm --network=solr-mcp \
+  -e SOLR_URL=http://solr-mcp-demo:8983/solr/ \
   solr-mcp:latest-native-stdio</code></pre></div>
       <div class="codeblock" data-transport="http"><button class="copy" type="button">Copy</button><pre><code>HTTP_SECURITY_ENABLED=false ./gradlew bootBuildImage -Pnative -Pprofile=http <span class="tok-c"># solr-mcp:latest-native-http</span>
-docker run -p 127.0.0.1:8080:8080 --rm --add-host=host.docker.internal:host-gateway \
+docker run -p 127.0.0.1:8080:8080 --rm --network=solr-mcp \
   -e PROFILES=http -e HTTP_SECURITY_ENABLED=false \
-  -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+  -e SOLR_URL=http://solr-mcp-demo:8983/solr/ \
   solr-mcp:latest-native-http</code></pre></div>
       </div>
 
@@ -2332,7 +2336,7 @@ docker run -p 127.0.0.1:8080:8080 --rm --add-host=host.docker.internal:host-gate
 
       <h3>1. Start LGTM</h3>
       <p style="font-size:.86rem;color:var(--ink-2)">Grafana on 3000, the OTLP receiver on 4317 (gRPC) and 4318 (HTTP). The loop waits for the collector; Grafana answers first, and export only works once the collector is up.</p>
-      <div class="codeblock"><button class="copy" type="button">Copy</button><pre><code>docker run -d --name lgtm -p 3000:3000 -p 4317:4317 -p 4318:4318 grafana/otel-lgtm:0.33.0
+      <div class="codeblock"><button class="copy" type="button">Copy</button><pre><code>docker run -d --name lgtm --network=solr-mcp -p 127.0.0.1:3000:3000 -p 127.0.0.1:4317:4317 -p 127.0.0.1:4318:4318 grafana/otel-lgtm:0.33.0
 
 until docker logs lgtm 2&gt;&amp;1 | grep -q "up and running"; do sleep 2; done
 echo "LGTM ready"</code></pre></div>
@@ -2341,8 +2345,9 @@ echo "LGTM ready"</code></pre></div>
       <p style="font-size:.86rem;color:var(--ink-2)" data-runtime="docker">
         Stop the step 2 server first — this one listens on 8080 too. The server exports over
         OTLP/HTTP to <code class="inline">localhost:4318</code> by default, which inside a container
-        is the container itself, so these three variables send traces, metrics and logs to your
-        laptop instead. Each is the full URL for its signal.
+        is the container itself, so these three variables send traces, metrics and logs to the
+        <code class="inline">lgtm</code> container instead, by name over the
+        <code class="inline">solr-mcp</code> network. Each is the full URL for its signal.
       </p>
       <p style="font-size:.86rem;color:var(--ink-2)" data-runtime="jar">
         Stop the step 2 server first — this one listens on 8080 too. From a plain JAR the default
@@ -2350,13 +2355,13 @@ echo "LGTM ready"</code></pre></div>
         step 2: nothing to add.
       </p>
       <div class="codeblock" data-runtime="docker"><button class="copy" type="button">Copy</button><pre><code>docker run -p 127.0.0.1:8080:8080 --rm \
-  --add-host=host.docker.internal:host-gateway \
+  --network=solr-mcp \
   -e PROFILES=http \
   -e HTTP_SECURITY_ENABLED=false \
-  -e SOLR_URL=http://host.docker.internal:8983/solr/ \
-  -e OTEL_TRACES_URL=http://host.docker.internal:4318/v1/traces \
-  -e OTEL_METRICS_URL=http://host.docker.internal:4318/v1/metrics \
-  -e OTEL_LOGS_URL=http://host.docker.internal:4318/v1/logs \
+  -e SOLR_URL=http://solr-mcp-demo:8983/solr/ \
+  -e OTEL_TRACES_URL=http://lgtm:4318/v1/traces \
+  -e OTEL_METRICS_URL=http://lgtm:4318/v1/metrics \
+  -e OTEL_LOGS_URL=http://lgtm:4318/v1/logs \
   ghcr.io/adityamparikh/solr-mcp:coc2026</code></pre></div>
       <div class="codeblock" data-runtime="jar" data-os="macos linux wsl"><button class="copy" type="button">Copy</button><pre><code>PROFILES=http SERVER_ADDRESS=127.0.0.1 HTTP_SECURITY_ENABLED=false \
   SOLR_URL=http://localhost:8983/solr/ \
@@ -2440,7 +2445,7 @@ curl -s -X POST http://localhost:8080/mcp -H "Content-Type: application/json" \
 
       <h3>1. Start Keycloak</h3>
       <p style="font-size:.86rem;color:var(--ink-2)">Port 8180, so it does not collide with the MCP server. The loop waits until Keycloak actually answers; the container is "up" long before that.</p>
-      <div class="codeblock"><button class="copy" type="button">Copy</button><pre><code>docker run -d --name keycloak -p 8180:8080 \
+      <div class="codeblock"><button class="copy" type="button">Copy</button><pre><code>docker run -d --name keycloak -p 127.0.0.1:8180:8080 \
   -e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD=admin \
   quay.io/keycloak/keycloak:26.0 start-dev
 
@@ -2807,10 +2812,11 @@ claude mcp remove solr-mcp</code></pre></div>
       </ol>
 
       <div class="codeblock" data-runtime="docker"><button class="copy" type="button">Copy</button><pre><code>docker run -p 127.0.0.1:8080:8080 --rm \
+  --network=solr-mcp \
   -e PROFILES=http \
   -e HTTP_SECURITY_ENABLED=true \
   -e OAUTH2_ISSUER_URI=https://YOUR-TENANT.us.auth0.com/ \
-  -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+  -e SOLR_URL=http://solr-mcp-demo:8983/solr/ \
   ghcr.io/adityamparikh/solr-mcp:coc2026</code></pre></div>
 
       <div class="codeblock" data-runtime="jar" data-os="macos linux wsl"><button class="copy" type="button">Copy</button><pre><code>PROFILES=http SERVER_ADDRESS=127.0.0.1 HTTP_SECURITY_ENABLED=true \
@@ -2883,7 +2889,7 @@ EOF
             </tr>
             <tr>
               <td>Connects, but every Solr call fails</td>
-              <td><code>SOLR_URL</code> is wrong for the context. From <b>inside</b> a container use <code>host.docker.internal</code>; from a plain JAR use <code>localhost</code>. The <code>--add-host</code> flag in every Docker command here is what makes that name resolve on Linux — it needs Docker 20.10+.</td>
+              <td><code>SOLR_URL</code> is wrong for the context. From <b>inside</b> a container use <code>http://solr-mcp-demo:8983/solr/</code>, which resolves because both containers are on the <code>solr-mcp</code> network from step 1; from a plain JAR use <code>localhost</code>. If Docker says <code>network solr-mcp not found</code>, run <code>docker network create solr-mcp</code> and restart Solr with the step 1 command.</td>
             </tr>
             <tr>
               <td><code>Solr instance is not running in SolrCloud mode</code></td>
@@ -2902,7 +2908,7 @@ EOF
       </div>
       <h3>Start completely over</h3>
       <div class="codeblock"><button class="copy" type="button">Copy</button><pre><code>docker rm -f solr-mcp-demo
-docker run -d --name solr-mcp-demo -p 8983:8983 solr:9-slim solr start -c -f</code></pre></div>
+docker run -d --name solr-mcp-demo --network=solr-mcp -p 127.0.0.1:8983:8983 solr:9-slim solr start -c -f</code></pre></div>
     </div>
   </details>
 
