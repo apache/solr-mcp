@@ -357,10 +357,13 @@ spotless {
 // Gradle's own `project.version` (e.g. "1.0.0-SNAPSHOT") and fails with MissingVersionException
 // if neither is given.
 //
-// See the release process doc (apache/solr-mcp#157; will land as dev-docs/release-process.md)
-// for where this fits in an ASF release.
+// patchChangelog names the new section after `project.version`, so run it after the release
+// commit sets `version` above; `-Pversion=` does not work because this script assigns `version`.
+// versionPrefix matches the release tags (releases/solr-mcp/<x>) so the generated compare and
+// commits links resolve. See dev-docs/CHANGELOG_GUIDE.md and dev-docs/release-process.md.
 changelog {
     repositoryUrl = "https://github.com/apache/solr-mcp"
+    versionPrefix = "releases/solr-mcp/"
     groups = listOf("Added", "Changed", "Fixed", "Security")
 }
 

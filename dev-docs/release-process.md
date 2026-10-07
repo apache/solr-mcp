@@ -47,18 +47,20 @@ changes intended for this release.
 
 Set the exact release version in `build.gradle.kts`.
 
-Prepare a short change summary for the vote. A separate release-notes file in
-the source archive is optional; GitHub Release notes can be published after
-the vote. To update version labels on Linux, run these commands from the
-repository root, then review and publish the branch:
+Promote the `[Unreleased]` section of `CHANGELOG.md` to the release version in
+the same commit. The promoted section is the change summary for the vote and
+the GitHub Release body (see [Changelog Guide](CHANGELOG_GUIDE.md)). To update version
+labels and the changelog on Linux, run these commands from the repository root,
+then review and publish the branch:
 
 ```bash
 sed -i 's/version = "1\.0\.0-SNAPSHOT"/version = "1.0.0"/' build.gradle.kts
+./gradlew patchChangelog --console=plain -q
 rg -l -0 '1\.0\.0-SNAPSHOT' README.md dev-docs -g '*.md' -g '!release-process.md' \
   | xargs -0 -r sed -i 's/1\.0\.0-SNAPSHOT/1.0.0/g'
 git diff --check
-git diff -- build.gradle.kts README.md dev-docs
-git add build.gradle.kts README.md dev-docs
+git diff -- build.gradle.kts CHANGELOG.md README.md dev-docs
+git add build.gradle.kts CHANGELOG.md README.md dev-docs
 git commit -m "chore(release): prepare 1.0.0"
 git status --short                # expected: no output
 git push -u origin branch_1_0_0
