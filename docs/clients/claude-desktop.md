@@ -56,7 +56,9 @@ Build the image first: `./gradlew jibDockerBuild`
 
 ## HTTP Mode ##
 
-HTTP mode connects to a running MCP server via REST endpoints. Start the server first, then configure Claude Desktop to connect using `mcp-remote`.
+HTTP mode connects to a running MCP server over streamable HTTP. Start the server first, then configure Claude Desktop to connect through the `mcp-remote` bridge.
+
+Do not use Claude Desktop's **Settings → Connectors → Add custom connector** for a local server: custom connectors are contacted from Anthropic's cloud, not from your machine, so a `localhost` URL is unreachable there and would need a public HTTPS endpoint with OAuth2 enabled. `mcp-remote` runs locally as a STDIO server and forwards to the HTTP endpoint on your machine, so no tunnel is needed.
 
 ### Start the Server ###
 
@@ -74,6 +76,8 @@ docker run -p 8080:8080 --rm \
     solr-mcp:latest
 ```
 
+The HTTP transport is secured by default: without a bearer token the client still connects and lists the tools, but every tool call returns `Access Denied`. The server never answers `/mcp` with `401`, so no OAuth login starts. For a local experiment on your own machine only, add `HTTP_SECURITY_ENABLED=false` to the server's environment; see the [HTTP security model](../security/http.md) before exposing it to anyone else.
+
 ### Configure Claude Desktop ###
 
 ```json
@@ -89,7 +93,7 @@ docker run -p 8080:8080 --rm \
 
 ### Secured HTTP (bearer token) ###
 
-`mcp-remote` starts an OAuth flow only when the server answers `401`. This server never does that on `/mcp` (the handshake is anonymous; `@PreAuthorize` denies inside each tool), so with the URL alone Claude Desktop connects, lists the tools, and every call returns `Access Denied`. Pass a token from your identity provider with `--header`; `mcp-remote` expands `${TOKEN}` from the `env` block so the secret stays out of the argument list:
+With security on, pass a token from your identity provider with `--header`; `mcp-remote` expands `${TOKEN}` from the `env` block so the secret stays out of the argument list:
 
 ```json
 {

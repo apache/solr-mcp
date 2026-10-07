@@ -23,7 +23,6 @@ src/main/java/org/apache/solr/mcp/server/
 │       ├── JsonDocumentCreator.java        # JSON document parser (implements SolrDocumentCreator)
 │       ├── MarkdownDocumentCreator.java    # Markdown document parser (implements SolrDocumentCreator)
 │       ├── SolrDocumentCreator.java        # Common interface for document creators
-│       ├── FieldNameSanitizer.java         # Field name sanitization utility
 │       └── DocumentProcessingException.java # Indexing exceptions
 └── collection/                           # Collection management functionality
     ├── CollectionService.java         # MCP tools for collection operations
@@ -56,7 +55,7 @@ Spring Boot configuration using properties files:
 Server-side parsing exists only for JSON and Markdown, the formats Solr's update
 handlers do not accept directly:
 
-- Automatically sanitizes field names to comply with Solr schema requirements
+- Uses field names as given, as the CSV and XML pass-throughs do
 - Supports nested JSON structures and multi-valued fields
 - Delegation via service composition (IndexingDocumentCreator) to the appropriate format-specific creator
 
@@ -114,7 +113,6 @@ Additional Jib benefits:
 The document creator pattern allows for:
 - **Extensibility**: Easy to add new format parsers
 - **Testability**: Each creator can be tested independently
-- **Field Sanitization**: Automatic conversion of field names to Solr-compatible format
 - **Explicit Format Selection**: Separate methods for JSON/CSV/XML (no automatic detection)
 
 ### Error Handling

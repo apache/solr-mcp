@@ -58,6 +58,8 @@ Create `.junie/mcp/mcp.json` in your project root:
 
 Start the server in HTTP mode first (`PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar`, or `PROFILES=http ./gradlew bootRun`), then:
 
+The HTTP transport is secured by default: without a bearer token the client still connects and lists the tools, but every tool call returns `Access Denied`. The server never answers `/mcp` with `401`, so no OAuth login starts. For a local experiment on your own machine only, add `HTTP_SECURITY_ENABLED=false` to the server's environment; see the [HTTP security model](../security/http.md) before exposing it to anyone else.
+
 ```json
 {
   "mcpServers": {
@@ -70,7 +72,7 @@ Start the server in HTTP mode first (`PROFILES=http java -jar build/libs/solr-mc
 
 Or in IDE Settings, select the **HTTP** transport and enter `http://localhost:8080/mcp` as the URL. AI Assistant connects using the **Streamable HTTP** transport, which is what this server implements; the legacy SSE transport (a `/sse` URL) is not supported.
 
-With security enabled (the default), this server does not answer an anonymous `/mcp` request with `401`, so the IDE will not start an OAuth flow by itself: it connects, lists the tools, and every call returns `Access Denied`. Supply a token from your identity provider. The portable way is to register the server as a STDIO command through `mcp-remote`, which forwards the header on every request and expands `${TOKEN}` from `env`:
+With security on, supply a token from your identity provider. The portable way is to register the server as a STDIO command through `mcp-remote`, which forwards the header on every request and expands `${TOKEN}` from `env`:
 
 ```json
 {

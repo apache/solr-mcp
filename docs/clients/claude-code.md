@@ -85,6 +85,8 @@ Add to your project root:
 
 Start the server in HTTP mode first (`PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar`, or `PROFILES=http ./gradlew bootRun`), then:
 
+The HTTP transport is secured by default: without a bearer token the client still connects and lists the tools, but every tool call returns `Access Denied`. The server never answers `/mcp` with `401`, so no OAuth login starts. For a local experiment on your own machine only, add `HTTP_SECURITY_ENABLED=false` to the server's environment; see the [HTTP security model](../security/http.md) before exposing it to anyone else.
+
 ### CLI ###
 
 ```bash
@@ -106,7 +108,7 @@ claude mcp add --transport http solr-mcp http://localhost:8080/mcp
 
 ### Secured HTTP (bearer token) ###
 
-Claude Code starts an OAuth flow only when a server answers `401`/`403`. This server never does that on `/mcp` — the handshake is anonymous and `@PreAuthorize` denies inside each tool — so with the URL alone Claude Code shows the server as **connected** and every tool call returns `Access Denied`. Pass a token from your identity provider instead:
+With security on, pass a token from your identity provider:
 
 ```bash
 claude mcp add --transport http solr-mcp http://localhost:8080/mcp \

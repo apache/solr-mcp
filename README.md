@@ -14,7 +14,7 @@ Just ask your AI assistant:
 
 > *"Find sci-fi movies with 'star wars' in the title released after 2000, show me the genre breakdown, and sort by relevance."*
 
-This Spring AI [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server exposes Solr operations as tools that any MCP-compatible AI client (Claude Desktop, Claude Code, Codex, ChatGPT, VS Code/Copilot, Cursor, JetBrains) can invoke.
+This Spring AI [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server exposes Solr operations as tools that any MCP-compatible AI client (Claude Desktop, Claude Code, Codex, ChatGPT, VS Code/Copilot, Cursor, JetBrains, Zed) can invoke.
 
 ## Quick start
 
@@ -66,6 +66,7 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 **[VS Code / Copilot](docs/clients/vs-code.md)** ·
 **[Cursor](docs/clients/cursor.md)** ·
 **[JetBrains](docs/clients/jetbrains.md)** ·
+**[Zed](docs/clients/zed.md)** ·
 **[MCP Inspector](docs/clients/mcp-inspector.md)**.
 
 #### 4. Try it out
@@ -101,7 +102,7 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 | `index-json-documents` | Index documents passed as a JSON array of objects into a collection |
 | `index-csv-documents` | Index documents from a CSV string via Solr's CSV handler; repeat a column name for multi-valued fields |
 | `index-xml-documents` | Index documents from Solr update XML (`<add><doc><field name="...">`); only `<add>` blocks are accepted |
-| `index-markdown-documents` | Index a markdown document into a collection, extracting front matter, title, headings, and body text |
+| `index-markdown-documents` | Index markdown documents into a collection (one array element per document), extracting front matter, title, headings, and body text |
 | `create-collection` | Create a collection (configSet, numShards, replicationFactor optional — default `_default`, `1`, `1`) |
 | `list-collections` | List all available Solr collections |
 | `get-collection-stats` | Get statistics and metrics for a collection |
@@ -158,7 +159,7 @@ Running in **HTTP mode** — OAuth2, CORS, and the `HTTP_SECURITY_ENABLED` toggl
 ## Documentation
 
 **Using it**
-- [Quick start](#quick-start) · [Client setup](docs/clients/) — Claude Desktop, Claude Code, Codex, ChatGPT, VS Code, Cursor, JetBrains, MCP Inspector
+- [Quick start](#quick-start) · [Client setup](docs/clients/) — Claude Desktop, Claude Code, Codex, ChatGPT, VS Code, Cursor, JetBrains, Zed, MCP Inspector
 - [Tutorial: your first collection](docs/tutorial.md) — index a dataset twice, schemaless then with a designed schema, and see why field types matter
 - [Observability](docs/observability.md) — OpenTelemetry traces, metrics, logs
 - Security: [Deployment model (single-tenant)](docs/security/deployment-model.md) · [STDIO model](docs/security/stdio.md) · [HTTP model](docs/security/http.md) · OAuth2 setup: [Auth0](docs/security/auth0.md) · [Keycloak](docs/security/keycloak.md)
@@ -166,7 +167,7 @@ Running in **HTTP mode** — OAuth2, CORS, and the `HTTP_SECURITY_ENABLED` toggl
 **Developing it**
 - [Development guide](dev-docs/DEVELOPMENT.md) — build, run, test, IDE, native image, SBOM · [Architecture](dev-docs/ARCHITECTURE.md)
 - [Deployment](dev-docs/DEPLOYMENT.md) — Docker images, the three-image matrix, registries, Kubernetes · [Troubleshooting](dev-docs/TROUBLESHOOTING.md)
-- [GraalVM native image spec](dev-docs/graalvm-native-image.md) · [Contributing](CONTRIBUTING.md)
+- [GraalVM native image spec](dev-docs/graalvm-native-image.md) · [Changelog guide](dev-docs/CHANGELOG_GUIDE.md) · [Contributing](CONTRIBUTING.md)
 
 > **Container images:** published images are not yet available on a public registry. The Docker examples in the client guides use a **locally built** image — build it with `./gradlew jibDockerBuild` (produces `solr-mcp:latest`). See [Building Docker images](dev-docs/DEPLOYMENT.md#docker-images-with-jib).
 

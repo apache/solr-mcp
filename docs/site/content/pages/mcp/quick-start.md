@@ -126,7 +126,7 @@ Open Claude Desktop and try these prompts:
 
 ## Next Steps ##
 
-* **[Adding to AI Clients](/mcp/clients/claude-desktop.html)** &mdash; configure Claude Code, VS Code, Cursor, JetBrains, or MCP Inspector
+* **[Adding to AI Clients](/mcp/clients/claude-desktop.html)** &mdash; configure Claude Code, VS Code, Cursor, JetBrains, Zed, or MCP Inspector
 * **[Features](/mcp/features.html)** &mdash; explore all available tools and resources
 * **[Security](/mcp/security.html)** &mdash; set up OAuth2 authentication for HTTP mode
 * **[Observability](/mcp/observability.html)** &mdash; enable tracing, metrics, and logging

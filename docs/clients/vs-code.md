@@ -66,6 +66,8 @@ Open VS Code Settings (JSON) and add:
 
 Start the server in HTTP mode first (`PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar`, or `PROFILES=http ./gradlew bootRun`), then:
 
+The HTTP transport is secured by default: without a bearer token the client still connects and lists the tools, but every tool call returns `Access Denied`. The server never answers `/mcp` with `401`, so no OAuth login starts. For a local experiment on your own machine only, add `HTTP_SECURITY_ENABLED=false` to the server's environment; see the [HTTP security model](../security/http.md) before exposing it to anyone else.
+
 ```json
 {
   "servers": {
@@ -77,7 +79,7 @@ Start the server in HTTP mode first (`PROFILES=http java -jar build/libs/solr-mc
 }
 ```
 
-With security enabled (the default), this server does not answer an anonymous `/mcp` request with `401`, so VS Code will not start an OAuth flow by itself: it connects, lists the tools, and every call returns `Access Denied`. Pass a token from your identity provider in `headers`; an `inputs` entry prompts for it once and keeps it out of the file:
+With security on, pass a token from your identity provider in `headers`; an `inputs` entry prompts for it once and keeps it out of the file:
 
 ```json
 {
