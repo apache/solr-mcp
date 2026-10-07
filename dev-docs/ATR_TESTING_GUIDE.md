@@ -4,8 +4,8 @@ This project uses Apache Trusted Releases (ATR) for release staging and
 publishing, but there are **two distinct things** in this repo named "ATR"
 that are easy to conflate:
 
-1. **The real release process today** — manual, driven from the ATR web UI
-   at `release-test.apache.org`. This is what a release manager (RM)
+1. **The real release process today** — manual, driven from the production
+   ATR web UI at `releases.apache.org`. This is what a release manager (RM)
    actually runs.
 2. **A future GitHub Actions automation** — `atr-release.yml` /
    `atr-release-test.yml` — which would drive ATR via its API/OIDC instead
@@ -22,43 +22,15 @@ This revision separates the two so neither is overstated.
 
 ## Part A — The real process today (manual)
 
-The authoritative, current, step-by-step release process is documented in
-[**PR #157, "Release Process"**](https://github.com/apache/solr-mcp/pull/157)
-(branch `add_release_steps` on Eric Pugh's fork). That PR adds
-`dev-docs/release-process.md`, which **does not exist on `main` yet** — the
-PR is open and under review, not merged. Read the PR diff directly
-(`gh pr diff 157 --repo apache/solr-mcp`) for the current text rather than
-relying on a summary here, since it has been revised multiple times.
+The release process is documented step by step in
+[`release-process.md`](release-process.md): preparing the release branch,
+building an immutable candidate tag, signing and staging in ATR, the
+`dev@solr.apache.org` vote, and publishing and announcing through ATR. This
+guide does not repeat it.
 
-**Status of PR #157, as of this writing:**
-
-- It covers, in order: preparing the release branch and version bump,
-  building an immutable release candidate tag, generating the source
-  tarball (`git archive`) alongside the four Gradle-produced JARs, signing
-  and staging everything in ATR (`gpgsign.sh`, an external tool — not
-  scripted in this repo — plus a scoped GPG-sign/checksum loop), voting on
-  `dev@solr.apache.org` (72-hour minimum, with `[VOTE]`/`[RESULT]` email
-  templates), and publishing + announcing (final artifacts land at
-  `https://downloads.apache.org/solr/mcp/<version>/`; ATR's own Finish/
-  Publish action performs the dev-to-release SVN move, so there is no
-  separate manual `svn mv` step).
-- It still carries **open review feedback**: Jan requested changes on
-  2026-07-29, and that review predates the source-tarball and vote/publish
-  sections being added, so it's worth a fresh look rather than assuming the
-  requested changes are unaddressed.
-- It still has **at least one open self-TODO from Eric**
-  (`**ERIC FIND THIS OUT**`) about whether ATR's Finish/Publish action also
-  sends the release announcement email, or whether that still has to be
-  sent manually — unresolved, don't assume an answer either way.
-- Separately from the ASF source release, `.github/workflows/release-publish.yml`
-  in this repo handles the *post-vote* Docker image publish and MCP
-  Registry update — that workflow is unrelated to ATR and already works;
-  it isn't part of what PR #157 documents.
-
-**Follow-up once PR #157 merges:** replace the link above with a direct
-link to `dev-docs/release-process.md`, and delete this pointer paragraph.
-Do not duplicate that file's content here — it is authored and owned by
-that PR, not by this guide.
+Separately from the ASF source release, `.github/workflows/release-publish.yml`
+handles the *post-vote* Docker image publish and MCP Registry update. That
+workflow is unrelated to ATR and is not part of `release-process.md`.
 
 ## Part B — Future: GitHub Actions ATR automation (blocked)
 
@@ -170,8 +142,8 @@ unvalidated workflow.
 
 This is a multi-week-to-multi-month effort (INFRA key provisioning alone is
 typically 2–4 weeks); there is no committed timeline for landing it before
-1.0.0, so Part A (manual, via PR #157) remains the release path for the
-foreseeable future.
+1.0.0, so Part A (manual, via `release-process.md`) remains the release
+path for the foreseeable future.
 
 ### Resources
 

@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -149,6 +150,17 @@ class CollectionServiceIntegrationTest {
 		assertNotNull(handlerStats.updateHandler());
 		assertTrue(handlerStats.updateHandler().requests() > 0,
 				"Update handler should have processed requests from indexing");
+	}
+
+	@Test
+	void testGetCollectionStats_nonExistentCollection_throwsIllegalArgument() {
+		String missing = "non_existent_collection";
+
+		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+				() -> collectionService.getCollectionStats(missing));
+
+		assertTrue(exception.getMessage().contains("Collection not found: " + missing),
+				"Message should name the missing collection: " + exception.getMessage());
 	}
 
 	@Test

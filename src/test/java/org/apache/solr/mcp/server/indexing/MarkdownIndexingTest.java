@@ -153,7 +153,7 @@ class MarkdownIndexingTest {
 	}
 
 	@Test
-	void testFrontMatterFieldNamesAreSanitized() throws Exception {
+	void testFrontMatterFieldNamesAreUsedAsGiven() throws Exception {
 		// Given
 		String markdown = """
 				---
@@ -172,8 +172,8 @@ class MarkdownIndexingTest {
 		assertThat(documents).hasSize(1);
 
 		SolrInputDocument doc = documents.getFirst();
-		assertThat(doc.getFieldValue("created_by")).isEqualTo("Jane Doe");
-		assertThat(doc.getFieldValue("last_updated")).isEqualTo("2026-01-01");
+		assertThat(doc.getFieldValue("Created-By")).isEqualTo("Jane Doe");
+		assertThat(doc.getFieldValue("last.updated")).isEqualTo("2026-01-01");
 	}
 
 	@Test

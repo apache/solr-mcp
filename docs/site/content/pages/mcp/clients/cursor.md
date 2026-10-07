@@ -58,7 +58,27 @@ Create `.cursor/mcp.json` in your project root:
 
 ## HTTP Mode ##
 
-Start the server first (see [Running the Server](https://github.com/apache/solr-mcp#running-the-server)), then:
+### Start the Server ###
+
+```bash
+# JAR
+PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
+
+# Or Gradle
+PROFILES=http ./gradlew bootRun
+
+# Or Docker (local image — build first with ./gradlew jibDockerBuild)
+docker run -p 8080:8080 --rm \
+    -e PROFILES=http \
+    -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+    solr-mcp:latest
+```
+
+**Linux users** (Docker option): add `--add-host=host.docker.internal:host-gateway` to the `docker run` command.
+
+### Configure Cursor ###
+
+The HTTP transport is secured by default: without a bearer token the client still connects and lists the tools, but every tool call returns `Access Denied`. The server never answers `/mcp` with `401`, so no OAuth login starts. For a local experiment on your own machine only, add `HTTP_SECURITY_ENABLED=false` to the server's environment; see [Security](/mcp/security.html) before exposing it to anyone else.
 
 ```json
 {
@@ -70,6 +90,8 @@ Start the server first (see [Running the Server](https://github.com/apache/solr-
 }
 ```
 
+### Secured HTTP (OAuth2) ###
+
 The configuration is the same for secured and unsecured HTTP. Cursor handles the MCP OAuth2 flow automatically.
 
-See the [Cursor MCP documentation](https://docs.cursor.com/context/model-context-protocol) for the latest configuration format.
+See [Security](/mcp/security.html) for server-side OAuth2 setup, and the [Cursor MCP documentation](https://docs.cursor.com/context/model-context-protocol) for the latest configuration format.

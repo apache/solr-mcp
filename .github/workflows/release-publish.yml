@@ -388,11 +388,11 @@ jobs:
           ref: "v${{ inputs.release_version }}-${{ inputs.release_candidate }}"
 
       - name: Set up GraalVM JDK 25
-        uses: graalvm/setup-graalvm@329c42c5f4c343bceb505f0b28cc8499bc2bf174 # v1.5.4 (ASF-allow-listed, no expiry)
+        # GitHub-owned action; see native.yml for why not graalvm/setup-graalvm.
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
         with:
           java-version: '25'
           distribution: 'graalvm'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           cache: 'gradle'
 
       - name: Update version in build.gradle.kts
