@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-Apache Solr MCP 1.0.0 is the project's first release: a Model Context Protocol (MCP) server that lets AI assistants search, index and manage Apache Solr. It runs over STDIO for desktop and IDE clients, or over HTTP for remote use with OAuth2 authentication on by default. It is built on Spring Boot 4.1 and Spring AI 2.0, works with Solr 8.11 through 10, and ships as a JAR (Java 25), a multi-architecture JVM Docker image and GraalVM native images.
+Apache Solr MCP 1.0.0 is the project's first release: a Model Context Protocol (MCP) server that lets AI assistants search, index and manage Apache Solr. It runs over STDIO for desktop and IDE clients, or over HTTP for remote use with OAuth2 authentication on by default. It is built on Spring Boot 4.1 and Spring AI 2.0, works with Solr 9.4 through 10, and ships as a JAR (Java 25), a multi-architecture JVM Docker image and GraalVM native images.
 
 ### Added
 
