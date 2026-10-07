@@ -87,14 +87,6 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
 	 * </ul>
 	 *
 	 * <p>
-	 * <strong>Field Name Sanitization:</strong>
-	 *
-	 * <p>
-	 * Field names are automatically sanitized to ensure Solr compatibility by
-	 * removing special characters and converting to lowercase with underscore
-	 * separators.
-	 *
-	 * <p>
 	 * <strong>Example Transformations:</strong>
 	 *
 	 * <pre>{@code
@@ -110,7 +102,6 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
 	 *             is invalid
 	 * @see SolrInputDocument
 	 * @see #addAllFieldsFlat(SolrInputDocument, JsonNode, String)
-	 * @see FieldNameSanitizer#sanitizeFieldName(String)
 	 */
 	public List<SolrInputDocument> create(String json) throws DocumentProcessingException {
 		if (json.isBlank()) {
@@ -138,7 +129,7 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
 	 * <p>
 	 * The maps are converted to a {@link JsonNode} tree and handed to the same
 	 * {@link #flatten(JsonNode)} walk {@link #create(String)} uses, so both entry
-	 * points flatten and sanitize identically by construction.
+	 * points flatten identically by construction.
 	 *
 	 * @param documents
 	 *            the documents, each a map of field name to value
@@ -219,12 +210,10 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
 	 * @param prefix
 	 *            current field name prefix for nested object flattening
 	 * @see #convertJsonValue(JsonNode)
-	 * @see FieldNameSanitizer#sanitizeFieldName(String)
 	 */
 	private void addAllFieldsFlat(SolrInputDocument doc, JsonNode node, String prefix) {
 		Set<Map.Entry<String, JsonNode>> fields = node.properties();
-		fields.forEach(field -> processFieldValue(doc, field.getValue(),
-				FieldNameSanitizer.sanitizeFieldName(prefix + field.getKey())));
+		fields.forEach(field -> processFieldValue(doc, field.getValue(), prefix + field.getKey()));
 	}
 
 	/**

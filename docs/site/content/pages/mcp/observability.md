@@ -110,6 +110,17 @@ INFO  ... o.a.s.m.s.o.ToolCallLoggingHandler : CollectionService#listCollections
 WARN  ... o.a.s.m.s.o.ToolCallLoggingHandler : SearchService#search failed after 9 ms: java.lang.IllegalArgumentException
 ```
 
+A tool can also log on its own. To see such a line next to the per-call one, make a call
+that fails; a health check on a collection that does not exist logs a `WARN` inside the
+request:
+
+```bash
+curl -s -X POST http://localhost:8080/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","method":"tools/call","id":2,"params":{"name":"check-health","arguments":{"collection":"no-such-collection"}}}'
+```
+
 Traces take up to a minute to become searchable in Tempo, and metrics are exported once
 a minute, so an empty Grafana right after the calls is expected.
 
@@ -166,8 +177,8 @@ The fastest way through all three signals for one request:
    appender (`logback-spring.xml`) tags every log line with the active trace and span ID.
    The link filters on the trace, so it finds the same lines from any span in it.
 3. For a tool call, the link always finds at least the `completed in` or `failed after`
-   line above; any warning the tool logs itself, such as `check-health` on a missing
-   collection, appears alongside it. A request that runs no tool, such as `tools/list`,
+   line above; any warning the tool logs itself, such as the `check-health` call above,
+   appears alongside it. A request that runs no tool, such as `tools/list`,
    logs nothing, so its link is empty.
 4. From a log line, the **Trace** link takes you back to its trace.
 5. **Metrics** aren't per-request the same way&mdash;there's no single span/log &harr;

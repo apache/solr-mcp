@@ -37,6 +37,8 @@ This starts the Inspector UI at `http://localhost:6274`.
             -e SOLR_URL=http://host.docker.internal:8983/solr/ \
             solr-mcp:latest
 
+    The HTTP transport is secured by default: without a bearer token the client still connects and lists the tools, but every tool call returns `Access Denied`. The server never answers `/mcp` with `401`, so no OAuth login starts. For a local experiment on your own machine only, add `HTTP_SECURITY_ENABLED=false` to the server's environment; see the [HTTP security model](../security/http.md) before exposing it to anyone else.
+
 2. In MCP Inspector, enter: `http://localhost:8080/mcp`
 3. Click **Connect**
 

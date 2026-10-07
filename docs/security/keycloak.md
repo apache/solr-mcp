@@ -77,10 +77,35 @@ The Quick Start below is ordered to satisfy both.
 
 You do **not** need to start Solr yourself. `application-http.properties` sets
 `spring.docker.compose.enabled=true`, so `./gradlew bootRun` starts the Solr,
-ZooKeeper and LGTM containers from `compose.yaml` before the application
-context comes up.
+ZooKeeper, LGTM and Keycloak containers from `compose.yaml` before the
+application context comes up.
 
 ## Quick Start
+
+> **The `http` profile now brings its own Keycloak.** `compose.yaml` defines a `keycloak` service
+> that imports `keycloak/solr-mcp-realm.json` on startup, so the realm, both clients and the
+> audience mapper exist before the server asks for a token — and because the service declares a
+> healthcheck, Spring Boot waits for it rather than failing on an unresolvable issuer. Point the
+> server at the imported realm and start it; Spring Boot's Docker Compose support brings Keycloak up
+> (it sits behind the `http` compose profile, so start it by hand with
+> `docker compose --profile http up -d` if you are not using `bootRun`):
+>
+> ```bash
+> export PROFILES=http
+> export OAUTH2_ISSUER_URI=http://localhost:8180/realms/solr-mcp
+> ./gradlew bootRun
+> ```
+>
+> The imported realm provides `solr-mcp-service` (confidential, service accounts, secret
+> `dev-only-not-a-secret`) for machine-to-machine callers, `solr-mcp-client` (public) for MCP
+> Inspector, and `testuser` / `testpassword`. These are development credentials committed on
+> purpose; a real deployment provisions its own. With this realm, skip the client-creation steps
+> below and use `solr-mcp-service` / `dev-only-not-a-secret` wherever a confidential client is needed.
+>
+> The manual walkthrough below remains the reference for what that import contains, and for setting
+> the same thing up against an existing Keycloak. It binds its own container to the same port,
+> 8180, so use one or the other: if you follow it, start the server with
+> `SPRING_DOCKER_COMPOSE_ENABLED=false` so Boot does not bring up a second Keycloak.
 
 This block is runnable end to end — copy the whole thing. It waits for
 Keycloak, creates the realm, client, audience mapper and test user, verifies
@@ -513,8 +538,45 @@ curl -s -X POST "$KC/admin/realms/solr-mcp/clients" \
 
 The audience mapper is **not** optional here either — a service-account token
 without it is rejected with `The aud claim is not valid`, exactly like a user
-token. Retrieve the generated secret from **Clients** → `spring-ai-app` →
-**Credentials**.
+token. The generated secret is at **Clients** → `spring-ai-app` →
+**Credentials** in the console, or over the Admin API:
+
+```bash
+CLIENT_UUID=$(curl -s "$KC/admin/realms/solr-mcp/clients?clientId=spring-ai-app" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq -r '.[0].id')
+
+CLIENT_SECRET=$(curl -s "$KC/admin/realms/solr-mcp/clients/$CLIENT_UUID/client-secret" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq -r '.value')
+```
+
+Requesting a token by hand — the same `client_credentials` grant the Spring
+client will use — confirms the registration before any application code is
+involved, and populates the `$TOKEN` that [step 4](#4-verify) checks:
+
+```bash
+TOKEN=$(curl -s -X POST "$KC/realms/solr-mcp/protocol/openid-connect/token" \
+  -d grant_type=client_credentials \
+  -d client_id=spring-ai-app \
+  -d "client_secret=$CLIENT_SECRET" | jq -r .access_token)
+
+jwt_payload "$TOKEN" | jq .aud
+# [ "http://localhost:8080/mcp", "account" ]
+```
+
+If `aud` is only `"account"`, the `protocolMappers` block above did not take —
+re-check it before moving on, because the failure surfaces much later as a
+`401` from the transport.
+
+Both tokens expire in 300s by default, `$ADMIN_TOKEN` included, and carrying
+this `$TOKEN` as far as [step 4](#4-verify) will usually outlive it. An expired
+token is rejected with the same `401` as a misconfigured one, so read the reason
+before suspecting the mapper:
+
+```bash
+curl -s -i -H "Authorization: Bearer $TOKEN" http://localhost:8080/actuator/metrics \
+  | grep -i www-authenticate
+# ... error_description="... Jwt expired at ..."   -> just request a new token
+```
 
 ### 2. Configure the transport
 

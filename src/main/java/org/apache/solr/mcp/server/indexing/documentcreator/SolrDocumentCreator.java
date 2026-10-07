@@ -26,8 +26,7 @@ import org.apache.solr.common.SolrInputDocument;
  * <p>
  * This interface provides a unified abstraction for converting different
  * document formats (JSON, CSV, XML, etc.) into Solr-compatible
- * SolrInputDocument objects. Implementations handle format-specific parsing and
- * field sanitization to ensure proper Solr indexing.
+ * SolrInputDocument objects. Implementations handle format-specific parsing.
  *
  * <p>
  * <strong>Design Principles:</strong>
@@ -38,8 +37,6 @@ import org.apache.solr.common.SolrInputDocument;
  * without predefined schema
  * <li><strong>Error Handling</strong>: Consistent exception handling across
  * implementations
- * <li><strong>Field Sanitization</strong>: Automatic cleanup of field names for
- * Solr compatibility
  * </ul>
  *
  * <p>
@@ -47,7 +44,6 @@ import org.apache.solr.common.SolrInputDocument;
  *
  * <ul>
  * <li>Handle null or empty input gracefully
- * <li>Sanitize field names using {@link FieldNameSanitizer}
  * <li>Preserve original data types where possible
  * <li>Throw {@link DocumentProcessingException} for processing errors
  * </ul>
@@ -63,7 +59,6 @@ import org.apache.solr.common.SolrInputDocument;
  *
  * @see SolrInputDocument
  * @see DocumentProcessingException
- * @see FieldNameSanitizer
  */
 public interface SolrDocumentCreator {
 
@@ -79,8 +74,6 @@ public interface SolrDocumentCreator {
 	 * <strong>Processing Behavior:</strong>
 	 *
 	 * <ul>
-	 * <li><strong>Field Sanitization</strong>: All field names are sanitized for
-	 * Solr compatibility
 	 * <li><strong>Type Preservation</strong>: Original data types are maintained
 	 * where possible
 	 * <li><strong>Multiple Documents</strong>: Single content string may produce

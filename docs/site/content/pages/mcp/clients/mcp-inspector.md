@@ -15,12 +15,23 @@ This starts the Inspector UI at `http://localhost:6274`.
 
 ***
 
-## STDIO Mode ##
+## STDIO Mode (Recommended) ##
+
+**JAR:**
 
 1. In MCP Inspector, select **STDIO** transport
 2. **Command**: `java`
 3. **Arguments**: `-jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar`
 4. Click **Connect**
+
+**Docker (local image — build first with `./gradlew jibDockerBuild`):**
+
+1. In MCP Inspector, select **STDIO** transport
+2. **Command**: `docker`
+3. **Arguments**: `run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ solr-mcp:latest`
+4. Click **Connect**
+
+**Linux users**: add `--add-host=host.docker.internal:host-gateway` to the arguments.
 
 ***
 
@@ -39,6 +50,8 @@ This starts the Inspector UI at `http://localhost:6274`.
             -e PROFILES=http \
             -e SOLR_URL=http://host.docker.internal:8983/solr/ \
             solr-mcp:latest
+
+    The HTTP transport is secured by default: without a bearer token the client still connects and lists the tools, but every tool call returns `Access Denied`. The server never answers `/mcp` with `401`, so no OAuth login starts. For a local experiment on your own machine only, add `HTTP_SECURITY_ENABLED=false` to the server's environment; see [Security](/mcp/security.html) before exposing it to anyone else.
 
 2. In MCP Inspector, enter: `http://localhost:8080/mcp`
 3. Click **Connect**

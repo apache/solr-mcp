@@ -9,9 +9,12 @@ server's streamable HTTP endpoint at `http://localhost:8080/mcp`).
 |--------|-------|
 | Claude Desktop | [claude-desktop.md](claude-desktop.md) |
 | Claude Code | [claude-code.md](claude-code.md) |
+| Codex | [codex.md](codex.md) |
+| ChatGPT (HTTP only) | [chatgpt.md](chatgpt.md) |
 | VS Code / GitHub Copilot | [vs-code.md](vs-code.md) |
 | Cursor | [cursor.md](cursor.md) |
 | JetBrains IDEs | [jetbrains.md](jetbrains.md) |
+| Zed | [zed.md](zed.md) |
 | MCP Inspector | [mcp-inspector.md](mcp-inspector.md) |
 
 Before connecting, start Solr and build the server — see the

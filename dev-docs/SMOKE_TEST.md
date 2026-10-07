@@ -11,7 +11,7 @@ Every client needs the same three things: `command: java`, `args: -jar /path/to/
 bin/solr start -e techproducts
 ```
 
-You can start any modern version of Solr, but if it's before Solr 10 make sure you start in Cloud mode.
+The server requires SolrCloud; standalone (user-managed) Solr is not supported. Solr 10 starts in SolrCloud mode by default; on earlier versions add `-c` (`bin/solr start -c -e techproducts`).
 
 ## Step 2 — Register the server (pick your client)
 

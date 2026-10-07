@@ -145,26 +145,24 @@ class IndexingServiceIntegrationTest {
 	}
 
 	@Test
-	void indexJsonDocuments_reportsSanitizedFieldNames() throws Exception {
+	void indexJsonDocuments_reportsFieldNamesAsIndexed() throws Exception {
 		String json = """
 				[
 				  {
-				    "id": "sanitize001",
+				    "id": "names001",
 				    "User-Name": "Jane Doe",
-				    "product.price": 9.99
+				    "product": {"price": 9.99}
 				  }
 				]
 				""";
 
 		String result = indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
-		// The response must list the names as indexed, not as submitted, so MCP
-		// clients query the fields that actually exist.
-		assertTrue(result.contains("user_name"));
-		assertTrue(result.contains("product_price"));
-		assertFalse(result.contains("User-Name"));
+		// Names are kept as given; nested objects are flattened with underscores,
+		// which is why the response lists the indexed names.
+		assertTrue(result.contains("User-Name"), result);
+		assertTrue(result.contains("product_price"), result);
 	}
-
 	@Test
 	void testIndexJsonDocuments() throws Exception {
 
@@ -346,69 +344,30 @@ class IndexingServiceIntegrationTest {
 	}
 
 	@Test
-	void testSanitizeFieldName() throws Exception {
-
-		// Test JSON string with field names that need sanitizing
+	void testFieldNamesAreUsedAsGiven() throws Exception {
 		String json = """
 				[
 				  {
 				    "id": "test005",
-				    "invalid-field": "Value with hyphen",
-				    "another.invalid": "Value with dot",
-				    "UPPERCASE": "Value with uppercase",
-				    "multiple__underscores": "Value with multiple underscores"
+				    "first-name": "Value with hyphen",
+				    "product.price": "Value with dot",
+				    "Title": "Value with uppercase"
 				  }
 				]
 				""";
 
-		// Index documents
 		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
-		// Verify documents were indexed with sanitized field names
 		SearchResponse result = searchService.search(COLLECTION_NAME, "id:test005", null, null, null, null, null);
+		assertEquals(1, result.documents().size());
+		Map<String, Object> doc = result.documents().getFirst();
 
-		assertNotNull(result);
-		List<Map<String, Object>> documents = result.documents();
-		assertEquals(1, documents.size());
-
-		Map<String, Object> doc = documents.getFirst();
-
-		// Check that field names were sanitized
-		assertNotNull(doc.get("invalid_field"));
-		Object invalidFieldValue = doc.get("invalid_field");
-		if (invalidFieldValue instanceof List) {
-			assertEquals("Value with hyphen", ((List<?>) invalidFieldValue).getFirst());
-		} else {
-			assertEquals("Value with hyphen", invalidFieldValue);
-		}
-
-		assertNotNull(doc.get("another_invalid"));
-		Object anotherInvalidValue = doc.get("another_invalid");
-		if (anotherInvalidValue instanceof List) {
-			assertEquals("Value with dot", ((List<?>) anotherInvalidValue).getFirst());
-		} else {
-			assertEquals("Value with dot", anotherInvalidValue);
-		}
-
-		// Should be lowercase
-		assertNotNull(doc.get("uppercase"));
-		Object uppercaseValue = doc.get("uppercase");
-		if (uppercaseValue instanceof List) {
-			assertEquals("Value with uppercase", ((List<?>) uppercaseValue).getFirst());
-		} else {
-			assertEquals("Value with uppercase", uppercaseValue);
-		}
-
-		// Multiple underscores should be collapsed
-		assertNotNull(doc.get("multiple_underscores"));
-		Object multipleUnderscoresValue = doc.get("multiple_underscores");
-		if (multipleUnderscoresValue instanceof List) {
-			assertEquals("Value with multiple underscores", ((List<?>) multipleUnderscoresValue).getFirst());
-		} else {
-			assertEquals("Value with multiple underscores", multipleUnderscoresValue);
-		}
+		// Solr accepts these names as they are; field names are case-sensitive
+		assertEquals("Value with hyphen", getFieldValue(doc, "first-name"));
+		assertEquals("Value with dot", getFieldValue(doc, "product.price"));
+		assertEquals("Value with uppercase", getFieldValue(doc, "Title"));
+		assertNull(doc.get("title"));
 	}
-
 	@Test
 	void testDeeplyNestedJsonStructures() throws Exception {
 
@@ -546,8 +505,8 @@ class IndexingServiceIntegrationTest {
 
 		Map<String, Object> doc = documents.getFirst();
 
-		// Check that field names with special characters were sanitized
-		// All special characters should be replaced with underscores
+		// The server sends these names as given; Solr's schemaless update chain
+		// (the _default configset) replaces the special characters with underscores
 		assertNotNull(doc.get("field_with_at"));
 		assertEquals("Value with @ symbols", getFieldValue(doc, "field_with_at"));
 
@@ -727,44 +686,26 @@ class IndexingServiceIntegrationTest {
 	}
 
 	@Test
-	void testDirectSanitizeFieldName() throws Exception {
-		// Test sanitizing field names directly
-		// Create a document with field names that need sanitizing
+	void testDirectFieldNamesAreUsedAsGiven() throws Exception {
 		String json = """
 				[
 				  {
 				    "id": "field_names_001",
 				    "field-with-hyphens": "Value 1",
-				    "field.with.dots": "Value 2",
-				    "field with spaces": "Value 3",
-				    "UPPERCASE_FIELD": "Value 4",
-				    "__leading_underscores__": "Value 5",
-				    "trailing_underscores___": "Value 6",
-				    "multiple___underscores": "Value 7"
+				    "field with spaces": "Value 2",
+				    "UPPERCASE_FIELD": "Value 3",
+				    "nested": {"Inner-Key": "Value 4"}
 				  }
 				]
 				""";
 
-		// Create documents
-		List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
+		SolrInputDocument doc = indexingDocumentCreator.createSchemalessDocumentsFromJson(json).getFirst();
 
-		// Verify documents were created correctly
-		assertNotNull(documents);
-		assertEquals(1, documents.size());
-
-		SolrInputDocument doc = documents.getFirst();
-
-		// Verify field names were sanitized correctly
-		assertEquals("field_names_001", doc.getFieldValue("id"));
-		assertEquals("Value 1", doc.getFieldValue("field_with_hyphens"));
-		assertEquals("Value 2", doc.getFieldValue("field_with_dots"));
-		assertEquals("Value 3", doc.getFieldValue("field_with_spaces"));
-		assertEquals("Value 4", doc.getFieldValue("uppercase_field"));
-		assertEquals("Value 5", doc.getFieldValue("leading_underscores"));
-		assertEquals("Value 6", doc.getFieldValue("trailing_underscores"));
-		assertEquals("Value 7", doc.getFieldValue("multiple_underscores"));
+		assertEquals("Value 1", doc.getFieldValue("field-with-hyphens"));
+		assertEquals("Value 2", doc.getFieldValue("field with spaces"));
+		assertEquals("Value 3", doc.getFieldValue("UPPERCASE_FIELD"));
+		assertEquals("Value 4", doc.getFieldValue("nested_Inner-Key"));
 	}
-
 	@Test
 	void indexCsvDocuments_goesThroughSolrsCsvHandlerWithColumnNamesAsGiven() throws Exception {
 		String result = indexingService.indexCsvDocuments(COLLECTION_NAME, """

@@ -65,7 +65,7 @@ class JsonDocumentCreatorTest {
 		SolrInputDocument result = creator.create(List.of(doc)).getFirst();
 
 		assertThat(result.getFieldValue("id")).isEqualTo("1");
-		assertThat(result.getFieldValue("author_name_first")).isEqualTo("Ann");
+		assertThat(result.getFieldValue("Author.Name_first")).isEqualTo("Ann");
 		assertThat(result.getFieldValues("tags")).containsExactly("a", "b");
 		assertThat(result.getFieldNames()).doesNotContain("missing");
 	}
