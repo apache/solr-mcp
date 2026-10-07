@@ -773,16 +773,17 @@ sdk install java 25-tem</code></pre></div>
         In HTTP mode the server is a process you start yourself, in a terminal you keep open.
         Every client then connects to <code class="inline">http://localhost:8080/mcp</code>.
       </p>
-      <div class="codeblock" data-runtime="docker"><button class="copy" type="button">Copy</button><pre><code>docker run -p 8080:8080 --rm \
+      <div class="codeblock" data-runtime="docker"><button class="copy" type="button">Copy</button><pre><code>docker run -p 127.0.0.1:8080:8080 --rm \
   --add-host=host.docker.internal:host-gateway \
   -e PROFILES=http \
   -e HTTP_SECURITY_ENABLED=false \
   -e SOLR_URL=http://host.docker.internal:8983/solr/ \
   ghcr.io/adityamparikh/solr-mcp:coc2026</code></pre></div>
-      <div class="codeblock" data-runtime="jar" data-os="macos linux wsl"><button class="copy" type="button">Copy</button><pre><code>PROFILES=http HTTP_SECURITY_ENABLED=false SOLR_URL=http://localhost:8983/solr/ \
+      <div class="codeblock" data-runtime="jar" data-os="macos linux wsl"><button class="copy" type="button">Copy</button><pre><code>PROFILES=http SERVER_ADDRESS=127.0.0.1 HTTP_SECURITY_ENABLED=false \
+  SOLR_URL=http://localhost:8983/solr/ \
   java -jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
       <div class="codeblock" data-runtime="jar" data-os="windows"><button class="copy" type="button">Copy</button><pre><code><span class="tok-c"># PowerShell</span>
-$env:PROFILES="http"; $env:HTTP_SECURITY_ENABLED="false"; $env:SOLR_URL="http://localhost:8983/solr/"
+$env:PROFILES="http"; $env:SERVER_ADDRESS="127.0.0.1"; $env:HTTP_SECURITY_ENABLED="false"; $env:SOLR_URL="http://localhost:8983/solr/"
 java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
       <p style="font-size:.86rem;color:var(--ink-2)">
         Ready when <code class="inline">curl http://localhost:8080/actuator/health</code> answers
@@ -795,7 +796,10 @@ java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
           HTTP mode requires OAuth2 out of the box (<code class="inline">HTTP_SECURITY_ENABLED</code>
           defaults to <b>true</b>, the issuer is <code class="inline">OAUTH2_ISSUER_URI</code>).
           <code class="inline">HTTP_SECURITY_ENABLED=false</code> is for a laptop at a hackathon,
-          bound to localhost. Never run it that way on anything other people can reach; the
+          bound to localhost: the commands above listen on <code class="inline">127.0.0.1</code>
+          only (<code class="inline">-p 127.0.0.1:8080:8080</code> for Docker,
+          <code class="inline">SERVER_ADDRESS</code> for the JAR), so nobody else on the
+          conference Wi-Fi can reach it. Never run it that way on anything other people can reach; the
           <a href="#secured">Security setup</a> panel below walks through turning it on, start to finish.
         </p>
       </div>
@@ -2197,7 +2201,8 @@ SOLR_URL=http://localhost:8983/solr/ \
       <div class="codeblock" data-transport="http"><button class="copy" type="button">Copy</button><pre><code>./gradlew build                                  <span class="tok-c"># build/libs/solr-mcp-1.0.0-SNAPSHOT.jar</span>
 
 <span class="tok-c"># http: you run this</span>
-PROFILES=http HTTP_SECURITY_ENABLED=false SOLR_URL=http://localhost:8983/solr/ \
+PROFILES=http SERVER_ADDRESS=127.0.0.1 HTTP_SECURITY_ENABLED=false \
+  SOLR_URL=http://localhost:8983/solr/ \
   java -jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
 
       <h3 id="bn-bin">Native binary (host OS only)</h3>
@@ -2210,7 +2215,8 @@ PROFILES=http HTTP_SECURITY_ENABLED=false SOLR_URL=http://localhost:8983/solr/ \
 SOLR_URL=http://localhost:8983/solr/ build/native/nativeCompile/solr-mcp</code></pre></div>
       <div class="codeblock" data-transport="http"><button class="copy" type="button">Copy</button><pre><code><span class="tok-c"># http (the transport and the security switch are baked in at build time)</span>
 HTTP_SECURITY_ENABLED=false ./gradlew nativeCompile -Pnative -Pprofile=http
-PROFILES=http HTTP_SECURITY_ENABLED=false SOLR_URL=http://localhost:8983/solr/ \
+PROFILES=http SERVER_ADDRESS=127.0.0.1 HTTP_SECURITY_ENABLED=false \
+  SOLR_URL=http://localhost:8983/solr/ \
   build/native/nativeCompile/solr-mcp</code></pre></div>
       </div>
 
@@ -2225,7 +2231,7 @@ docker run -i --rm --add-host=host.docker.internal:host-gateway \
       <div class="codeblock" data-transport="http"><button class="copy" type="button">Copy</button><pre><code>./gradlew jibDockerBuild                         <span class="tok-c"># solr-mcp:latest</span>
 
 <span class="tok-c"># http: you run this</span>
-docker run -p 8080:8080 --rm --add-host=host.docker.internal:host-gateway \
+docker run -p 127.0.0.1:8080:8080 --rm --add-host=host.docker.internal:host-gateway \
   -e PROFILES=http -e HTTP_SECURITY_ENABLED=false \
   -e SOLR_URL=http://host.docker.internal:8983/solr/ \
   solr-mcp:latest</code></pre></div>
@@ -2239,7 +2245,7 @@ docker run -i --rm --add-host=host.docker.internal:host-gateway \
   -e SOLR_URL=http://host.docker.internal:8983/solr/ \
   ghcr.io/adityamparikh/solr-mcp:coc2026-native-stdio</code></pre></div>
       <div class="codeblock" data-transport="http"><button class="copy" type="button">Copy</button><pre><code><span class="tok-c"># http: you run this</span>
-docker run -p 8080:8080 --rm --add-host=host.docker.internal:host-gateway \
+docker run -p 127.0.0.1:8080:8080 --rm --add-host=host.docker.internal:host-gateway \
   -e PROFILES=http -e HTTP_SECURITY_ENABLED=false \
   -e SOLR_URL=http://host.docker.internal:8983/solr/ \
   ghcr.io/adityamparikh/solr-mcp:coc2026-native-http</code></pre></div>
@@ -2252,7 +2258,7 @@ docker run -i --rm --add-host=host.docker.internal:host-gateway \
   -e SOLR_URL=http://host.docker.internal:8983/solr/ \
   solr-mcp:latest-native-stdio</code></pre></div>
       <div class="codeblock" data-transport="http"><button class="copy" type="button">Copy</button><pre><code>HTTP_SECURITY_ENABLED=false ./gradlew bootBuildImage -Pnative -Pprofile=http <span class="tok-c"># solr-mcp:latest-native-http</span>
-docker run -p 8080:8080 --rm --add-host=host.docker.internal:host-gateway \
+docker run -p 127.0.0.1:8080:8080 --rm --add-host=host.docker.internal:host-gateway \
   -e PROFILES=http -e HTTP_SECURITY_ENABLED=false \
   -e SOLR_URL=http://host.docker.internal:8983/solr/ \
   solr-mcp:latest-native-http</code></pre></div>
@@ -2343,7 +2349,7 @@ echo "LGTM ready"</code></pre></div>
         <code class="inline">localhost:4318</code> is already right, so the command is the same as
         step 2: nothing to add.
       </p>
-      <div class="codeblock" data-runtime="docker"><button class="copy" type="button">Copy</button><pre><code>docker run -p 8080:8080 --rm \
+      <div class="codeblock" data-runtime="docker"><button class="copy" type="button">Copy</button><pre><code>docker run -p 127.0.0.1:8080:8080 --rm \
   --add-host=host.docker.internal:host-gateway \
   -e PROFILES=http \
   -e HTTP_SECURITY_ENABLED=false \
@@ -2352,10 +2358,11 @@ echo "LGTM ready"</code></pre></div>
   -e OTEL_METRICS_URL=http://host.docker.internal:4318/v1/metrics \
   -e OTEL_LOGS_URL=http://host.docker.internal:4318/v1/logs \
   ghcr.io/adityamparikh/solr-mcp:coc2026</code></pre></div>
-      <div class="codeblock" data-runtime="jar" data-os="macos linux wsl"><button class="copy" type="button">Copy</button><pre><code>PROFILES=http HTTP_SECURITY_ENABLED=false SOLR_URL=http://localhost:8983/solr/ \
+      <div class="codeblock" data-runtime="jar" data-os="macos linux wsl"><button class="copy" type="button">Copy</button><pre><code>PROFILES=http SERVER_ADDRESS=127.0.0.1 HTTP_SECURITY_ENABLED=false \
+  SOLR_URL=http://localhost:8983/solr/ \
   java -jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
       <div class="codeblock" data-runtime="jar" data-os="windows"><button class="copy" type="button">Copy</button><pre><code><span class="tok-c"># PowerShell</span>
-$env:PROFILES="http"; $env:HTTP_SECURITY_ENABLED="false"; $env:SOLR_URL="http://localhost:8983/solr/"
+$env:PROFILES="http"; $env:SERVER_ADDRESS="127.0.0.1"; $env:HTTP_SECURITY_ENABLED="false"; $env:SOLR_URL="http://localhost:8983/solr/"
 java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
 
       <h3>3. Make some traffic</h3>
@@ -2489,12 +2496,12 @@ curl -sf "$KC/realms/solr-mcp/.well-known/openid-configuration" >/dev/null && ec
         <code class="inline">localhost:8180</code> is not your laptop, and the issuer name has
         to be identical in the container and in the tokens, which takes more setup than a card.
       </p>
-      <div class="codeblock" data-os="macos linux wsl"><button class="copy" type="button">Copy</button><pre><code>PROFILES=http HTTP_SECURITY_ENABLED=true \
+      <div class="codeblock" data-os="macos linux wsl"><button class="copy" type="button">Copy</button><pre><code>PROFILES=http SERVER_ADDRESS=127.0.0.1 HTTP_SECURITY_ENABLED=true \
 OAUTH2_ISSUER_URI=http://localhost:8180/realms/solr-mcp \
 SOLR_URL=http://localhost:8983/solr/ \
 java -jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
       <div class="codeblock" data-os="windows"><button class="copy" type="button">Copy</button><pre><code><span class="tok-c"># PowerShell</span>
-$env:PROFILES="http"; $env:HTTP_SECURITY_ENABLED="true"; $env:OAUTH2_ISSUER_URI="http://localhost:8180/realms/solr-mcp"; $env:SOLR_URL="http://localhost:8983/solr/"
+$env:PROFILES="http"; $env:SERVER_ADDRESS="127.0.0.1"; $env:HTTP_SECURITY_ENABLED="true"; $env:OAUTH2_ISSUER_URI="http://localhost:8180/realms/solr-mcp"; $env:SOLR_URL="http://localhost:8983/solr/"
 java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
       <p style="font-size:.86rem;color:var(--ink-2)">Leave that terminal open. In another one, wait for
         <code class="inline">curl http://localhost:8080/actuator/health</code> to answer
@@ -2547,7 +2554,7 @@ curl -s -X POST http://localhost:8080/mcp -H "Content-Type: application/json" \
 
       <div data-transport="http">
         <p style="font-size:.86rem;color:var(--ink-2)" data-runtime="docker">
-          Make sure your Solr MCP Docker container is running and port 8080 is published (<code class="inline">-p 8080:8080</code>) so your client can reach <code class="inline">http://localhost:8080/mcp</code>.
+          Make sure your Solr MCP Docker container is running and port 8080 is published (<code class="inline">-p 127.0.0.1:8080:8080</code>) so your client can reach <code class="inline">http://localhost:8080/mcp</code>.
         </p>
         <p style="font-size:.86rem;color:var(--ink-2)" data-runtime="jar">
           Make sure your Solr MCP JAR process from step 3 is running and listening on port 8080 before connecting your client.
@@ -2799,19 +2806,19 @@ claude mcp remove solr-mcp</code></pre></div>
         </li>
       </ol>
 
-      <div class="codeblock" data-runtime="docker"><button class="copy" type="button">Copy</button><pre><code>docker run -p 8080:8080 --rm \
+      <div class="codeblock" data-runtime="docker"><button class="copy" type="button">Copy</button><pre><code>docker run -p 127.0.0.1:8080:8080 --rm \
   -e PROFILES=http \
   -e HTTP_SECURITY_ENABLED=true \
   -e OAUTH2_ISSUER_URI=https://YOUR-TENANT.us.auth0.com/ \
   -e SOLR_URL=http://host.docker.internal:8983/solr/ \
   ghcr.io/adityamparikh/solr-mcp:coc2026</code></pre></div>
 
-      <div class="codeblock" data-runtime="jar" data-os="macos linux wsl"><button class="copy" type="button">Copy</button><pre><code>PROFILES=http HTTP_SECURITY_ENABLED=true \
+      <div class="codeblock" data-runtime="jar" data-os="macos linux wsl"><button class="copy" type="button">Copy</button><pre><code>PROFILES=http SERVER_ADDRESS=127.0.0.1 HTTP_SECURITY_ENABLED=true \
 OAUTH2_ISSUER_URI=https://YOUR-TENANT.us.auth0.com/ \
 SOLR_URL=http://localhost:8983/solr/ \
 java -jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
       <div class="codeblock" data-runtime="jar" data-os="windows"><button class="copy" type="button">Copy</button><pre><code><span class="tok-c"># PowerShell</span>
-$env:PROFILES="http"; $env:HTTP_SECURITY_ENABLED="true"; $env:OAUTH2_ISSUER_URI="https://YOUR-TENANT.us.auth0.com/"; $env:SOLR_URL="http://localhost:8983/solr/"
+$env:PROFILES="http"; $env:SERVER_ADDRESS="127.0.0.1"; $env:HTTP_SECURITY_ENABLED="true"; $env:OAUTH2_ISSUER_URI="https://YOUR-TENANT.us.auth0.com/"; $env:SOLR_URL="http://localhost:8983/solr/"
 java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
 
       <ol start="4" style="max-width:var(--measure);color:var(--ink-2);padding-left:1.1rem;font-size:.86rem">
