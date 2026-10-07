@@ -102,8 +102,25 @@ The HTTP transport is secured by default: without a bearer token the client stil
 }
 ```
 
-### Secured HTTP (OAuth2) ###
+### Secured HTTP (bearer token) ###
 
-The configuration is the same for secured and unsecured HTTP. VS Code handles the MCP OAuth2 flow automatically.
+With security on, pass a token from your identity provider in `headers`; an `inputs` entry prompts for it once and keeps it out of the file:
+
+```json
+{
+  "inputs": [
+    { "type": "promptString", "id": "solr-mcp-token", "description": "Solr MCP access token", "password": true }
+  ],
+  "servers": {
+    "solr-mcp": {
+      "type": "http",
+      "url": "http://localhost:8080/mcp",
+      "headers": { "Authorization": "Bearer ${input:solr-mcp-token}" }
+    }
+  }
+}
+```
+
+The token's `aud` claim must contain the exact `url` above, and it expires — see the [Security](/mcp/security.html) for obtaining one and the lifetime knobs.
 
 See [Security](/mcp/security.html) for server-side OAuth2 setup, and the [VS Code MCP documentation](https://code.visualstudio.com/docs/copilot/chat/mcp-servers) for the latest configuration format.

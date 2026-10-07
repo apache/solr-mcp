@@ -90,8 +90,21 @@ The HTTP transport is secured by default: without a bearer token the client stil
 }
 ```
 
-### Secured HTTP (OAuth2) ###
+### Secured HTTP (bearer token) ###
 
-The configuration is the same for secured and unsecured HTTP. Cursor handles the MCP OAuth2 flow automatically.
+With security on, pass a token from your identity provider in `headers`; Cursor expands `${env:…}` so the secret stays out of the file:
+
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "url": "http://localhost:8080/mcp",
+      "headers": { "Authorization": "Bearer ${env:SOLR_MCP_TOKEN}" }
+    }
+  }
+}
+```
+
+The token's `aud` claim must contain the exact `url` above, and it expires — see the [Security](/mcp/security.html) for obtaining one and the lifetime knobs.
 
 See [Security](/mcp/security.html) for server-side OAuth2 setup, and the [Cursor MCP documentation](https://docs.cursor.com/context/model-context-protocol) for the latest configuration format.

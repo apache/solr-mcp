@@ -127,8 +127,13 @@ claude mcp add --transport http solr-mcp http://localhost:8080/mcp
 }
 ```
 
-### Secured HTTP (OAuth2) ###
+### Secured HTTP (bearer token) ###
 
-Claude Code detects the OAuth2 challenge from the server and initiates the authorization flow automatically. The configuration is the same as unsecured HTTP.
+With security on, pass a token from your identity provider:
 
-See [Security](/mcp/security.html) for server-side OAuth2 setup.
+```bash
+claude mcp add --transport http solr-mcp http://localhost:8080/mcp \
+    --header "Authorization: Bearer $TOKEN"
+```
+
+The token's `aud` claim must contain the exact URL you register here (`http://localhost:8080/mcp`), and when it expires the connection fails rather than re-authenticating; re-run `claude mcp add` with a fresh token. See [Security](/mcp/security.html) for obtaining a token.

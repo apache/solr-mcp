@@ -96,21 +96,25 @@ The HTTP transport is secured by default: without a bearer token the client stil
 }
 ```
 
-### Secured HTTP (OAuth2) ###
+### Secured HTTP (bearer token) ###
 
-When OAuth2 is enabled on the server, `mcp-remote` handles the authorization flow automatically&mdash;it discovers the authorization server and opens a browser for consent.
+With security on, pass a token from your identity provider with `--header`; `mcp-remote` expands `${TOKEN}` from the `env` block so the secret stays out of the argument list:
 
 ```json
 {
   "mcpServers": {
     "solr-mcp": {
       "command": "npx",
-      "args": ["mcp-remote", "http://localhost:8080/mcp", "--allow-http"]
+      "args": [
+        "mcp-remote", "http://localhost:8080/mcp", "--allow-http",
+        "--header", "Authorization: Bearer ${TOKEN}"
+      ],
+      "env": { "TOKEN": "<access token>" }
     }
   }
 }
 ```
 
-The `--allow-http` flag is needed for `http://` URLs (development). Omit it in production with HTTPS.
+The `--allow-http` flag is needed for `http://` URLs (development). Omit it in production with HTTPS. The token's `aud` claim must contain the exact URL given here, and when it expires calls fail with `401` until you paste a fresh token and restart Claude Desktop.
 
 See [Security](/mcp/security.html) for server-side OAuth2 setup.

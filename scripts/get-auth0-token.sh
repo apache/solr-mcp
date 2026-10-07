@@ -46,7 +46,7 @@
 #   export AUTH0_DOMAIN=your-tenant.auth0.com
 #   export AUTH0_CLIENT_ID=your-client-id
 #   export AUTH0_CLIENT_SECRET=your-client-secret
-#   export AUTH0_AUDIENCE=https://solr-mcp-api
+#   export AUTH0_AUDIENCE=http://localhost:8080/mcp   # the MCP server's resource URI
 #   ./scripts/get-auth0-token.sh
 #
 #   # Using command line arguments
@@ -54,7 +54,7 @@
 #     --domain your-tenant.auth0.com \
 #     --client-id your-client-id \
 #     --client-secret your-client-secret \
-#     --audience https://solr-mcp-api
+#     --audience http://localhost:8080/mcp
 #
 #   # Save token to custom file
 #   ./scripts/get-auth0-token.sh -o my-token.txt
@@ -79,22 +79,23 @@ QUIET=false
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-# Function to print colored output
+# Function to print colored output. Status lines go to stderr so that
+# TOKEN=$(./scripts/get-auth0-token.sh --quiet) captures only the token.
 print_info() {
     if [ "$QUIET" = false ]; then
-        echo -e "${BLUE}[INFO]${NC} $1"
+        echo -e "${BLUE}[INFO]${NC} $1" >&2
     fi
 }
 
 print_success() {
     if [ "$QUIET" = false ]; then
-        echo -e "${GREEN}[SUCCESS]${NC} $1"
+        echo -e "${GREEN}[SUCCESS]${NC} $1" >&2
     fi
 }
 
 print_warning() {
     if [ "$QUIET" = false ]; then
-        echo -e "${YELLOW}[WARNING]${NC} $1"
+        echo -e "${YELLOW}[WARNING]${NC} $1" >&2
     fi
 }
 

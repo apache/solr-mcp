@@ -93,8 +93,25 @@ The HTTP transport is secured by default: without a bearer token the client stil
 
 Or in IDE Settings, select **SSE** transport and enter `http://localhost:8080/mcp` as the URL.
 
-### Secured HTTP (OAuth2) ###
+### Secured HTTP (bearer token) ###
 
-The configuration is the same for secured and unsecured HTTP. JetBrains IDEs handle the MCP OAuth2 flow automatically.
+With security on, supply a token from your identity provider. The portable way is to register the server as a STDIO command through `mcp-remote`, which forwards the header on every request and expands `${TOKEN}` from `env`:
+
+```json
+{
+  "mcpServers": {
+    "solr-mcp": {
+      "command": "npx",
+      "args": [
+        "mcp-remote", "http://localhost:8080/mcp", "--allow-http",
+        "--header", "Authorization: Bearer ${TOKEN}"
+      ],
+      "env": { "TOKEN": "<access token>" }
+    }
+  }
+}
+```
+
+The token's `aud` claim must contain the exact URL above, and it expires — see the [Security](/mcp/security.html) for obtaining one and the lifetime knobs.
 
 See [Security](/mcp/security.html) for server-side OAuth2 setup. MCP support requires the AI Assistant plugin — see the [JetBrains MCP documentation](https://www.jetbrains.com/help/idea/model-context-protocol.html) for the latest configuration format.
