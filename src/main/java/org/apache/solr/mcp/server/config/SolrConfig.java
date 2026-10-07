@@ -16,7 +16,6 @@
  */
 package org.apache.solr.mcp.server.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrClient;
@@ -26,6 +25,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.StringUtils;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Spring Configuration class for Apache Solr client setup and connection

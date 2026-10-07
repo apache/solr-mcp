@@ -21,11 +21,9 @@
 #   1. build        - Compile + format check (fast feedback)
 #   2. unit-tests   - Pure unit tests (no Docker/Testcontainers)
 #   3. integration-tests - Testcontainers-based integration tests
-#   4. solr-compatibility - Multi-version Solr matrix (label-gated)
+#   4. solr-compatibility - Multi-version Solr matrix
 #
-# The solr-compatibility job only runs when the PR has the
-# "solr-compatibility" label. Default Solr 9.9 is already covered
-# by the integration-tests job.
+# Default Solr 9.9 is already covered by the integration-tests job.
 # ============================================================================
 
 name: CI
@@ -145,14 +143,15 @@ jobs:
     # Job 4: Solr Version Compatibility
     # ========================================================================
     # Tests against multiple Solr versions to catch compatibility regressions.
-    # Only runs when the PR has the "solr-compatibility" label (opt-in).
+    # Runs on every PR so a version-specific failure shows up before merge,
+    # not on the next push to main. Depends only on build, like the other test
+    # jobs, so a unit or integration failure does not turn it into a skip.
     # Solr 9.9 is omitted since it is already tested in integration-tests.
     # ========================================================================
     solr-compatibility:
         name: Solr ${{ matrix.solr-version }} Compatibility
         runs-on: ubuntu-latest
-        needs: integration-tests
-        if: contains(github.event.pull_request.labels.*.name, 'solr-compatibility')
+        needs: build
         timeout-minutes: 30
 
         strategy:

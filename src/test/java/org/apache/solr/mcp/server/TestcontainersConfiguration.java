@@ -27,12 +27,30 @@ public class TestcontainersConfiguration {
 
 	private static final int SOLR_PORT = 8983;
 
+	private static final String SOLR_IMAGE_PROPERTY = "solr.test.image";
+
+	/**
+	 * The Solr image under test: pinned in gradle/libs.versions.toml as
+	 * test-image-solr; -Dsolr.test.image overrides it for a single run (e.g. the
+	 * Solr compatibility matrix in CI).
+	 */
+	public static String solrImage() {
+		return System.getProperty(SOLR_IMAGE_PROPERTY, "solr:9.9.0-slim");
+	}
+
+	/**
+	 * Major version of the Solr image under test, read from its tag
+	 * ({@code solr:10-slim} is 10, {@code solr:8.11-slim} is 8), for tests whose
+	 * expected outcome differs by Solr version.
+	 */
+	public static int solrMajorVersion() {
+		String tag = DockerImageName.parse(solrImage()).getVersionPart();
+		return Integer.parseInt(tag.split("[.-]", 2)[0]);
+	}
+
 	@Bean
 	SolrContainer solr() {
-		// Pinned in gradle/libs.versions.toml as test-image-solr; -Dsolr.test.image
-		// overrides it for a single run (e.g. the Solr compatibility matrix in CI).
-		String solrImage = System.getProperty("solr.test.image", "solr:9.9.0-slim");
-		return new SolrContainer(DockerImageName.parse(solrImage));
+		return new SolrContainer(DockerImageName.parse(solrImage()));
 	}
 
 	@Bean

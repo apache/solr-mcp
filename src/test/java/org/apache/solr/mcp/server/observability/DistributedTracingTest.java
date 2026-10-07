@@ -48,8 +48,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  *
  * <p>
  * Uses SimpleTracer from micrometer-tracing-test to capture spans without
- * requiring external infrastructure. This is the Spring Boot 3 recommended
- * approach.
+ * requiring external infrastructure.
  */
 @SpringBootTest(
 		properties = {
@@ -59,7 +58,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 				// secure-by-default to avoid requiring a live JWKS endpoint at startup.
 				"http.security.enabled=false",
 				// Disable OTLP export in tests - we're using SimpleTracer instead
-				"management.otlp.tracing.endpoint=", "management.opentelemetry.logging.export.otlp.enabled=false",
+				"management.tracing.export.otlp.enabled=false",
+				"management.opentelemetry.logging.export.otlp.enabled=false",
 				// Ensure 100% sampling for tests
 				"management.tracing.sampling.probability=1.0",
 				// Enable @Observed annotation support
@@ -109,8 +109,8 @@ class DistributedTracingTest {
 		await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
 			var spans = tracer.getSpans();
 			assertThat(spans).as("Should have created at least one span").isNotEmpty();
-			assertThat(spans).as("Should have span for search-service#search method")
-					.anyMatch(span -> span.getName().equals("search-service#search"));
+			assertThat(spans).as("Should have span for SearchService#search method")
+					.anyMatch(span -> span.getName().equals("SearchService#search"));
 		});
 	}
 

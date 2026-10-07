@@ -21,7 +21,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.spec.McpSchema.CompleteRequest;
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -47,6 +46,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import tools.jackson.databind.json.JsonMapper;
 
 @ExtendWith(MockitoExtension.class)
 @DisabledInNativeImage
@@ -66,7 +66,7 @@ class CollectionServiceTest {
 
 	private CollectionService collectionService;
 
-	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final JsonMapper objectMapper = JsonMapper.shared();
 
 	@BeforeEach
 	void setUp() {
@@ -938,13 +938,12 @@ class CollectionServiceTest {
 	}
 
 	@Test
-	void completeCollection_WithNullValue_ReturnsAllSorted() throws Exception {
-		CollectionService spyService = spy(collectionService);
-		doReturn(Arrays.asList("zeta", "alpha")).when(spyService).listCollections();
-
-		List<String> result = spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", null));
-
-		assertEquals(List.of("alpha", "zeta"), result);
+	void completeCollection_NullValueRejectedAtSdkBoundary() {
+		// Since MCP Java SDK 2.0, CompleteArgument's constructor rejects a null
+		// value (1.x and earlier accept it), so the
+		// CollectionService#completeCollection null-value branch is unreachable
+		// from a real MCP client. Document the SDK contract here.
+		assertThrows(IllegalArgumentException.class, () -> new CompleteRequest.CompleteArgument("collection", null));
 	}
 
 	@Test

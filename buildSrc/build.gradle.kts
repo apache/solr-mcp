@@ -34,15 +34,15 @@ dependencies {
     // here (mirroring how the junit dep below is pinned) since buildSrc does not read the
     // root project's version catalog. Latest release as of writing; bump in lockstep with
     // the plugin's upstream releases.
-    implementation("org.nosphere.apache.rat:org.nosphere.apache.rat.gradle.plugin:0.8.1")
+    implementation("org.nosphere.apache.rat:org.nosphere.apache.rat.gradle.plugin:0.11.0")
 
     // Typed reader for the CycloneDX SBOM. Pinned to the version the org.cyclonedx.bom plugin
     // (which writes the SBOM) already uses, so reader and writer share one model.
-    implementation("org.cyclonedx:cyclonedx-core-java:10.2.1")
+    implementation("org.cyclonedx:cyclonedx-core-java:13.1.0")
 
     // Only used by the task unit tests under src/test (the main code needs no extra deps;
     // the Gradle API is provided by the kotlin-dsl plugin).
-    testImplementation("org.junit.jupiter:junit-jupiter:5.12.2")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

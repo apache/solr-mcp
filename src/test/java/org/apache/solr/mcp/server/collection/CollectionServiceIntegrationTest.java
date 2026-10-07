@@ -55,6 +55,10 @@ class CollectionServiceIntegrationTest {
 
 	private static final int DOC_COUNT = 50;
 
+	// Solr 10 removed /admin/mbeans, the source of cache and handler stats; the
+	// service then degrades to null for both rather than failing the call.
+	private static final boolean MBEANS_AVAILABLE = TestcontainersConfiguration.solrMajorVersion() < 10;
+
 	@Autowired
 	private CollectionService collectionService;
 
@@ -131,6 +135,12 @@ class CollectionServiceIntegrationTest {
 		assertNotNull(queryStats.queryTime());
 		assertEquals((long) DOC_COUNT, queryStats.totalResults(), "totalResults should match indexed document count");
 		assertEquals(0L, queryStats.start());
+
+		if (!MBEANS_AVAILABLE) {
+			assertNull(metrics.cacheStats(), "Cache stats should be null without /admin/mbeans");
+			assertNull(metrics.handlerStats(), "Handler stats should be null without /admin/mbeans");
+			return;
+		}
 
 		// Cache stats should be present after warm-up queries
 		assertNotNull(metrics.cacheStats(), "Cache stats should not be null after queries ran");
@@ -210,6 +220,11 @@ class CollectionServiceIntegrationTest {
 	void testGetCacheMetrics_afterQueries() throws Exception {
 		CacheStats cacheStats = collectionService.getCacheMetrics(TEST_COLLECTION);
 
+		if (!MBEANS_AVAILABLE) {
+			assertNull(cacheStats, "Cache stats should be null without /admin/mbeans");
+			return;
+		}
+
 		assertNotNull(cacheStats, "Cache stats should not be null after warm-up queries");
 
 		// Query result cache: warm-up queries should have generated lookups
@@ -233,6 +248,11 @@ class CollectionServiceIntegrationTest {
 	@Test
 	void testGetHandlerMetrics_afterQueriesAndIndexing() throws Exception {
 		HandlerStats handlerStats = collectionService.getHandlerMetrics(TEST_COLLECTION);
+
+		if (!MBEANS_AVAILABLE) {
+			assertNull(handlerStats, "Handler stats should be null without /admin/mbeans");
+			return;
+		}
 
 		assertNotNull(handlerStats, "Handler stats should not be null after activity");
 

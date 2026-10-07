@@ -63,7 +63,7 @@ The build produces a [CycloneDX](https://cyclonedx.org/) 1.6 Software Bill of Ma
 
 ```bash
 ./gradlew cyclonedxBom
-cat build/reports/application.cdx.json
+cat build/reports/cyclonedx/application.cdx.json
 ```
 
 ### Where the SBOM ships
@@ -139,7 +139,7 @@ The server will start on http://localhost:8080
 
 The `lgtm` service in `compose.yaml` carries `org.springframework.boot.ignore: "true"`, which
 opts it out of Spring Boot's Docker Compose lifecycle management. Start it by hand if you want
-the Grafana/Loki/Tempo/Mimir stack, regardless of run mode:
+the Grafana/Loki/Tempo/Prometheus stack, regardless of run mode:
 
 ```bash
 docker compose up -d lgtm
@@ -246,33 +246,18 @@ Then open the browser URL provided (typically http://localhost:6274) and connect
 ./gradlew test --tests "org.apache.solr.mcp.server.observability.DistributedTracingTest"
 ```
 
-**How it works.** Spring Boot 3.5's observability stack is
-`@Observed annotation → Micrometer Observation API → Micrometer Tracing → tracer`. The test
-swaps in a `SimpleTracer` (from `micrometer-tracing-test`) as a `@Primary` bean via
-`OpenTelemetryTestConfiguration`, so spans are captured in-memory. Spans are retrieved with
-`tracer.getSpans()` (returns `Deque<SimpleSpan>`) and named in kebab-case as
-`class-name#method-name` (e.g. `search-service#search`). Test properties disable OTLP export,
+**How it works.** `@Observed` methods go through the Micrometer Observation API; Spring
+Boot 4's `spring-boot-starter-opentelemetry` bridges observations to the OpenTelemetry SDK for
+export. The test swaps in a `SimpleTracer` (from `micrometer-tracing-test`) as a `@Primary`
+bean via `OpenTelemetryTestConfiguration`, so spans are captured in-memory. Spans are
+retrieved with `tracer.getSpans()` (returns `Deque<SimpleSpan>`) and named
+`ClassName#methodName` (e.g. `SearchService#search`). Test properties disable OTLP export,
 force `management.tracing.sampling.probability=1.0`, and set
 `management.observations.annotations.enabled=true`.
 
-**Known issue — `OtlpExportIntegrationTest` is disabled.** The end-to-end OTLP export test
-(via `LgtmStackContainer`/`testcontainers-grafana`) fails with a Jetty
-`ClassNotFoundException` for `org.eclipse.jetty.client.transport.HttpClientTransportOverHTTP`
-under the current Jetty BOM. Core tracing is fully covered by `DistributedTracingTest`, so the
-impact is low; fixing it would mean swapping the HTTP client (Apache HttpClient/OkHttp) or
-upgrading `testcontainers-grafana`.
-
-**Spring Boot 3.5 vs 4 differences** (relevant if/when we upgrade — SB4 drops the Micrometer
-bridge for direct OpenTelemetry):
-
-| Aspect | Spring Boot 3.5 | Spring Boot 4 |
-|--------|-----------------|---------------|
-| Tracing API | Micrometer Observation → Micrometer Tracing → OpenTelemetry | Direct OpenTelemetry integration |
-| Test approach | `SimpleTracer` (`micrometer-tracing-test`) | `InMemorySpanExporter` (`opentelemetry-sdk-testing`) |
-| Span retrieval | `tracer.getSpans()` | `spanExporter.getFinishedSpanItems()` |
-| Span type | `SimpleSpan` (Micrometer) | `SpanData` (OpenTelemetry) |
-| Bridge dependency | `micrometer-tracing-bridge-otel` required | not required |
-| AspectJ starter | `spring-boot-starter-aop` | `spring-boot-starter-aspectj` |
+End-to-end OTLP export (traces, metrics and logs reaching Tempo, Prometheus and Loki) is
+covered by `OtlpExportIntegrationTest`, which runs against `grafana/otel-lgtm` via
+`LgtmStackContainer` (`testcontainers-grafana`).
 
 ## Code Quality
 
@@ -392,14 +377,13 @@ resource error:
   have headroom.
 - **First Paketo build is large:** `bootBuildImage` downloads a ~1 GB builder on
   first run; CI caching mitigates this.
-- **OpenTelemetry build-time init:** the pinned OTel instrumentation BOM lacks
-  native metadata, so the build adds `--initialize-at-build-time` for four OTel
+- **OpenTelemetry build-time init:** the OTel logback appender ships no native
+  metadata, so the build adds `--initialize-at-build-time` for four OTel
   packages (see `SolrNativeHints`/`build.gradle.kts`). Do **not** add
   `io.opentelemetry.instrumentation.spring` — it contains CGLIB proxies that
-  cannot be build-time initialized. Bumping the OTel BOM to 2.26.1 currently
-  fails at AOT time (`io.opentelemetry.common.ComponentLoader` not found) because
-  it outpaces the OTel SDK that Spring Boot 3.5.x manages; revisit when Spring
-  Boot aligns its managed OTel version.
+  cannot be build-time initialized. The OTel SDK itself is managed by Spring
+  Boot; see "OTel dependency alignment" in `dev-docs/graalvm-native-image.md`
+  for how the logback appender version stays in step with it.
 
 ## IDE Setup
 

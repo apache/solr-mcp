@@ -19,7 +19,6 @@ package org.apache.solr.mcp.server.indexing.documentcreator;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -27,6 +26,8 @@ import java.util.Map;
 import java.util.TreeMap;
 import org.apache.solr.common.SolrInputDocument;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * The JSON creator has two entry points: a JSON string (files, tests) and a
@@ -36,7 +37,7 @@ import org.junit.jupiter.api.Test;
  */
 class JsonDocumentCreatorTest {
 
-	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final ObjectMapper objectMapper = JsonMapper.builder().build();
 
 	private final JsonDocumentCreator creator = new JsonDocumentCreator(objectMapper);
 

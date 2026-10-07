@@ -20,13 +20,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.util.NamedList;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Unit tests for {@link JsonResponseParser}'s conversion of Solr's JSON wire
@@ -39,7 +39,7 @@ import org.junit.jupiter.api.Test;
  */
 class JsonResponseParserTest {
 
-	private final JsonResponseParser parser = new JsonResponseParser(new ObjectMapper());
+	private final JsonResponseParser parser = new JsonResponseParser(JsonMapper.builder().build());
 
 	private NamedList<Object> parse(String json) {
 		return parser.processResponse(new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8)), "UTF-8");

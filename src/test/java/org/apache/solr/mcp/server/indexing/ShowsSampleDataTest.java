@@ -18,7 +18,6 @@ package org.apache.solr.mcp.server.indexing;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -31,6 +30,7 @@ import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.indexing.documentcreator.JsonDocumentCreator;
 import org.apache.solr.mcp.server.indexing.documentcreator.MarkdownDocumentCreator;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * The {@code shows} sample dataset ships as {@code shows.json} and as
@@ -49,7 +49,7 @@ class ShowsSampleDataTest {
 
 	private static final int SHOWS = 61;
 
-	private final JsonDocumentCreator json = new JsonDocumentCreator(new ObjectMapper());
+	private final JsonDocumentCreator json = new JsonDocumentCreator(JsonMapper.builder().build());
 
 	@Test
 	void jsonHas61ShowsWithUniqueIds() throws Exception {
