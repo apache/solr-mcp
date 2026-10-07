@@ -145,6 +145,45 @@ The server implements MCP argument autocompletion, so clients can suggest valid 
 
 Suggestions are matched case-insensitively by prefix and capped per request.
 
+## Screenshots
+
+**Claude Desktop (STDIO)** — answering a question about the `films` collection with the server's tools:
+
+![Claude Desktop calling Solr MCP tools over STDIO](images/claude-stdio.png)
+
+<details>
+<summary><b>MCP Inspector</b> — STDIO, HTTP, OAuth2, resources and completions</summary>
+
+**STDIO** — the Inspector launches the server with `java -jar`:
+
+![MCP Inspector connected to the server over STDIO](images/mcp-inspector-stdio.png)
+
+**HTTP** — `check-health` on `films` over Streamable HTTP at `http://localhost:8080/mcp`:
+
+![MCP Inspector calling check-health over HTTP](images/mcp-inspector-http.png)
+
+**HTTP with OAuth2** — the bearer token goes in the server's **Settings → Custom Headers**:
+
+![MCP Inspector custom Authorization header](images/mcp-inspector-http-oauth-headers.png)
+
+With a valid token, tool calls succeed:
+
+![MCP Inspector search succeeding with a bearer token](images/mcp-inspector-http-oauth-success.png)
+
+Without one, the client still connects and lists tools, but every tool call returns `Access Denied`:
+
+![MCP Inspector search denied without a bearer token](images/mcp-inspector-http-oauth-failure.png)
+
+**Resources** — reading `solr://collections`:
+
+![MCP Inspector reading the solr://collections resource](images/mcp-inspector-list-resources.png)
+
+**Completions** — the `{collection}` argument of `solr://{collection}/schema` completes to live collection names:
+
+![MCP Inspector completing the collection argument](images/mcp-inspector-resource-completion.png)
+
+</details>
+
 ## Configuration
 
 The server reads configuration from environment variables. The essentials:
