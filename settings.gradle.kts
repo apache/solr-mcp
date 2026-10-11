@@ -15,4 +15,38 @@
  * limitations under the License.
  */
 
+plugins {
+    id("com.gradle.develocity") version "4.6.0"
+    id("com.gradle.common-custom-user-data-gradle-plugin") version "2.8.0"
+}
+
 rootProject.name = "solr-mcp"
+
+// GitHub Actions sets CI=true on every runner.
+val isCiBuild = providers.environmentVariable("CI").isPresent
+
+// Build scans go to the ASF's shared instance; https://infra.apache.org/gradle.html
+develocity {
+    server = "https://develocity.apache.org"
+    projectId = "solr-mcp"
+
+    buildScan {
+        uploadInBackground = !isCiBuild
+
+        // Publish from CI, or locally when opted in with -Pscan, and only with an access key
+        // (DEVELOCITY_ACCESS_KEY). Fork PRs receive no secrets, so they never publish.
+        val isScanOptIn = providers.gradleProperty("scan").isPresent
+        publishing.onlyIf { (isCiBuild || isScanOptIn) && it.isAuthenticated }
+
+        obfuscation {
+            ipAddresses { addresses -> addresses.map { "0.0.0.0" } }
+        }
+
+        tag("JDK${Runtime.version().feature()}")
+        // https://docs.github.com/en/actions/reference/variables-reference#default-environment-variables
+        if (providers.environmentVariable("GITHUB_BASE_REF").isPresent) { // only set for PRs
+            tag("PR")
+        }
+        providers.environmentVariable("GITHUB_WORKFLOW").orNull?.let { tag(it) }
+    }
+}
