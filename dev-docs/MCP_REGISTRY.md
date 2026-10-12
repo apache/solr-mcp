@@ -15,13 +15,14 @@ transport. There is no Maven package type, so the JAR is not listed.
 
 When `mcp-publisher publish` runs, the registry checks each package:
 
-- The image must be on an allowed host (`docker.io`, `ghcr.io`, `quay.io`, `*.pkg.dev`
-  or `*.azurecr.io`) and pullable without credentials.
+- The image must be on an allowed host (`docker.io`, `ghcr.io`, `quay.io`,
+  `mcr.microsoft.com`, `*.pkg.dev` or `*.azurecr.io`) and pullable without credentials.
 - The image must carry the label `io.modelcontextprotocol.server.name` with the value
   `io.github.apache/solr-mcp`. The Jib configuration in `build.gradle.kts` sets it. The
   native images don't carry it, which is why they are not listed.
 - An OCI package has no `version` field. Its version is the tag in `identifier`, such as
-  `docker.io/apache/solr-mcp:1.0.0`.
+  `docker.io/apache/solr-mcp:1.0.0`. The identifier may also carry a digest
+  (`docker.io/apache/solr-mcp:1.0.0@sha256:…`), which the release workflow adds.
 
 `mcp-publisher validate` checks the schema only, not the package checks above, so a file
 that passes `validate` can still be rejected by `publish`.
@@ -42,13 +43,29 @@ after the release.
 
 ## What the workflow does
 
-The `publish-mcp-registry` job in `.github/workflows/release-publish.yml` runs after the
-image jobs, from the voted candidate tag `releases/solr-mcp/<version>-<rc>`:
+Before any image is pushed, the `publish-docker` job checks that its build reproduces the
+voted JAR. The images are built from the voted tag rather than from the voted files, so the
+job downloads `solr-mcp-<version>.jar` and its `.sha512` from
+`dist.apache.org/repos/dist/release/solr/mcp/<version>/`. It then checks the hash and
+compares the unpacked JAR with its own build. Two entries differ on every build and are
+left out: the build time in `META-INF/build-info.properties` and the timestamp and serial
+number in `META-INF/sbom/application.cdx.json`. Every class, resource and bundled
+dependency must match, or the job stops before pushing anything. This step needs the
+release to be published on ATR first, which is why that comes first in the order below.
+A mismatch usually means the voted JAR was built with a different JDK than the one in
+`.github/actions/setup-java`; the `diff` output shows which entries differ.
+
+The `publish-mcp-registry` job runs after the image jobs, from the voted candidate tag
+`releases/solr-mcp/<version>-<rc>`:
 
 1. Writes `<version>` into `server.json`'s `version` and into the tag of every package
-   `identifier`, and fails if a package has a `version` field or `SNAPSHOT` remains.
-2. Runs `docker manifest inspect` on each image without logging in, which is the same
-   anonymous pull the registry does, and fails with the next step to take if one is private.
+   `identifier`, dropping any digest. It fails if a package has a `version` field or an
+   identifier didn't take the new tag.
+2. Runs the registry's own package checks on each image, without logging in: the host
+   is one the registry accepts, the image can be pulled anonymously, and every platform
+   carries the ownership label. A failure names the next step to take (on the first
+   release, GHCR's private package). It then pins each identifier to the digest it
+   checked, so the entry names that exact image even if the tag is later moved.
 3. Installs `mcp-publisher` at a pinned version, verified against the release checksums.
 4. Runs `mcp-publisher validate`, `login github-oidc` and `publish`.
 5. Reads `GET /v0.1/servers/io.github.apache%2Fsolr-mcp/versions/<version>` back and
@@ -91,8 +108,9 @@ These are one-time steps for the PMC and Infra (details in
 1. **Publish on ATR** as in [release-process.md](release-process.md), step 5.
 2. **Run `release-publish.yml`** from the Actions tab with `release_version` (for
    example `1.0.0`) and `release_candidate` (for example `rc1`). It checks out
-   `releases/solr-mcp/<version>-<rc>`, the tag the PMC voted on. Run it before
-   announcing, so the announcement can point at the images and the registry entry.
+   `releases/solr-mcp/<version>-<rc>`, the tag the PMC voted on. Run it after step 1,
+   because it compares its build with the voted JAR on dist, and before announcing, so
+   the announcement can point at the images and the registry entry.
 3. **Record the Docker Hub distribution on ATR.** On the release's finish page select
    ***Verify a third-party distribution*** and enter:
 

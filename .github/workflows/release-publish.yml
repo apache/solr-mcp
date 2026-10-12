@@ -214,6 +214,42 @@ jobs:
       - name: Build project
         run: ./gradlew build
 
+      # The images are built from this checkout, not from the voted files, so check
+      # that this build reproduces the voted JAR before pushing anything. ATR has
+      # already published the voted files to dist (dev-docs/MCP_REGISTRY.md). Two
+      # entries differ on every build and are left out of the comparison: the build
+      # time in build-info.properties and the timestamp and serial number in the
+      # embedded SBOM. Every class, resource and bundled dependency must match.
+      - name: Check the build matches the voted JAR
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          set -euo pipefail
+          jar="solr-mcp-${RELEASE_VERSION}.jar"
+          dist="https://dist.apache.org/repos/dist/release/solr/mcp/${RELEASE_VERSION}"
+          if ! curl -fsSL -o "${RUNNER_TEMP}/${jar}" "${dist}/${jar}" ||
+             ! curl -fsSL -o "${RUNNER_TEMP}/${jar}.sha512" "${dist}/${jar}.sha512"; then
+            echo "ERROR: ${dist}/${jar} not found. Publish the release on ATR before running this workflow." >&2
+            exit 1
+          fi
+          expected="$(awk '{print $1}' "${RUNNER_TEMP}/${jar}.sha512")"
+          actual="$(sha512sum "${RUNNER_TEMP}/${jar}" | awk '{print $1}')"
+          if [[ "${expected}" != "${actual}" ]]; then
+            echo "ERROR: ${jar} from dist does not match its .sha512" >&2
+            exit 1
+          fi
+          mkdir "${RUNNER_TEMP}/voted" "${RUNNER_TEMP}/rebuilt"
+          unzip -q "${RUNNER_TEMP}/${jar}" -d "${RUNNER_TEMP}/voted"
+          unzip -q "build/libs/${jar}" -d "${RUNNER_TEMP}/rebuilt"
+          if ! diff -r \
+              --exclude=build-info.properties --exclude=application.cdx.json \
+              "${RUNNER_TEMP}/voted" "${RUNNER_TEMP}/rebuilt"; then
+            echo "ERROR: this build of releases/solr-mcp/${RELEASE_VERSION}-${{ inputs.release_candidate }} differs from the voted ${jar}." >&2
+            echo "The images would not match the voted release; nothing has been pushed." >&2
+            exit 1
+          fi
+          echo "Rebuilt ${jar} matches the voted JAR"
+
       - name: Sign artifacts with ASF infrastructure
         if: ${{ inputs.sign_with_asf_infra }}
         run: |
@@ -557,46 +593,73 @@ jobs:
 
         # Write the release version into server.json. OCI packages carry their
         # version as the image tag in `identifier`; the registry rejects a
-        # `version` field on them, so only the tags are rewritten.
+        # `version` field on them, so only the tags are rewritten. Any digest is
+        # dropped here and pinned again from the pushed image in the next step.
         -   name: Update server.json version
             env:
                 RELEASE_VERSION: ${{ inputs.release_version }}
             run: |
                 set -euo pipefail
-                jq --arg v "$RELEASE_VERSION" \
-                  '.version = $v | .packages |= map(.identifier |= sub(":[^:/@]+$"; ":" + $v))' \
-                  server.json > server.json.tmp
+                jq --arg v "$RELEASE_VERSION" '
+                  .version = $v
+                  | .packages |= map(.identifier |= (
+                      split("@")[0]
+                      | capture("^(?<repo>.+?)(?::(?<tag>[^:/]+))?$").repo + ":" + $v))
+                ' server.json > server.json.tmp
                 mv server.json.tmp server.json
                 if jq -e 'any(.packages[]; has("version"))' server.json >/dev/null; then
                   echo "ERROR: an OCI package in server.json has a 'version' field; put the tag in 'identifier'" >&2
                   exit 1
                 fi
-                # Fail if any -SNAPSHOT version survived the rewrite
-                if grep -q 'SNAPSHOT' server.json; then
-                  echo "ERROR: server.json still contains a SNAPSHOT version after rewrite" >&2
+                if ! jq -e --arg v "$RELEASE_VERSION" \
+                    'all(.packages[]; .identifier | endswith(":" + $v))' server.json >/dev/null; then
+                  echo "ERROR: an identifier in server.json was not rewritten to tag ${RELEASE_VERSION}" >&2
                   cat server.json >&2
                   exit 1
                 fi
                 # Show the final server.json for auditing
                 cat server.json
 
-        # The registry pulls every image manifest anonymously when publishing.
-        # Check the same thing first (this job never logs in), so a private
-        # image fails here with a message that says what to do.
-        -   name: Check that the images are public
+        # Run the checks the registry runs on `publish`, so a failure shows up here
+        # with a message that says what to do: the image is on a host the registry
+        # accepts, it can be pulled anonymously (this job never logs in), and every
+        # platform carries the io.modelcontextprotocol.server.name label with the
+        # server's name. Then pin each identifier to the digest that was checked,
+        # so the registry entry names exactly that image even if the tag moves.
+        -   name: Check the images and pin their digests
             run: |
                 set -euo pipefail
+                server_name="$(jq -r '.name' server.json)"
                 failed=0
                 for image in $(jq -r '.packages[] | select(.registryType == "oci") | .identifier' server.json); do
-                  if docker manifest inspect "${image}" >/dev/null 2>&1; then
-                    echo "OK: ${image}"
-                  else
-                    echo "ERROR: ${image} cannot be pulled anonymously." >&2
+                  host="${image%%/*}"
+                  case "${host}" in
+                    docker.io|ghcr.io|quay.io|mcr.microsoft.com|*.pkg.dev|*.azurecr.io) ;;
+                    *) echo "ERROR: ${image} is on ${host}, which the MCP Registry does not accept" >&2
+                       failed=1; continue ;;
+                  esac
+                  if ! inspect="$(docker buildx imagetools inspect "${image}" --format '{{json .}}' 2>&1)"; then
+                    echo "ERROR: ${image} cannot be pulled anonymously: ${inspect}" >&2
                     echo "On the first release, ghcr.io/apache/solr-mcp is private until ASF Infra makes it public (#251); re-run this job afterwards." >&2
-                    failed=1
+                    failed=1; continue
                   fi
+                  # .Image is one config for a single-platform image, or a map of configs by platform
+                  if ! jq -e --arg n "${server_name}" \
+                      '.image | (if has("config") then [.] else [.[]] end)
+                       | all(.config.Labels["io.modelcontextprotocol.server.name"] == $n)' \
+                      <<<"${inspect}" >/dev/null; then
+                    echo "ERROR: ${image} lacks the label io.modelcontextprotocol.server.name=${server_name} on some platform" >&2
+                    failed=1; continue
+                  fi
+                  digest="$(jq -r '.manifest.digest' <<<"${inspect}")"
+                  jq --arg i "${image}" --arg d "${digest}" \
+                    '.packages |= map(if .identifier == $i then .identifier = $i + "@" + $d else . end)' \
+                    server.json > server.json.tmp
+                  mv server.json.tmp server.json
+                  echo "OK: ${image}@${digest}"
                 done
-                exit "${failed}"
+                [[ "${failed}" == 0 ]] || exit 1
+                cat server.json
 
         # Download the MCP Publisher CLI, pinned to an explicit release and
         # verified against that release's published checksum file. Piping an
