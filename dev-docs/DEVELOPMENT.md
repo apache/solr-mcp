@@ -207,14 +207,13 @@ This runs tests tagged with `@Tag("docker-integration")` which verify:
 Tests run against the Solr image pinned as `test-image-solr` in `gradle/libs.versions.toml` by default (the LGTM image for the OTLP test is pinned there too, as `test-image-lgtm`). Point them at another Solr version with the `solr.test.image` system property:
 
 ```bash
-./gradlew test -Dsolr.test.image=solr:8.11-slim   # Solr 8.11
 ./gradlew test -Dsolr.test.image=solr:9.4-slim    # Solr 9.4
 ./gradlew test -Dsolr.test.image=solr:9.9.0-slim    # Solr 9.9 (the pinned default)
 ./gradlew test -Dsolr.test.image=solr:9.10-slim   # Solr 9.10
 ./gradlew test -Dsolr.test.image=solr:10-slim     # Solr 10
 ```
 
-**Tested compatible versions:** 8.11, 9.4, 9.9, 9.10, 10.
+**Tested compatible versions:** 9.4, 9.9, 9.10, 10.
 
 **Solr 10 notes.** Solr 10 is fully supported with the JSON wire format. The `/admin/mbeans`
 endpoint was removed in Solr 10, so `getCacheMetrics()`/`getHandlerMetrics()` catch

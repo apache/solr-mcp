@@ -20,7 +20,7 @@ This Spring AI [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) 
 
 **Prerequisites:** Java 25+, [Docker](https://docs.docker.com/get-docker/) and Docker Compose, Git.
 
-**Compatibility:** works with Apache Solr **8.11–10** (the test suite runs against 9.9 by default — see [Solr version compatibility](dev-docs/DEVELOPMENT.md#solr-version-compatibility)).
+**Compatibility:** works with Apache Solr **9.4–10** (the test suite runs against 9.9 by default — see [Solr version compatibility](dev-docs/DEVELOPMENT.md#solr-version-compatibility)).
 
 #### 1. Start Solr with sample data
 

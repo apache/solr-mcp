@@ -455,14 +455,13 @@ are exercised. The Jib JVM path runs in `build-and-publish.yml`.
 The Solr Docker image used in tests is pinned as `test-image-solr` in `gradle/libs.versions.toml` (the Grafana LGTM image for the OTLP test as `test-image-lgtm`), matching the literal default in `TestcontainersConfiguration`/`OtlpExportIntegrationTest`. Override the Solr image for one run with the `solr.test.image` system property:
 
 ```bash
-./gradlew test -Dsolr.test.image=solr:8.11-slim    # Solr 8.11
 ./gradlew test -Dsolr.test.image=solr:9.4-slim     # Solr 9.4
 ./gradlew test -Dsolr.test.image=solr:9.9.0-slim     # Solr 9.9 (the pinned default)
 ./gradlew test -Dsolr.test.image=solr:9.10-slim    # Solr 9.10
 ./gradlew test -Dsolr.test.image=solr:10-slim      # Solr 10
 ```
 
-**Tested compatible versions:** 8.11, 9.4, 9.9, 9.10, 10
+**Tested compatible versions:** 9.4, 9.9, 9.10, 10
 
 ### Solr 10 Compatibility
 
