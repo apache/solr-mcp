@@ -100,6 +100,7 @@ PROFILES=http ./gradlew bootRun
 # Or Docker (local image — build first with ./gradlew jibDockerBuild)
 docker run -p 8080:8080 --rm \
     -e PROFILES=http \
+    -e OTEL_EXPORT_ENABLED=false \
     -e SOLR_URL=http://host.docker.internal:8983/solr/ \
     solr-mcp:latest
 ```

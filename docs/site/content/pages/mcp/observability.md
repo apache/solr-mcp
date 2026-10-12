@@ -76,6 +76,9 @@ management.tracing.sampling.probability=1.0     # 100% sampling (dev)
 management.opentelemetry.tracing.export.otlp.endpoint=${OTEL_TRACES_URL:http://localhost:4318/v1/traces}
 management.otlp.metrics.export.url=${OTEL_METRICS_URL:http://localhost:4318/v1/metrics}
 management.opentelemetry.logging.export.otlp.endpoint=${OTEL_LOGS_URL:http://localhost:4318/v1/logs}
+management.tracing.export.otlp.enabled=${OTEL_EXPORT_ENABLED:true}
+management.otlp.metrics.export.enabled=${OTEL_EXPORT_ENABLED:true}
+management.logging.export.otlp.enabled=${OTEL_EXPORT_ENABLED:true}
 ```
 
 Export goes over **OTLP/HTTP on port 4318**, with a separate full URL per signal.
@@ -84,7 +87,9 @@ Each endpoint is a complete path ending in `/v1/traces`, `/v1/metrics` or
 When the server runs in a container and LGTM on the host, `localhost` is the container
 itself; point all three variables at the host, e.g.
 `OTEL_TRACES_URL=http://host.docker.internal:4318/v1/traces` (plus
-`--add-host=host.docker.internal:host-gateway` on Linux).
+`--add-host=host.docker.internal:host-gateway` on Linux). With no collector to point at,
+set `OTEL_EXPORT_ENABLED=false`; otherwise every export attempt fails and logs a
+connection error, one every few seconds.
 
 ### Generate Some Activity ###
 
@@ -238,6 +243,7 @@ PROFILES=http java -jar build/libs/solr-mcp-1.0.0-SNAPSHOT.jar
 | `OTEL_TRACES_URL` | `http://localhost:4318/v1/traces` | OTLP/HTTP traces endpoint |
 | `OTEL_METRICS_URL` | `http://localhost:4318/v1/metrics` | OTLP/HTTP metrics endpoint |
 | `OTEL_LOGS_URL` | `http://localhost:4318/v1/logs` | OTLP/HTTP logs endpoint |
+| `OTEL_EXPORT_ENABLED` | `true` | `false` stops exporting traces, metrics and logs |
 
 > **Upgrading from a pre-Spring-Boot-4 release?** `OTEL_TRACES_URL` changed meaning.
 > It used to be a *base* endpoint on the gRPC port (`http://collector:4317`); it is now

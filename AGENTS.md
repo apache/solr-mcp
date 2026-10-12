@@ -94,10 +94,12 @@ docker run -i --rm -e SOLR_URL=http://host.docker.internal:8983/solr/ solr-mcp:l
 
 # HTTP — Jib JVM
 docker run -p 8080:8080 --rm -e PROFILES=http \
+    -e OTEL_EXPORT_ENABLED=false \
     -e SOLR_URL=http://host.docker.internal:8983/solr/ solr-mcp:latest
 
 # HTTP — native
 docker run -p 8080:8080 --rm -e PROFILES=http \
+    -e OTEL_EXPORT_ENABLED=false \
     -e SOLR_URL=http://host.docker.internal:8983/solr/ solr-mcp:latest-native-http
 ```
 
@@ -318,6 +320,11 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
   - **Resources**: `logback-spring.xml` (see Logging Architecture above), and SolrJ's
     `EnvToSyspropMappings.properties` / `DeprecatedSystemPropertyMappings.properties`,
     which `EnvUtils` loads in its static initializer
+- **Runtime-only properties:** Spring AOT evaluates bean conditions at build time, so a
+  `management.*.enabled` property set at runtime does not add or remove beans in the native
+  image. `OtlpExportSwitch` re-reads the OTLP trace and log export switches at runtime and
+  swaps those exporters for no-ops, which is what makes `OTEL_EXPORT_ENABLED=false` work
+  natively; `HTTP_SECURITY_ENABLED` has no such shim and is fixed when the http image is built.
 - **Wire format:** `SolrConfig` uses `XMLRequestWriter` instead of the default
   `JavaBinRequestWriter`. The JavaBin binary codec uses deep reflection that would
   require extensive additional native image hints.
@@ -487,6 +494,9 @@ Environment variables:
   (default `http://localhost:4318/v1/{traces,metrics,logs}`). Each is a complete
   signal path. On SB 3.x a single `OTEL_TRACES_URL` was a *base* gRPC endpoint on
   port 4317 — a value carried over from there stops exporting silently.
+- `OTEL_EXPORT_ENABLED`: `false` turns off OTLP export of all three signals (default
+  `true`). Needed in a container with no collector, where `localhost` is the container
+  itself and every export attempt otherwise logs a connection error.
 
 Dependencies managed in `gradle/libs.versions.toml`.
 

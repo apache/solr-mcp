@@ -194,6 +194,8 @@ dependencies {
     implementation(libs.spring.boot.starter.opentelemetry)
     implementation(libs.spring.boot.starter.aspectj)
     implementation(libs.opentelemetry.logback.appender)
+    // Already shipped via the starter; compile scope for OtlpExportSwitch's exporter types
+    implementation(libs.opentelemetry.exporter.otlp)
     runtimeOnly(libs.micrometer.registry.otlp)
 
     // Error Prone and NullAway for null safety analysis

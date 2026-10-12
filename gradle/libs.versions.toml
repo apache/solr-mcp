@@ -88,6 +88,7 @@ solr-solrj = { module = "org.apache.solr:solr-solrj", version.ref = "solr" }
 spring-boot-starter-opentelemetry = { module = "org.springframework.boot:spring-boot-starter-opentelemetry" }
 opentelemetry-logback-appender = { module = "io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0", version.ref = "opentelemetry-logback-appender" }
 micrometer-registry-otlp = { module = "io.micrometer:micrometer-registry-otlp" }
+opentelemetry-exporter-otlp = { module = "io.opentelemetry:opentelemetry-exporter-otlp" }
 
 # AspectJ (required for @Observed annotation support)
 spring-boot-starter-aspectj = { module = "org.springframework.boot:spring-boot-starter-aspectj" }

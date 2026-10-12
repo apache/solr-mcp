@@ -215,6 +215,15 @@ For production deployments without Docker Compose, set these environment variabl
 | `OTEL_METRICS_URL` | `http://localhost:4318/v1/metrics` | OTLP/HTTP metrics endpoint |
 | `OTEL_TRACES_URL` | `http://localhost:4318/v1/traces` | OTLP/HTTP traces endpoint |
 | `OTEL_LOGS_URL` | `http://localhost:4318/v1/logs` | OTLP/HTTP logs endpoint |
+| `OTEL_EXPORT_ENABLED` | `true` | `false` stops exporting traces, metrics and logs |
+
+`OTEL_EXPORT_ENABLED` sets Spring Boot's `management.tracing.export.otlp.enabled`,
+`management.otlp.metrics.export.enabled` and `management.logging.export.otlp.enabled`. On the
+JVM those are bean conditions. The native image evaluated them during AOT processing, where the
+switch was unset, so `OtlpExportSwitch` re-reads the trace and log properties at runtime and
+swaps the OTLP exporters for no-ops; Micrometer re-checks the metrics one itself. Without it,
+`OTEL_EXPORT_ENABLED=false` on the native image would still log a connection error for every
+span and log batch.
 
 Each URL is a complete signal path, not a base address. `OTEL_TRACES_URL` previously meant a
 base endpoint on the gRPC port (`http://collector:4317`) and shared that endpoint with metrics

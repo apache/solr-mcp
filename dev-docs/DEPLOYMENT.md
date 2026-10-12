@@ -85,12 +85,14 @@ docker run -i --rm \
 # HTTP — Jib JVM
 docker run -p 8080:8080 --rm \
     -e PROFILES=http \
+    -e OTEL_EXPORT_ENABLED=false \
     -e SOLR_URL=http://host.docker.internal:8983/solr/ \
     solr-mcp:latest
 
 # HTTP — native
 docker run -p 8080:8080 --rm \
     -e PROFILES=http \
+    -e OTEL_EXPORT_ENABLED=false \
     -e SOLR_URL=http://host.docker.internal:8983/solr/ \
     solr-mcp:latest-native-http
 ```
@@ -153,6 +155,7 @@ docker run -i --rm \
 ```bash
 docker run -p 8080:8080 --rm \
   -e PROFILES=http \
+  -e OTEL_EXPORT_ENABLED=false \
   -e SOLR_URL=http://your-solr-host:8983/solr/ \
   solr-mcp:1.0.0-SNAPSHOT
 ```
@@ -328,6 +331,8 @@ services:
     environment:
       - SOLR_URL=http://solr:8983/solr/
       - PROFILES=http
+      # No collector in this stack; set the OTEL_*_URL variables instead to export
+      - OTEL_EXPORT_ENABLED=false
     ports:
       - "8080:8080"
     depends_on:
@@ -364,6 +369,10 @@ spec:
           value: "http://solr-service:8983/solr/"
         - name: PROFILES
           value: "http"
+        # No collector in this example; to export, drop this and point
+        # OTEL_TRACES_URL, OTEL_METRICS_URL and OTEL_LOGS_URL at yours
+        - name: OTEL_EXPORT_ENABLED
+          value: "false"
         ports:
         - containerPort: 8080
 ---

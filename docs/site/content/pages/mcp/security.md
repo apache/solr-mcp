@@ -27,6 +27,7 @@ Or with Docker (local image &mdash; build first with `./gradlew jibDockerBuild`)
 ```bash
 docker run -p 8080:8080 --rm \
     -e PROFILES=http \
+    -e OTEL_EXPORT_ENABLED=false \
     -e OAUTH2_ISSUER_URI=https://your-provider.example.com/ \
     -e SOLR_URL=http://host.docker.internal:8983/solr/ \
     solr-mcp:latest
