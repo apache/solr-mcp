@@ -196,6 +196,10 @@ git push origin releases/solr-mcp/1.0.0
 Publish a GitHub Release from the final tag with notes linking to ASF
 downloads.
 
+Before announcing, run `release-publish.yml` to push the container images and
+publish the MCP Registry entry, then record the Docker Hub distribution on
+ATR's finish page. [MCP_REGISTRY.md](MCP_REGISTRY.md) has the steps.
+
 After publication and a manual check that the artifacts have propagated to
 `downloads.apache.org`, fill in and submit ATR's announcement form with a
 short project description and links to the updated download page and release

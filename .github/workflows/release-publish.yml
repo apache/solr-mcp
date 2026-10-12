@@ -134,11 +134,29 @@ jobs:
       proceed: ${{ steps.validation.outputs.proceed }}
 
     steps:
-        # Step: Check out the exact RC tag that was approved (e.g., v1.0.0-rc1)
+        # Step: Reject malformed inputs before they reach a tag name, an image tag or
+        # server.json. Later jobs rely on this, so it runs before anything else.
+      - name: Validate inputs
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+          RELEASE_CANDIDATE: ${{ inputs.release_candidate }}
+        run: |
+          if [[ ! "${RELEASE_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: release_version must look like 1.0.0, got '${RELEASE_VERSION}'" >&2
+            exit 1
+          fi
+          if [[ ! "${RELEASE_CANDIDATE}" =~ ^rc[0-9]+$ ]]; then
+            echo "ERROR: release_candidate must look like rc1, got '${RELEASE_CANDIDATE}'" >&2
+            exit 1
+          fi
+
+        # Step: Check out the exact RC tag that was approved (e.g., releases/solr-mcp/1.0.0-rc1)
+        # dev-docs/release-process.md creates this tag; the final releases/solr-mcp/<version>
+        # tag points at the same commit.
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: "v${{ inputs.release_version }}-${{ inputs.release_candidate }}"
+          ref: "releases/solr-mcp/${{ inputs.release_version }}-${{ inputs.release_candidate }}"
 
         # Step: Validate that the supplied tag exists in the repo
         # - Uses `git rev-parse` to resolve the tag; sets an output flag to gate downstream jobs
@@ -146,11 +164,11 @@ jobs:
         id: validation
         run: |
           # Check if the release tag exists
-          if git rev-parse "v${{ inputs.release_version }}-${{ inputs.release_candidate }}" >/dev/null 2>&1; then
-            echo "Release tag found: v${{ inputs.release_version }}-${{ inputs.release_candidate }}"
+          if git rev-parse "releases/solr-mcp/${{ inputs.release_version }}-${{ inputs.release_candidate }}" >/dev/null 2>&1; then
+            echo "Release tag found: releases/solr-mcp/${{ inputs.release_version }}-${{ inputs.release_candidate }}"
             echo "proceed=true" >> $GITHUB_OUTPUT
           else
-            echo "ERROR: Release tag not found: v${{ inputs.release_version }}-${{ inputs.release_candidate }}"
+            echo "ERROR: Release tag not found: releases/solr-mcp/${{ inputs.release_version }}-${{ inputs.release_candidate }}"
             echo "proceed=false" >> $GITHUB_OUTPUT
             exit 1
           fi
@@ -178,7 +196,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: "v${{ inputs.release_version }}-${{ inputs.release_candidate }}"
+          ref: "releases/solr-mcp/${{ inputs.release_version }}-${{ inputs.release_candidate }}"
 
       # Set up Java environment using centralized configuration
       # See .github/actions/setup-java/action.yml to update Java version
@@ -209,8 +227,9 @@ jobs:
         env:
           # Jib reads these directly; passing them as -Djib.to.auth.* would put
           # the token in the process argument list, visible to anything on the runner.
-          JIB_TO_AUTH_USERNAME: ${{ secrets.DOCKERHUB_APACHE_USERNAME }}
-          JIB_TO_AUTH_PASSWORD: ${{ secrets.DOCKERHUB_APACHE_TOKEN }}
+          # DOCKERHUB_USER / DOCKERHUB_TOKEN are the names ASF Infra provisions (#251).
+          JIB_TO_AUTH_USERNAME: ${{ secrets.DOCKERHUB_USER }}
+          JIB_TO_AUTH_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
           RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
           set -euo pipefail
@@ -218,7 +237,7 @@ jobs:
           # credentials; a release that cannot publish must fail loudly rather than
           # reporting success while shipping nothing.
           if [[ -z "${JIB_TO_AUTH_USERNAME}" || -z "${JIB_TO_AUTH_PASSWORD}" ]]; then
-            echo "ERROR: Apache Docker Hub credentials (DOCKERHUB_APACHE_USERNAME / DOCKERHUB_APACHE_TOKEN) are not configured" >&2
+            echo "ERROR: Apache Docker Hub credentials (DOCKERHUB_USER / DOCKERHUB_TOKEN) are not configured" >&2
             exit 1
           fi
 
@@ -273,12 +292,12 @@ jobs:
           # Rename to include the version so the asset is unambiguous on the release page.
           cp build/reports/application.cdx.json "solr-mcp-${RELEASE_VERSION}.cdx.json"
           # --clobber lets re-runs of this workflow replace a previously uploaded SBOM.
-          # If the v<version> GitHub Release does not exist yet, log and continue —
+          # If the releases/solr-mcp/<version> GitHub Release does not exist yet, log and continue —
           # the workflow artifact above is still captured.
-          if gh release view "v${RELEASE_VERSION}" >/dev/null 2>&1; then
-            gh release upload "v${RELEASE_VERSION}" "solr-mcp-${RELEASE_VERSION}.cdx.json" --clobber
+          if gh release view "releases/solr-mcp/${RELEASE_VERSION}" >/dev/null 2>&1; then
+            gh release upload "releases/solr-mcp/${RELEASE_VERSION}" "solr-mcp-${RELEASE_VERSION}.cdx.json" --clobber
           else
-            echo "GitHub Release v${RELEASE_VERSION} does not exist yet; SBOM available as workflow artifact only."
+            echo "GitHub Release releases/solr-mcp/${RELEASE_VERSION} does not exist yet; SBOM available as workflow artifact only."
           fi
 
       - name: Create release announcement
@@ -308,7 +327,7 @@ jobs:
           \`\`\`
 
           ### Using JAR:
-          Download the JAR from the [release page](https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.release_version }}).
+          Download the JAR from the [release page](https://github.com/${{ github.repository }}/releases/tag/releases/solr-mcp/${{ inputs.release_version }}).
 
           ## Verification
 
@@ -327,7 +346,7 @@ jobs:
 
           ## Release Notes
 
-          See the [full release notes](https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.release_version }}) for details.
+          See the [full release notes](https://github.com/${{ github.repository }}/releases/tag/releases/solr-mcp/${{ inputs.release_version }}) for details.
 
           ## Vote Thread
 
@@ -385,7 +404,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: "v${{ inputs.release_version }}-${{ inputs.release_candidate }}"
+          ref: "releases/solr-mcp/${{ inputs.release_version }}-${{ inputs.release_candidate }}"
 
       - name: Set up GraalVM JDK 25
         # GitHub-owned action; see native.yml for why not graalvm/setup-graalvm.
@@ -510,6 +529,10 @@ jobs:
       # Why here (and not a separate workflow):
       # - Keeps the post-vote release actions in one place, reducing the chance of
       #   publishing registry entries that don't correspond to an approved release.
+      #
+      # A published registry version cannot be edited, only deprecated. Run this
+      # workflow while the release is in ATR's finish phase, before announcing; see
+      # dev-docs/MCP_REGISTRY.md for the ATR steps around it.
     name: Publish to MCP Registry
     runs-on: ubuntu-latest
     # Wait for both JVM (publish-docker) and native (publish-native-manifests)
@@ -530,26 +553,24 @@ jobs:
         -   name: Checkout code
             uses: actions/checkout@v4
             with:
-                ref: "v${{ inputs.release_version }}-${{ inputs.release_candidate }}"
+                ref: "releases/solr-mcp/${{ inputs.release_version }}-${{ inputs.release_candidate }}"
 
-        # Determine the semantic version to publish to MCP (no RC suffix)
-        -   name: Prepare version for MCP
-            id: mcp_version
-            run: |
-                # For MCP, we advertise the GA version (e.g., 1.2.3)
-                echo "version=${{ inputs.release_version }}" >> $GITHUB_OUTPUT
-
-        # Update server.json with the release version to ensure consistency
+        # Write the release version into server.json. OCI packages carry their
+        # version as the image tag in `identifier`; the registry rejects a
+        # `version` field on them, so only the tags are rewritten.
         -   name: Update server.json version
+            env:
+                RELEASE_VERSION: ${{ inputs.release_version }}
             run: |
-                VERSION="${{ steps.mcp_version.outputs.version }}"
-                # Update the top-level server version (e.g., 1.2.3)
-                jq --arg v "$VERSION" '.version = $v' server.json > server.json.tmp
-                # Update EVERY package version to match the GA release. Rewriting
-                # only packages[0] left the other package on -SNAPSHOT, so the
-                # registry entry advertised an image tag that is never published.
-                jq --arg v "$VERSION" '.packages[].version = $v' server.json.tmp > server.json
-                rm server.json.tmp
+                set -euo pipefail
+                jq --arg v "$RELEASE_VERSION" \
+                  '.version = $v | .packages |= map(.identifier |= sub(":[^:/@]+$"; ":" + $v))' \
+                  server.json > server.json.tmp
+                mv server.json.tmp server.json
+                if jq -e 'any(.packages[]; has("version"))' server.json >/dev/null; then
+                  echo "ERROR: an OCI package in server.json has a 'version' field; put the tag in 'identifier'" >&2
+                  exit 1
+                fi
                 # Fail if any -SNAPSHOT version survived the rewrite
                 if grep -q 'SNAPSHOT' server.json; then
                   echo "ERROR: server.json still contains a SNAPSHOT version after rewrite" >&2
@@ -559,13 +580,31 @@ jobs:
                 # Show the final server.json for auditing
                 cat server.json
 
+        # The registry pulls every image manifest anonymously when publishing.
+        # Check the same thing first (this job never logs in), so a private
+        # image fails here with a message that says what to do.
+        -   name: Check that the images are public
+            run: |
+                set -euo pipefail
+                failed=0
+                for image in $(jq -r '.packages[] | select(.registryType == "oci") | .identifier' server.json); do
+                  if docker manifest inspect "${image}" >/dev/null 2>&1; then
+                    echo "OK: ${image}"
+                  else
+                    echo "ERROR: ${image} cannot be pulled anonymously." >&2
+                    echo "On the first release, ghcr.io/apache/solr-mcp is private until ASF Infra makes it public (#251); re-run this job afterwards." >&2
+                    failed=1
+                  fi
+                done
+                exit "${failed}"
+
         # Download the MCP Publisher CLI, pinned to an explicit release and
         # verified against that release's published checksum file. Piping an
         # unverified `curl -L` straight into tar would silently extract a
         # GitHub error page on a 404, so download, verify, then extract.
         -   name: Download MCP Publisher
             env:
-                MCP_PUBLISHER_VERSION: v1.8.0
+                MCP_PUBLISHER_VERSION: v1.8.1
             run: |
                 set -euo pipefail
                 base="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}"
@@ -582,6 +621,10 @@ jobs:
                 chmod +x mcp-publisher
                 ./mcp-publisher --version
 
+        # Schema check only: the ownership and package checks run on publish.
+        -   name: Validate server.json
+            run: ./mcp-publisher validate
+
         # Authenticate to the MCP Registry using GitHub OIDC (no static secrets)
         -   name: Authenticate with MCP Registry (GitHub OIDC)
             run: |
@@ -592,23 +635,39 @@ jobs:
             run: |
                 ./mcp-publisher publish
 
-        # Verify publication by querying the public registry API
+        # Read the exact version back from the public API; fail if it never appears.
         -   name: Verify publication
+            env:
+                RELEASE_VERSION: ${{ inputs.release_version }}
             run: |
-                echo "Waiting 10 seconds for registry to update..."
-                sleep 10
-                echo "Querying registry for published server..."
-                curl "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.apache/solr-mcp" | jq .
+                set -euo pipefail
+                url="https://registry.modelcontextprotocol.io/v0.1/servers/io.github.apache%2Fsolr-mcp/versions/${RELEASE_VERSION}"
+                for attempt in 1 2 3 4 5 6; do
+                  if body="$(curl -fsS "${url}")" && \
+                     [[ "$(jq -r '.server.version' <<<"${body}")" == "${RELEASE_VERSION}" ]]; then
+                    jq '.server' <<<"${body}"
+                    exit 0
+                  fi
+                  echo "Not visible yet (attempt ${attempt}); retrying in 10s"
+                  sleep 10
+                done
+                echo "ERROR: ${url} did not return version ${RELEASE_VERSION}" >&2
+                exit 1
 
         # Summarize MCP publication in the GitHub Actions job summary
         -   name: Summary
+            env:
+                RELEASE_VERSION: ${{ inputs.release_version }}
             run: |
-                echo "### MCP Server Published Successfully! :rocket:" >> $GITHUB_STEP_SUMMARY
-                echo "" >> $GITHUB_STEP_SUMMARY
-                echo "**Server Name:** io.github.apache/solr-mcp" >> $GITHUB_STEP_SUMMARY
-                echo "**Version:** ${{ steps.mcp_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-                echo "**Docker Image:** apache/solr-mcp:${{ inputs.release_version }}" >> $GITHUB_STEP_SUMMARY
-                echo "" >> $GITHUB_STEP_SUMMARY
-                echo "The server is now discoverable in the MCP Registry!" >> $GITHUB_STEP_SUMMARY
-                echo "" >> $GITHUB_STEP_SUMMARY
-                echo "**Registry URL:** https://registry.modelcontextprotocol.io/v0/servers?search=io.github.apache/solr-mcp" >> $GITHUB_STEP_SUMMARY
+                {
+                  echo "### MCP Server Published Successfully! :rocket:"
+                  echo ""
+                  echo "**Server Name:** io.github.apache/solr-mcp"
+                  echo "**Version:** ${RELEASE_VERSION}"
+                  echo "**Images:**"
+                  jq -r '.packages[] | "- `" + .identifier + "`"' server.json
+                  echo ""
+                  echo "**Registry URL:** https://registry.modelcontextprotocol.io/v0.1/servers/io.github.apache%2Fsolr-mcp/versions/${RELEASE_VERSION}"
+                  echo ""
+                  echo "Next: record the Docker Hub distribution on ATR's finish page, then announce (dev-docs/MCP_REGISTRY.md)."
+                } >> "$GITHUB_STEP_SUMMARY"
