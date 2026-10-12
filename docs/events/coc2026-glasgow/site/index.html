@@ -864,8 +864,8 @@ java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
       <div data-transport="http">
       <div class="codeblock"><button class="copy" type="button">Copy</button><pre><code>codex mcp add solr-mcp --url http://localhost:8080/mcp</code></pre></div>
       <p style="font-size:.86rem;color:var(--ink-2)">
-        Codex prints <q>may or may not require login</q> — ignore it, there is no login on an
-        unsecured server. Verify with <code class="inline">codex mcp list</code>; the server must
+        No login is needed on an unsecured server; if your Codex version prints
+        <q>may or may not require login</q>, ignore it. Verify with <code class="inline">codex mcp list</code>; the server must
         already be running when Codex starts.
       </p>
       </div>
@@ -895,10 +895,10 @@ java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
           </p>
         </div>
         <ol style="font-size:.92rem;color:var(--ink-2);line-height:1.6">
-          <li><b>Settings → Security and login</b>: turn on <b>Developer mode</b> (Pro, Plus, Business, Enterprise, Education; workspace admins may need to allow it).</li>
-          <li>Open <b>ChatGPT Plugins</b>, press <b>+</b>, and create a developer-mode app.</li>
-          <li>Name it <code class="inline">solr-mcp</code>; under <b>Connection</b> enter <code class="inline">https://&lt;your-tunnel&gt;/mcp</code>; choose <b>No authentication</b>.</li>
-          <li>Create it and check the discovered tools — there should be fifteen. Enable the app in a chat.</li>
+          <li>On the web, open <b>ChatGPT Plugins</b>, press <b>+</b>, then <b>Add custom MCP server</b>. In a workspace, an admin may need to allow custom MCP servers.</li>
+          <li>Name it <code class="inline">solr-mcp</code>; under <b>Connection</b> enter the Server URL <code class="inline">https://&lt;your-tunnel&gt;/mcp</code>; choose <b>No authentication</b>.</li>
+          <li>Select <b>I understand and want to continue</b>, then <b>Create as a plugin</b>.</li>
+          <li>Install the plugin, then use it in a chat. It should expose fifteen tools.</li>
         </ol>
         <p style="font-size:.86rem;color:var(--ink-2)">
           ChatGPT asks before running tools it treats as writes, which is most of them. After
@@ -911,7 +911,8 @@ java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
     <div data-client="claude-desktop">
       <h3>Claude Desktop</h3>
       <div data-transport="stdio">
-      <p>Edit the config file, then <b>fully quit and reopen</b> Claude Desktop:</p>
+      <p>Edit the config file (<b>Settings → Developer → Edit Config</b> opens it), then
+        <b>fully quit and reopen</b> Claude Desktop:</p>
       <div class="codeblock" data-os="macos"><button class="copy" type="button">Copy</button><pre><code>~/Library/Application Support/Claude/claude_desktop_config.json</code></pre></div>
       <div class="codeblock" data-os="windows wsl"><button class="copy" type="button">Copy</button><pre><code>%APPDATA%\Claude\claude_desktop_config.json</code></pre></div>
       <div class="codeblock" data-os="linux"><button class="copy" type="button">Copy</button><pre><code>~/.config/Claude/claude_desktop_config.json</code></pre></div>
@@ -925,9 +926,10 @@ java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
       <div class="note warn" data-os="linux">
         <span class="tag">On Linux</span>
         <p>
-          There is no official Claude Desktop build for Linux. That path is where community
-          builds look; if you're on Linux, <b>Claude Code</b> or <b>MCP Inspector</b> is the
-          smoother route.
+          Claude Desktop for Linux is an official beta for Ubuntu 22.04+ and Debian 12+. Anthropic
+          doesn't document its config path; if the file above has no effect, open the one the
+          app reads from <b>Settings → Developer → Edit Config</b>. <b>Claude Code</b> or
+          <b>MCP Inspector</b> is the smoother route on Linux.
         </p>
       </div>
 
@@ -1062,7 +1064,7 @@ java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
       <div data-transport="stdio">
       <p>
         Zed has a form for this, which is the easier route here — no JSON, and it validates as
-        you type. <b>Settings → AI → General → MCP Servers → Add Server → Add Local MCP
+        you type. <b>Settings → AI → General → MCP Servers → Add Server → Add Local
         Server</b>, then:
       </p>
       <div class="tablewrap" data-runtime="docker">
@@ -1125,9 +1127,9 @@ java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
   }
 }</code></pre></div>
       <div class="note good">
-        <span class="tag">Zed schema — verified 1.16.2</span>
+        <span class="tag">Zed schema — verified 1.23.2</span>
         <p>
-          Verified against Zed <b>1.16.2</b>. Zed's schema takes <code class="inline">command</code>
+          Verified against Zed <b>1.23.2</b>. Zed's schema takes <code class="inline">command</code>
           as a plain string with <code class="inline">args</code> and
           <code class="inline">env</code> alongside it — there is no
           <code class="inline">source</code> key, and adding one makes Zed's settings
@@ -1159,8 +1161,9 @@ java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
     <div data-client="intellij">
       <h3>IntelliJ IDEA / JetBrains</h3>
       <div data-transport="stdio">
-      <p>Needs the AI Assistant plugin. Either drop a file at
-        <code class="inline">.junie/mcp/mcp.json</code> in your project root:</p>
+      <p>Needs the AI Assistant plugin. Open <b>Settings | Tools | AI Assistant | Model Context
+        Protocol (MCP)</b>, click <b>Add</b>, choose <b>STDIO</b> in the <b>New MCP Server</b> dialog,
+        and paste:</p>
       <div class="codeblock" data-runtime="docker"><button class="copy" type="button">Copy</button><pre><code>{
   <span class="tok-s">"mcpServers"</span>: {
     <span class="tok-s">"solr-mcp"</span>: {
@@ -1182,20 +1185,18 @@ java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
   }
 }</code></pre></div>
       <p style="font-size:.86rem;color:var(--ink-2)">
-        …or add it through <b>Settings → Tools → AI Assistant → MCP Servers → Add</b>,
-        transport <b>STDIO</b>.
+        Using Junie, JetBrains' coding agent, instead? It reads the same JSON from
+        <code class="inline">.junie/mcp/mcp.json</code> in your project root.
       </p>
       </div>
       <div data-transport="http">
-      <p>Same file, <code class="inline">.junie/mcp/mcp.json</code>, with a URL instead of a command:</p>
+      <p>Same dialog — <b>Settings | Tools | AI Assistant | Model Context Protocol (MCP)</b> →
+        <b>Add</b> — but choose <b>Streamable HTTP</b> and paste a URL instead of a command:</p>
       <div class="codeblock"><button class="copy" type="button">Copy</button><pre><code>{
   <span class="tok-s">"mcpServers"</span>: {
     <span class="tok-s">"solr-mcp"</span>: { <span class="tok-s">"url"</span>: <span class="tok-s">"http://localhost:8080/mcp"</span> }
   }
 }</code></pre></div>
-      <p style="font-size:.86rem;color:var(--ink-2)">
-        …or <b>Settings → Tools → AI Assistant → MCP Servers → Add</b>, transport <b>HTTP</b>.
-      </p>
       </div>
     </div>
 
@@ -1208,17 +1209,33 @@ java -jar C:/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
         <em>see</em> what MCP actually is, and the fastest way to prove the server works.
       </p>
       <div class="codeblock"><button class="copy" type="button">Copy</button><pre><code>npx @modelcontextprotocol/inspector</code></pre></div>
-      <p>Opens at <code class="inline">http://localhost:6274</code>. Choose <b>STDIO</b>, then:</p>
-      <div class="tablewrap">
-        <table>
-          <tbody>
-            <tr data-runtime="docker"><th>Command</th><td><code>docker</code></td></tr>
-            <tr data-runtime="docker"><th>Arguments</th><td><code>run -i --rm --network=solr-mcp -e SOLR_URL=http://solr-mcp-demo:8983/solr/ ghcr.io/adityamparikh/solr-mcp:coc2026</code></td></tr>
-            <tr data-runtime="jar"><th>Command</th><td><code>java</code></td></tr>
-            <tr data-runtime="jar"><th>Arguments</th><td><code>-jar /absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></td></tr>
-          </tbody>
-        </table>
-      </div>
+      <p>
+        Opens at <code class="inline">http://localhost:6274</code>. Add a server, choose
+        <b>stdio</b>, set <b>Command</b> to
+        <code class="inline" data-runtime="docker">docker</code><code class="inline" data-runtime="jar">java</code>,
+        and paste this into <b>Arguments</b>. That field takes <b>one argument per line</b>:
+        pasted as one line, the whole string reaches
+        <span data-runtime="docker">docker as a single argument and it fails with
+        <code class="inline">unknown shorthand flag</code>.</span><span data-runtime="jar">java
+        as a single argument.</span>
+      </p>
+      <div class="codeblock" data-runtime="docker"><button class="copy" type="button">Copy</button><pre><code>run
+-i
+--rm
+--network=solr-mcp
+-e
+SOLR_URL=http://solr-mcp-demo:8983/solr/
+ghcr.io/adityamparikh/solr-mcp:coc2026</code></pre></div>
+      <div class="codeblock" data-runtime="jar"><button class="copy" type="button">Copy</button><pre><code>-jar
+/absolute/path/to/solr-mcp-1.0.0-SNAPSHOT.jar</code></pre></div>
+      <p style="font-size:.86rem;color:var(--ink-2)">
+        Leave the <b>Environment</b> field empty — it sets variables for the
+        <span data-runtime="docker"><code class="inline">docker</code> client, not the container,
+        which is why <code class="inline">SOLR_URL</code> goes in as
+        <code class="inline">-e</code>.</span><span data-runtime="jar">launcher; the jar's
+        default <code class="inline">SOLR_URL</code> already points at
+        <code class="inline">localhost:8983</code>.</span>
+      </p>
       <p>
         Hit <b>Connect</b>, then <b>List Tools</b>. You should see fifteen. Click
         <code class="inline">list-collections</code> and run it — that round-trip is the whole
@@ -2335,8 +2352,8 @@ docker run -p 127.0.0.1:8080:8080 --rm --network=solr-mcp \
       </p>
 
       <h3>1. Start LGTM</h3>
-      <p style="font-size:.86rem;color:var(--ink-2)">Grafana on 3000, the OTLP receiver on 4317 (gRPC) and 4318 (HTTP). The loop waits for the collector; Grafana answers first, and export only works once the collector is up.</p>
-      <div class="codeblock"><button class="copy" type="button">Copy</button><pre><code>docker run -d --name lgtm --network=solr-mcp -p 127.0.0.1:3000:3000 -p 127.0.0.1:4317:4317 -p 127.0.0.1:4318:4318 grafana/otel-lgtm:0.33.0
+      <p style="font-size:.86rem;color:var(--ink-2)">Grafana on 3000 and the OTLP/HTTP receiver on 4318, which is what the server exports to. The loop waits for the collector; Grafana answers first, and export only works once the collector is up.</p>
+      <div class="codeblock"><button class="copy" type="button">Copy</button><pre><code>docker run -d --name lgtm --network=solr-mcp -p 127.0.0.1:3000:3000 -p 127.0.0.1:4318:4318 grafana/otel-lgtm:0.33.0
 
 until docker logs lgtm 2&gt;&amp;1 | grep -q "up and running"; do sleep 2; done
 echo "LGTM ready"</code></pre></div>
@@ -2647,9 +2664,10 @@ codex exec "Call the list-collections tool on the solr-mcp MCP server and reply 
           <div class="note warn" data-os="linux">
             <span class="tag">On Linux</span>
             <p>
-              There is no official Claude Desktop build for Linux. That path is where community
-              builds look; if you're on Linux, <b>Claude Code</b> or <b>MCP Inspector</b> is the
-              smoother route.
+              Claude Desktop for Linux is an official beta for Ubuntu 22.04+ and Debian 12+. Anthropic
+          doesn't document its config path; if the file above has no effect, open the one the
+          app reads from <b>Settings → Developer → Edit Config</b>. <b>Claude Code</b> or
+          <b>MCP Inspector</b> is the smoother route on Linux.
             </p>
           </div>
           <div class="codeblock"><button class="copy" type="button">Copy</button><pre><code>{
@@ -2713,7 +2731,7 @@ codex exec "Call the list-collections tool on the solr-mcp MCP server and reply 
         <!-- ── IntelliJ ── -->
         <div data-client="intellij">
           <h4>IntelliJ IDEA / JetBrains (via mcp-remote)</h4>
-          <p style="font-size:.86rem;color:var(--ink-2)">In <code class="inline">.junie/mcp/mcp.json</code> or IDE Settings, proxy through <code class="inline">mcp-remote</code> to forward the bearer header on each request:</p>
+          <p style="font-size:.86rem;color:var(--ink-2)">In <b>Settings | Tools | AI Assistant | Model Context Protocol (MCP)</b> → <b>Add</b> → <b>STDIO</b> (or Junie's <code class="inline">.junie/mcp/mcp.json</code>), proxy through <code class="inline">mcp-remote</code> to forward the bearer header on each request:</p>
           <div class="codeblock"><button class="copy" type="button">Copy</button><pre><code>{
   "mcpServers": {
     "solr-mcp": {
