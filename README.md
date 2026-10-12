@@ -20,7 +20,7 @@ This Spring AI [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) 
 
 **Prerequisites:** Java 25+, [Docker](https://docs.docker.com/get-docker/) and Docker Compose, Git.
 
-**Compatibility:** works with Apache Solr **8.11–10** (the test suite runs against 9.9 by default — see [Solr version compatibility](dev-docs/DEVELOPMENT.md#solr-version-compatibility)).
+**Compatibility:** works with Apache Solr **9.4–10** (the test suite runs against 9.9 by default — see [Solr version compatibility](dev-docs/DEVELOPMENT.md#solr-version-compatibility)).
 
 #### 1. Start Solr with sample data
 
@@ -178,7 +178,7 @@ The server reads configuration from environment variables. The essentials:
 | `SOLR_URL` | Solr base URL | `http://localhost:8983/solr/` |
 | `PROFILES` | Transport mode: `stdio` (default, for Claude Desktop) or `http` (remote / multi-client) | `stdio` |
 
-Running in **HTTP mode** — OAuth2, CORS, and the `HTTP_SECURITY_ENABLED` toggle (secured by default) — is covered in the [security docs](docs/security/). Tracing and metrics env vars (`OTEL_SAMPLING_PROBABILITY`, `OTEL_TRACES_URL`) are covered in [Observability](docs/observability.md).
+Running in **HTTP mode** — OAuth2, CORS, and the `HTTP_SECURITY_ENABLED` toggle (secured by default) — is covered in the [security docs](docs/security/). Tracing, metrics and log-export env vars (`OTEL_SAMPLING_PROBABILITY`, `OTEL_TRACES_URL`, `OTEL_METRICS_URL`, `OTEL_LOGS_URL`) are covered in [Observability](docs/observability.md).
 
 ## Documentation
 

@@ -18,13 +18,11 @@ package org.apache.solr.mcp.server;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.client.transport.StdioClientTransport;
-import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
+import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import java.util.Map;
 import org.junit.jupiter.api.Order;
@@ -34,6 +32,8 @@ import org.testcontainers.containers.SolrContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * MCP client integration test running against the server in STDIO mode. Spawns
@@ -57,7 +57,7 @@ class McpClientStdioIntegrationTest extends McpClientIntegrationTestBase {
 				.addEnvVar("SPRING_DOCKER_COMPOSE_ENABLED", "false").addEnvVar("SOLR_INDEX_URL_ALLOWED_HOSTS", "*")
 				.build();
 
-		var transport = new StdioClientTransport(params, new JacksonMcpJsonMapper(new ObjectMapper()));
+		var transport = new StdioClientTransport(params, new JacksonMcpJsonMapper(JsonMapper.builder().build()));
 		return McpClient.sync(transport).build();
 	}
 

@@ -77,17 +77,17 @@ LgtmAssertions lgtm = new LgtmAssertions(lgtmContainer, objectMapper);
 Optional<JsonNode> trace = lgtm.getTraceById(traceId);
 
 // Search traces with TraceQL
-Optional<JsonNode> traces = lgtm.searchTraces("{.service.name=\"solr-mcp-server\"}", 10);
+Optional<JsonNode> traces = lgtm.searchTraces("{.service.name=\"solr-mcp\"}", 10);
 
 // Query Prometheus metrics
-Optional<JsonNode> metrics = lgtm.queryPrometheus("http_server_requests_seconds_count");
+Optional<JsonNode> metrics = lgtm.queryPrometheus("http_server_requests_milliseconds_count");
 ```
 
 #### `TraceAssertions.java`
 Fluent assertion utilities for trace verification:
 ```java
 // Assert span exists
-TraceAssertions.assertSpanExists(spans, "SearchService.search");
+TraceAssertions.assertSpanExists(spans, "SearchService#search");
 
 // Assert span has attribute
 TraceAssertions.assertSpanHasAttribute(spans, "SearchService", "collection", "test");
@@ -134,7 +134,7 @@ For local development, you can verify tracing works by:
 4. **Open Grafana**: http://localhost:3000
    - Navigate to "Explore"
    - Select "Tempo" datasource
-   - Search for service name: `solr-mcp-server`
+   - Search for service name: `solr-mcp`
    - View traces, spans, and distributed call graphs
 
 ## What Gets Traced?
@@ -206,8 +206,9 @@ The **integration tests** (`OtlpExportIntegrationTest`) can be run:
 1. Verify LGTM stack is running: `docker compose ps`
 2. Check OTLP endpoint: `http://localhost:4318/v1/traces`
 3. Verify application properties:
-   - `otel.exporter.otlp.endpoint` is set (see `application-http.properties`);
-     tests override `management.otlp.tracing.endpoint` to disable export
+   - `management.opentelemetry.tracing.export.otlp.endpoint` is set (see
+     `application-http.properties`); tests set `management.tracing.export.otlp.enabled=false`
+     to disable export
    - `management.tracing.sampling.probability=1.0` (100% sampling)
 4. Check application logs for OTLP export errors
 5. Verify Grafana datasource: Grafana → Connections → Data Sources → Tempo
@@ -238,7 +239,7 @@ void shouldCreateSpanForMyOperation() throws Exception {
         .atMost(5, TimeUnit.SECONDS)
         .untilAsserted(() -> {
             var spans = tracer.getSpans();
-            TraceAssertions.assertSpanExists(spans, "MyService.doSomething");
+            TraceAssertions.assertSpanExists(spans, "MyService#doSomething");
             TraceAssertions.assertSpanHasAttribute(spans, "MyService", "operation", "doSomething");
         });
 }

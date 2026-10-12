@@ -92,6 +92,34 @@ java {
 // the bootJar — bundling the base files here too would duplicate META-INF/LICENSE.
 // See https://www.apache.org/legal/release-policy.html#licensing-documentation
 
+// CycloneDX SBOM
+// ==============
+// What we no longer configure: *output*. Spring Boot 4.1.1's `CyclonedxPluginAction`
+// auto-configures the `cyclonedxBom` task (type `org.cyclonedx.gradle.CyclonedxAggregateTask`)
+// for cyclonedx 3.x -- it sets the output to `build/reports/cyclonedx/application.cdx.json`
+// and makes the bootJar embed it at `META-INF/sbom/application.cdx.json`. The
+// `org.apache.solr.mcp.license-notice` plugin reads the SBOM from that same path.
+//
+// What still needs configuring: *scope*. cyclonedx 3.x splits the work in two --
+// `cyclonedxDirectBom` (`CyclonedxDirectTask`) resolves the dependency graph and owns
+// `includeConfigs`; `cyclonedxBom` (`CyclonedxAggregateTask`) only aggregates its output.
+// Left at defaults, the direct task scans every configuration, which puts JUnit, AssertJ,
+// ByteBuddy, docker-java, JaCoCo, Error Prone and NullAway into the SBOM -- ~100 components
+// that are not in the fat jar. That is invisible to our checks (the LICENSE appendix filters
+// to shipped coordinates, and the completeness gate only fails on *missing* entries), but the
+// SBOM ships at `META-INF/sbom/application.cdx.json` and is served from
+// `/actuator/sbom/application`, where scanners read it as a claim about the artifact's
+// contents -- test-only entries there become false-positive CVEs against a release.
+// So scope the direct task to the shipped classpath, matching `generateBinaryLicense`.
+//
+// Historical note: this used to pin cyclonedx to 2.4.1 and set `outputName` by hand as well,
+// because 3.x failed at configuration time on Gradle 9.4.1 (a variant-mutation conflict on
+// `:cyclonedxDirectBom`). That is fixed as of 3.4.1, so the pin and the output-name wiring
+// are gone -- see https://github.com/apache/solr-mcp/issues/186.
+tasks.named<org.cyclonedx.gradle.CyclonedxDirectTask>("cyclonedxDirectBom") {
+    includeConfigs.set(listOf("productionRuntimeClasspath"))
+}
+
 // Maven Publishing Configuration
 // ==============================
 // This configuration enables publishing the project artifacts to Maven repositories.
@@ -146,27 +174,27 @@ dependencies {
 
     developmentOnly(libs.bundles.spring.boot.dev)
 
-    implementation(libs.spring.boot.starter.web)
+    implementation(libs.spring.boot.starter.webmvc)
+    implementation(libs.spring.boot.starter.json)
     implementation(libs.spring.boot.starter.actuator)
-    implementation(libs.spring.boot.starter.aop)
     implementation(libs.spring.ai.starter.mcp.server.webmvc)
     implementation(libs.solr.solrj)
     // CommonMark for markdown parsing
     implementation(libs.commonmark)
     implementation(libs.commonmark.ext.yaml.front.matter)
-    // JSpecify for nullability annotations
-    implementation(libs.jspecify)
-
-    implementation(platform("io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:2.11.0"))
-    implementation("io.opentelemetry.instrumentation:opentelemetry-spring-boot-starter")
-    implementation(libs.micrometer.tracing.bridge.otel)
-
-    implementation("io.micrometer:micrometer-registry-prometheus")
 
     // Security
     implementation(libs.mcp.server.security)
     implementation(libs.spring.boot.starter.security)
     implementation(libs.spring.boot.starter.oauth2.resource.server)
+
+    // Observability: Spring Boot 4 idiomatic OpenTelemetry support
+    // spring-boot-starter-opentelemetry provides traces, metrics, and log export via OTLP
+    // spring-boot-starter-aspectj enables @Observed annotation support (replaces starter-aop in SB4)
+    implementation(libs.spring.boot.starter.opentelemetry)
+    implementation(libs.spring.boot.starter.aspectj)
+    implementation(libs.opentelemetry.logback.appender)
+    runtimeOnly(libs.micrometer.registry.otlp)
 
     // Error Prone and NullAway for null safety analysis
     errorprone(libs.errorprone.core)
@@ -178,6 +206,12 @@ dependencies {
 
 dependencyManagement {
     imports {
+        // Declared before spring-ai-bom: the dependency-management plugin uses
+        // Maven "first declaration wins" semantics. spring-ai-bom does not manage
+        // the MCP SDK at all -- Spring AI 2.0.1 depends on mcp 2.0.0 directly --
+        // so this BOM is what lifts the whole SDK to 2.0.1 as one coherent set
+        // rather than pinning mcp-core and leaving mcp-json-jackson3 behind.
+        mavenBom("io.modelcontextprotocol.sdk:mcp-bom:${libs.versions.mcp.sdk.get()}")
         mavenBom("org.springframework.ai:spring-ai-bom:${libs.versions.spring.ai.get()}")
     }
 }
@@ -318,8 +352,35 @@ tasks.named<JavaCompile>("compileTestJava") {
     options.errorprone.disable("NullAway")
 }
 
+// Disable Error Prone / NullAway for AOT-generated sources. The GraalVM native
+// plugin registers compileAotJava and compileAotTestJava tasks that compile
+// Spring Boot AOT-generated bean definitions. These generated sources contain
+// patterns (e.g., args.get(0)) that NullAway flags as nullable, but they are
+// correct code produced by the Spring AOT engine and cannot be modified.
+tasks.matching { it.name == "compileAotJava" || it.name == "compileAotTestJava" }.configureEach {
+    if (this is JavaCompile) {
+        options.errorprone {
+            disableAllChecks.set(true)
+            disable("NullAway")
+        }
+    }
+}
+
 tasks.build {
     dependsOn(tasks.spotlessApply)
+}
+
+// Gradle Wrapper
+// ==============
+// gradle-wrapper.properties is generated, so its settings live here rather than as hand
+// edits that the next `./gradlew wrapper` would silently reset. Upgrade with
+// `./gradlew wrapper --gradle-version latest`, run twice so the new version regenerates
+// the wrapper jar itself. `retries` covers downloading the Gradle distribution, which
+// happens before the build exists: the generator's default of 0 turns a transient
+// services.gradle.org failure into a red build.
+tasks.wrapper {
+    distributionType = Wrapper.DistributionType.BIN
+    retries = 3
 }
 
 spotless {
@@ -329,7 +390,10 @@ spotless {
         // with cutting-edge JDKs (e.g., 25) which can trigger NoSuchMethodError
         // against internal javac classes. Override only the annotation-argument
         // alignment so multi-arg @Mcp* annotations render one-arg-per-line.
-        eclipse().configFile("config/spotless/eclipse-java-formatter.properties")
+        // Pinned to the JDT version Spotless 7.0.2 defaulted to: Spotless 8's
+        // default JDT (4.39) collapses Javadoc <pre>{@code} blocks and folds
+        // @param/@see tags into the preceding paragraph.
+        eclipse("4.34").configFile("config/spotless/eclipse-java-formatter.properties")
         removeUnusedImports()
         trimTrailingWhitespace()
         endWithNewline()
@@ -338,7 +402,8 @@ spotless {
     }
     kotlinGradle {
         target("*.gradle.kts")
-        ktlint()
+        // Spotless 7.0.2's default; 1.8.0 rewrites every multi-line `when` branch.
+        ktlint("1.5.0")
     }
 }
 
@@ -499,6 +564,7 @@ jib {
     }
     to {
         image = "solr-mcp:$version"
+
         tags = setOf("latest")
     }
     container {
@@ -578,11 +644,6 @@ if (nativeBuild) {
                     // AndroidFriendlyRandomHolder creates a java.util.Random in <clinit>,
                     // which GraalVM forbids in the image heap (stale seed).
                     "--initialize-at-run-time=io.opentelemetry.sdk.internal.AndroidFriendlyRandomHolder",
-                    // The GraalVM native JUnit launcher embeds test discovery results
-                    // (InternalTestPlan, descriptors, TestTag, etc.) in the image heap.
-                    "--initialize-at-build-time=org.junit.platform.launcher",
-                    "--initialize-at-build-time=org.junit.platform.engine",
-                    "--initialize-at-build-time=org.junit.jupiter.engine.descriptor",
                     // ShowsSampleDataTest reads this fixture from the classpath. It is a
                     // test resource, so it belongs here and not in nativeImageBuildArgs,
                     // which feeds the shipped binary and the published images.

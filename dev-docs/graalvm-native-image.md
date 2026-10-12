@@ -30,7 +30,7 @@ launches the container on demand, once per session. There the JVM's costs
 dominate — cold-start warm-up on every session, a large idle RSS for a Spring
 Boot + Spring AI + SolrJ process, and a hundreds-of-MB image carrying a JRE
 layer. A native image trades build-time complexity for sub-second startup,
-much lower RSS, and a smaller self-contained image. Spring AI 1.1's first-class
+much lower RSS, and a smaller self-contained image. Spring AI's first-class
 AOT support is what makes this tractable here.
 
 The JVM image is **not** going away — it remains the default and the only multi-arch-from-one-build artifact. Native is an alternative, not a replacement.
@@ -186,12 +186,14 @@ container and value types.
 
 ## OpenTelemetry build-time initialization
 
-The OTel instrumentation BOM is pinned at **2.11.0**, which ships **no**
-native-image reachability metadata. The OTel logback appender's
-`LoggingEventMapper` holds static `AttributeKey` fields (via
-`InternalAttributeKeyImpl`) that land in the image heap, and GraalVM requires
-their types to be initialized at build time. Hence the four
-`--initialize-at-build-time` entries in `nativeImageBuildArgs`:
+Spring Boot 4 provides idiomatic OpenTelemetry via
+`spring-boot-starter-opentelemetry` (traces, metrics, and OTLP log export); the
+OTel logback appender (`opentelemetry-logback-appender-1.0`, `2.28.1-alpha`) is
+declared separately in the version catalog. The appender ships **no**
+native-image reachability metadata, and its `LoggingEventMapper` holds static
+`AttributeKey` fields (via `InternalAttributeKeyImpl`) that land in the image
+heap — GraalVM requires their types to be initialized at build time. Hence the
+four `--initialize-at-build-time` entries in `nativeImageBuildArgs`:
 
 - `io.opentelemetry.api` — `InternalAttributeKeyImpl`, `AttributeType`
 - `io.opentelemetry.context` — context propagation
@@ -202,20 +204,28 @@ their types to be initialized at build time. Hence the four
 proxy classes that cannot be build-time initialized; including it breaks the
 build.
 
-**Why not just bump OTel?** The version catalog declares `2.26.1`, which *does*
-ship native metadata, but bumping fails at AOT time: 2.26.1 expects
-`io.opentelemetry.common.ComponentLoader`, absent from the OTel SDK version
-managed by Spring Boot 3.5.x. The bump is deferred until Spring Boot's managed
-OTel SDK and the instrumentation BOM line up. The OTLP exporter is only wired in
-the `http` profile, so the `stdio` native image never exercises its reflection
-surface anyway.
+**OTel dependency alignment.** Spring Boot 4.1 manages the OpenTelemetry SDK
+(`opentelemetry-api:1.62.0`) through the starter, so the logback appender is
+held at `2.28.1-alpha` — the newest release built against `1.62.0`, whose
+transitive `opentelemetry-api-incubator:1.62.0-alpha` matches. A newer appender
+is built against a newer API that the Boot BOM would downgrade, risking a
+`NoSuchMethodError` (an older one pulls an incubator lacking
+`DeclarativeConfigProperties.get(String)`, which SB4's `OpenTelemetrySdk`
+autoconfiguration calls); bump the appender in step with Boot's
+`opentelemetry.version`. `opentelemetry-proto` (used only by
+`micrometer-registry-otlp`) is not pinned: it resolves to the version Micrometer
+is built against, which matches the protobuf 4 line Boot manages. The OTLP
+exporter is only wired in the `http` profile, so the `stdio` native image never exercises
+its reflection surface anyway.
 
 The **native test binary** needs a few extra entries beyond the shared args
 (see the `named("test")` block): `io.opentelemetry.sdk` (a build-time
 `ServiceLoader` provider), `--initialize-at-run-time` for
 `AndroidFriendlyRandomHolder` (it seeds a `java.util.Random` in `<clinit>`,
-which GraalVM forbids in the image heap), and the JUnit Platform launcher/engine
-packages (the native JUnit launcher embeds the test plan in the image heap).
+which GraalVM forbids in the image heap). JUnit Platform needs no entries: since
+native build tools 0.11 the plugin's JUnit feature handles the test plan's
+build-time initialization itself, and forcing `org.junit.platform.launcher` to
+build time puts a JUnit logger in the image heap and fails the build.
 
 ## Security and profiles under native
 
@@ -291,9 +301,10 @@ JVM-only and fast.
 ## Known limitations and follow-ups
 
 - **NOT CURRENTLY SHIPPING.**  Right now we don't as a project yet use the native code (or any code) to ship Docker based image.
-- **OTel BOM bump blocked.** Stuck on 2.11.0 (no native metadata, worked around
-  with build-time init) until Spring Boot's managed OTel SDK aligns with the
-  2.26.x instrumentation BOM. Revisit on Spring Boot upgrades.
+- **OTel appender lacks native metadata.** The `opentelemetry-logback-appender-1.0`
+  still ships no native-image reachability metadata, so the build-time-init
+  workaround above remains necessary. Revisit if a future OTel instrumentation
+  release ships native metadata.
 - **Native compile is resource-hungry.** Expect ~4–8 GB RAM per compile; ensure
   CI runners and dev boxes have headroom.
 - **Paketo builder download.** First `bootBuildImage` run pulls a ~1 GB builder;

@@ -18,8 +18,6 @@ package org.apache.solr.mcp.server;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
@@ -53,6 +51,9 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestMethodOrder;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Base class for MCP client integration tests. Exercises the full
@@ -75,7 +76,7 @@ public abstract class McpClientIntegrationTestBase {
 	 */
 	protected static final int SHOWS_DOC_COUNT = 61;
 
-	protected static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+	protected static final ObjectMapper OBJECT_MAPPER = JsonMapper.builder().build();
 
 	protected McpSyncClient mcpClient;
 

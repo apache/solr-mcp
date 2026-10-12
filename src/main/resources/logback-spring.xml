@@ -61,7 +61,7 @@
         <!--
             OpenTelemetry appender for log export.
             Sends logs to the OpenTelemetry Collector via OTLP.
-            The appender is installed programmatically by OpenTelemetryAppenderInstaller
+            The appender is installed programmatically by InstallOpenTelemetryAppender
             which connects it to the Spring-managed OpenTelemetry SDK instance.
         -->
         <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
@@ -77,7 +77,12 @@
 
     <!--
         STDIO mode (default) - deliberately no appenders, so nothing can reach
-        stdout and break the MCP JSON-RPC framing. application-stdio.properties
-        additionally sets logging.pattern.console= as a second line of defence.
+        stdout and break the MCP JSON-RPC framing.
+
+        Do not add an empty logging.pattern.console= to application-stdio.properties
+        as a "second line of defence": Spring Boot exports it JVM-wide as the
+        CONSOLE_LOG_PATTERN system property (first writer wins) and logback rejects
+        an empty pattern, which breaks any http-profile context started later in
+        the same JVM. LoggingConfigurationTest enforces this.
     -->
 </configuration>

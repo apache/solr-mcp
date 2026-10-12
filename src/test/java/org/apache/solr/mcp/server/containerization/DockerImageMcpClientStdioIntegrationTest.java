@@ -16,12 +16,11 @@
  */
 package org.apache.solr.mcp.server.containerization;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.client.transport.StdioClientTransport;
-import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
+import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import org.apache.solr.mcp.server.BuildInfoReader;
 import org.apache.solr.mcp.server.McpClientIntegrationTestBase;
 import org.junit.jupiter.api.Tag;
@@ -29,6 +28,7 @@ import org.testcontainers.containers.SolrContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * End-to-end MCP STDIO test against the Paketo Docker image built by
@@ -67,7 +67,7 @@ class DockerImageMcpClientStdioIntegrationTest extends McpClientIntegrationTestB
 						"-e", "SPRING_DOCKER_COMPOSE_ENABLED=false", DOCKER_IMAGE)
 				.build();
 
-		var transport = new StdioClientTransport(params, new JacksonMcpJsonMapper(new ObjectMapper()));
+		var transport = new StdioClientTransport(params, new JacksonMcpJsonMapper(JsonMapper.builder().build()));
 		return McpClient.sync(transport).build();
 	}
 
