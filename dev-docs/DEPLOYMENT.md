@@ -85,12 +85,18 @@ docker run -i --rm \
 # HTTP — Jib JVM
 docker run -p 8080:8080 --rm \
     -e PROFILES=http \
+    -e OTEL_TRACES_URL=http://host.docker.internal:4318/v1/traces \
+    -e OTEL_METRICS_URL=http://host.docker.internal:4318/v1/metrics \
+    -e OTEL_LOGS_URL=http://host.docker.internal:4318/v1/logs \
     -e SOLR_URL=http://host.docker.internal:8983/solr/ \
     solr-mcp:latest
 
 # HTTP — native
 docker run -p 8080:8080 --rm \
     -e PROFILES=http \
+    -e OTEL_TRACES_URL=http://host.docker.internal:4318/v1/traces \
+    -e OTEL_METRICS_URL=http://host.docker.internal:4318/v1/metrics \
+    -e OTEL_LOGS_URL=http://host.docker.internal:4318/v1/logs \
     -e SOLR_URL=http://host.docker.internal:8983/solr/ \
     solr-mcp:latest-native-http
 ```
@@ -153,6 +159,9 @@ docker run -i --rm \
 ```bash
 docker run -p 8080:8080 --rm \
   -e PROFILES=http \
+  -e OTEL_TRACES_URL=http://your-collector-host:4318/v1/traces \
+  -e OTEL_METRICS_URL=http://your-collector-host:4318/v1/metrics \
+  -e OTEL_LOGS_URL=http://your-collector-host:4318/v1/logs \
   -e SOLR_URL=http://your-solr-host:8983/solr/ \
   solr-mcp:1.0.0-SNAPSHOT
 ```
@@ -328,6 +337,10 @@ services:
     environment:
       - SOLR_URL=http://solr:8983/solr/
       - PROFILES=http
+      # OTLP export; inside the container, the localhost:4318 default is the container itself
+      - OTEL_TRACES_URL=http://your-collector-host:4318/v1/traces
+      - OTEL_METRICS_URL=http://your-collector-host:4318/v1/metrics
+      - OTEL_LOGS_URL=http://your-collector-host:4318/v1/logs
     ports:
       - "8080:8080"
     depends_on:
@@ -364,6 +377,13 @@ spec:
           value: "http://solr-service:8983/solr/"
         - name: PROFILES
           value: "http"
+        # OTLP export; inside the pod, the localhost:4318 default is the pod itself
+        - name: OTEL_TRACES_URL
+          value: "http://otel-collector:4318/v1/traces"
+        - name: OTEL_METRICS_URL
+          value: "http://otel-collector:4318/v1/metrics"
+        - name: OTEL_LOGS_URL
+          value: "http://otel-collector:4318/v1/logs"
         ports:
         - containerPort: 8080
 ---

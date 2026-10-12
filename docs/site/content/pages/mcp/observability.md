@@ -81,10 +81,27 @@ management.opentelemetry.logging.export.otlp.endpoint=${OTEL_LOGS_URL:http://loc
 Export goes over **OTLP/HTTP on port 4318**, with a separate full URL per signal.
 Each endpoint is a complete path ending in `/v1/traces`, `/v1/metrics` or
 `/v1/logs` — not a base address.
-When the server runs in a container and LGTM on the host, `localhost` is the container
-itself; point all three variables at the host, e.g.
-`OTEL_TRACES_URL=http://host.docker.internal:4318/v1/traces` (plus
-`--add-host=host.docker.internal:host-gateway` on Linux).
+The `localhost` defaults suit `java -jar` and `bootRun` next to the `lgtm` container.
+**In Docker they do not**: inside a container, `localhost` is the container itself, so set
+all three URLs to wherever the collector is reachable from the container. With LGTM on the
+host:
+
+```bash
+docker run -p 8080:8080 --rm \
+    -e PROFILES=http \
+    -e OTEL_TRACES_URL=http://host.docker.internal:4318/v1/traces \
+    -e OTEL_METRICS_URL=http://host.docker.internal:4318/v1/metrics \
+    -e OTEL_LOGS_URL=http://host.docker.internal:4318/v1/logs \
+    -e SOLR_URL=http://host.docker.internal:8983/solr/ \
+    solr-mcp:latest
+```
+
+On Linux, also add `--add-host=host.docker.internal:host-gateway`, and start LGTM with
+`OTLP_BIND=0.0.0.0 docker compose up -d lgtm`: by default `compose.yaml` publishes port
+4318 on the loopback interface only, which a container cannot reach. If the server and the
+collector share a Docker network, use the collector's container name instead, e.g.
+`http://lgtm:4318/v1/traces`. Until a collector answers on those URLs, the server logs a
+connection error on each export attempt.
 
 ### Generate Some Activity ###
 
