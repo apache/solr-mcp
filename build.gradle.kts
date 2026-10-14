@@ -428,7 +428,8 @@ changelog {
 // and OPENAI_API_KEY; ./gradlew build never runs it. The agent uses Spring AI's OpenAI
 // defaults, so no model settings are configured here.
 //
-//   ./gradlew eval
+//   ./gradlew eval                  # each scenario 5 times
+//   ./gradlew eval -Peval.runs=10
 //
 // The evals are test classes, but only this task runs them with the OpenAI model and MCP
 // client starters on the classpath. Those starters auto-configure in every Spring context
@@ -456,6 +457,8 @@ tasks.register<Test>("eval") {
 
     // Model output varies between runs, so never reuse a previous result
     outputs.upToDateWhen { false }
+    // Runs per scenario: ./gradlew eval -Peval.runs=10
+    systemProperty("eval.runs", providers.gradleProperty("eval.runs").getOrElse("5"))
 
     // The jar the MCP client starts (application-integration-test.properties)
     val bootJarFile = tasks.bootJar.flatMap { it.archiveFile }
