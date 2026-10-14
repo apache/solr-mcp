@@ -429,7 +429,8 @@ changelog {
 // and OPENAI_API_KEY; ./gradlew build never runs it. The agent uses Spring AI's OpenAI
 // defaults, so nothing is configured here.
 //
-//   ./gradlew eval
+//   ./gradlew eval                  # each scenario 5 times
+//   ./gradlew eval -Peval.runs=10
 tasks.register<Test>("eval") {
     description = "Runs the LLM tool-selection evals (needs OPENAI_API_KEY)"
     group = "verification"
@@ -443,6 +444,8 @@ tasks.register<Test>("eval") {
 
     // Model output varies between runs, so never reuse a previous result
     outputs.upToDateWhen { false }
+    // Runs per scenario: ./gradlew eval -Peval.runs=10
+    systemProperty("eval.runs", providers.gradleProperty("eval.runs").getOrElse("5"))
 
     // The jar the MCP client starts (application-integration-test.properties)
     val bootJarFile = tasks.bootJar.flatMap { it.archiveFile }
