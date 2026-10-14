@@ -28,8 +28,11 @@ import io.modelcontextprotocol.spec.McpSchema.GetPromptRequest;
 import io.modelcontextprotocol.spec.McpSchema.GetPromptResult;
 import io.modelcontextprotocol.spec.McpSchema.PromptMessage;
 import io.modelcontextprotocol.spec.McpSchema.PromptReference;
+import io.modelcontextprotocol.spec.McpSchema.ReadResourceRequest;
+import io.modelcontextprotocol.spec.McpSchema.ReadResourceResult;
 import io.modelcontextprotocol.spec.McpSchema.ResourceReference;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
+import io.modelcontextprotocol.spec.McpSchema.TextResourceContents;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -108,6 +111,8 @@ public abstract class McpClientIntegrationTestBase {
     assertTrue(toolNames.contains("get-schema"), "Should have get-schema tool");
     assertTrue(toolNames.contains("add-fields"), "Should have add-fields tool");
     assertTrue(toolNames.contains("add-field-types"), "Should have add-field-types tool");
+    assertTrue(toolNames.contains("get-cluster-status"), "Should have get-cluster-status tool");
+    assertTrue(toolNames.contains("list-configsets"), "Should have list-configsets tool");
   }
 
   @Test
@@ -123,6 +128,10 @@ public abstract class McpClientIntegrationTestBase {
     assertReadOnly(tools, "get-collection-stats");
     assertReadOnly(tools, "check-health");
     assertReadOnly(tools, "get-schema");
+    assertReadOnly(tools, "get-cluster-status");
+    assertReadOnly(tools, "list-configsets");
+    assertEquals(Boolean.TRUE, tools.get("get-cluster-status").annotations().idempotentHint());
+    assertEquals(Boolean.TRUE, tools.get("list-configsets").annotations().idempotentHint());
 
     // create-collection: additive write (provisions a new collection, not
     // idempotent because a second call with the same name errors).
@@ -321,6 +330,21 @@ public abstract class McpClientIntegrationTestBase {
     assertTrue(
         text.contains("5") || text.contains("numDocs"),
         "Stats should reference indexed documents: " + text);
+  }
+
+  @Test
+  @Order(12)
+  void readClusterStatusResource() throws Exception {
+    ReadResourceResult result =
+        mcpClient.readResource(new ReadResourceRequest("solr://cluster/status"));
+
+    assertNotNull(result);
+    assertEquals(1, result.contents().size());
+    TextResourceContents contents =
+        assertInstanceOf(TextResourceContents.class, result.contents().getFirst());
+    Map<String, Object> status = OBJECT_MAPPER.readValue(contents.text(), new TypeReference<>() {});
+    assertTrue(
+        status.containsKey("healthy"), "Cluster status should report healthy: " + contents.text());
   }
 
   @Test

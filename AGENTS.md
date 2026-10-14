@@ -105,12 +105,14 @@ docker run -p 8080:8080 --rm -e PROFILES=http \
 
 ### MCP Tools (src/main/java/org/apache/solr/mcp/server/)
 
-Four service classes expose MCP tools via `@McpTool` annotations:
+These service classes expose MCP tools via `@McpTool` annotations:
 
 - **SearchService** (`search/`) - Full-text search with filtering, faceting, sorting, pagination
 - **IndexingService** (`indexing/`) - Document indexing supporting JSON, CSV, XML, and markdown formats
 - **CollectionService** (`collection/`) - List collections, get stats, health checks
 - **SchemaService** (`schema/`) - Schema introspection and additive modification (add-fields, add-field-types)
+- **ClusterService** (`cluster/`) - Cluster status (live nodes, shard and replica state) and configset listing;
+  `ClusterStatusParser` and its records are public so other packages can reuse the replica data
 
 ### Document Creators and pass-throughs
 
@@ -312,7 +314,8 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
     generic `Object` dispatch): `AliasResult`, `CollectionCreationResult`,
     `SolrHealthStatus`, `SolrMetrics`, `IndexStats`, `QueryStats`, `CacheStats`,
     `CacheInfo`, `HandlerStats`, `HandlerInfo`, `SearchResponse`, `SortClause`,
-    `SchemaUpdateResult`
+    `SchemaUpdateResult`, and the cluster-status records `ClusterStatusResult`, `ReplicaIssue`,
+    `CollectionState`, `ShardState`, `ReplicaState`
   - **Spring AI**: `org.springframework.ai.mcp.annotation.context.DefaultMetaProvider`,
     which `MetaUtils` instantiates reflectively
   - **Resources**: `logback-spring.xml` (see Logging Architecture above), and SolrJ's

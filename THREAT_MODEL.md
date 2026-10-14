@@ -108,7 +108,7 @@ deferred to a later version (see §12). This is a deliberate scoping choice for
 | --- | --- | --- | --- |
 | STDIO transport | stdin/stdout JSON-RPC | child process of the client only | **Yes** |
 | HTTP transport | servlet on `:8080/mcp` + OAuth2 filter chain | **network listener** | **Yes (highest network exposure)** |
-| Read tools | `search`, `list-collections`, `get-collection-stats`, `check-health`, `get-schema` | reads backend Solr | **Yes** |
+| Read tools | `search`, `list-collections`, `get-collection-stats`, `check-health`, `get-schema`, `get-cluster-status`, `list-configsets` | reads backend Solr | **Yes** |
 | Write/index tools | `index-json/csv/xml-documents` | writes backend Solr index | **Yes** |
 | Admin/schema tools | `create-collection`, `add-fields`, `add-field-types` | mutates backend Solr collections/schema | **Yes (privileged)** |
 | Backend SolrJ client | `SolrConfig` → `HttpJdkSolrClient` | outbound HTTP to `SOLR_URL` | **Yes (auth passthrough)** |
@@ -320,7 +320,7 @@ Two adversaries are in scope; several are explicitly not.
    reads a local file or hangs the parser. *Severity:* high. *(documented —
    `SolrUpdateXml.requireAddBlock`.)*
 7. **Tool behaviour hints are advertised honestly.** Every tool carries MCP
-   annotations (`readOnlyHint` on the five read tools, `idempotentHint` on the
+   annotations (`readOnlyHint` on the seven read tools, `idempotentHint` on the
    three index tools, `destructiveHint=false` on schema/create tools) so clients
    can build approval UX. *Violation:* a tool that mutates state advertises
    `readOnlyHint=true`. *Severity:* medium (client-UX safety). *(documented —
