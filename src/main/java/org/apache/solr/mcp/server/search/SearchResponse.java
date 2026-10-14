@@ -18,6 +18,7 @@ package org.apache.solr.mcp.server.search;
 
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Immutable record representing a structured search response from Apache Solr operations.
@@ -109,6 +110,6 @@ import java.util.Map;
 public record SearchResponse(
     long numFound,
     long start,
-    Float maxScore,
+    @Nullable Float maxScore,
     List<Map<String, Object>> documents,
     Map<String, Map<String, Long>> facets) {}

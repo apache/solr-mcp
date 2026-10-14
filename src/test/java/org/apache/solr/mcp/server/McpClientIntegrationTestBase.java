@@ -38,7 +38,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AutoClose;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -71,6 +71,8 @@ public abstract class McpClientIntegrationTestBase {
 
   protected static final ObjectMapper OBJECT_MAPPER = JsonMapper.builder().build();
 
+  @AutoClose
+  @SuppressWarnings("NotNullFieldNotInitialized") // set by beforeAll()
   protected McpSyncClient mcpClient;
 
   protected abstract McpSyncClient createClient() throws Exception;
@@ -79,13 +81,6 @@ public abstract class McpClientIntegrationTestBase {
   void beforeAll() throws Exception {
     mcpClient = createClient();
     mcpClient.initialize();
-  }
-
-  @AfterAll
-  void afterAll() {
-    if (mcpClient != null) {
-      mcpClient.close();
-    }
   }
 
   @Test
@@ -234,7 +229,7 @@ public abstract class McpClientIntegrationTestBase {
 
   @Test
   @Order(7)
-  void searchAllDocuments() throws Exception {
+  void searchAllDocuments() {
     CallToolResult result =
         mcpClient.callTool(
             new CallToolRequest(
@@ -250,7 +245,7 @@ public abstract class McpClientIntegrationTestBase {
 
   @Test
   @Order(8)
-  void searchWithFilterQuery() throws Exception {
+  void searchWithFilterQuery() {
     CallToolResult result =
         mcpClient.callTool(
             new CallToolRequest(
@@ -273,7 +268,7 @@ public abstract class McpClientIntegrationTestBase {
 
   @Test
   @Order(9)
-  void searchWithKeyword() throws Exception {
+  void searchWithKeyword() {
     CallToolResult result =
         mcpClient.callTool(
             new CallToolRequest("search", Map.of("collection", COLLECTION, "query", "title:Solr")));
@@ -289,7 +284,7 @@ public abstract class McpClientIntegrationTestBase {
 
   @Test
   @Order(10)
-  void searchWithPagination() throws Exception {
+  void searchWithPagination() {
     CallToolResult page1 =
         mcpClient.callTool(
             new CallToolRequest(
@@ -342,7 +337,7 @@ public abstract class McpClientIntegrationTestBase {
 
   @Test
   @Order(13)
-  void searchWithFacets() throws Exception {
+  void searchWithFacets() {
     CallToolResult result =
         mcpClient.callTool(
             new CallToolRequest(
@@ -389,7 +384,7 @@ public abstract class McpClientIntegrationTestBase {
 
   @Test
   @Order(15)
-  void searchFindsAllDocumentsAfterCsvIndexing() throws Exception {
+  void searchFindsAllDocumentsAfterCsvIndexing() {
     CallToolResult result =
         mcpClient.callTool(
             new CallToolRequest(
@@ -402,7 +397,7 @@ public abstract class McpClientIntegrationTestBase {
 
   @Test
   @Order(16)
-  void addFieldsToTestCollection() throws Exception {
+  void addFieldsToTestCollection() {
     List<Map<String, Object>> fields =
         List.of(
             Map.of(
@@ -476,7 +471,7 @@ public abstract class McpClientIntegrationTestBase {
 
   @Test
   @Order(18)
-  void searchWithNewFieldFilters() throws Exception {
+  void searchWithNewFieldFilters() {
     CallToolResult byPlatform =
         mcpClient.callTool(
             new CallToolRequest(
@@ -512,7 +507,7 @@ public abstract class McpClientIntegrationTestBase {
   // (the markdown document carries none of the fields its filter queries touch).
   @Test
   @Order(18)
-  void indexMarkdownDocumentAndFindItById() throws Exception {
+  void indexMarkdownDocumentAndFindItById() {
     String markdown =
         """
 				---
@@ -756,7 +751,7 @@ public abstract class McpClientIntegrationTestBase {
         "Result should mention at least one shows-specific field that was added: " + text);
   }
 
-  private java.util.Set<String> fetchExistingFieldNames(String collection) throws Exception {
+  private java.util.Set<String> fetchExistingFieldNames(String collection) {
     CallToolResult schemaResult =
         mcpClient.callTool(new CallToolRequest("get-schema", Map.of("collection", collection)));
     assertNotError(schemaResult);
@@ -796,7 +791,7 @@ public abstract class McpClientIntegrationTestBase {
 
   @Test
   @Order(22)
-  void searchAllShowsAndAssertCount() throws Exception {
+  void searchAllShowsAndAssertCount() {
     CallToolResult result =
         mcpClient.callTool(
             new CallToolRequest(
@@ -814,7 +809,7 @@ public abstract class McpClientIntegrationTestBase {
 
   @Test
   @Order(23)
-  void searchShowsWithFacetByPlatform() throws Exception {
+  void searchShowsWithFacetByPlatform() {
     CallToolResult result =
         mcpClient.callTool(
             new CallToolRequest(
@@ -863,7 +858,7 @@ public abstract class McpClientIntegrationTestBase {
 
   @Test
   @Order(24)
-  void searchShowsWithFilterAndKeyword() throws Exception {
+  void searchShowsWithFilterAndKeyword() {
     // Filter to one platform, then full-text search the description field.
     CallToolResult result =
         mcpClient.callTool(
@@ -892,7 +887,7 @@ public abstract class McpClientIntegrationTestBase {
 
   @Test
   @Order(25)
-  void searchShowsByMultiValuedGenre() throws Exception {
+  void searchShowsByMultiValuedGenre() {
     // Multi-valued strings field: filter on a single genre value.
     CallToolResult result =
         mcpClient.callTool(
@@ -945,7 +940,7 @@ public abstract class McpClientIntegrationTestBase {
 
   @Test
   @Order(27)
-  void getShowsCollectionStats() throws Exception {
+  void getShowsCollectionStats() {
     CallToolResult result =
         mcpClient.callTool(
             new CallToolRequest("get-collection-stats", Map.of("collection", SHOWS_COLLECTION)));
@@ -1189,7 +1184,7 @@ public abstract class McpClientIntegrationTestBase {
 
   @Test
   @Order(39)
-  void blankOptionalSearchEntriesAreIgnoredThroughMcp() throws Exception {
+  void blankOptionalSearchEntriesAreIgnoredThroughMcp() {
     var result =
         mcpClient.callTool(
             new CallToolRequest(

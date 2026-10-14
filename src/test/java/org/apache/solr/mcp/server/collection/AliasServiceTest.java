@@ -114,25 +114,9 @@ class AliasServiceTest {
     }
 
     @Test
-    @DisplayName("throws IllegalArgumentException when alias name is null")
-    void throwsWhenAliasNameNull() {
-      assertThatThrownBy(() -> aliasService.createAlias(null, "ORDERS_V2"))
-          .isInstanceOf(IllegalArgumentException.class)
-          .hasMessage("Alias name must not be blank");
-    }
-
-    @Test
     @DisplayName("throws IllegalArgumentException when collections is blank")
     void throwsWhenCollectionsBlank() {
       assertThatThrownBy(() -> aliasService.createAlias("ORDERS", ""))
-          .isInstanceOf(IllegalArgumentException.class)
-          .hasMessage("Collections must not be blank");
-    }
-
-    @Test
-    @DisplayName("throws IllegalArgumentException when collections is null")
-    void throwsWhenCollectionsNull() {
-      assertThatThrownBy(() -> aliasService.createAlias("ORDERS", null))
           .isInstanceOf(IllegalArgumentException.class)
           .hasMessage("Collections must not be blank");
     }
@@ -165,14 +149,6 @@ class AliasServiceTest {
     @DisplayName("throws IllegalArgumentException when alias name is blank")
     void throwsWhenAliasNameBlank() {
       assertThatThrownBy(() -> aliasService.deleteAlias(""))
-          .isInstanceOf(IllegalArgumentException.class)
-          .hasMessage("Alias name must not be blank");
-    }
-
-    @Test
-    @DisplayName("throws IllegalArgumentException when alias name is null")
-    void throwsWhenAliasNameNull() {
-      assertThatThrownBy(() -> aliasService.deleteAlias(null))
           .isInstanceOf(IllegalArgumentException.class)
           .hasMessage("Alias name must not be blank");
     }

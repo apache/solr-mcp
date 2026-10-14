@@ -30,7 +30,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -71,13 +70,7 @@ class SearchServiceTest {
     SearchService localService = new SearchService(mockClient);
     assertNotNull(
         localService.search(
-            "test_collection",
-            " \t",
-            Arrays.asList("", " \t", null),
-            Arrays.asList(null, "", " \n"),
-            null,
-            null,
-            null));
+            "test_collection", " \t", List.of("", " \t"), List.of("", " \n"), null, null, null));
   }
 
   @Test
@@ -99,7 +92,7 @@ class SearchServiceTest {
             null,
             null,
             null,
-            Arrays.asList(new SortClause("", ""), new SortClause(" \t", "asc"), null),
+            List.of(new SortClause("", ""), new SortClause(" \t", "asc")),
             null,
             null));
   }
@@ -129,10 +122,9 @@ class SearchServiceTest {
         localService.search(
             "test_collection",
             "{!edismax qf='name author_ss'}george martin",
-            Arrays.asList("", filter, null, " \n", "price:[0 TO 10]"),
-            Arrays.asList("\t", facet, "", null, "author_ss"),
-            Arrays.asList(
-                null,
+            List.of("", filter, " \n", "price:[0 TO 10]"),
+            List.of("\t", facet, "", "author_ss"),
+            List.of(
                 new SortClause("", "asc"),
                 new SortClause("price", "DESC"),
                 new SortClause(" \n", ""),
@@ -414,8 +406,7 @@ class SearchServiceTest {
     SolrDocumentList mockDocuments = createMockDocumentList();
     when(mockResponse.getResults()).thenReturn(mockDocuments);
     when(mockResponse.getFacetFields()).thenReturn(createMockFacetFields());
-    when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
-        .thenAnswer(invocation -> mockResponse);
+    when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenReturn(mockResponse);
     SearchService localService = new SearchService(mockClient);
     SearchResponse result =
         localService.search("test_collection", null, null, facetFields, null, null, null);
@@ -432,8 +423,7 @@ class SearchServiceTest {
     SolrDocumentList mockDocuments = createMockDocumentList();
     when(mockResponse.getResults()).thenReturn(mockDocuments);
     when(mockResponse.getFacetFields()).thenReturn(null);
-    when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
-        .thenAnswer(invocation -> mockResponse);
+    when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenReturn(mockResponse);
     SearchService localService = new SearchService(mockClient);
     SearchResponse result =
         localService.search("test_collection", null, null, null, sortClauses, null, null);

@@ -120,7 +120,7 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
    */
   public List<SolrInputDocument> create(List<Map<String, Object>> documents)
       throws DocumentProcessingException {
-    if (documents == null || documents.isEmpty()) {
+    if (documents.isEmpty()) {
       throw new DocumentProcessingException("JSON input cannot be empty");
     }
     return flatten(objectMapper.valueToTree(documents));

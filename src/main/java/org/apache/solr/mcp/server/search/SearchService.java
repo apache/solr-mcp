@@ -295,7 +295,7 @@ public class SearchService {
     // sorting
     if (!CollectionUtils.isEmpty(sortClauses)) {
       sortClauses.stream()
-          .filter(clause -> clause != null && StringUtils.hasText(clause.field()))
+          .filter(clause -> StringUtils.hasText(clause.field()))
           .map(SortClause::toSolrSortClause)
           .forEach(solrQuery::addSort);
     }
