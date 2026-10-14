@@ -24,6 +24,7 @@ import org.apache.solr.client.solrj.request.XMLRequestWriter;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.ImportRuntimeHints;
 import org.springframework.util.StringUtils;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -85,6 +86,7 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @Configuration
 @EnableConfigurationProperties(SolrConfigurationProperties.class)
+@ImportRuntimeHints(SolrNativeHints.class)
 public class SolrConfig {
 
   private static final int CONNECTION_TIMEOUT_MS = 10000;
@@ -92,7 +94,9 @@ public class SolrConfig {
   private static final String SOLR_PATH = "solr/";
 
   /** Default constructor used by Spring to instantiate this configuration. */
-  public SolrConfig() {}
+  public SolrConfig() {
+    // Declared only to carry the Javadoc above; javadoc warns on an implicit constructor.
+  }
 
   /**
    * Creates and configures a SolrClient bean for Apache Solr communication.
@@ -170,7 +174,8 @@ public class SolrConfig {
     URI parsed = URI.create(properties.url());
     String path = parsed.getPath() == null ? "" : parsed.getPath();
     if (!path.endsWith("/")) {
-      path = path + "/";
+      // A URL path separator is '/' on every platform; it is not the file separator S1075 assumes.
+      path = path + "/"; // NOSONAR java:S1075
     }
     if (!path.contains("/" + SOLR_PATH)) {
       path = path + SOLR_PATH;

@@ -158,12 +158,9 @@ class SchemaServiceTest {
 
   @Test
   void addFields_blankCollection_throws() {
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> schemaService.addFields("", List.of(Map.of("name", "x", "type", "string"))));
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> schemaService.addFields("   ", List.of(Map.of("name", "x", "type", "string"))));
+    List<Map<String, Object>> fields = List.of(Map.of("name", "x", "type", "string"));
+    assertThrows(IllegalArgumentException.class, () -> schemaService.addFields("", fields));
+    assertThrows(IllegalArgumentException.class, () -> schemaService.addFields("   ", fields));
   }
 
   @Test
@@ -205,23 +202,15 @@ class SchemaServiceTest {
     when(solrClient.request(any(SolrRequest.class), eq("col")))
         .thenThrow(new SolrServerException("simulated"));
 
-    assertThrows(
-        SolrServerException.class,
-        () -> schemaService.addFields("col", List.of(Map.of("name", "x", "type", "string"))));
+    List<Map<String, Object>> fields = List.of(Map.of("name", "x", "type", "string"));
+    assertThrows(SolrServerException.class, () -> schemaService.addFields("col", fields));
   }
 
   @Test
   void addFieldTypes_blankCollection_throws() {
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            schemaService.addFieldTypes(
-                "", List.of(Map.of("name", "x", "class", "solr.StrField"))));
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            schemaService.addFieldTypes(
-                "   ", List.of(Map.of("name", "x", "class", "solr.StrField"))));
+    List<Map<String, Object>> types = List.of(Map.of("name", "x", "class", "solr.StrField"));
+    assertThrows(IllegalArgumentException.class, () -> schemaService.addFieldTypes("", types));
+    assertThrows(IllegalArgumentException.class, () -> schemaService.addFieldTypes("   ", types));
   }
 
   @Test

@@ -16,13 +16,17 @@
  */
 package org.apache.solr.mcp.server;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.apache.solr.mcp.server.collection.CollectionService;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.apache.solr.mcp.server.schema.SchemaService;
 import org.apache.solr.mcp.server.search.SearchService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -36,6 +40,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @DisabledInNativeImage
 class MainTest {
 
+  @Autowired private ApplicationContext context;
+
   @MockitoBean private SearchService searchService;
 
   @MockitoBean private IndexingService indexingService;
@@ -46,6 +52,10 @@ class MainTest {
 
   @Test
   void contextLoads() {
-    // Context loading test - all services are mocked to prevent Solr API calls
+    // The context starts with every Solr-calling service replaced by its mock
+    assertThat(context.getBean(SearchService.class)).isSameAs(searchService);
+    assertThat(context.getBean(IndexingService.class)).isSameAs(indexingService);
+    assertThat(context.getBean(CollectionService.class)).isSameAs(collectionService);
+    assertThat(context.getBean(SchemaService.class)).isSameAs(schemaService);
   }
 }

@@ -164,12 +164,15 @@ abstract class GenerateBinaryLicense : DefaultTask() {
     private fun licensesOf(component: Component): List<License> {
         val choice = component.licenses ?: return emptyList()
         val out = LinkedHashMap<String, String?>()
-        for (license in choice.licenses.orEmpty()) {
-            val id = license.id
-            val label = id ?: license.name ?: "Unspecified"
-            out.putIfAbsent(label, license.url ?: id?.let { spdxUrl(it) })
+        for (item in choice.items.orEmpty()) {
+            val license = item.license
+            if (license != null) {
+                val id = license.id
+                val label = id ?: license.name ?: "Unspecified"
+                out.putIfAbsent(label, license.url ?: id?.let { spdxUrl(it) })
+            }
+            item.expression?.value?.let { out.putIfAbsent(it, null) }
         }
-        choice.expression?.value?.let { out.putIfAbsent(it, null) }
         return out.map { License(it.key, it.value) }
     }
 

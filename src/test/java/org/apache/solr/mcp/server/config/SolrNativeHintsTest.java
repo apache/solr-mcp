@@ -27,8 +27,8 @@ import org.springframework.aot.hint.TypeReference;
 import org.springframework.aot.hint.predicate.RuntimeHintsPredicates;
 
 /**
- * Verifies that {@link SolrNativeHints.Registrar} registers the reflection and resource hints the
- * native image depends on.
+ * Verifies that {@link SolrNativeHints} registers the reflection and resource hints the native
+ * image depends on.
  *
  * <p>The hints are otherwise only exercised by {@code nativeTest -Pnative} (a full GraalVM build),
  * so an accidentally removed registration would surface as a hard-to-diagnose native-only startup
@@ -41,7 +41,7 @@ class SolrNativeHintsTest {
 
   @BeforeEach
   void registerHints() {
-    new SolrNativeHints.Registrar().registerHints(hints, getClass().getClassLoader());
+    new SolrNativeHints().registerHints(hints, getClass().getClassLoader());
   }
 
   @Test
