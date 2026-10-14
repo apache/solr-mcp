@@ -23,40 +23,43 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.apache.solr.client.solrj.request.SolrQuery;
 import org.junit.jupiter.api.Test;
 
-/**
- * Unit tests for {@link SortClause} conversion to the SolrJ representation.
- */
+/** Unit tests for {@link SortClause} conversion to the SolrJ representation. */
 class SortClauseTest {
 
-	@Test
-	void convertsFieldAndOrder() {
-		SolrQuery.SortClause solr = new SortClause("price", "desc").toSolrSortClause();
-		assertEquals("price", solr.getItem());
-		assertEquals(SolrQuery.ORDER.desc, solr.getOrder());
-	}
+  @Test
+  void convertsFieldAndOrder() {
+    SolrQuery.SortClause solr = new SortClause("price", "desc").toSolrSortClause();
+    assertEquals("price", solr.getItem());
+    assertEquals(SolrQuery.ORDER.desc, solr.getOrder());
+  }
 
-	@Test
-	void normalizesOrderCase() {
-		assertEquals(SolrQuery.ORDER.desc, new SortClause("price", "DESC").toSolrSortClause().getOrder());
-	}
+  @Test
+  void normalizesOrderCase() {
+    assertEquals(
+        SolrQuery.ORDER.desc, new SortClause("price", "DESC").toSolrSortClause().getOrder());
+  }
 
-	@Test
-	void defaultsMissingOrderToAscending() {
-		assertEquals(SolrQuery.ORDER.asc, new SortClause("price", null).toSolrSortClause().getOrder());
-		assertEquals(SolrQuery.ORDER.asc, new SortClause("price", " ").toSolrSortClause().getOrder());
-	}
+  @Test
+  void defaultsMissingOrderToAscending() {
+    assertEquals(SolrQuery.ORDER.asc, new SortClause("price", null).toSolrSortClause().getOrder());
+    assertEquals(SolrQuery.ORDER.asc, new SortClause("price", " ").toSolrSortClause().getOrder());
+  }
 
-	@Test
-	void rejectsInvalidOrderNamingTheValue() {
-		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-				() -> new SortClause("price", "descending").toSolrSortClause());
-		assertTrue(e.getMessage().contains("descending"));
-		assertTrue(e.getMessage().contains("price"));
-	}
+  @Test
+  void rejectsInvalidOrderNamingTheValue() {
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> new SortClause("price", "descending").toSolrSortClause());
+    assertTrue(e.getMessage().contains("descending"));
+    assertTrue(e.getMessage().contains("price"));
+  }
 
-	@Test
-	void rejectsMissingField() {
-		assertThrows(IllegalArgumentException.class, () -> new SortClause(null, "asc").toSolrSortClause());
-		assertThrows(IllegalArgumentException.class, () -> new SortClause(" ", "asc").toSolrSortClause());
-	}
+  @Test
+  void rejectsMissingField() {
+    assertThrows(
+        IllegalArgumentException.class, () -> new SortClause(null, "asc").toSolrSortClause());
+    assertThrows(
+        IllegalArgumentException.class, () -> new SortClause(" ", "asc").toSolrSortClause());
+  }
 }

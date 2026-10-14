@@ -33,202 +33,190 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * SolrJ {@link ResponseParser} that requests JSON wire format ({@code wt=json})
- * and converts the Solr JSON response into the {@link NamedList} object tree
- * that SolrJ's typed response classes
- * ({@link org.apache.solr.client.solrj.response.QueryResponse},
- * {@link org.apache.solr.client.solrj.response.LukeResponse}, etc.) expect
- * internally.
+ * SolrJ {@link ResponseParser} that requests JSON wire format ({@code wt=json}) and converts the
+ * Solr JSON response into the {@link NamedList} object tree that SolrJ's typed response classes
+ * ({@link org.apache.solr.client.solrj.response.QueryResponse}, {@link
+ * org.apache.solr.client.solrj.response.LukeResponse}, etc.) expect internally.
  *
- * <p>
- * This allows the application to keep all existing SolrJ response handling
- * unchanged while moving off the JavaBin ({@code wt=javabin}) wire format.
+ * <p>This allows the application to keep all existing SolrJ response handling unchanged while
+ * moving off the JavaBin ({@code wt=javabin}) wire format.
  *
- * <p>
- * <strong>Structural conversions:</strong>
+ * <p><strong>Structural conversions:</strong>
+ *
  * <ul>
- * <li>JSON objects → {@link NamedList} (preserving key order)</li>
- * <li>JSON objects containing {@code numFound} + {@code docs} →
- * {@link SolrDocumentList}</li>
- * <li>JSON arrays with alternating {@code [String, non-String, ...]} pairs →
- * {@link NamedList} (Solr's {@code json.nl=flat} facet encoding)</li>
- * <li>All other JSON arrays → {@link List}</li>
- * <li>JSON integers → {@link Integer} or {@link Long} (by value size)</li>
- * <li>JSON decimals → {@link Float}, matching the JavaBin codec; SolrJ response
- * classes cast to it (e.g. {@code SchemaResponse} reads the schema version as a
- * {@code Float})</li>
- * <li>JSON booleans → {@link Boolean}</li>
- * <li>JSON strings → {@link String}</li>
+ *   <li>JSON objects → {@link NamedList} (preserving key order)
+ *   <li>JSON objects containing {@code numFound} + {@code docs} → {@link SolrDocumentList}
+ *   <li>JSON arrays with alternating {@code [String, non-String, ...]} pairs → {@link NamedList}
+ *       (Solr's {@code json.nl=flat} facet encoding)
+ *   <li>All other JSON arrays → {@link List}
+ *   <li>JSON integers → {@link Integer} or {@link Long} (by value size)
+ *   <li>JSON decimals → {@link Float}, matching the JavaBin codec; SolrJ response classes cast to
+ *       it (e.g. {@code SchemaResponse} reads the schema version as a {@code Float})
+ *   <li>JSON booleans → {@link Boolean}
+ *   <li>JSON strings → {@link String}
  * </ul>
  *
- * <p>
- * <strong>Flat NamedList detection:</strong> Solr serializes facet counts as
- * flat arrays using {@code json.nl=flat} (the default). An array is treated as
- * a flat NamedList when every even-indexed element is a {@link String} and
- * every odd-indexed element is a non-{@link String} value. This reliably
- * distinguishes {@code ["term", 5, "term2", 3]} (facet NamedList) from
- * {@code ["col1", "col2"]} (plain string list).
+ * <p><strong>Flat NamedList detection:</strong> Solr serializes facet counts as flat arrays using
+ * {@code json.nl=flat} (the default). An array is treated as a flat NamedList when every
+ * even-indexed element is a {@link String} and every odd-indexed element is a non-{@link String}
+ * value. This reliably distinguishes {@code ["term", 5, "term2", 3]} (facet NamedList) from {@code
+ * ["col1", "col2"]} (plain string list).
  */
 class JsonResponseParser extends ResponseParser {
 
-	private final ObjectMapper mapper;
+  private final ObjectMapper mapper;
 
-	JsonResponseParser(ObjectMapper mapper) {
-		this.mapper = mapper;
-	}
+  JsonResponseParser(ObjectMapper mapper) {
+    this.mapper = mapper;
+  }
 
-	@Override
-	public String getWriterType() {
-		return "json";
-	}
+  @Override
+  public String getWriterType() {
+    return "json";
+  }
 
-	@Override
-	public Collection<String> getContentTypes() {
-		// Some Solr endpoints (notably /admin/ping) return JSON-encoded bodies with
-		// Content-Type: text/plain. Accept it so SolrJ does not reject otherwise-valid
-		// responses.
-		return List.of(MediaType.APPLICATION_JSON_VALUE, MediaType.TEXT_PLAIN_VALUE);
-	}
+  @Override
+  public Collection<String> getContentTypes() {
+    // Some Solr endpoints (notably /admin/ping) return JSON-encoded bodies with
+    // Content-Type: text/plain. Accept it so SolrJ does not reject otherwise-valid
+    // responses.
+    return List.of(MediaType.APPLICATION_JSON_VALUE, MediaType.TEXT_PLAIN_VALUE);
+  }
 
-	/**
-	 * Path of the object whose direct children are per-field facet arrays. Arrays
-	 * found one level below this path are always NamedLists, regardless of shape.
-	 */
-	private static final String FACET_FIELDS_PATH = "facet_counts/facet_fields";
+  /**
+   * Path of the object whose direct children are per-field facet arrays. Arrays found one level
+   * below this path are always NamedLists, regardless of shape.
+   */
+  private static final String FACET_FIELDS_PATH = "facet_counts/facet_fields";
 
-	@Override
-	public NamedList<Object> processResponse(InputStream body, String encoding) {
-		try {
-			return toNamedList(mapper.readTree(body), "");
-		} catch (JacksonException e) {
-			throw new SolrException(SolrException.ErrorCode.SERVER_ERROR, "Failed to parse Solr JSON response", e);
-		}
-	}
+  @Override
+  public NamedList<Object> processResponse(InputStream body, String encoding) {
+    try {
+      return toNamedList(mapper.readTree(body), "");
+    } catch (JacksonException e) {
+      throw new SolrException(
+          SolrException.ErrorCode.SERVER_ERROR, "Failed to parse Solr JSON response", e);
+    }
+  }
 
-	private SimpleOrderedMap<Object> toNamedList(JsonNode objectNode, String path) {
-		SimpleOrderedMap<Object> result = new SimpleOrderedMap<>();
-		objectNode.properties().forEach(
-				entry -> result.add(entry.getKey(), convertValue(entry.getValue(), child(path, entry.getKey()))));
-		return result;
-	}
+  private SimpleOrderedMap<Object> toNamedList(JsonNode objectNode, String path) {
+    SimpleOrderedMap<Object> result = new SimpleOrderedMap<>();
+    objectNode
+        .properties()
+        .forEach(
+            entry ->
+                result.add(
+                    entry.getKey(), convertValue(entry.getValue(), child(path, entry.getKey()))));
+    return result;
+  }
 
-	private static String child(String path, String key) {
-		return path.isEmpty() ? key : path + "/" + key;
-	}
+  private static String child(String path, String key) {
+    return path.isEmpty() ? key : path + "/" + key;
+  }
 
-	private @Nullable Object convertValue(JsonNode node, String path) {
-		if (node.isNull())
-			return null;
-		if (node.isBoolean())
-			return node.booleanValue();
-		if (node.isTextual())
-			return node.textValue();
-		if (node.isInt())
-			return node.intValue();
-		if (node.isLong())
-			return node.longValue();
-		if (node.isDouble() || node.isFloat())
-			return node.floatValue();
-		if (node.isObject())
-			return convertObject(node, path);
-		if (node.isArray())
-			return convertArray(node, path);
-		return node.asText();
-	}
+  private @Nullable Object convertValue(JsonNode node, String path) {
+    if (node.isNull()) return null;
+    if (node.isBoolean()) return node.booleanValue();
+    if (node.isTextual()) return node.textValue();
+    if (node.isInt()) return node.intValue();
+    if (node.isLong()) return node.longValue();
+    if (node.isDouble() || node.isFloat()) return node.floatValue();
+    if (node.isObject()) return convertObject(node, path);
+    if (node.isArray()) return convertArray(node, path);
+    return node.asText();
+  }
 
-	private Object convertObject(JsonNode node, String path) {
-		// Detect a Solr query result set by the presence of numFound + docs
-		if (node.has("numFound") && node.has("docs")) {
-			return toSolrDocumentList(node);
-		}
-		return toNamedList(node, path);
-	}
+  private Object convertObject(JsonNode node, String path) {
+    // Detect a Solr query result set by the presence of numFound + docs
+    if (node.has("numFound") && node.has("docs")) {
+      return toSolrDocumentList(node);
+    }
+    return toNamedList(node, path);
+  }
 
-	private Object convertArray(JsonNode arrayNode, String path) {
-		// Facet field values are always NamedLists, even when empty. The shape
-		// heuristic below cannot recognise an empty array, and returning a List
-		// for a facet on a zero-hit field would break SolrJ's QueryResponse,
-		// which casts each facet_fields entry to NamedList.
-		if (isFacetFieldValue(path)) {
-			return flatArrayToNamedList(arrayNode);
-		}
-		// Detect Solr's flat NamedList encoding: [String, non-String, String,
-		// non-String, ...]
-		// Used for facet counts (json.nl=flat default). Distinguished from plain string
-		// arrays
-		// by requiring odd-indexed elements to be non-string values.
-		if (isFlatNamedList(arrayNode)) {
-			return flatArrayToNamedList(arrayNode);
-		}
-		List<Object> list = new ArrayList<>(arrayNode.size());
-		arrayNode.forEach(element -> list.add(convertValue(element, path)));
-		return list;
-	}
+  private Object convertArray(JsonNode arrayNode, String path) {
+    // Facet field values are always NamedLists, even when empty. The shape
+    // heuristic below cannot recognise an empty array, and returning a List
+    // for a facet on a zero-hit field would break SolrJ's QueryResponse,
+    // which casts each facet_fields entry to NamedList.
+    if (isFacetFieldValue(path)) {
+      return flatArrayToNamedList(arrayNode);
+    }
+    // Detect Solr's flat NamedList encoding: [String, non-String, String,
+    // non-String, ...]
+    // Used for facet counts (json.nl=flat default). Distinguished from plain string
+    // arrays
+    // by requiring odd-indexed elements to be non-string values.
+    if (isFlatNamedList(arrayNode)) {
+      return flatArrayToNamedList(arrayNode);
+    }
+    List<Object> list = new ArrayList<>(arrayNode.size());
+    arrayNode.forEach(element -> list.add(convertValue(element, path)));
+    return list;
+  }
 
-	/** True for {@code facet_counts/facet_fields/<fieldName>}. */
-	private static boolean isFacetFieldValue(String path) {
-		int lastSlash = path.lastIndexOf('/');
-		return lastSlash > 0 && path.substring(0, lastSlash).equals(FACET_FIELDS_PATH);
-	}
+  /** True for {@code facet_counts/facet_fields/<fieldName>}. */
+  private static boolean isFacetFieldValue(String path) {
+    int lastSlash = path.lastIndexOf('/');
+    return lastSlash > 0 && path.substring(0, lastSlash).equals(FACET_FIELDS_PATH);
+  }
 
-	/**
-	 * Returns true when the array has even length, every even-indexed element is a
-	 * string (the key), and every odd-indexed element is NOT a string (the value).
-	 * This heuristic correctly identifies Solr facet data like
-	 * {@code ["fantasy", 10, "scifi", 5]} while rejecting plain string arrays like
-	 * {@code ["col1", "col2"]}.
-	 */
-	private boolean isFlatNamedList(JsonNode arrayNode) {
-		int size = arrayNode.size();
-		if (size == 0 || size % 2 != 0)
-			return false;
-		for (int i = 0; i < size; i += 2) {
-			if (!arrayNode.get(i).isTextual())
-				return false; // key must be string
-			if (arrayNode.get(i + 1).isTextual())
-				return false; // value must not be string
-		}
-		return true;
-	}
+  /**
+   * Returns true when the array has even length, every even-indexed element is a string (the key),
+   * and every odd-indexed element is NOT a string (the value). This heuristic correctly identifies
+   * Solr facet data like {@code ["fantasy", 10, "scifi", 5]} while rejecting plain string arrays
+   * like {@code ["col1", "col2"]}.
+   */
+  private boolean isFlatNamedList(JsonNode arrayNode) {
+    int size = arrayNode.size();
+    if (size == 0 || size % 2 != 0) return false;
+    for (int i = 0; i < size; i += 2) {
+      if (!arrayNode.get(i).isTextual()) return false; // key must be string
+      if (arrayNode.get(i + 1).isTextual()) return false; // value must not be string
+    }
+    return true;
+  }
 
-	private SimpleOrderedMap<Object> flatArrayToNamedList(JsonNode arrayNode) {
-		SimpleOrderedMap<Object> result = new SimpleOrderedMap<>();
-		for (int i = 0; i < arrayNode.size(); i += 2) {
-			// Values here are facet counts (scalars), never nested facet arrays.
-			result.add(arrayNode.get(i).textValue(), convertValue(arrayNode.get(i + 1), ""));
-		}
-		return result;
-	}
+  private SimpleOrderedMap<Object> flatArrayToNamedList(JsonNode arrayNode) {
+    SimpleOrderedMap<Object> result = new SimpleOrderedMap<>();
+    for (int i = 0; i < arrayNode.size(); i += 2) {
+      // Values here are facet counts (scalars), never nested facet arrays.
+      result.add(arrayNode.get(i).textValue(), convertValue(arrayNode.get(i + 1), ""));
+    }
+    return result;
+  }
 
-	private SolrDocumentList toSolrDocumentList(JsonNode node) {
-		SolrDocumentList list = new SolrDocumentList();
-		list.setNumFound(node.get("numFound").longValue());
-		list.setStart(node.path("start").longValue());
-		JsonNode numFoundExact = node.get("numFoundExact");
-		if (numFoundExact != null && !numFoundExact.isNull()) {
-			list.setNumFoundExact(numFoundExact.booleanValue());
-		}
-		JsonNode maxScore = node.get("maxScore");
-		if (maxScore != null && !maxScore.isNull()) {
-			list.setMaxScore(maxScore.floatValue());
-		}
-		node.get("docs").forEach(doc -> list.add(toSolrDocument(doc)));
-		return list;
-	}
+  private SolrDocumentList toSolrDocumentList(JsonNode node) {
+    SolrDocumentList list = new SolrDocumentList();
+    list.setNumFound(node.get("numFound").longValue());
+    list.setStart(node.path("start").longValue());
+    JsonNode numFoundExact = node.get("numFoundExact");
+    if (numFoundExact != null && !numFoundExact.isNull()) {
+      list.setNumFoundExact(numFoundExact.booleanValue());
+    }
+    JsonNode maxScore = node.get("maxScore");
+    if (maxScore != null && !maxScore.isNull()) {
+      list.setMaxScore(maxScore.floatValue());
+    }
+    node.get("docs").forEach(doc -> list.add(toSolrDocument(doc)));
+    return list;
+  }
 
-	private SolrDocument toSolrDocument(JsonNode node) {
-		SolrDocument doc = new SolrDocument();
-		node.properties().forEach(entry -> {
-			JsonNode val = entry.getValue();
-			if (val.isArray()) {
-				// Multi-valued field — always a plain list, never a flat NamedList
-				List<Object> values = new ArrayList<>(val.size());
-				val.forEach(v -> values.add(convertValue(v, "")));
-				doc.setField(entry.getKey(), values);
-			} else {
-				doc.setField(entry.getKey(), convertValue(val, ""));
-			}
-		});
-		return doc;
-	}
+  private SolrDocument toSolrDocument(JsonNode node) {
+    SolrDocument doc = new SolrDocument();
+    node.properties()
+        .forEach(
+            entry -> {
+              JsonNode val = entry.getValue();
+              if (val.isArray()) {
+                // Multi-valued field — always a plain list, never a flat NamedList
+                List<Object> values = new ArrayList<>(val.size());
+                val.forEach(v -> values.add(convertValue(v, "")));
+                doc.setField(entry.getKey(), values);
+              } else {
+                doc.setField(entry.getKey(), convertValue(val, ""));
+              }
+            });
+    return doc;
+  }
 }

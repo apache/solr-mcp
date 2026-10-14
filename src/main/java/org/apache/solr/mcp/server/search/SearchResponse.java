@@ -20,65 +20,48 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Immutable record representing a structured search response from Apache Solr
- * operations.
+ * Immutable record representing a structured search response from Apache Solr operations.
  *
- * <p>
- * This record encapsulates all essential components of a Solr search result in
- * a type-safe, immutable structure that can be easily serialized to JSON for
- * MCP client consumption. It provides a clean abstraction over Solr's native
- * response format while preserving all critical search metadata and result
- * data.
+ * <p>This record encapsulates all essential components of a Solr search result in a type-safe,
+ * immutable structure that can be easily serialized to JSON for MCP client consumption. It provides
+ * a clean abstraction over Solr's native response format while preserving all critical search
+ * metadata and result data.
  *
- * <p>
- * <strong>Record Benefits:</strong>
+ * <p><strong>Record Benefits:</strong>
  *
  * <ul>
- * <li><strong>Immutability</strong>: Response data cannot be modified after
- * creation
- * <li><strong>Type Safety</strong>: Compile-time validation of response
- * structure
- * <li><strong>JSON Serialization</strong>: Automatic conversion to JSON for MCP
- * clients
- * <li><strong>Memory Efficiency</strong>: Compact representation with minimal
- * overhead
+ *   <li><strong>Immutability</strong>: Response data cannot be modified after creation
+ *   <li><strong>Type Safety</strong>: Compile-time validation of response structure
+ *   <li><strong>JSON Serialization</strong>: Automatic conversion to JSON for MCP clients
+ *   <li><strong>Memory Efficiency</strong>: Compact representation with minimal overhead
  * </ul>
  *
- * <p>
- * <strong>Search Metadata:</strong>
+ * <p><strong>Search Metadata:</strong>
  *
- * <p>
- * The response includes comprehensive search metadata that helps clients
- * understand the query results and implement pagination, relevance analysis,
- * and user interfaces:
+ * <p>The response includes comprehensive search metadata that helps clients understand the query
+ * results and implement pagination, relevance analysis, and user interfaces:
  *
  * <ul>
- * <li><strong>Total Results</strong>: Complete count of matching documents
- * <li><strong>Pagination Info</strong>: Current offset for result windowing
- * <li><strong>Relevance Scoring</strong>: Maximum relevance score in the result
- * set
+ *   <li><strong>Total Results</strong>: Complete count of matching documents
+ *   <li><strong>Pagination Info</strong>: Current offset for result windowing
+ *   <li><strong>Relevance Scoring</strong>: Maximum relevance score in the result set
  * </ul>
  *
- * <p>
- * <strong>Document Structure:</strong>
+ * <p><strong>Document Structure:</strong>
  *
- * <p>
- * Documents are represented as flexible key-value maps to accommodate Solr's
- * dynamic field capabilities and schema-less operation. Each document map
- * contains field names as keys and field values as objects, preserving the
- * original data types from Solr (strings, numbers, dates, arrays, etc.).
+ * <p>Documents are represented as flexible key-value maps to accommodate Solr's dynamic field
+ * capabilities and schema-less operation. Each document map contains field names as keys and field
+ * values as objects, preserving the original data types from Solr (strings, numbers, dates, arrays,
+ * etc.).
  *
- * <p>
- * <strong>Faceting Support:</strong>
+ * <p><strong>Faceting Support:</strong>
  *
- * <p>
- * Facet information is structured as a nested map hierarchy where the outer map
- * represents facet field names and inner maps contain facet values with their
- * corresponding document counts. This structure efficiently supports multiple
- * faceting strategies including field faceting and range faceting.
+ * <p>Facet information is structured as a nested map hierarchy where the outer map represents facet
+ * field names and inner maps contain facet values with their corresponding document counts. This
+ * structure efficiently supports multiple faceting strategies including field faceting and range
+ * faceting.
  *
- * <p>
- * <strong>Usage Examples:</strong>
+ * <p><strong>Usage Examples:</strong>
  *
  * <pre>{@code
  * // Access search results
@@ -96,8 +79,7 @@ import java.util.Map;
  * categoryFacets.forEach((category, count) -> System.out.println(category + ": " + count + " items"));
  * }</pre>
  *
- * <p>
- * <strong>JSON Serialization Example:</strong>
+ * <p><strong>JSON Serialization Example:</strong>
  *
  * <pre>{@code
  * {
@@ -115,25 +97,18 @@ import java.util.Map;
  * }
  * }</pre>
  *
- * @param numFound
- *            total number of documents matching the search query across all
- *            pages
- * @param start
- *            zero-based offset indicating the starting position of returned
- *            results
- * @param maxScore
- *            highest relevance score among the returned documents (null if
- *            scoring disabled)
- * @param documents
- *            list of document maps containing field names and values for each
- *            result
- * @param facets
- *            nested map structure containing facet field names, values, and
- *            document counts
+ * @param numFound total number of documents matching the search query across all pages
+ * @param start zero-based offset indicating the starting position of returned results
+ * @param maxScore highest relevance score among the returned documents (null if scoring disabled)
+ * @param documents list of document maps containing field names and values for each result
+ * @param facets nested map structure containing facet field names, values, and document counts
  * @see SearchService#search(String, String, List, List, List, Integer, Integer)
  * @see org.apache.solr.client.solrj.response.QueryResponse
  * @see org.apache.solr.common.SolrDocumentList
  */
-public record SearchResponse(long numFound, long start, Float maxScore, List<Map<String, Object>> documents,
-		Map<String, Map<String, Long>> facets) {
-}
+public record SearchResponse(
+    long numFound,
+    long start,
+    Float maxScore,
+    List<Map<String, Object>> documents,
+    Map<String, Map<String, Long>> facets) {}

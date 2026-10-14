@@ -25,14 +25,16 @@ import tools.jackson.databind.json.JsonMapper;
 // connected to a running solr"
 public class ClientStdio {
 
-	static void main() {
+  static void main() {
 
-		String jarName = String.format("build/libs/%s", BuildInfoReader.getJarFileName());
+    String jarName = String.format("build/libs/%s", BuildInfoReader.getJarFileName());
 
-		var stdioParams = ServerParameters.builder("java").args("-jar", jarName).build();
+    var stdioParams = ServerParameters.builder("java").args("-jar", jarName).build();
 
-		var transport = new StdioClientTransport(stdioParams, new JacksonMcpJsonMapper(JsonMapper.builder().build()));
+    var transport =
+        new StdioClientTransport(
+            stdioParams, new JacksonMcpJsonMapper(JsonMapper.builder().build()));
 
-		new SampleClient(transport).run();
-	}
+    new SampleClient(transport).run();
+  }
 }

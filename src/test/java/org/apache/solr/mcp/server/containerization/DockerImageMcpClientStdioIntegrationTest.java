@@ -31,44 +31,49 @@ import org.testcontainers.utility.DockerImageName;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * End-to-end MCP STDIO test against the Paketo Docker image built by
- * {@code bootBuildImage}. Spawns {@code docker run -i} as the MCP server
- * subprocess and drives the full MCP tool-call workflow over the JSON-RPC stdio
- * protocol — exactly how a client like Claude Desktop would use it.
+ * End-to-end MCP STDIO test against the Paketo Docker image built by {@code bootBuildImage}. Spawns
+ * {@code docker run -i} as the MCP server subprocess and drives the full MCP tool-call workflow
+ * over the JSON-RPC stdio protocol — exactly how a client like Claude Desktop would use it.
  *
- * <p>
- * This is the protocol-level verification of stdout cleanliness. If Paketo's
- * libjvm helpers (memory calculator, NMT, ca-certificates) write to stdout
- * before the JVM starts, the MCP client's JSON-RPC parser will choke on those
- * lines and {@code initialize()} will fail.
+ * <p>This is the protocol-level verification of stdout cleanliness. If Paketo's libjvm helpers
+ * (memory calculator, NMT, ca-certificates) write to stdout before the JVM starts, the MCP client's
+ * JSON-RPC parser will choke on those lines and {@code initialize()} will fail.
  *
- * <p>
- * Image under test: {@link BuildInfoReader#getDockerImageName()}, which appends
- * the {@code solr.mcp.docker.image.tag.suffix} system property
- * ({@code -native-stdio} / {@code -native-http} under
- * {@code dockerIntegrationTest -Pnative}, empty on the JVM/Jib path).
+ * <p>Image under test: {@link BuildInfoReader#getDockerImageName()}, which appends the {@code
+ * solr.mcp.docker.image.tag.suffix} system property ({@code -native-stdio} / {@code -native-http}
+ * under {@code dockerIntegrationTest -Pnative}, empty on the JVM/Jib path).
  */
 @Tag("docker-integration")
 @Testcontainers(disabledWithoutDocker = true)
 class DockerImageMcpClientStdioIntegrationTest extends McpClientIntegrationTestBase {
 
-	private static final String DOCKER_IMAGE = BuildInfoReader.getDockerImageName();
+  private static final String DOCKER_IMAGE = BuildInfoReader.getDockerImageName();
 
-	@Container
-	static final SolrContainer solrContainer = new SolrContainer(
-			DockerImageName.parse(System.getProperty("solr.test.image", "solr:9.9-slim")));
+  @Container
+  static final SolrContainer solrContainer =
+      new SolrContainer(
+          DockerImageName.parse(System.getProperty("solr.test.image", "solr:9.9-slim")));
 
-	@Override
-	protected McpSyncClient createClient() {
-		String solrUrl = "http://host.docker.internal:" + solrContainer.getMappedPort(8983) + "/solr/";
+  @Override
+  protected McpSyncClient createClient() {
+    String solrUrl = "http://host.docker.internal:" + solrContainer.getMappedPort(8983) + "/solr/";
 
-		var params = ServerParameters.builder("docker")
-				.args("run", "-i", "--rm", "--add-host=host.docker.internal:host-gateway", "-e", "SOLR_URL=" + solrUrl,
-						"-e", "SPRING_DOCKER_COMPOSE_ENABLED=false", DOCKER_IMAGE)
-				.build();
+    var params =
+        ServerParameters.builder("docker")
+            .args(
+                "run",
+                "-i",
+                "--rm",
+                "--add-host=host.docker.internal:host-gateway",
+                "-e",
+                "SOLR_URL=" + solrUrl,
+                "-e",
+                "SPRING_DOCKER_COMPOSE_ENABLED=false",
+                DOCKER_IMAGE)
+            .build();
 
-		var transport = new StdioClientTransport(params, new JacksonMcpJsonMapper(JsonMapper.builder().build()));
-		return McpClient.sync(transport).build();
-	}
-
+    var transport =
+        new StdioClientTransport(params, new JacksonMcpJsonMapper(JsonMapper.builder().build()));
+    return McpClient.sync(transport).build();
+  }
 }

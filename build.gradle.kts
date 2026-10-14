@@ -386,18 +386,8 @@ tasks.wrapper {
 spotless {
     java {
         target("src/**/*.java")
-        // Use Eclipse JDT formatter to avoid google-java-format's incompatibility
-        // with cutting-edge JDKs (e.g., 25) which can trigger NoSuchMethodError
-        // against internal javac classes. Override only the annotation-argument
-        // alignment so multi-arg @Mcp* annotations render one-arg-per-line.
-        // Pinned to the JDT version Spotless 7.0.2 defaulted to: Spotless 8's
-        // default JDT (4.39) collapses Javadoc <pre>{@code} blocks and folds
-        // @param/@see tags into the preceding paragraph.
-        eclipse("4.34").configFile("config/spotless/eclipse-java-formatter.properties")
-        removeUnusedImports()
-        trimTrailingWhitespace()
-        endWithNewline()
-        importOrder()
+        // Pinned so a Spotless upgrade cannot reformat the codebase on its own.
+        googleJavaFormat("1.35.0")
         formatAnnotations()
     }
     kotlinGradle {

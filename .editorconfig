@@ -9,3 +9,10 @@ ij_continuation_indent_size = 8
 ij_any_keep_line_breaks = true
 
 # Keep trailing whitespace and EOL settings untouched to minimize changes
+
+# Java is formatted by google-java-format (./gradlew spotlessApply): 2-space
+# indent, 4-space continuation, 100 columns.
+[*.java]
+indent_size = 2
+ij_continuation_indent_size = 4
+max_line_length = 100

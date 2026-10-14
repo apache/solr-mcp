@@ -43,45 +43,38 @@ import org.springframework.context.annotation.Import;
 import org.testcontainers.containers.SolrContainer;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-/**
- * Integration tests for IndexingService using a real Solr instance via
- * Testcontainers.
- */
+/** Integration tests for IndexingService using a real Solr instance via Testcontainers. */
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
 @Tag("integration")
 @Testcontainers(disabledWithoutDocker = true)
 class IndexingServiceIntegrationTest {
 
-	private static final String COLLECTION_NAME = "indexing_test_" + System.currentTimeMillis();
-	private static boolean initialized = false;
-	@Autowired
-	private SolrContainer solrContainer;
-	@Autowired
-	private IndexingDocumentCreator indexingDocumentCreator;
-	@Autowired
-	private IndexingService indexingService;
-	@Autowired
-	private SearchService searchService;
-	@Autowired
-	private SolrClient solrClient;
+  private static final String COLLECTION_NAME = "indexing_test_" + System.currentTimeMillis();
+  private static boolean initialized = false;
+  @Autowired private SolrContainer solrContainer;
+  @Autowired private IndexingDocumentCreator indexingDocumentCreator;
+  @Autowired private IndexingService indexingService;
+  @Autowired private SearchService searchService;
+  @Autowired private SolrClient solrClient;
 
-	@BeforeEach
-	void setUp() throws Exception {
+  @BeforeEach
+  void setUp() throws Exception {
 
-		if (!initialized) {
-			// Create collection
-			CollectionAdminRequest.Create createRequest = CollectionAdminRequest.createCollection(COLLECTION_NAME,
-					"_default", 1, 1);
-			createRequest.process(solrClient);
-			initialized = true;
-		}
-	}
+    if (!initialized) {
+      // Create collection
+      CollectionAdminRequest.Create createRequest =
+          CollectionAdminRequest.createCollection(COLLECTION_NAME, "_default", 1, 1);
+      createRequest.process(solrClient);
+      initialized = true;
+    }
+  }
 
-	@Test
-	void testCreateSchemalessDocumentsFromJson() throws Exception {
-		// Test JSON string
-		String json = """
+  @Test
+  void testCreateSchemalessDocumentsFromJson() throws Exception {
+    // Test JSON string
+    String json =
+        """
 				[
 				  {
 				    "id": "test001",
@@ -97,59 +90,61 @@ class IndexingServiceIntegrationTest {
 				]
 				""";
 
-		// Create documents
-		List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
+    // Create documents
+    List<SolrInputDocument> documents =
+        indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
 
-		// Verify documents were created correctly
-		assertNotNull(documents);
-		assertEquals(1, documents.size());
+    // Verify documents were created correctly
+    assertNotNull(documents);
+    assertEquals(1, documents.size());
 
-		SolrInputDocument doc = documents.getFirst();
-		assertEquals("test001", doc.getFieldValue("id"));
+    SolrInputDocument doc = documents.getFirst();
+    assertEquals("test001", doc.getFieldValue("id"));
 
-		// Check field values - they might be stored directly or as collections
-		Object nameValue = doc.getFieldValue("name");
-		if (nameValue instanceof List) {
-			assertEquals("Test Book 1", ((List<?>) nameValue).getFirst());
-		} else {
-			assertEquals("Test Book 1", nameValue);
-		}
+    // Check field values - they might be stored directly or as collections
+    Object nameValue = doc.getFieldValue("name");
+    if (nameValue instanceof List) {
+      assertEquals("Test Book 1", ((List<?>) nameValue).getFirst());
+    } else {
+      assertEquals("Test Book 1", nameValue);
+    }
 
-		Object priceValue = doc.getFieldValue("price");
-		if (priceValue instanceof List) {
-			assertEquals(9.99, ((List<?>) priceValue).getFirst());
-		} else {
-			assertEquals(9.99, priceValue);
-		}
+    Object priceValue = doc.getFieldValue("price");
+    if (priceValue instanceof List) {
+      assertEquals(9.99, ((List<?>) priceValue).getFirst());
+    } else {
+      assertEquals(9.99, priceValue);
+    }
 
-		Object inStockValue = doc.getFieldValue("inStock");
-		// Check if inStock field exists
-		if (inStockValue != null) {
-			if (inStockValue instanceof List) {
-				assertEquals(true, ((List<?>) inStockValue).getFirst());
-			} else {
-				assertEquals(true, inStockValue);
-			}
-		} else {
-			// If inStock is not present in the document, we'll skip this assertion
-			// Removed debug print statement
-		}
+    Object inStockValue = doc.getFieldValue("inStock");
+    // Check if inStock field exists
+    if (inStockValue != null) {
+      if (inStockValue instanceof List) {
+        assertEquals(true, ((List<?>) inStockValue).getFirst());
+      } else {
+        assertEquals(true, inStockValue);
+      }
+    } else {
+      // If inStock is not present in the document, we'll skip this assertion
+      // Removed debug print statement
+    }
 
-		Object authorValue = doc.getFieldValue("author");
-		if (authorValue instanceof List) {
-			assertEquals("Test Author", ((List<?>) authorValue).getFirst());
-		} else {
-			assertEquals("Test Author", authorValue);
-		}
+    Object authorValue = doc.getFieldValue("author");
+    if (authorValue instanceof List) {
+      assertEquals("Test Author", ((List<?>) authorValue).getFirst());
+    } else {
+      assertEquals("Test Author", authorValue);
+    }
 
-		assertEquals("Test Series", doc.getFieldValue("series_t"));
-		assertEquals(1, doc.getFieldValue("sequence_i"));
-		assertEquals("test", doc.getFieldValue("genre_s"));
-	}
+    assertEquals("Test Series", doc.getFieldValue("series_t"));
+    assertEquals(1, doc.getFieldValue("sequence_i"));
+    assertEquals("test", doc.getFieldValue("genre_s"));
+  }
 
-	@Test
-	void indexJsonDocuments_reportsFieldNamesAsIndexed() throws Exception {
-		String json = """
+  @Test
+  void indexJsonDocuments_reportsFieldNamesAsIndexed() throws Exception {
+    String json =
+        """
 				[
 				  {
 				    "id": "names001",
@@ -159,18 +154,20 @@ class IndexingServiceIntegrationTest {
 				]
 				""";
 
-		String result = indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
+    String result = indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
-		// Names are kept as given; nested objects are flattened with underscores,
-		// which is why the response lists the indexed names.
-		assertTrue(result.contains("User-Name"), result);
-		assertTrue(result.contains("product_price"), result);
-	}
-	@Test
-	void testIndexJsonDocuments() throws Exception {
+    // Names are kept as given; nested objects are flattened with underscores,
+    // which is why the response lists the indexed names.
+    assertTrue(result.contains("User-Name"), result);
+    assertTrue(result.contains("product_price"), result);
+  }
 
-		// Test JSON string with multiple documents
-		String json = """
+  @Test
+  void testIndexJsonDocuments() throws Exception {
+
+    // Test JSON string with multiple documents
+    String json =
+        """
 				[
 				  {
 				    "id": "test002",
@@ -193,95 +190,97 @@ class IndexingServiceIntegrationTest {
 				]
 				""";
 
-		// Index documents
-		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
+    // Index documents
+    indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
-		// Verify documents were indexed by searching for them
-		SearchResponse result = searchService.search(COLLECTION_NAME, "id:test002 OR id:test003", null, null, null,
-				null, null);
+    // Verify documents were indexed by searching for them
+    SearchResponse result =
+        searchService.search(
+            COLLECTION_NAME, "id:test002 OR id:test003", null, null, null, null, null);
 
-		assertNotNull(result);
-		List<Map<String, Object>> documents = result.documents();
-		assertEquals(2, documents.size());
+    assertNotNull(result);
+    List<Map<String, Object>> documents = result.documents();
+    assertEquals(2, documents.size());
 
-		// Verify specific document fields
-		boolean foundBook2 = false;
-		boolean foundBook3 = false;
+    // Verify specific document fields
+    boolean foundBook2 = false;
+    boolean foundBook3 = false;
 
-		for (Map<String, Object> book : documents) {
-			// Get ID and handle both String and List cases
-			Object idValue = book.get("id");
-			String id;
-			if (idValue instanceof List) {
-				id = (String) ((List<?>) idValue).getFirst();
-			} else {
-				id = (String) idValue;
-			}
+    for (Map<String, Object> book : documents) {
+      // Get ID and handle both String and List cases
+      Object idValue = book.get("id");
+      String id;
+      if (idValue instanceof List) {
+        id = (String) ((List<?>) idValue).getFirst();
+      } else {
+        id = (String) idValue;
+      }
 
-			if (id.equals("test002")) {
-				foundBook2 = true;
+      if (id.equals("test002")) {
+        foundBook2 = true;
 
-				// Handle name field
-				Object nameValue = book.get("name");
-				if (nameValue instanceof List) {
-					assertEquals("Test Book 2", ((List<?>) nameValue).getFirst());
-				} else {
-					assertEquals("Test Book 2", nameValue);
-				}
+        // Handle name field
+        Object nameValue = book.get("name");
+        if (nameValue instanceof List) {
+          assertEquals("Test Book 2", ((List<?>) nameValue).getFirst());
+        } else {
+          assertEquals("Test Book 2", nameValue);
+        }
 
-				// Handle author field
-				Object authorValue = book.get("author");
-				if (authorValue instanceof List) {
-					assertEquals("Test Author 2", ((List<?>) authorValue).getFirst());
-				} else {
-					assertEquals("Test Author 2", authorValue);
-				}
+        // Handle author field
+        Object authorValue = book.get("author");
+        if (authorValue instanceof List) {
+          assertEquals("Test Author 2", ((List<?>) authorValue).getFirst());
+        } else {
+          assertEquals("Test Author 2", authorValue);
+        }
 
-				// Handle genre field
-				Object genreValue = book.get("genre_s");
-				if (genreValue instanceof List) {
-					assertEquals("scifi", ((List<?>) genreValue).getFirst());
-				} else {
-					assertEquals("scifi", genreValue);
-				}
-			} else if (id.equals("test003")) {
-				foundBook3 = true;
+        // Handle genre field
+        Object genreValue = book.get("genre_s");
+        if (genreValue instanceof List) {
+          assertEquals("scifi", ((List<?>) genreValue).getFirst());
+        } else {
+          assertEquals("scifi", genreValue);
+        }
+      } else if (id.equals("test003")) {
+        foundBook3 = true;
 
-				// Handle name field
-				Object nameValue = book.get("name");
-				if (nameValue instanceof List) {
-					assertEquals("Test Book 3", ((List<?>) nameValue).getFirst());
-				} else {
-					assertEquals("Test Book 3", nameValue);
-				}
+        // Handle name field
+        Object nameValue = book.get("name");
+        if (nameValue instanceof List) {
+          assertEquals("Test Book 3", ((List<?>) nameValue).getFirst());
+        } else {
+          assertEquals("Test Book 3", nameValue);
+        }
 
-				// Handle author field
-				Object authorValue = book.get("author");
-				if (authorValue instanceof List) {
-					assertEquals("Test Author 3", ((List<?>) authorValue).getFirst());
-				} else {
-					assertEquals("Test Author 3", authorValue);
-				}
+        // Handle author field
+        Object authorValue = book.get("author");
+        if (authorValue instanceof List) {
+          assertEquals("Test Author 3", ((List<?>) authorValue).getFirst());
+        } else {
+          assertEquals("Test Author 3", authorValue);
+        }
 
-				// Handle genre field
-				Object genreValue = book.get("genre_s");
-				if (genreValue instanceof List) {
-					assertEquals("fantasy", ((List<?>) genreValue).getFirst());
-				} else {
-					assertEquals("fantasy", genreValue);
-				}
-			}
-		}
+        // Handle genre field
+        Object genreValue = book.get("genre_s");
+        if (genreValue instanceof List) {
+          assertEquals("fantasy", ((List<?>) genreValue).getFirst());
+        } else {
+          assertEquals("fantasy", genreValue);
+        }
+      }
+    }
 
-		assertTrue(foundBook2, "Book 2 should be found in search results");
-		assertTrue(foundBook3, "Book 3 should be found in search results");
-	}
+    assertTrue(foundBook2, "Book 2 should be found in search results");
+    assertTrue(foundBook3, "Book 3 should be found in search results");
+  }
 
-	@Test
-	void testIndexJsonDocumentsWithNestedObjects() throws Exception {
+  @Test
+  void testIndexJsonDocumentsWithNestedObjects() throws Exception {
 
-		// Test JSON string with nested objects
-		String json = """
+    // Test JSON string with nested objects
+    String json =
+        """
 				[
 				  {
 				    "id": "test004",
@@ -298,57 +297,59 @@ class IndexingServiceIntegrationTest {
 				]
 				""";
 
-		// Index documents
-		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
+    // Index documents
+    indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
-		// Verify documents were indexed by searching for them
-		SearchResponse result = searchService.search(COLLECTION_NAME, "id:test004", null, null, null, null, null);
+    // Verify documents were indexed by searching for them
+    SearchResponse result =
+        searchService.search(COLLECTION_NAME, "id:test004", null, null, null, null, null);
 
-		assertNotNull(result);
-		List<Map<String, Object>> documents = result.documents();
-		assertEquals(1, documents.size());
+    assertNotNull(result);
+    List<Map<String, Object>> documents = result.documents();
+    assertEquals(1, documents.size());
 
-		Map<String, Object> book = documents.getFirst();
+    Map<String, Object> book = documents.getFirst();
 
-		// Handle ID field
-		Object idValue = book.get("id");
-		if (idValue instanceof List) {
-			assertEquals("test004", ((List<?>) idValue).getFirst());
-		} else {
-			assertEquals("test004", idValue);
-		}
+    // Handle ID field
+    Object idValue = book.get("id");
+    if (idValue instanceof List) {
+      assertEquals("test004", ((List<?>) idValue).getFirst());
+    } else {
+      assertEquals("test004", idValue);
+    }
 
-		// Handle name field
-		Object nameValue = book.get("name");
-		if (nameValue instanceof List) {
-			assertEquals("Test Book 4", ((List<?>) nameValue).getFirst());
-		} else {
-			assertEquals("Test Book 4", nameValue);
-		}
+    // Handle name field
+    Object nameValue = book.get("name");
+    if (nameValue instanceof List) {
+      assertEquals("Test Book 4", ((List<?>) nameValue).getFirst());
+    } else {
+      assertEquals("Test Book 4", nameValue);
+    }
 
-		// Check that nested fields were flattened with underscore prefix
-		assertNotNull(book.get("details_publisher"));
-		Object publisherValue = book.get("details_publisher");
-		if (publisherValue instanceof List) {
-			assertEquals("Test Publisher", ((List<?>) publisherValue).getFirst());
-		} else {
-			assertEquals("Test Publisher", publisherValue);
-		}
+    // Check that nested fields were flattened with underscore prefix
+    assertNotNull(book.get("details_publisher"));
+    Object publisherValue = book.get("details_publisher");
+    if (publisherValue instanceof List) {
+      assertEquals("Test Publisher", ((List<?>) publisherValue).getFirst());
+    } else {
+      assertEquals("Test Publisher", publisherValue);
+    }
 
-		assertNotNull(book.get("details_year"));
-		Object yearValue = book.get("details_year");
-		if (yearValue instanceof List) {
-			assertEquals(2023, ((Number) ((List<?>) yearValue).getFirst()).intValue());
-		} else if (yearValue instanceof Number) {
-			assertEquals(2023, ((Number) yearValue).intValue());
-		} else {
-			assertEquals("2023", yearValue.toString());
-		}
-	}
+    assertNotNull(book.get("details_year"));
+    Object yearValue = book.get("details_year");
+    if (yearValue instanceof List) {
+      assertEquals(2023, ((Number) ((List<?>) yearValue).getFirst()).intValue());
+    } else if (yearValue instanceof Number) {
+      assertEquals(2023, ((Number) yearValue).intValue());
+    } else {
+      assertEquals("2023", yearValue.toString());
+    }
+  }
 
-	@Test
-	void testFieldNamesAreUsedAsGiven() throws Exception {
-		String json = """
+  @Test
+  void testFieldNamesAreUsedAsGiven() throws Exception {
+    String json =
+        """
 				[
 				  {
 				    "id": "test005",
@@ -359,23 +360,26 @@ class IndexingServiceIntegrationTest {
 				]
 				""";
 
-		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
+    indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
-		SearchResponse result = searchService.search(COLLECTION_NAME, "id:test005", null, null, null, null, null);
-		assertEquals(1, result.documents().size());
-		Map<String, Object> doc = result.documents().getFirst();
+    SearchResponse result =
+        searchService.search(COLLECTION_NAME, "id:test005", null, null, null, null, null);
+    assertEquals(1, result.documents().size());
+    Map<String, Object> doc = result.documents().getFirst();
 
-		// Solr accepts these names as they are; field names are case-sensitive
-		assertEquals("Value with hyphen", getFieldValue(doc, "first-name"));
-		assertEquals("Value with dot", getFieldValue(doc, "product.price"));
-		assertEquals("Value with uppercase", getFieldValue(doc, "Title"));
-		assertNull(doc.get("title"));
-	}
-	@Test
-	void testDeeplyNestedJsonStructures() throws Exception {
+    // Solr accepts these names as they are; field names are case-sensitive
+    assertEquals("Value with hyphen", getFieldValue(doc, "first-name"));
+    assertEquals("Value with dot", getFieldValue(doc, "product.price"));
+    assertEquals("Value with uppercase", getFieldValue(doc, "Title"));
+    assertNull(doc.get("title"));
+  }
 
-		// Test JSON string with deeply nested objects (3+ levels)
-		String json = """
+  @Test
+  void testDeeplyNestedJsonStructures() throws Exception {
+
+    // Test JSON string with deeply nested objects (3+ levels)
+    String json =
+        """
 				[
 				  {
 				    "id": "nested001",
@@ -415,55 +419,59 @@ class IndexingServiceIntegrationTest {
 				]
 				""";
 
-		// Index documents
-		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
+    // Index documents
+    indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
-		// Verify documents were indexed by searching for them
-		SearchResponse result = searchService.search(COLLECTION_NAME, "id:nested001", null, null, null, null, null);
+    // Verify documents were indexed by searching for them
+    SearchResponse result =
+        searchService.search(COLLECTION_NAME, "id:nested001", null, null, null, null, null);
 
-		assertNotNull(result);
-		List<Map<String, Object>> documents = result.documents();
-		assertEquals(1, documents.size());
+    assertNotNull(result);
+    List<Map<String, Object>> documents = result.documents();
+    assertEquals(1, documents.size());
 
-		Map<String, Object> doc = documents.getFirst();
+    Map<String, Object> doc = documents.getFirst();
 
-		// Check that deeply nested fields were flattened with underscore prefix
-		// Level 1
-		assertNotNull(doc.get("metadata_publication_publisher_name"));
-		assertEquals("Deep Nest Publishing", getFieldValue(doc, "metadata_publication_publisher_name"));
+    // Check that deeply nested fields were flattened with underscore prefix
+    // Level 1
+    assertNotNull(doc.get("metadata_publication_publisher_name"));
+    assertEquals("Deep Nest Publishing", getFieldValue(doc, "metadata_publication_publisher_name"));
 
-		// Level 2
-		assertNotNull(doc.get("metadata_publication_publisher_location_city"));
-		assertEquals("Nestville", getFieldValue(doc, "metadata_publication_publisher_location_city"));
+    // Level 2
+    assertNotNull(doc.get("metadata_publication_publisher_location_city"));
+    assertEquals("Nestville", getFieldValue(doc, "metadata_publication_publisher_location_city"));
 
-		// Level 3
-		assertNotNull(doc.get("metadata_publication_publisher_location_coordinates_latitude"));
-		assertEquals(42.123,
-				((Number) getFieldValue(doc, "metadata_publication_publisher_location_coordinates_latitude"))
-						.doubleValue(),
-				0.001);
+    // Level 3
+    assertNotNull(doc.get("metadata_publication_publisher_location_coordinates_latitude"));
+    assertEquals(
+        42.123,
+        ((Number)
+                getFieldValue(doc, "metadata_publication_publisher_location_coordinates_latitude"))
+            .doubleValue(),
+        0.001);
 
-		// Check other branches of the nested structure
-		assertNotNull(doc.get("metadata_publication_edition_notes_condition"));
-		assertEquals("New", getFieldValue(doc, "metadata_publication_edition_notes_condition"));
+    // Check other branches of the nested structure
+    assertNotNull(doc.get("metadata_publication_edition_notes_condition"));
+    assertEquals("New", getFieldValue(doc, "metadata_publication_edition_notes_condition"));
 
-		assertNotNull(doc.get("metadata_classification_secondary_subcategory"));
-		assertEquals("Deep", getFieldValue(doc, "metadata_classification_secondary_subcategory"));
-	}
+    assertNotNull(doc.get("metadata_classification_secondary_subcategory"));
+    assertEquals("Deep", getFieldValue(doc, "metadata_classification_secondary_subcategory"));
+  }
 
-	private Object getFieldValue(Map<String, Object> doc, String fieldName) {
-		Object value = doc.get(fieldName);
-		if (value instanceof List) {
-			return ((List<?>) value).getFirst();
-		}
-		return value;
-	}
+  private Object getFieldValue(Map<String, Object> doc, String fieldName) {
+    Object value = doc.get(fieldName);
+    if (value instanceof List) {
+      return ((List<?>) value).getFirst();
+    }
+    return value;
+  }
 
-	@Test
-	void testSpecialCharactersInFieldNames() throws Exception {
+  @Test
+  void testSpecialCharactersInFieldNames() throws Exception {
 
-		// Test JSON string with field names containing various special characters
-		String json = """
+    // Test JSON string with field names containing various special characters
+    String json =
+        """
 				[
 				  {
 				    "id": "special_fields_001",
@@ -495,57 +503,59 @@ class IndexingServiceIntegrationTest {
 				]
 				""";
 
-		// Index documents
-		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
+    // Index documents
+    indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
-		// Verify documents were indexed by searching for them
-		SearchResponse result = searchService.search(COLLECTION_NAME, "id:special_fields_001", null, null, null, null,
-				null);
+    // Verify documents were indexed by searching for them
+    SearchResponse result =
+        searchService.search(
+            COLLECTION_NAME, "id:special_fields_001", null, null, null, null, null);
 
-		assertNotNull(result);
-		List<Map<String, Object>> documents = result.documents();
-		assertEquals(1, documents.size());
+    assertNotNull(result);
+    List<Map<String, Object>> documents = result.documents();
+    assertEquals(1, documents.size());
 
-		Map<String, Object> doc = documents.getFirst();
+    Map<String, Object> doc = documents.getFirst();
 
-		// The server sends these names as given; Solr's schemaless update chain
-		// (the _default configset) replaces the special characters with underscores
-		assertNotNull(doc.get("field_with_at"));
-		assertEquals("Value with @ symbols", getFieldValue(doc, "field_with_at"));
+    // The server sends these names as given; Solr's schemaless update chain
+    // (the _default configset) replaces the special characters with underscores
+    assertNotNull(doc.get("field_with_at"));
+    assertEquals("Value with @ symbols", getFieldValue(doc, "field_with_at"));
 
-		assertNotNull(doc.get("field_with_hash"));
-		assertEquals("Value with # symbols", getFieldValue(doc, "field_with_hash"));
+    assertNotNull(doc.get("field_with_hash"));
+    assertEquals("Value with # symbols", getFieldValue(doc, "field_with_hash"));
 
-		assertNotNull(doc.get("field_with_dollar"));
-		assertEquals("Value with $ symbols", getFieldValue(doc, "field_with_dollar"));
+    assertNotNull(doc.get("field_with_dollar"));
+    assertEquals("Value with $ symbols", getFieldValue(doc, "field_with_dollar"));
 
-		assertNotNull(doc.get("field_with_percent"));
-		assertEquals("Value with % symbols", getFieldValue(doc, "field_with_percent"));
+    assertNotNull(doc.get("field_with_percent"));
+    assertEquals("Value with % symbols", getFieldValue(doc, "field_with_percent"));
 
-		assertNotNull(doc.get("field_with_caret"));
-		assertEquals("Value with ^ symbols", getFieldValue(doc, "field_with_caret"));
+    assertNotNull(doc.get("field_with_caret"));
+    assertEquals("Value with ^ symbols", getFieldValue(doc, "field_with_caret"));
 
-		assertNotNull(doc.get("field_with_ampersand"));
-		assertEquals("Value with & symbols", getFieldValue(doc, "field_with_ampersand"));
+    assertNotNull(doc.get("field_with_ampersand"));
+    assertEquals("Value with & symbols", getFieldValue(doc, "field_with_ampersand"));
 
-		assertNotNull(doc.get("field_with_asterisk"));
-		assertEquals("Value with * symbols", getFieldValue(doc, "field_with_asterisk"));
+    assertNotNull(doc.get("field_with_asterisk"));
+    assertEquals("Value with * symbols", getFieldValue(doc, "field_with_asterisk"));
 
-		assertNotNull(doc.get("field_with_parentheses"));
-		assertEquals("Value with parentheses", getFieldValue(doc, "field_with_parentheses"));
+    assertNotNull(doc.get("field_with_parentheses"));
+    assertEquals("Value with parentheses", getFieldValue(doc, "field_with_parentheses"));
 
-		assertNotNull(doc.get("field_with_brackets"));
-		assertEquals("Value with brackets", getFieldValue(doc, "field_with_brackets"));
+    assertNotNull(doc.get("field_with_brackets"));
+    assertEquals("Value with brackets", getFieldValue(doc, "field_with_brackets"));
 
-		assertNotNull(doc.get("field_with_braces"));
-		assertEquals("Value with braces", getFieldValue(doc, "field_with_braces"));
-	}
+    assertNotNull(doc.get("field_with_braces"));
+    assertEquals("Value with braces", getFieldValue(doc, "field_with_braces"));
+  }
 
-	@Test
-	void testArraysOfObjects() throws Exception {
+  @Test
+  void testArraysOfObjects() throws Exception {
 
-		// Test JSON string with arrays of objects
-		String json = """
+    // Test JSON string with arrays of objects
+    String json =
+        """
 				[
 				  {
 				    "id": "array_objects_001",
@@ -584,57 +594,58 @@ class IndexingServiceIntegrationTest {
 				]
 				""";
 
-		// Index documents
-		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
+    // Index documents
+    indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
-		// Verify documents were indexed by searching for them
-		SearchResponse result = searchService.search(COLLECTION_NAME, "id:array_objects_001", null, null, null, null,
-				null);
+    // Verify documents were indexed by searching for them
+    SearchResponse result =
+        searchService.search(COLLECTION_NAME, "id:array_objects_001", null, null, null, null, null);
 
-		assertNotNull(result);
-		List<Map<String, Object>> documents = result.documents();
-		assertEquals(1, documents.size());
+    assertNotNull(result);
+    List<Map<String, Object>> documents = result.documents();
+    assertEquals(1, documents.size());
 
-		Map<String, Object> doc = documents.getFirst();
+    Map<String, Object> doc = documents.getFirst();
 
-		// Check that the document was indexed correctly
-		assertEquals("array_objects_001", getFieldValue(doc, "id"));
-		assertEquals("Document with arrays of objects", getFieldValue(doc, "title"));
+    // Check that the document was indexed correctly
+    assertEquals("array_objects_001", getFieldValue(doc, "id"));
+    assertEquals("Document with arrays of objects", getFieldValue(doc, "title"));
 
-		// Check that the arrays of primitive values were indexed correctly
-		Object keywordsObj = doc.get("keywords");
-		if (keywordsObj instanceof List) {
-			List<?> keywords = (List<?>) keywordsObj;
-			assertEquals(3, keywords.size());
-			assertTrue(keywords.contains("arrays"));
-			assertTrue(keywords.contains("objects"));
-			assertTrue(keywords.contains("testing"));
-		}
+    // Check that the arrays of primitive values were indexed correctly
+    Object keywordsObj = doc.get("keywords");
+    if (keywordsObj instanceof List) {
+      List<?> keywords = (List<?>) keywordsObj;
+      assertEquals(3, keywords.size());
+      assertTrue(keywords.contains("arrays"));
+      assertTrue(keywords.contains("objects"));
+      assertTrue(keywords.contains("testing"));
+    }
 
-		// For arrays of objects, the IndexingService should flatten them with field
-		// names
-		// that include the array name and the object field name
-		// We can't directly access the array elements, but we can check if the
-		// flattened fields
-		// exist
+    // For arrays of objects, the IndexingService should flatten them with field
+    // names
+    // that include the array name and the object field name
+    // We can't directly access the array elements, but we can check if the
+    // flattened fields
+    // exist
 
-		// Check for flattened author fields
-		// Note: The current implementation in IndexingService.java doesn't handle
-		// arrays of objects
-		// in a way that preserves the array structure. It skips object items in arrays
-		// (line
-		// 68-70).
-		// This test is checking the current behavior, which may need improvement in the
-		// future.
+    // Check for flattened author fields
+    // Note: The current implementation in IndexingService.java doesn't handle
+    // arrays of objects
+    // in a way that preserves the array structure. It skips object items in arrays
+    // (line
+    // 68-70).
+    // This test is checking the current behavior, which may need improvement in the
+    // future.
 
-		// Check for flattened review fields
-		// Same note as above applies here
-	}
+    // Check for flattened review fields
+    // Same note as above applies here
+  }
 
-	@Test
-	void testNonArrayJsonInput() throws Exception {
-		// Test JSON string that is not an array but a single object
-		String json = """
+  @Test
+  void testNonArrayJsonInput() throws Exception {
+    // Test JSON string that is not an array but a single object
+    String json =
+        """
 				{
 				  "id": "single_object_001",
 				  "title": "Single Object Document",
@@ -643,21 +654,23 @@ class IndexingServiceIntegrationTest {
 				}
 				""";
 
-		// Create documents
-		List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
+    // Create documents
+    List<SolrInputDocument> documents =
+        indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
 
-		// A bare object is indexed as a single document. This previously returned
-		// an empty list, so indexing one object silently indexed nothing and still
-		// reported success.
-		assertNotNull(documents);
-		assertEquals(1, documents.size());
-		assertEquals("single_object_001", documents.getFirst().getFieldValue("id"));
-	}
+    // A bare object is indexed as a single document. This previously returned
+    // an empty list, so indexing one object silently indexed nothing and still
+    // reported success.
+    assertNotNull(documents);
+    assertEquals(1, documents.size());
+    assertEquals("single_object_001", documents.getFirst().getFieldValue("id"));
+  }
 
-	@Test
-	void testConvertJsonValueTypes() throws Exception {
-		// Test JSON with different value types
-		String json = """
+  @Test
+  void testConvertJsonValueTypes() throws Exception {
+    // Test JSON with different value types
+    String json =
+        """
 				[
 				  {
 				    "id": "value_types_001",
@@ -670,27 +683,29 @@ class IndexingServiceIntegrationTest {
 				]
 				""";
 
-		// Create documents
-		List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
+    // Create documents
+    List<SolrInputDocument> documents =
+        indexingDocumentCreator.createSchemalessDocumentsFromJson(json);
 
-		// Verify documents were created correctly
-		assertNotNull(documents);
-		assertEquals(1, documents.size());
+    // Verify documents were created correctly
+    assertNotNull(documents);
+    assertEquals(1, documents.size());
 
-		SolrInputDocument doc = documents.getFirst();
-		assertEquals("value_types_001", doc.getFieldValue("id"));
+    SolrInputDocument doc = documents.getFirst();
+    assertEquals("value_types_001", doc.getFieldValue("id"));
 
-		// Verify each value type was converted correctly
-		assertEquals(true, doc.getFieldValue("boolean_value"));
-		assertEquals(42, doc.getFieldValue("int_value"));
-		assertEquals(3.14159, doc.getFieldValue("double_value"));
-		assertEquals(9223372036854775807L, doc.getFieldValue("long_value"));
-		assertEquals("This is a text value", doc.getFieldValue("text_value"));
-	}
+    // Verify each value type was converted correctly
+    assertEquals(true, doc.getFieldValue("boolean_value"));
+    assertEquals(42, doc.getFieldValue("int_value"));
+    assertEquals(3.14159, doc.getFieldValue("double_value"));
+    assertEquals(9223372036854775807L, doc.getFieldValue("long_value"));
+    assertEquals("This is a text value", doc.getFieldValue("text_value"));
+  }
 
-	@Test
-	void testDirectFieldNamesAreUsedAsGiven() throws Exception {
-		String json = """
+  @Test
+  void testDirectFieldNamesAreUsedAsGiven() throws Exception {
+    String json =
+        """
 				[
 				  {
 				    "id": "field_names_001",
@@ -702,45 +717,62 @@ class IndexingServiceIntegrationTest {
 				]
 				""";
 
-		SolrInputDocument doc = indexingDocumentCreator.createSchemalessDocumentsFromJson(json).getFirst();
+    SolrInputDocument doc =
+        indexingDocumentCreator.createSchemalessDocumentsFromJson(json).getFirst();
 
-		assertEquals("Value 1", doc.getFieldValue("field-with-hyphens"));
-		assertEquals("Value 2", doc.getFieldValue("field with spaces"));
-		assertEquals("Value 3", doc.getFieldValue("UPPERCASE_FIELD"));
-		assertEquals("Value 4", doc.getFieldValue("nested_Inner-Key"));
-	}
-	@Test
-	void indexCsvDocuments_goesThroughSolrsCsvHandlerWithColumnNamesAsGiven() throws Exception {
-		String result = indexingService.indexCsvDocuments(COLLECTION_NAME, """
+    assertEquals("Value 1", doc.getFieldValue("field-with-hyphens"));
+    assertEquals("Value 2", doc.getFieldValue("field with spaces"));
+    assertEquals("Value 3", doc.getFieldValue("UPPERCASE_FIELD"));
+    assertEquals("Value 4", doc.getFieldValue("nested_Inner-Key"));
+  }
+
+  @Test
+  void indexCsvDocuments_goesThroughSolrsCsvHandlerWithColumnNamesAsGiven() throws Exception {
+    String result =
+        indexingService.indexCsvDocuments(
+            COLLECTION_NAME,
+            """
 				id,Title,genres,genres,imdb_rating
 				csv-001,Alpha,Drama,Comedy,8.7
 				csv-002,Beta,Horror,,7.1
 				""");
 
-		assertTrue(result.contains("Solr accepted the CSV payload"), result);
-		var alpha = solrClient.query(COLLECTION_NAME, new SolrQuery("id:csv-001")).getResults().getFirst();
-		assertEquals("Alpha", alpha.getFirstValue("Title"), "the header name is used as given, not lower-cased");
-		assertEquals(List.of("Drama", "Comedy"), alpha.getFieldValues("genres"));
-		var beta = solrClient.query(COLLECTION_NAME, new SolrQuery("id:csv-002")).getResults().getFirst();
-		assertEquals(List.of("Horror"), beta.getFieldValues("genres"));
-	}
+    assertTrue(result.contains("Solr accepted the CSV payload"), result);
+    var alpha =
+        solrClient.query(COLLECTION_NAME, new SolrQuery("id:csv-001")).getResults().getFirst();
+    assertEquals(
+        "Alpha", alpha.getFirstValue("Title"), "the header name is used as given, not lower-cased");
+    assertEquals(List.of("Drama", "Comedy"), alpha.getFieldValues("genres"));
+    var beta =
+        solrClient.query(COLLECTION_NAME, new SolrQuery("id:csv-002")).getResults().getFirst();
+    assertEquals(List.of("Horror"), beta.getFieldValues("genres"));
+  }
 
-	@Test
-	void indexXmlDocuments_forwardsSolrUpdateXmlAndRejectsCommands() throws Exception {
-		String result = indexingService.indexXmlDocuments(COLLECTION_NAME, """
+  @Test
+  void indexXmlDocuments_forwardsSolrUpdateXmlAndRejectsCommands() throws Exception {
+    String result =
+        indexingService.indexXmlDocuments(
+            COLLECTION_NAME,
+            """
 				<add>
 				  <doc><field name="id">xml-001</field><field name="title">Gamma</field>
 				       <field name="genres">Sci-Fi</field><field name="genres">Drama</field></doc>
 				</add>
 				""");
 
-		assertTrue(result.contains("Solr accepted the XML <add> block"), result);
-		var gamma = solrClient.query(COLLECTION_NAME, new SolrQuery("id:xml-001")).getResults().getFirst();
-		assertEquals("Gamma", gamma.getFirstValue("title"));
-		assertEquals(List.of("Sci-Fi", "Drama"), gamma.getFieldValues("genres"));
+    assertTrue(result.contains("Solr accepted the XML <add> block"), result);
+    var gamma =
+        solrClient.query(COLLECTION_NAME, new SolrQuery("id:xml-001")).getResults().getFirst();
+    assertEquals("Gamma", gamma.getFirstValue("title"));
+    assertEquals(List.of("Sci-Fi", "Drama"), gamma.getFieldValues("genres"));
 
-		assertThrows(DocumentProcessingException.class,
-				() -> indexingService.indexXmlDocuments(COLLECTION_NAME, "<delete><id>xml-001</id></delete>"));
-		assertEquals(1, solrClient.query(COLLECTION_NAME, new SolrQuery("id:xml-001")).getResults().getNumFound());
-	}
+    assertThrows(
+        DocumentProcessingException.class,
+        () ->
+            indexingService.indexXmlDocuments(
+                COLLECTION_NAME, "<delete><id>xml-001</id></delete>"));
+    assertEquals(
+        1,
+        solrClient.query(COLLECTION_NAME, new SolrQuery("id:xml-001")).getResults().getNumFound());
+  }
 }

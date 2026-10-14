@@ -24,40 +24,36 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * Utility class for JSON serialization operations.
  *
- * <p>
- * Provides common JSON conversion methods used throughout the MCP server,
- * particularly for MCP Resource responses that need to return JSON strings.
+ * <p>Provides common JSON conversion methods used throughout the MCP server, particularly for MCP
+ * Resource responses that need to return JSON strings.
  *
  * @version 0.0.1
  * @since 0.0.1
  */
 public final class JsonUtils {
 
-	private static final Logger logger = LoggerFactory.getLogger(JsonUtils.class);
+  private static final Logger logger = LoggerFactory.getLogger(JsonUtils.class);
 
-	private JsonUtils() {
-		// Utility class - prevent instantiation
-	}
+  private JsonUtils() {
+    // Utility class - prevent instantiation
+  }
 
-	/**
-	 * Converts an object to its JSON string representation.
-	 *
-	 * <p>
-	 * Used by MCP Resource methods that need to return serialized JSON responses.
-	 * On serialization failure, returns an error JSON object.
-	 *
-	 * @param objectMapper
-	 *            the Jackson ObjectMapper for serialization
-	 * @param obj
-	 *            the object to serialize
-	 * @return JSON string representation, or error JSON on failure
-	 */
-	public static String toJson(ObjectMapper objectMapper, Object obj) {
-		try {
-			return objectMapper.writeValueAsString(obj);
-		} catch (JacksonException e) {
-			logger.error("Failed to serialize response", e);
-			return "{\"error\": \"Failed to serialize response\"}";
-		}
-	}
+  /**
+   * Converts an object to its JSON string representation.
+   *
+   * <p>Used by MCP Resource methods that need to return serialized JSON responses. On serialization
+   * failure, returns an error JSON object.
+   *
+   * @param objectMapper the Jackson ObjectMapper for serialization
+   * @param obj the object to serialize
+   * @return JSON string representation, or error JSON on failure
+   */
+  public static String toJson(ObjectMapper objectMapper, Object obj) {
+    try {
+      return objectMapper.writeValueAsString(obj);
+    } catch (JacksonException e) {
+      logger.error("Failed to serialize response", e);
+      return "{\"error\": \"Failed to serialize response\"}";
+    }
+  }
 }

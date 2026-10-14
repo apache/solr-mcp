@@ -38,225 +38,285 @@ import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 
 /**
- * Tests for MCP tool registration and annotation validation. Ensures all
- * services expose their methods correctly as MCP tools with proper annotations
- * and descriptions.
+ * Tests for MCP tool registration and annotation validation. Ensures all services expose their
+ * methods correctly as MCP tools with proper annotations and descriptions.
  */
 class McpToolRegistrationTest {
 
-	@Test
-	void testSearchServiceHasToolAnnotation() throws NoSuchMethodException {
-		// Get the search method from SearchService
-		Method searchMethod = SearchService.class.getMethod("search", String.class, String.class, List.class,
-				List.class, List.class, Integer.class, Integer.class);
+  @Test
+  void testSearchServiceHasToolAnnotation() throws NoSuchMethodException {
+    // Get the search method from SearchService
+    Method searchMethod =
+        SearchService.class.getMethod(
+            "search",
+            String.class,
+            String.class,
+            List.class,
+            List.class,
+            List.class,
+            Integer.class,
+            Integer.class);
 
-		// Verify it has the @McpTool annotation
-		assertTrue(searchMethod.isAnnotationPresent(McpTool.class),
-				"SearchService.search method should have @McpTool annotation");
+    // Verify it has the @McpTool annotation
+    assertTrue(
+        searchMethod.isAnnotationPresent(McpTool.class),
+        "SearchService.search method should have @McpTool annotation");
 
-		// Verify the annotation properties
-		McpTool toolAnnotation = searchMethod.getAnnotation(McpTool.class);
-		assertEquals("search", toolAnnotation.name(), "McpTool name should be 'search' (kebab-case)");
-		assertNotNull(toolAnnotation.description(), "McpTool description should not be null");
-		assertFalse(toolAnnotation.description().isBlank(), "McpTool description should not be blank");
-	}
+    // Verify the annotation properties
+    McpTool toolAnnotation = searchMethod.getAnnotation(McpTool.class);
+    assertEquals("search", toolAnnotation.name(), "McpTool name should be 'search' (kebab-case)");
+    assertNotNull(toolAnnotation.description(), "McpTool description should not be null");
+    assertFalse(toolAnnotation.description().isBlank(), "McpTool description should not be blank");
+  }
 
-	@Test
-	void testSearchServiceToolParametersHaveAnnotations() throws NoSuchMethodException {
-		// Get the search method
-		Method searchMethod = SearchService.class.getMethod("search", String.class, String.class, List.class,
-				List.class, List.class, Integer.class, Integer.class);
+  @Test
+  void testSearchServiceToolParametersHaveAnnotations() throws NoSuchMethodException {
+    // Get the search method
+    Method searchMethod =
+        SearchService.class.getMethod(
+            "search",
+            String.class,
+            String.class,
+            List.class,
+            List.class,
+            List.class,
+            Integer.class,
+            Integer.class);
 
-		// Verify all parameters have @McpToolParam annotations
-		Parameter[] parameters = searchMethod.getParameters();
-		assertTrue(parameters.length > 0, "Search method should have parameters");
+    // Verify all parameters have @McpToolParam annotations
+    Parameter[] parameters = searchMethod.getParameters();
+    assertTrue(parameters.length > 0, "Search method should have parameters");
 
-		for (Parameter param : parameters) {
-			assertTrue(param.isAnnotationPresent(McpToolParam.class),
-					"Parameter " + param.getName() + " should have @McpToolParam annotation");
+    for (Parameter param : parameters) {
+      assertTrue(
+          param.isAnnotationPresent(McpToolParam.class),
+          "Parameter " + param.getName() + " should have @McpToolParam annotation");
 
-			McpToolParam paramAnnotation = param.getAnnotation(McpToolParam.class);
-			assertNotNull(paramAnnotation.description(), "Parameter " + param.getName() + " should have description");
-			assertFalse(paramAnnotation.description().isBlank(),
-					"Parameter " + param.getName() + " description should not be blank");
-		}
-	}
+      McpToolParam paramAnnotation = param.getAnnotation(McpToolParam.class);
+      assertNotNull(
+          paramAnnotation.description(),
+          "Parameter " + param.getName() + " should have description");
+      assertFalse(
+          paramAnnotation.description().isBlank(),
+          "Parameter " + param.getName() + " description should not be blank");
+    }
+  }
 
-	@Test
-	void testIndexingServiceHasToolAnnotations() {
-		// Get all methods from IndexingService
-		Method[] methods = IndexingService.class.getDeclaredMethods();
+  @Test
+  void testIndexingServiceHasToolAnnotations() {
+    // Get all methods from IndexingService
+    Method[] methods = IndexingService.class.getDeclaredMethods();
 
-		// Find methods with @McpTool annotation
-		List<Method> mcpToolMethods = Arrays.stream(methods).filter(m -> m.isAnnotationPresent(McpTool.class)).toList();
+    // Find methods with @McpTool annotation
+    List<Method> mcpToolMethods =
+        Arrays.stream(methods).filter(m -> m.isAnnotationPresent(McpTool.class)).toList();
 
-		// Verify at least one method has the annotation
-		assertFalse(mcpToolMethods.isEmpty(),
-				"IndexingService should have at least one method with @McpTool annotation");
+    // Verify at least one method has the annotation
+    assertFalse(
+        mcpToolMethods.isEmpty(),
+        "IndexingService should have at least one method with @McpTool annotation");
 
-		// Verify each tool has proper annotations
-		for (Method method : mcpToolMethods) {
-			McpTool toolAnnotation = method.getAnnotation(McpTool.class);
-			assertNotNull(toolAnnotation.name(), "Tool name should not be null");
-			assertFalse(toolAnnotation.name().isBlank(), "Tool name should not be blank");
-			assertNotNull(toolAnnotation.description(), "Tool description should not be null");
-			assertFalse(toolAnnotation.description().isBlank(), "Tool description should not be blank");
-		}
-	}
+    // Verify each tool has proper annotations
+    for (Method method : mcpToolMethods) {
+      McpTool toolAnnotation = method.getAnnotation(McpTool.class);
+      assertNotNull(toolAnnotation.name(), "Tool name should not be null");
+      assertFalse(toolAnnotation.name().isBlank(), "Tool name should not be blank");
+      assertNotNull(toolAnnotation.description(), "Tool description should not be null");
+      assertFalse(toolAnnotation.description().isBlank(), "Tool description should not be blank");
+    }
+  }
 
-	@Test
-	void testCollectionServiceHasToolAnnotations() {
-		// Get all methods from CollectionService
-		Method[] methods = CollectionService.class.getDeclaredMethods();
+  @Test
+  void testCollectionServiceHasToolAnnotations() {
+    // Get all methods from CollectionService
+    Method[] methods = CollectionService.class.getDeclaredMethods();
 
-		// Find methods with @McpTool annotation
-		List<Method> mcpToolMethods = Arrays.stream(methods).filter(m -> m.isAnnotationPresent(McpTool.class)).toList();
+    // Find methods with @McpTool annotation
+    List<Method> mcpToolMethods =
+        Arrays.stream(methods).filter(m -> m.isAnnotationPresent(McpTool.class)).toList();
 
-		// Verify at least one method has the annotation
-		assertFalse(mcpToolMethods.isEmpty(),
-				"CollectionService should have at least one method with @McpTool annotation");
+    // Verify at least one method has the annotation
+    assertFalse(
+        mcpToolMethods.isEmpty(),
+        "CollectionService should have at least one method with @McpTool annotation");
 
-		// Verify each tool has proper annotations
-		for (Method method : mcpToolMethods) {
-			McpTool toolAnnotation = method.getAnnotation(McpTool.class);
-			assertNotNull(toolAnnotation.description(), "Tool description should not be null");
-			assertFalse(toolAnnotation.description().isBlank(), "Tool description should not be blank");
-		}
-	}
+    // Verify each tool has proper annotations
+    for (Method method : mcpToolMethods) {
+      McpTool toolAnnotation = method.getAnnotation(McpTool.class);
+      assertNotNull(toolAnnotation.description(), "Tool description should not be null");
+      assertFalse(toolAnnotation.description().isBlank(), "Tool description should not be blank");
+    }
+  }
 
-	@Test
-	void testSchemaServiceHasToolAnnotations() {
-		// Get all methods from SchemaService
-		Method[] methods = SchemaService.class.getDeclaredMethods();
+  @Test
+  void testSchemaServiceHasToolAnnotations() {
+    // Get all methods from SchemaService
+    Method[] methods = SchemaService.class.getDeclaredMethods();
 
-		// Find methods with @McpTool annotation
-		List<Method> mcpToolMethods = Arrays.stream(methods).filter(m -> m.isAnnotationPresent(McpTool.class)).toList();
+    // Find methods with @McpTool annotation
+    List<Method> mcpToolMethods =
+        Arrays.stream(methods).filter(m -> m.isAnnotationPresent(McpTool.class)).toList();
 
-		// Verify at least one method has the annotation
-		assertFalse(mcpToolMethods.isEmpty(), "SchemaService should have at least one method with @McpTool annotation");
+    // Verify at least one method has the annotation
+    assertFalse(
+        mcpToolMethods.isEmpty(),
+        "SchemaService should have at least one method with @McpTool annotation");
 
-		// Verify each tool has proper annotations
-		for (Method method : mcpToolMethods) {
-			McpTool toolAnnotation = method.getAnnotation(McpTool.class);
-			assertNotNull(toolAnnotation.description(), "Tool description should not be null");
-			assertFalse(toolAnnotation.description().isBlank(), "Tool description should not be blank");
-		}
-	}
+    // Verify each tool has proper annotations
+    for (Method method : mcpToolMethods) {
+      McpTool toolAnnotation = method.getAnnotation(McpTool.class);
+      assertNotNull(toolAnnotation.description(), "Tool description should not be null");
+      assertFalse(toolAnnotation.description().isBlank(), "Tool description should not be blank");
+    }
+  }
 
-	@Test
-	void testAllMcpToolsHaveUniqueNames() {
-		// Collect all MCP tool names from all services
-		List<String> toolNames = new java.util.ArrayList<>();
+  @Test
+  void testAllMcpToolsHaveUniqueNames() {
+    // Collect all MCP tool names from all services
+    List<String> toolNames = new java.util.ArrayList<>();
 
-		// SearchService
-		addToolNames(SearchService.class, toolNames);
+    // SearchService
+    addToolNames(SearchService.class, toolNames);
 
-		// IndexingService
-		addToolNames(IndexingService.class, toolNames);
+    // IndexingService
+    addToolNames(IndexingService.class, toolNames);
 
-		// CollectionService
-		addToolNames(CollectionService.class, toolNames);
+    // CollectionService
+    addToolNames(CollectionService.class, toolNames);
 
-		// SchemaService
-		addToolNames(SchemaService.class, toolNames);
+    // SchemaService
+    addToolNames(SchemaService.class, toolNames);
 
-		// Verify all tool names are unique
-		long uniqueCount = toolNames.stream().distinct().count();
-		assertEquals(toolNames.size(), uniqueCount,
-				"All MCP tool names should be unique across all services. Found tools: " + toolNames);
-	}
+    // Verify all tool names are unique
+    long uniqueCount = toolNames.stream().distinct().count();
+    assertEquals(
+        toolNames.size(),
+        uniqueCount,
+        "All MCP tool names should be unique across all services. Found tools: " + toolNames);
+  }
 
-	@Test
-	void testMcpToolParametersFollowConventions() throws NoSuchMethodException {
-		// Get the search method
-		Method searchMethod = SearchService.class.getMethod("search", String.class, String.class, List.class,
-				List.class, List.class, Integer.class, Integer.class);
+  @Test
+  void testMcpToolParametersFollowConventions() throws NoSuchMethodException {
+    // Get the search method
+    Method searchMethod =
+        SearchService.class.getMethod(
+            "search",
+            String.class,
+            String.class,
+            List.class,
+            List.class,
+            List.class,
+            Integer.class,
+            Integer.class);
 
-		Parameter[] parameters = searchMethod.getParameters();
+    Parameter[] parameters = searchMethod.getParameters();
 
-		// Verify first parameter (collection) is required
-		McpToolParam firstParam = parameters[0].getAnnotation(McpToolParam.class);
-		assertTrue(firstParam.required() || !firstParam.required(),
-				"First parameter annotation should specify required status");
+    // Verify first parameter (collection) is required
+    McpToolParam firstParam = parameters[0].getAnnotation(McpToolParam.class);
+    assertTrue(
+        firstParam.required() || !firstParam.required(),
+        "First parameter annotation should specify required status");
 
-		// Verify optional parameters have required=false
-		for (int i = 1; i < parameters.length; i++) {
-			McpToolParam param = parameters[i].getAnnotation(McpToolParam.class);
-			// Optional parameters should be marked as such in description or required flag
-			assertNotNull(param.description(), "Parameter should have description indicating if it's optional");
-		}
-	}
+    // Verify optional parameters have required=false
+    for (int i = 1; i < parameters.length; i++) {
+      McpToolParam param = parameters[i].getAnnotation(McpToolParam.class);
+      // Optional parameters should be marked as such in description or required flag
+      assertNotNull(
+          param.description(), "Parameter should have description indicating if it's optional");
+    }
+  }
 
-	@Test
-	void testCollectionCompletionsCoverSchemaResourceAndCollectionTakingPrompts() {
-		// Each (ref/prompt name, ref/resource uri) pair is a separate completion
-		// binding in the MCP protocol, so every prompt that takes a `collection`
-		// argument needs its own @McpComplete handler. The resource-template handler
-		// alone does NOT cover prompt arguments — Spring AI registers them in
-		// disjoint maps keyed by reference type.
-		List<McpComplete> completions = Arrays.stream(CollectionService.class.getDeclaredMethods())
-				.filter(m -> m.isAnnotationPresent(McpComplete.class)).map(m -> m.getAnnotation(McpComplete.class))
-				.toList();
+  @Test
+  void testCollectionCompletionsCoverSchemaResourceAndCollectionTakingPrompts() {
+    // Each (ref/prompt name, ref/resource uri) pair is a separate completion
+    // binding in the MCP protocol, so every prompt that takes a `collection`
+    // argument needs its own @McpComplete handler. The resource-template handler
+    // alone does NOT cover prompt arguments — Spring AI registers them in
+    // disjoint maps keyed by reference type.
+    List<McpComplete> completions =
+        Arrays.stream(CollectionService.class.getDeclaredMethods())
+            .filter(m -> m.isAnnotationPresent(McpComplete.class))
+            .map(m -> m.getAnnotation(McpComplete.class))
+            .toList();
 
-		// Exactly one resource-template binding (the {collection}/schema URI).
-		List<String> uriBindings = completions.stream().map(McpComplete::uri).filter(s -> !s.isEmpty()).sorted()
-				.toList();
-		assertEquals(List.of("solr://{collection}/schema"), uriBindings,
-				"Exactly one resource-template completion expected (the schema URI)");
+    // Exactly one resource-template binding (the {collection}/schema URI).
+    List<String> uriBindings =
+        completions.stream().map(McpComplete::uri).filter(s -> !s.isEmpty()).sorted().toList();
+    assertEquals(
+        List.of("solr://{collection}/schema"),
+        uriBindings,
+        "Exactly one resource-template completion expected (the schema URI)");
 
-		// One prompt binding per prompt that takes a `collection` argument.
-		// Referenced via PromptNames so a rename or deletion breaks compilation
-		// here, not silently at runtime.
-		List<String> promptBindings = completions.stream().map(McpComplete::prompt).filter(s -> !s.isEmpty()).sorted()
-				.toList();
-		assertEquals(
-				Stream.of(PromptNames.DESIGN_SCHEMA, PromptNames.INDEX_DATA, PromptNames.SEARCH_COLLECTION,
-						PromptNames.VIEW_SCHEMA).sorted().toList(),
-				promptBindings, "Every prompt with a `collection` arg needs its own @McpComplete(prompt=...) binding");
+    // One prompt binding per prompt that takes a `collection` argument.
+    // Referenced via PromptNames so a rename or deletion breaks compilation
+    // here, not silently at runtime.
+    List<String> promptBindings =
+        completions.stream().map(McpComplete::prompt).filter(s -> !s.isEmpty()).sorted().toList();
+    assertEquals(
+        Stream.of(
+                PromptNames.DESIGN_SCHEMA,
+                PromptNames.INDEX_DATA,
+                PromptNames.SEARCH_COLLECTION,
+                PromptNames.VIEW_SCHEMA)
+            .sorted()
+            .toList(),
+        promptBindings,
+        "Every prompt with a `collection` arg needs its own @McpComplete(prompt=...) binding");
 
-		// `uri` and `prompt` are mutually exclusive per the @McpComplete contract.
-		for (McpComplete c : completions) {
-			assertTrue(c.uri().isEmpty() ^ c.prompt().isEmpty(),
-					"@McpComplete must set exactly one of uri/prompt, not both or neither");
-		}
-	}
+    // `uri` and `prompt` are mutually exclusive per the @McpComplete contract.
+    for (McpComplete c : completions) {
+      assertTrue(
+          c.uri().isEmpty() ^ c.prompt().isEmpty(),
+          "@McpComplete must set exactly one of uri/prompt, not both or neither");
+    }
+  }
 
-	/**
-	 * Invariant: every public MCP entry point — tool, resource, prompt, or
-	 * completion — must carry {@code @PreAuthorize}. Annotating a shared helper is
-	 * not sufficient because Spring's proxy-based method security is bypassed by
-	 * self-invocation, so each MCP-visible method must be gated independently.
-	 *
-	 * <p>
-	 * Adding a new {@code @Mcp*} method without {@code @PreAuthorize} fails this
-	 * test, surfacing the omission in CI rather than relying on reviewer memory.
-	 */
-	@Test
-	void everyMcpEndpointIsPreAuthorized() {
-		List<Class<? extends Annotation>> mcpAnnotations = List.of(McpTool.class, McpResource.class, McpPrompt.class,
-				McpComplete.class);
+  /**
+   * Invariant: every public MCP entry point — tool, resource, prompt, or completion — must carry
+   * {@code @PreAuthorize}. Annotating a shared helper is not sufficient because Spring's
+   * proxy-based method security is bypassed by self-invocation, so each MCP-visible method must be
+   * gated independently.
+   *
+   * <p>Adding a new {@code @Mcp*} method without {@code @PreAuthorize} fails this test, surfacing
+   * the omission in CI rather than relying on reviewer memory.
+   */
+  @Test
+  void everyMcpEndpointIsPreAuthorized() {
+    List<Class<? extends Annotation>> mcpAnnotations =
+        List.of(McpTool.class, McpResource.class, McpPrompt.class, McpComplete.class);
 
-		List<String> violations = Stream
-				.of(CollectionService.class, SchemaService.class, SearchService.class, IndexingService.class)
-				.flatMap(c -> Arrays.stream(c.getDeclaredMethods()))
-				.filter(m -> mcpAnnotations.stream().anyMatch(m::isAnnotationPresent))
-				.filter(m -> !m.isAnnotationPresent(PreAuthorize.class))
-				.map(m -> m.getDeclaringClass().getSimpleName() + "#" + m.getName()).sorted().toList();
+    List<String> violations =
+        Stream.of(
+                CollectionService.class,
+                SchemaService.class,
+                SearchService.class,
+                IndexingService.class)
+            .flatMap(c -> Arrays.stream(c.getDeclaredMethods()))
+            .filter(m -> mcpAnnotations.stream().anyMatch(m::isAnnotationPresent))
+            .filter(m -> !m.isAnnotationPresent(PreAuthorize.class))
+            .map(m -> m.getDeclaringClass().getSimpleName() + "#" + m.getName())
+            .sorted()
+            .toList();
 
-		assertTrue(violations.isEmpty(),
-				"Every @McpTool / @McpResource / @McpPrompt / @McpComplete method must declare @PreAuthorize. "
-						+ "Self-invocation bypasses the Spring Security proxy, so a shared helper's annotation does not "
-						+ "protect the public entry point. Missing on: " + violations);
-	}
+    assertTrue(
+        violations.isEmpty(),
+        "Every @McpTool / @McpResource / @McpPrompt / @McpComplete method must declare @PreAuthorize. "
+            + "Self-invocation bypasses the Spring Security proxy, so a shared helper's annotation does not "
+            + "protect the public entry point. Missing on: "
+            + violations);
+  }
 
-	// Helper method to extract tool names from a service class
-	private void addToolNames(Class<?> serviceClass, List<String> toolNames) {
-		Method[] methods = serviceClass.getDeclaredMethods();
-		Arrays.stream(methods).filter(m -> m.isAnnotationPresent(McpTool.class)).forEach(m -> {
-			McpTool annotation = m.getAnnotation(McpTool.class);
-			// Use name if provided, otherwise use method name
-			String toolName = annotation.name().isBlank() ? m.getName() : annotation.name();
-			toolNames.add(toolName);
-		});
-	}
+  // Helper method to extract tool names from a service class
+  private void addToolNames(Class<?> serviceClass, List<String> toolNames) {
+    Method[] methods = serviceClass.getDeclaredMethods();
+    Arrays.stream(methods)
+        .filter(m -> m.isAnnotationPresent(McpTool.class))
+        .forEach(
+            m -> {
+              McpTool annotation = m.getAnnotation(McpTool.class);
+              // Use name if provided, otherwise use method name
+              String toolName = annotation.name().isBlank() ? m.getName() : annotation.name();
+              toolNames.add(toolName);
+            });
+  }
 }

@@ -24,23 +24,24 @@ import org.apache.solr.common.SolrInputDocument;
 import org.junit.jupiter.api.Test;
 
 /**
- * Front matter is YAML, so it is parsed by a YAML parser. These cases are the
- * ones a line-by-line reader gets wrong: quoted scalars containing the
- * delimiters, flow and block sequences, and nested mappings. Scalars stay the
- * text as written; Solr's schema guessing types them.
+ * Front matter is YAML, so it is parsed by a YAML parser. These cases are the ones a line-by-line
+ * reader gets wrong: quoted scalars containing the delimiters, flow and block sequences, and nested
+ * mappings. Scalars stay the text as written; Solr's schema guessing types them.
  *
- * <p>
- * The remaining cases pin record splitting: a file holding several front matter
- * blocks yields one document per block, while everything that is not
- * unambiguously a second record keeps yielding exactly one document.
+ * <p>The remaining cases pin record splitting: a file holding several front matter blocks yields
+ * one document per block, while everything that is not unambiguously a second record keeps yielding
+ * exactly one document.
  */
 class MarkdownDocumentCreatorTest {
 
-	private final MarkdownDocumentCreator creator = new MarkdownDocumentCreator();
+  private final MarkdownDocumentCreator creator = new MarkdownDocumentCreator();
 
-	@Test
-	void frontMatterIsParsedAsYaml() {
-		SolrInputDocument doc = creator.create("""
+  @Test
+  void frontMatterIsParsedAsYaml() {
+    SolrInputDocument doc =
+        creator
+            .create(
+                """
 				---
 				id: show-1
 				title: "Star Wars: Andor, Season 2"
@@ -59,39 +60,46 @@ class MarkdownDocumentCreatorTest {
 				# Andor
 
 				Prequel to Rogue One.
-				""").getFirst();
+				""")
+            .getFirst();
 
-		assertThat(doc.getFieldValue("id")).isEqualTo("show-1");
-		assertThat(doc.getFieldValue("title")).isEqualTo("Star Wars: Andor, Season 2");
-		assertThat(doc.getFieldValues("genres")).containsExactly("Sci-Fi", "Drama, Political");
-		assertThat(doc.getFieldValues("cast")).containsExactly("Diego Luna", "Stellan Skarsgård");
-		assertThat(doc.getFieldValue("ratings_imdb")).isEqualTo("8.4");
-		assertThat(doc.getFieldValue("ratings_age")).isEqualTo("TV-14");
-		assertThat(doc.getFieldValue("seasons")).isEqualTo("2");
-		assertThat(doc.getFieldValue("ongoing")).isEqualTo("false");
-		assertThat(doc.getFieldValue("released")).isEqualTo("2022-09-21");
-		assertThat(doc.getFieldNames()).doesNotContain("empty");
-		assertThat(doc.getFieldValue("content")).asString().contains("Prequel").doesNotContain("show-1");
-	}
+    assertThat(doc.getFieldValue("id")).isEqualTo("show-1");
+    assertThat(doc.getFieldValue("title")).isEqualTo("Star Wars: Andor, Season 2");
+    assertThat(doc.getFieldValues("genres")).containsExactly("Sci-Fi", "Drama, Political");
+    assertThat(doc.getFieldValues("cast")).containsExactly("Diego Luna", "Stellan Skarsgård");
+    assertThat(doc.getFieldValue("ratings_imdb")).isEqualTo("8.4");
+    assertThat(doc.getFieldValue("ratings_age")).isEqualTo("TV-14");
+    assertThat(doc.getFieldValue("seasons")).isEqualTo("2");
+    assertThat(doc.getFieldValue("ongoing")).isEqualTo("false");
+    assertThat(doc.getFieldValue("released")).isEqualTo("2022-09-21");
+    assertThat(doc.getFieldNames()).doesNotContain("empty");
+    assertThat(doc.getFieldValue("content"))
+        .asString()
+        .contains("Prequel")
+        .doesNotContain("show-1");
+  }
 
-	@Test
-	void invalidYamlIsReported() {
-		assertThatThrownBy(() -> creator.create("---\ntitle: [unclosed\n---\nbody\n"))
-				.isInstanceOf(DocumentProcessingException.class).hasMessageContaining("YAML");
-	}
+  @Test
+  void invalidYamlIsReported() {
+    assertThatThrownBy(() -> creator.create("---\ntitle: [unclosed\n---\nbody\n"))
+        .isInstanceOf(DocumentProcessingException.class)
+        .hasMessageContaining("YAML");
+  }
 
-	@Test
-	void documentWithoutFrontMatterIsUnchanged() {
-		SolrInputDocument doc = creator.create("# Just a heading\n\nBody text.\n").getFirst();
+  @Test
+  void documentWithoutFrontMatterIsUnchanged() {
+    SolrInputDocument doc = creator.create("# Just a heading\n\nBody text.\n").getFirst();
 
-		assertThat(doc.getFieldValue("title")).isEqualTo("Just a heading");
-		assertThat(doc.getFieldValue("content")).asString().contains("Body text");
-		assertThat(doc.getFieldValue("id")).isNotNull();
-	}
+    assertThat(doc.getFieldValue("title")).isEqualTo("Just a heading");
+    assertThat(doc.getFieldValue("content")).asString().contains("Body text");
+    assertThat(doc.getFieldValue("id")).isNotNull();
+  }
 
-	@Test
-	void eachFrontMatterBlockBecomesItsOwnDocument() {
-		List<SolrInputDocument> docs = creator.create("""
+  @Test
+  void eachFrontMatterBlockBecomesItsOwnDocument() {
+    List<SolrInputDocument> docs =
+        creator.create(
+            """
 				---
 				id: show-1
 				title: First
@@ -112,28 +120,33 @@ class MarkdownDocumentCreatorTest {
 				Body of the second show.
 				""");
 
-		assertThat(docs).hasSize(2);
-		assertThat(docs.getFirst().getFieldValue("id")).isEqualTo("show-1");
-		assertThat(docs.getFirst().getFieldValue("title")).isEqualTo("First");
-		assertThat(docs.getFirst().getFieldValue("content")).asString().contains("first show")
-				.doesNotContain("second show").doesNotContain("show-2");
-		assertThat(docs.getLast().getFieldValue("id")).isEqualTo("show-2");
-		assertThat(docs.getLast().getFieldValues("genres")).containsExactly("Drama");
-		assertThat(docs.getLast().getFieldValue("content")).asString().contains("second show");
-	}
+    assertThat(docs).hasSize(2);
+    assertThat(docs.getFirst().getFieldValue("id")).isEqualTo("show-1");
+    assertThat(docs.getFirst().getFieldValue("title")).isEqualTo("First");
+    assertThat(docs.getFirst().getFieldValue("content"))
+        .asString()
+        .contains("first show")
+        .doesNotContain("second show")
+        .doesNotContain("show-2");
+    assertThat(docs.getLast().getFieldValue("id")).isEqualTo("show-2");
+    assertThat(docs.getLast().getFieldValues("genres")).containsExactly("Drama");
+    assertThat(docs.getLast().getFieldValue("content")).asString().contains("second show");
+  }
 
-	@Test
-	void aSingleRecordStillYieldsOneDocument() {
-		assertThat(creator.create("---\nid: only\n---\n\n# Only\n\nBody.\n")).hasSize(1);
-	}
+  @Test
+  void aSingleRecordStillYieldsOneDocument() {
+    assertThat(creator.create("---\nid: only\n---\n\n# Only\n\nBody.\n")).hasSize(1);
+  }
 
-	/**
-	 * A thematic break is not a record boundary: splitting only ever engages when a
-	 * {@code ---} line opens something that parses as a YAML mapping.
-	 */
-	@Test
-	void aThematicBreakDoesNotSplitTheDocument() {
-		List<SolrInputDocument> docs = creator.create("""
+  /**
+   * A thematic break is not a record boundary: splitting only ever engages when a {@code ---} line
+   * opens something that parses as a YAML mapping.
+   */
+  @Test
+  void aThematicBreakDoesNotSplitTheDocument() {
+    List<SolrInputDocument> docs =
+        creator.create(
+            """
 				---
 				id: show-1
 				title: First
@@ -148,18 +161,22 @@ class MarkdownDocumentCreatorTest {
 				Body below the rule.
 				""");
 
-		assertThat(docs).hasSize(1);
-		assertThat(docs.getFirst().getFieldValue("content")).asString().contains("above the rule")
-				.contains("below the rule");
-	}
+    assertThat(docs).hasSize(1);
+    assertThat(docs.getFirst().getFieldValue("content"))
+        .asString()
+        .contains("above the rule")
+        .contains("below the rule");
+  }
 
-	/**
-	 * Splitting engages only for documents that themselves open with front matter,
-	 * so prose that happens to contain a rule is never split.
-	 */
-	@Test
-	void aDocumentWithoutFrontMatterIsNeverSplit() {
-		List<SolrInputDocument> docs = creator.create("""
+  /**
+   * Splitting engages only for documents that themselves open with front matter, so prose that
+   * happens to contain a rule is never split.
+   */
+  @Test
+  void aDocumentWithoutFrontMatterIsNeverSplit() {
+    List<SolrInputDocument> docs =
+        creator.create(
+            """
 				# Heading
 
 				Body text.
@@ -171,6 +188,6 @@ class MarkdownDocumentCreatorTest {
 				More body text.
 				""");
 
-		assertThat(docs).hasSize(1);
-	}
+    assertThat(docs).hasSize(1);
+  }
 }
