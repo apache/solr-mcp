@@ -38,6 +38,7 @@ import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrException;
+import org.apache.solr.common.params.CollectionAdminParams;
 import org.apache.solr.common.util.NamedList;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -872,6 +873,65 @@ class CollectionServiceTest {
 
     assertTrue(result.success());
     assertEquals("defaults_collection", result.name());
+  }
+
+  @Test
+  void createCollection_noConfigSet_letsSolrMakePrivateCopy() throws Exception {
+    SolrRequest<?> request = captureCreateRequest(null);
+
+    assertNull(
+        request.getParams().get(CollectionAdminParams.COLL_CONF),
+        "No configset should be named, so Solr copies _default");
+  }
+
+  @Test
+  void createCollection_noConfigSet_reportsAutocreatedConfigSet() throws Exception {
+    when(solrClient.request(any(), isNull())).thenReturn(new NamedList<>());
+
+    CollectionCreationResult result = collectionService.createCollection("films", null, null, null);
+
+    assertEquals("films.AUTOCREATED", result.configSet());
+  }
+
+  @Test
+  void createCollection_defaultConfigSet_isTreatedAsOmitted() throws Exception {
+    when(solrClient.request(any(), isNull())).thenReturn(new NamedList<>());
+
+    CollectionCreationResult result =
+        collectionService.createCollection("films", "_default", null, null);
+
+    assertEquals("films.AUTOCREATED", result.configSet());
+    assertNull(captureCreateRequest("_default").getParams().get(CollectionAdminParams.COLL_CONF));
+  }
+
+  @Test
+  void createCollection_blankConfigSet_isTreatedAsOmitted() throws Exception {
+    assertNull(captureCreateRequest("  ").getParams().get(CollectionAdminParams.COLL_CONF));
+  }
+
+  @Test
+  void createCollection_namedConfigSet_isSharedByReference() throws Exception {
+    when(solrClient.request(any(), isNull())).thenReturn(new NamedList<>());
+
+    CollectionCreationResult result =
+        collectionService.createCollection("films", "films_conf", null, null);
+
+    assertEquals("films_conf", result.configSet());
+    assertEquals(
+        "films_conf",
+        captureCreateRequest("films_conf").getParams().get(CollectionAdminParams.COLL_CONF));
+  }
+
+  /** Creates collection {@code films} and returns the request sent to Solr. */
+  private SolrRequest<?> captureCreateRequest(@Nullable String configSet) throws Exception {
+    clearInvocations(solrClient);
+    when(solrClient.request(any(), isNull())).thenReturn(new NamedList<>());
+
+    collectionService.createCollection("films", configSet, null, null);
+
+    ArgumentCaptor<SolrRequest<?>> captor = ArgumentCaptor.captor();
+    verify(solrClient).request(captor.capture(), isNull());
+    return captor.getValue();
   }
 
   @Test

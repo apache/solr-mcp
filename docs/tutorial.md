@@ -146,28 +146,11 @@ mind.
 
 ---
 
-## Step 3 — Reset
+## Step 3 — Design the schema first
 
-Field types **cannot be changed once created**. Worse, at present every collection
-created through `create-collection` shares the same `_default` configset, so the
-guesses from Step 1 are already baked in and a new collection would inherit them
-(see [Known issues](#known-issues)).
-
-So start from a clean slate:
-
-```bash
-docker rm -f solr-tutorial
-docker run -d --name solr-tutorial -p 8983:8983 solr:9-slim solr start -c -f
-```
-
-This takes a few seconds. Wait for the collections endpoint to answer before
-continuing.
-
----
-
-## Step 4 — Design the schema first
-
-Now create the collection and define its fields **before** any documents arrive.
+Now create a second collection and define its fields **before** any documents arrive.
+Field types cannot be changed once created, but each collection gets its own copy of
+the `_default` configset, so Step 1's guesses in `shows-auto` do not carry over.
 
 > *"Create a Solr collection called shows."*
 
@@ -213,7 +196,7 @@ decided what the fields meant.
 
 ---
 
-## Step 5 — Search
+## Step 4 — Search
 
 Each of these exercises a different Solr capability. The parameter each one drives
 is noted so you can connect the natural-language request to what actually runs.
@@ -240,7 +223,7 @@ what the server exists to provide.
 
 ---
 
-## Step 6 — Ask about the index itself
+## Step 5 — Ask about the index itself
 
 Search is the headline, but the operational tools are what make this useful in a
 real workflow.
@@ -261,16 +244,7 @@ otherwise mean reading `managed-schema` and knowing what `docValues` implies.
 
 ## Known issues
 
-Two rough edges worth knowing about. The first is a tracked defect you will meet
-while following this tutorial; neither is a mistake on your part.
-
-**Collections share the `_default` configset**
-([#183](https://github.com/apache/solr-mcp/issues/183)). `create-collection` binds
-each collection to the shared `_default` configset rather than copying it, so
-schemaless field guesses leak into every collection created afterwards. Symptoms
-are `add-fields` failing with `Field 'x' already exists` on a brand-new collection,
-or a "schemaless" collection silently inheriting another collection's explicit
-types. Restarting Solr resets it, which is why Step 3 exists.
+One rough edge worth knowing about; it is not a mistake on your part.
 
 **Unknown search parameters are dropped silently.** Arguments the `search` tool does
 not declare are ignored rather than rejected, so a misnamed one looks like a query

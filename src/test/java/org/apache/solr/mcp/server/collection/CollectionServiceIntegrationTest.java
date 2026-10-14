@@ -28,8 +28,13 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.request.CollectionAdminRequest;
+import org.apache.solr.client.solrj.request.ConfigSetAdminRequest;
+import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.indexing.IndexingService;
+import org.apache.solr.mcp.server.schema.SchemaService;
 import org.apache.solr.mcp.server.search.SearchResponse;
 import org.apache.solr.mcp.server.search.SearchService;
 import org.junit.jupiter.api.BeforeAll;
@@ -66,6 +71,10 @@ class CollectionServiceIntegrationTest {
   @Autowired private IndexingService indexingService;
 
   @Autowired private SearchService searchService;
+
+  @Autowired private SchemaService schemaService;
+
+  @Autowired private SolrClient solrClient;
 
   @BeforeAll
   void setupCollectionWithData() throws Exception {
@@ -329,6 +338,66 @@ class CollectionServiceIntegrationTest {
             || collections.stream().anyMatch(col -> col.startsWith(name + "_shard"));
     assertTrue(
         exists, "Newly created collection should appear in list (found: " + collections + ")");
+  }
+
+  /**
+   * The repro from #183: schemaless guesses made while indexing one collection must not appear in a
+   * collection created after it.
+   *
+   * <p>The field names are prefixed because every integration test class shares one Solr container,
+   * and tests that bind to {@code _default} directly write their guessed fields into {@code
+   * _default} itself, which a later private copy inherits.
+   */
+  @Test
+  void createCollection_withoutConfigSet_getsPrivateSchemaDeletedWithIt() throws Exception {
+    String first = "leak183_a";
+    String second = "leak183_b";
+
+    CollectionCreationResult firstResult =
+        collectionService.createCollection(first, null, null, null);
+    assertEquals(first + ".AUTOCREATED", firstResult.configSet());
+    indexingService.indexJsonDocuments(
+        first, List.of(Map.of("id", "1", "leak183_platform", "Netflix", "leak183_rating", 7.5)));
+
+    CollectionCreationResult secondResult =
+        collectionService.createCollection(second, null, null, null);
+    assertEquals(second + ".AUTOCREATED", secondResult.configSet());
+
+    List<String> secondFields = new ArrayList<>();
+    for (Map<String, Object> field : schemaService.getSchema(second).getFields()) {
+      secondFields.add(String.valueOf(field.get("name")));
+    }
+    assertFalse(secondFields.contains("leak183_platform"), "Guessed field leaked: " + secondFields);
+    assertFalse(secondFields.contains("leak183_rating"), "Guessed field leaked: " + secondFields);
+    assertEquals(
+        List.of("leak183_platform"),
+        schemaService
+            .addFields(second, List.of(Map.of("name", "leak183_platform", "type", "string")))
+            .addedNames());
+
+    assertEquals(first + ".AUTOCREATED", configNameOf(first));
+    assertEquals(second + ".AUTOCREATED", configNameOf(second));
+
+    // Solr deletes the private copy with the collection, so the server needs
+    // no cleanup of its own.
+    CollectionAdminRequest.deleteCollection(first).process(solrClient);
+    assertFalse(
+        new ConfigSetAdminRequest.List()
+            .process(solrClient)
+            .getConfigSets()
+            .contains(first + ".AUTOCREATED"));
+  }
+
+  private String configNameOf(String collection) throws Exception {
+    Object node =
+        CollectionAdminRequest.getClusterStatus()
+            .setCollectionName(collection)
+            .process(solrClient)
+            .getResponse();
+    for (String key : List.of("cluster", "collections", collection, "configName")) {
+      node = ((NamedList<?>) node).get(key);
+    }
+    return String.valueOf(node);
   }
 
   @Test

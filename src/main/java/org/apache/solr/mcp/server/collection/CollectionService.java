@@ -253,6 +253,14 @@ public class CollectionService {
   /** Default configset name used when none is specified */
   private static final String DEFAULT_CONFIGSET = "_default";
 
+  /**
+   * Suffix Solr gives the private copy of {@value #DEFAULT_CONFIGSET} it makes for a collection
+   * created without a configset. Solr's own constant, {@code
+   * ConfigSetsHandler.AUTOCREATED_CONFIGSET_SUFFIX}, is in solr-core, which is not on the
+   * classpath.
+   */
+  private static final String AUTOCREATED_SUFFIX = ".AUTOCREATED";
+
   /** Default number of shards for new collections */
   private static final int DEFAULT_NUM_SHARDS = 1;
 
@@ -929,11 +937,17 @@ public class CollectionService {
    * <p>Uses the SolrCloud Collections API. Standalone Solr instances are not supported.
    *
    * <p>Optional parameters default to sensible values when not provided by the MCP client:
-   * configSet defaults to {@value #DEFAULT_CONFIGSET}, numShards and replicationFactor both default
-   * to 1.
+   * numShards and replicationFactor both default to 1.
+   *
+   * <p>Without a configSet, or with {@value #DEFAULT_CONFIGSET}, the request names no configset,
+   * and Solr copies {@value #DEFAULT_CONFIGSET} into a private {@code <name>.AUTOCREATED} configset
+   * that it deletes with the collection. Binding to {@value #DEFAULT_CONFIGSET} by reference would
+   * write one collection's schemaless field guesses into every later collection's schema. Any other
+   * configSet is bound by reference, so its schema is shared.
    *
    * @param name the name of the collection to create (must not be blank)
-   * @param configSet the configset name (optional, defaults to {@value #DEFAULT_CONFIGSET})
+   * @param configSet a configset to share (optional; omitted or {@value #DEFAULT_CONFIGSET} gives a
+   *     private copy)
    * @param numShards number of shards (optional, defaults to 1)
    * @param replicationFactor replication factor (optional, defaults to 1)
    * @return result describing the outcome of the creation operation
@@ -946,11 +960,17 @@ public class CollectionService {
       name = "create-collection",
       annotations = @McpTool.McpAnnotations(destructiveHint = false),
       description =
-          "Create a new Solr collection. "
-              + "configSet defaults to _default, numShards and replicationFactor default to 1.")
+          "Create a new Solr collection. By default it gets its own copy of the _default configset,"
+              + " so its schema is independent of other collections. Pass configSet only to share an existing"
+              + " configset. numShards and replicationFactor default to 1.")
   public CollectionCreationResult createCollection(
       @McpToolParam(description = "Name of the collection to create") String name,
-      @McpToolParam(description = "Configset name. Defaults to _default.", required = false)
+      @McpToolParam(
+              description =
+                  "Omit, or pass _default, to get a private copy named <name>.AUTOCREATED that is"
+                      + " deleted with the collection. Any other name shares that configset: schema changes"
+                      + " made with add-fields apply to every collection that uses it.",
+              required = false)
           @Nullable String configSet,
       @McpToolParam(description = "Number of shards. Defaults to 1.", required = false)
           @Nullable Integer numShards,
@@ -962,15 +982,24 @@ public class CollectionService {
       throw new IllegalArgumentException(BLANK_COLLECTION_NAME_ERROR);
     }
 
-    String effectiveConfigSet = configSet != null ? configSet : DEFAULT_CONFIGSET;
     int effectiveShards = numShards != null ? numShards : DEFAULT_NUM_SHARDS;
     int effectiveRf = replicationFactor != null ? replicationFactor : DEFAULT_REPLICATION_FACTOR;
 
-    CollectionAdminRequest.createCollection(name, effectiveConfigSet, effectiveShards, effectiveRf)
-        .process(solrClient);
+    String effectiveConfigSet;
+    CollectionAdminRequest.Create request;
+    if (configSet == null || configSet.isBlank() || configSet.equals(DEFAULT_CONFIGSET)) {
+      // No collection.configName: Solr makes the private copy.
+      effectiveConfigSet = name + AUTOCREATED_SUFFIX;
+      request = CollectionAdminRequest.createCollection(name, effectiveShards, effectiveRf);
+    } else {
+      effectiveConfigSet = configSet;
+      request =
+          CollectionAdminRequest.createCollection(name, configSet, effectiveShards, effectiveRf);
+    }
+    request.process(solrClient);
 
     return new CollectionCreationResult(
-        name, true, "Collection created successfully", Instant.now());
+        name, true, "Collection created successfully", effectiveConfigSet, Instant.now());
   }
 
   /**
@@ -1049,10 +1078,11 @@ public class CollectionService {
 				     and tell the user.
 
 				2. Choose creation parameters.
-				   - Defaults: configset `%s`, %d shard(s), replicationFactor %d. These work for most
-				     single-node and small SolrCloud setups.
-				   - Only override if the user asked: a custom configset for a pre-built schema, more
-				     shards for a large dataset, or higher replicationFactor for redundancy.
+				   - Defaults: a private copy of the `%s` configset, %d shard(s), replicationFactor %d.
+				     These work for most single-node and small SolrCloud setups.
+				   - Only override if the user asked: pass `configSet` to share an existing configset
+				     with a pre-built schema, more shards for a large dataset, or higher
+				     replicationFactor for redundancy.
 
 				3. Create.
 				   - Call `create-collection` with `name=%s` and any non-default `configSet`,

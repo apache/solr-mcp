@@ -103,7 +103,7 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 | `index-csv-documents` | Index documents from a CSV string via Solr's CSV handler; repeat a column name for multi-valued fields |
 | `index-xml-documents` | Index documents from Solr update XML (`<add><doc><field name="...">`); only `<add>` blocks are accepted |
 | `index-markdown-documents` | Index markdown documents into a collection (one array element per document), extracting front matter, title, headings, and body text |
-| `create-collection` | Create a collection (configSet, numShards, replicationFactor optional — default `_default`, `1`, `1`) |
+| `create-collection` | Create a collection (configSet, numShards, replicationFactor optional — default: a private copy of `_default`, `1`, `1`) |
 | `list-collections` | List all available Solr collections |
 | `get-collection-stats` | Get statistics and metrics for a collection |
 | `check-health` | Check the health status of a collection |
