@@ -505,11 +505,13 @@ public class CollectionService {
       lukeResponse = new IndexOnlyLukeRequest().process(solrClient, actualCollection);
     } catch (SolrException e) {
       if (e.code() == SolrException.ErrorCode.NOT_FOUND.code) {
+        // No cause: the MCP tool error appends the root cause's message, and
+        // SolrJ's text would put Solr's raw 404 in front of the client.
+        logger.warn("Collection not found: {}", actualCollection, e);
         throw new IllegalArgumentException(
             COLLECTION_NOT_FOUND_ERROR
                 + actualCollection
-                + ". Hint: call list-collections to see available collections.",
-            e);
+                + ". Hint: call list-collections to see available collections.");
       }
       throw e;
     }

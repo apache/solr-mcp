@@ -394,7 +394,7 @@ class CollectionServiceTest {
             () -> collectionService.getCollectionStats("non_existent"));
 
     assertTrue(exception.getMessage().contains("Collection not found: non_existent"));
-    assertSame(notFound, exception.getCause());
+    assertNull(exception.getCause());
     verify(solrClient, never()).request(any(CollectionAdminRequest.List.class), any());
   }
 
