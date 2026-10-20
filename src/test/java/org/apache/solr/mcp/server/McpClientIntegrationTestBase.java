@@ -90,6 +90,19 @@ public abstract class McpClientIntegrationTestBase {
   }
 
   @Test
+  @Order(1)
+  void serverInstructionsStateTheInfrastructureBoundary() {
+    String instructions = mcpClient.getServerInstructions();
+    assertNotNull(instructions, "initialize should return server instructions");
+    assertTrue(
+        instructions.contains("Surface boundaries"),
+        "Instructions should keep the tool-surface boundaries");
+    assertTrue(
+        instructions.contains("does not manage cluster infrastructure"),
+        "Instructions should state that cluster infrastructure is out of scope");
+  }
+
+  @Test
   @Order(2)
   void listToolsReturnsExpectedTools() {
     var toolsResult = mcpClient.listTools();
