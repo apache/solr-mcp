@@ -18,13 +18,7 @@ package org.apache.solr.mcp.server.config;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
 import org.apache.solr.client.solrj.response.QueryResponse;
-import org.apache.solr.mcp.server.cluster.ClusterStatusResult;
-import org.apache.solr.mcp.server.cluster.CollectionState;
-import org.apache.solr.mcp.server.cluster.ReplicaIssue;
-import org.apache.solr.mcp.server.cluster.ReplicaState;
-import org.apache.solr.mcp.server.cluster.ShardState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.aot.hint.MemberCategory;
@@ -88,26 +82,6 @@ class SolrNativeHintsTest {
             .onType(TypeReference.of("org.apache.solr.mcp.server.search.SearchResponse"))
             .withMemberCategory(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS)
             .test(hints));
-  }
-
-  @Test
-  void registersClusterStatusRecordHints() {
-    // Referenced as classes, so renaming a record breaks compilation here
-    // instead of leaving a stale name in SolrNativeHints.
-    for (Class<?> record :
-        List.of(
-            ClusterStatusResult.class,
-            ReplicaIssue.class,
-            CollectionState.class,
-            ShardState.class,
-            ReplicaState.class)) {
-      assertTrue(
-          RuntimeHintsPredicates.reflection()
-              .onType(record)
-              .withMemberCategory(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS)
-              .test(hints),
-          record.getName());
-    }
   }
 
   @Test

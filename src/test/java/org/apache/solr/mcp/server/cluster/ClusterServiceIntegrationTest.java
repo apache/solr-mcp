@@ -19,6 +19,8 @@ package org.apache.solr.mcp.server.cluster;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.Collection;
+import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
@@ -70,42 +72,38 @@ class ClusterServiceIntegrationTest {
   }
 
   @Test
-  void newCollectionIsHealthyWithOneLeader() throws Exception {
-    ClusterStatusResult result = clusterService.getClusterStatus(TEST_COLLECTION);
+  void newCollectionHasOneActiveLeaderOnTheLiveNode() throws Exception {
+    JsonNode status = objectMapper.valueToTree(clusterService.getClusterStatus(TEST_COLLECTION));
 
-    assertThat(result.healthy()).as("issues: %s", result.issues()).isTrue();
-    assertThat(result.liveNodes()).hasSize(1);
-    assertThat(result.collections()).containsOnlyKeys(TEST_COLLECTION);
+    assertThat(status.get("live_nodes")).hasSize(1);
+    String liveNode = status.get("live_nodes").get(0).asString();
+    assertThat(status.get("collections").propertyNames()).containsExactly(TEST_COLLECTION);
 
-    CollectionState collection = result.collections().get(TEST_COLLECTION);
-    assertThat(collection.configName()).isNotBlank();
-    assertThat(collection.shards()).hasSize(1);
-
-    ShardState shard = collection.shards().values().iterator().next();
-    assertThat(shard.state()).isEqualTo("active");
-    assertThat(shard.leader()).isNotNull();
-    assertThat(shard.replicas())
+    JsonNode collection = status.get("collections").get(TEST_COLLECTION);
+    assertThat(collection.get("configName").asString()).isNotBlank();
+    JsonNode shard = collection.at("/shards/shard1");
+    assertThat(shard.get("state").asString()).isEqualTo("active");
+    assertThat(shard.get("replicas"))
         .singleElement()
         .satisfies(
             replica -> {
-              assertThat(replica.leader()).isTrue();
-              assertThat(replica.state()).isEqualTo("active");
-              assertThat(replica.node()).isEqualTo(result.liveNodes().getFirst());
-              assertThat(replica.core()).startsWith(TEST_COLLECTION);
-              assertThat(replica.baseUrl()).endsWith("/solr");
+              assertThat(replica.get("state").asString()).isEqualTo("active");
+              assertThat(replica.get("leader").asString()).isEqualTo("true");
+              assertThat(replica.get("node_name").asString()).isEqualTo(liveNode);
+              assertThat(replica.get("core").asString()).startsWith(TEST_COLLECTION);
+              assertThat(replica.get("base_url").asString()).endsWith("/solr");
             });
   }
 
   @Test
   void aliasReportsTheCollectionBehindIt() throws Exception {
-    ClusterStatusResult result = clusterService.getClusterStatus(TEST_ALIAS);
-
-    assertThat(result.collections()).containsOnlyKeys(TEST_COLLECTION);
+    assertThat(collectionNames(clusterService.getClusterStatus(TEST_ALIAS)))
+        .containsExactly(TEST_COLLECTION);
   }
 
   @Test
   void noCollectionReportsEveryCollection() throws Exception {
-    assertThat(clusterService.getClusterStatus(null).collections()).containsKey(TEST_COLLECTION);
+    assertThat(collectionNames(clusterService.getClusterStatus(null))).contains(TEST_COLLECTION);
   }
 
   @Test
@@ -115,13 +113,15 @@ class ClusterServiceIntegrationTest {
   }
 
   @Test
-  void resourceReturnsStatusAsJsonWithoutBaseUrl() {
+  void resourceReturnsTheSameStatusAsJson() {
     JsonNode json = objectMapper.readTree(clusterService.getClusterStatusResource());
 
-    assertThat(json.has("healthy")).isTrue();
     assertThat(json.has("error")).isFalse();
-    JsonNode replica = json.at("/collections/" + TEST_COLLECTION + "/shards/shard1/replicas/0");
-    assertThat(replica.has("node")).isTrue();
-    assertThat(replica.has("baseUrl")).isFalse();
+    assertThat(json.get("live_nodes")).isNotEmpty();
+    assertThat(json.at("/collections/" + TEST_COLLECTION + "/shards/shard1/replicas")).isNotEmpty();
+  }
+
+  private Collection<String> collectionNames(Map<String, Object> status) {
+    return objectMapper.valueToTree(status).get("collections").propertyNames();
   }
 }

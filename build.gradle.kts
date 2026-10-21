@@ -234,8 +234,8 @@ springBoot {
     buildInfo()
 }
 
-// Testcontainers image pins live in gradle/libs.versions.toml; -Dsolr.test.image,
-// -Dlgtm.test.image and -Dzookeeper.test.image override them for a single run (e.g. the Solr
+// Testcontainers image pins live in gradle/libs.versions.toml; -Dsolr.test.image
+// and -Dlgtm.test.image override them for a single run (e.g. the Solr
 // compatibility matrix in CI).
 val solrPin =
     libs.versions.test.image.solr
@@ -243,12 +243,8 @@ val solrPin =
 val lgtmPin =
     libs.versions.test.image.lgtm
         .get()
-val zookeeperPin =
-    libs.versions.test.image.zookeeper
-        .get()
 val solrTestImage = System.getProperty("solr.test.image", solrPin)
 val lgtmTestImage = System.getProperty("lgtm.test.image", lgtmPin)
-val zookeeperTestImage = System.getProperty("zookeeper.test.image", zookeeperPin)
 
 tasks.withType<Test> {
     useJUnitPlatform {
@@ -267,7 +263,6 @@ tasks.withType<Test> {
     // Forward the Testcontainers image pins (or a per-run -D override) to test JVMs.
     systemProperty("solr.test.image", solrTestImage)
     systemProperty("lgtm.test.image", lgtmTestImage)
-    systemProperty("zookeeper.test.image", zookeeperTestImage)
     if (name != "dockerIntegrationTest") {
         finalizedBy(tasks.jacocoTestReport)
     }

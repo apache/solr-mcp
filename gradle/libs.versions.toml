@@ -54,7 +54,6 @@ testcontainers = "2.0.5"
 # OtlpExportIntegrationTest) must be bumped along with these pins.
 test-image-solr = "solr:9.9.0-slim"
 test-image-lgtm = "grafana/otel-lgtm:0.33.0"
-test-image-zookeeper = "zookeeper:3.9"
 awaitility = "4.3.0"
 
 [libraries]

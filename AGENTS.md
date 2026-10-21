@@ -111,8 +111,8 @@ These service classes expose MCP tools via `@McpTool` annotations:
 - **IndexingService** (`indexing/`) - Document indexing supporting JSON, CSV, XML, and markdown formats
 - **CollectionService** (`collection/`) - List collections, get stats, health checks
 - **SchemaService** (`schema/`) - Schema introspection and additive modification (add-fields, add-field-types)
-- **ClusterService** (`cluster/`) - Cluster status (live nodes, shard and replica state) and configset listing;
-  `ClusterStatusParser` and its records are public so other packages can reuse the replica data
+- **ClusterService** (`cluster/`) - Cluster status (Solr's CLUSTERSTATUS `cluster` section, passed through
+  as Solr reports it) and configset listing
 
 ### Document Creators and pass-throughs
 
@@ -314,8 +314,7 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
     generic `Object` dispatch): `AliasResult`, `CollectionCreationResult`,
     `SolrHealthStatus`, `SolrMetrics`, `IndexStats`, `QueryStats`, `CacheStats`,
     `CacheInfo`, `HandlerStats`, `HandlerInfo`, `SearchResponse`, `SortClause`,
-    `SchemaUpdateResult`, and the cluster-status records `ClusterStatusResult`, `ReplicaIssue`,
-    `CollectionState`, `ShardState`, `ReplicaState`
+    `SchemaUpdateResult`
   - **Spring AI**: `org.springframework.ai.mcp.annotation.context.DefaultMetaProvider`,
     which `MetaUtils` instantiates reflectively
   - **Resources**: `logback-spring.xml` (see Logging Architecture above), and SolrJ's

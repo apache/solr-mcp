@@ -28,6 +28,7 @@ import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.request.ConfigSetAdminRequest;
+import org.apache.solr.common.util.NamedList;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,8 +45,6 @@ import tools.jackson.databind.ObjectMapper;
  * <p>The collection tools each report on one collection. This service answers the questions that
  * span the cluster: which nodes are live, which replicas are down or recovering and on which node,
  * and which configsets exist.
- *
- * @see ClusterStatusParser
  */
 @Service
 @Observed
@@ -69,13 +68,19 @@ public class ClusterService {
   }
 
   /**
-   * Reports live nodes and the state of every shard and replica.
+   * Returns the {@code cluster} section of Solr's CLUSTERSTATUS response as Solr reports it: {@code
+   * live_nodes}, then each collection's shards and replicas.
+   *
+   * <p>The response shape is the same on every supported Solr version, so it is passed through
+   * rather than mapped to records. Solr already marks a replica on a node missing from {@code
+   * live_nodes} as {@code down}; before Solr 10.1 it computed {@code health} ahead of that
+   * correction (SOLR-17820), which the tool description tells the model about.
    *
    * <p>An unknown collection fails in Solr with {@code Collection: <name> not found}, and a Solr
    * not running in SolrCloud mode rejects CLUSTERSTATUS. Both propagate unchanged.
    *
    * @param collection a collection or alias to report on, or null for all collections
-   * @return the cluster status, with {@code healthy} and {@code issues} first
+   * @return the {@code cluster} section as nested maps and lists
    * @throws SolrServerException if Solr returns an error
    * @throws IOException if there are I/O errors during communication
    */
@@ -84,10 +89,14 @@ public class ClusterService {
       name = "get-cluster-status",
       annotations = @McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
       description =
-          "Cluster-wide view: live nodes and the state of every shard and replica. Call this first"
-              + " when something is wrong. `issues` lists every replica that is not active or sits on a node"
-              + " that is down.")
-  public ClusterStatusResult getClusterStatus(
+          "Cluster-wide view from Solr's CLUSTERSTATUS: `live_nodes`, then each collection's shards"
+              + " and replicas with their `state`, `leader` and `node_name`. Call this first when something is"
+              + " wrong. A replica is healthy only when its `state` is `active`, and a shard needs an active"
+              + " replica with `leader` true; `leader` can stay true on a replica that is down. Before Solr"
+              + " 10.1, `health` can read GREEN while a replica in the same response is down (SOLR-17820),"
+              + " so judge by replica `state`, not `health`.")
+  @SuppressWarnings("unchecked")
+  public Map<String, Object> getClusterStatus(
       @McpToolParam(
               description = "Collection or alias to report on. Omit for all collections.",
               required = false)
@@ -97,7 +106,9 @@ public class ClusterService {
     if (collection != null && !collection.isBlank()) {
       request.setCollectionName(collection);
     }
-    return ClusterStatusParser.parse(request.process(solrClient).getResponse());
+    NamedList<?> cluster = (NamedList<?>) request.process(solrClient).getResponse().get("cluster");
+    // A JSON-parsed tree has no cycles, so asMap's depth guard never applies.
+    return cluster.asMap(Integer.MAX_VALUE);
   }
 
   /**
