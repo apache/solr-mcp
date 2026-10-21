@@ -214,7 +214,7 @@ reaching the backend Solr directly, bypassing this server, is out of model (§3)
 | `OAUTH2_ISSUER_URI` | empty (placeholder) | With HTTP security on and no issuer, the chain still returns 401/403 on every non-permitted endpoint (locked down, no token validator). A real issuer enables JWT signature/issuer/exp/**audience** validation. | Q-httpsec |
 | `MCP_PROTOCOL` | unset (`stateless` HTTP, `streamable` STDIO; 2025 revisions) | `modern` serves the MCP 2026-07-28 revision (MCP Java SDK 2.2.0's modern server): no `initialize`/session, `server/discover`, `Mcp-Method`/`Mcp-Name` headers (added to the CORS header allowlist). The same `@PreAuthorize` checks guard every entry point. Multi-round-trip requests return a sealed `requestState`, keyed per instance unless `spring.ai.mcp.server.modern.request-state-secret` is set. Fixed at build time in native images. | *(documented — [docs/modern-protocol.md](docs/modern-protocol.md))* |
 | `MCP_CORS_ALLOWED_ORIGINS` | MCP Inspector localhost proxy | Explicit CORS allowlist; wildcard-with-credentials is rejected by construction (`setAllowedOrigins`, not patterns). | *(documented)* |
-| `SOLR_USERNAME` / `SOLR_PASSWORD` | unset | When both set, static HTTP Basic Auth to backend Solr on every request; when unset, unauthenticated backend calls. | Q-backendcreds |
+| `SOLR_USERNAME` / `SOLR_PASSWORD` | unset | When both set, static HTTP Basic Auth to backend Solr on every request; when unset, unauthenticated backend calls. These are the only place credentials go: a `SOLR_URL` with user info (`http://user:pass@host`) is rejected at startup, because SolrJ does not authenticate with it and its error messages repeat the URL verbatim. | Q-backendcreds |
 
 **How HTTP mode enforces auth** *(maintainer — Q-transport.)*: by default the
 transport is streamable HTTP running in **stateless** mode
@@ -310,7 +310,8 @@ Two adversaries are in scope; several are explicitly not.
 5. **Backend credentials are startup config, not caller input.** `SOLR_URL` and
    the optional Basic-Auth credentials are read once from the environment and are
    never taken from a tool argument, so the AI client cannot repoint the server
-   or inject a target URL. *Violation:* a tool argument alters the backend
+   or inject a target URL. A `SOLR_URL` carrying user info is rejected at startup,
+   so a password cannot sit in the URL that SolrJ quotes in its error messages. *Violation:* a tool argument alters the backend
    target or credential. *Severity:* critical (SSRF/credential-redirect if
    broken). *(documented — docs/security/stdio.md & http.md; `SolrConfig`,
    `SolrConfigurationProperties`.)*
