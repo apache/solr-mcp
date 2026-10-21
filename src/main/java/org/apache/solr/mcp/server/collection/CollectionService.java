@@ -899,7 +899,7 @@ public class CollectionService {
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
       description =
           "Check that one collection answers queries: a ping plus its document count. It does not"
-              + " report replica state, so it stays healthy while a replica is down; use get-cluster-status for"
+              + " report replica state, so it can report healthy while a replica is down; use get-cluster-status for"
               + " replicas and nodes.")
   public SolrHealthStatus checkHealth(
       @McpToolParam(description = "Solr collection") String collection) {
