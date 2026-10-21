@@ -106,7 +106,7 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 | `create-collection` | Create a collection (configSet, numShards, replicationFactor optional — default `_default`, `1`, `1`) |
 | `list-collections` | List all available Solr collections |
 | `get-collection-stats` | Size and performance of one collection: document and segment counts, query, cache and handler stats |
-| `check-health` | Check that one collection answers queries: a ping plus its document count |
+| `check-health` | Check that one collection answers queries: a ping plus its document count. It does not report replica state; use `get-cluster-status` for that |
 | `get-cluster-status` | Cluster-wide view from Solr's CLUSTERSTATUS: live nodes and the state of every shard and replica |
 | `list-configsets` | List the configsets in the cluster, to pick one for `create-collection` |
 | `add-fields` | Add fields to a collection schema (additive only; existing fields cannot be modified) |
