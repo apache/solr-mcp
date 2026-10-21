@@ -118,6 +118,10 @@ public class SchemaService {
 
   private static final Logger logger = LoggerFactory.getLogger(SchemaService.class);
 
+  static final String SCHEMA_RESOURCE_ERROR =
+      "Failed to retrieve the schema. Hint: call list-collections to check"
+          + " the collection name; if it persists, ask the operator to check the server logs.";
+
   /** SolrJ client for communicating with Solr server */
   private final SolrClient solrClient;
 
@@ -148,6 +152,8 @@ public class SchemaService {
    *
    * @param collection the name of the collection to retrieve schema for
    * @return JSON string containing the schema representation
+   * @throws IllegalStateException with {@link #SCHEMA_RESOURCE_ERROR} if the schema cannot be
+   *     retrieved or serialized
    */
   @PreAuthorize("isAuthenticated()")
   @McpResource(
@@ -160,11 +166,11 @@ public class SchemaService {
     try {
       return objectMapper.writeValueAsString(getSchema(collection));
     } catch (Exception e) {
+      // Deliberately no cause: MCP reports the root cause's message to the client,
+      // and Solr and SolrJ failure text can carry internal host names, URLs and
+      // paths. The log is the sole record of the cause.
       logger.error("Failed to get schema for collection: {}", collection, e);
-      // Serialise via Jackson rather than concatenating: an exception message
-      // containing a quote, backslash or newline would otherwise emit invalid
-      // JSON to the MCP client.
-      return objectMapper.writeValueAsString(Map.of("error", String.valueOf(e.getMessage())));
+      throw new IllegalStateException(SCHEMA_RESOURCE_ERROR);
     }
   }
 

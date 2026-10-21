@@ -747,6 +747,29 @@ class CollectionServiceTest {
     assertThrows(IOException.class, () -> collectionService.listCollections());
   }
 
+  @Test
+  void getCollectionsResource_Success() throws Exception {
+    NamedList<Object> response = new NamedList<>();
+    response.add("collections", Arrays.asList("collection1", "collection2"));
+    when(solrClient.request(any(), any())).thenReturn(response);
+
+    assertEquals("[\"collection1\",\"collection2\"]", collectionService.getCollectionsResource());
+  }
+
+  @Test
+  void getCollectionsResource_SolrFailure_DoesNotLeakCause() throws Exception {
+    when(solrClient.request(any(), any()))
+        .thenThrow(
+            new SolrServerException(
+                "Server refused connection at: http://solr-internal.corp:8983/solr"));
+
+    IllegalStateException e =
+        assertThrows(IllegalStateException.class, () -> collectionService.getCollectionsResource());
+
+    assertEquals(CollectionService.COLLECTIONS_RESOURCE_ERROR, e.getMessage());
+    assertNull(e.getCause());
+  }
+
   // Helper methods — mock the Solr Metrics API response format:
   // response -> "metrics" -> "solr.core.<name>" -> "CACHE.searcher.xxx" /
   // "HANDLER./xxx"

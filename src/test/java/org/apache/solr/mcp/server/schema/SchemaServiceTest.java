@@ -120,6 +120,25 @@ class SchemaServiceTest {
   }
 
   @Test
+  void testGetSchemaResource_SolrFailure_DoesNotLeakCause() throws Exception {
+    // Given
+    final String collectionName = "test_collection";
+    when(solrClient.request(any(SchemaRequest.class), eq(collectionName)))
+        .thenThrow(
+            new SolrServerException(
+                "Server refused connection at: http://solr-internal.corp:8983/solr"));
+
+    // When
+    IllegalStateException e =
+        assertThrows(
+            IllegalStateException.class, () -> schemaService.getSchemaResource(collectionName));
+
+    // Then the client gets the fixed message, never the Solr failure text
+    assertEquals(SchemaService.SCHEMA_RESOURCE_ERROR, e.getMessage());
+    assertNull(e.getCause());
+  }
+
+  @Test
   void testGetSchema_WithEmptyCollection() {
     // Given an empty collection name
     // Then should throw an exception
