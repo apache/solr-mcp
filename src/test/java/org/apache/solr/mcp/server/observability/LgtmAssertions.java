@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.web.client.RestClient;
 import org.testcontainers.grafana.LgtmStackContainer;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Helper class to query LGTM stack backends (Tempo, Prometheus, Loki).
@@ -53,11 +53,11 @@ public class LgtmAssertions {
 
   private final LgtmStackContainer lgtm;
 
-  private final ObjectMapper objectMapper;
+  private final JsonMapper objectMapper;
 
   private final RestClient restClient;
 
-  public LgtmAssertions(LgtmStackContainer lgtm, ObjectMapper objectMapper) {
+  public LgtmAssertions(LgtmStackContainer lgtm, JsonMapper objectMapper) {
     this.lgtm = lgtm;
     this.objectMapper = objectMapper;
     this.restClient = RestClient.create();

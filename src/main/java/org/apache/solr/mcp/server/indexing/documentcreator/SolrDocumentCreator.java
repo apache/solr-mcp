@@ -46,7 +46,7 @@ import org.apache.solr.common.SolrInputDocument;
  * <p><strong>Usage Example:</strong>
  *
  * <pre>{@code
- * SolrDocumentCreator creator = new JsonDocumentCreator(new ObjectMapper());
+ * SolrDocumentCreator creator = new JsonDocumentCreator(JsonMapper.builder().build());
  * String jsonData = "[{\"title\":\"Document 1\",\"content\":\"Content here\"}]";
  * List<SolrInputDocument> documents = creator.create(jsonData);
  * }</pre>
