@@ -243,6 +243,19 @@ class CollectionServiceTest {
   }
 
   @Test
+  void checkHealth_WhenSolrNamesItsUrl_ShouldRedactTheUrl() throws Exception {
+    when(solrClient.ping("unhealthy_collection"))
+        .thenThrow(
+            new SolrServerException(
+                "Server refused connection at: http://user:pw@solr-internal:8983/solr"));
+
+    SolrHealthStatus result = collectionService.checkHealth("unhealthy_collection");
+
+    assertFalse(result.isHealthy());
+    assertEquals("Server refused connection at: [redacted]", result.errorMessage());
+  }
+
+  @Test
   void checkHealth_WhenPingSucceedsButQueryFails_ShouldReturnUnhealthyStatus() throws Exception {
     // Given
     when(solrClient.ping("test_collection")).thenReturn(pingResponse);

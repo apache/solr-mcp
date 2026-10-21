@@ -16,7 +16,11 @@
  */
 package org.apache.solr.mcp.server.config;
 
+import static java.util.Objects.requireNonNullElse;
+
 import java.lang.reflect.Method;
+import org.apache.solr.common.SolrException;
+import org.apache.solr.mcp.server.util.SolrErrorText;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -28,7 +32,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Turns checked exceptions thrown by {@link McpTool} methods into tool errors the MCP client can
- * read.
+ * read, and keeps Solr URLs out of every tool error.
  *
  * <p>Spring AI 2.0 reports a {@link RuntimeException} from a tool as an {@code isError} result, but
  * wraps a checked exception in {@link java.lang.reflect.UndeclaredThrowableException} and rethrows
@@ -43,8 +47,15 @@ import org.springframework.stereotype.Component;
  * replacement carries no cause: SolrJ's message names the internal Solr URL, and Spring AI copies
  * the root cause's message into the tool error. The original is logged here instead.
  *
- * <p>Runtime exceptions and errors pass through unchanged. They already become tool errors, and
- * they include method security's {@code AccessDeniedException}.
+ * <p>A {@link SolrException} that escapes a tool, typically SolrJ's {@code RemoteSolrException},
+ * already becomes a tool error, but its message is {@code Error from server at <url>: <reason>},
+ * and Spring AI also appends its root cause's message. When the message names a URL or there is a
+ * cause, the aspect throws a new cause-less {@code SolrException} with the same code, keeping
+ * Solr's reason, which tells the model what to fix, and dropping the URL, which can carry
+ * credentials. See {@link SolrErrorText}.
+ *
+ * <p>Other runtime exceptions and errors pass through unchanged. They already become tool errors,
+ * and they include method security's {@code AccessDeniedException}.
  */
 @Aspect
 @Component
@@ -53,13 +64,22 @@ public class McpToolExceptionAspect {
   private static final Logger logger = LoggerFactory.getLogger(McpToolExceptionAspect.class);
 
   @Around("@annotation(org.springframework.ai.mcp.annotation.McpTool)")
-  public Object translateCheckedExceptions(ProceedingJoinPoint joinPoint) throws Throwable {
+  public Object translateToolExceptions(ProceedingJoinPoint joinPoint) throws Throwable {
     try {
       return joinPoint.proceed();
+    } catch (SolrException e) {
+      String message = requireNonNullElse(e.getMessage(), "Solr rejected the request");
+      String redacted = SolrErrorText.redact(message);
+      if (e.getCause() == null && redacted.equals(message)) {
+        // Already safe, such as the cause-less errors SearchService builds itself.
+        throw e;
+      }
+      logger.warn("MCP tool {} failed", toolName(joinPoint), e);
+      throw new SolrException(SolrException.ErrorCode.getErrorCode(e.code()), redacted);
     } catch (RuntimeException | Error e) {
       throw e;
     } catch (Exception e) {
-      String tool = toolName(((MethodSignature) joinPoint.getSignature()).getMethod());
+      String tool = toolName(joinPoint);
       logger.warn("MCP tool {} failed", tool, e);
       throw new IllegalStateException(
           tool
@@ -68,7 +88,8 @@ public class McpToolExceptionAspect {
     }
   }
 
-  private static String toolName(Method method) {
+  private static String toolName(ProceedingJoinPoint joinPoint) {
+    Method method = ((MethodSignature) joinPoint.getSignature()).getMethod();
     McpTool tool = method.getAnnotation(McpTool.class);
     return tool == null || tool.name().isEmpty() ? method.getName() : tool.name();
   }

@@ -1282,6 +1282,21 @@ public abstract class McpClientIntegrationTestBase {
     assertFalse(text.contains("Error from server"), text);
   }
 
+  @Test
+  @Order(44)
+  void solrErrorReachesTheClientWithoutTheSolrUrl() {
+    // An unknown collection makes SolrJ raise a RemoteSolrException, whose message starts with
+    // "Error from server at <solr url>".
+    var result =
+        mcpClient.callTool(
+            new CallToolRequest("get-schema", Map.of("collection", "no_such_collection_xyz")));
+    String text = extractText(result);
+    assertEquals(Boolean.TRUE, result.isError(), text);
+    assertFalse(text.isBlank(), text);
+    assertFalse(text.contains("Error from server"), text);
+    assertFalse(text.contains("://"), text);
+  }
+
   private static String extractFirstMessageText(GetPromptResult result) {
     List<PromptMessage> messages = result.messages();
     assertFalse(messages.isEmpty(), "messages must not be empty");

@@ -24,6 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import org.apache.solr.client.solrj.RemoteSolrException;
+import org.apache.solr.common.SolrException;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,11 +65,25 @@ class McpToolExceptionAspectTest {
 
     static final RuntimeException RUNTIME_FAILURE = new IllegalArgumentException("bad input");
 
+    static final SolrException SAFE_SOLR_FAILURE =
+        new SolrException(SolrException.ErrorCode.BAD_REQUEST, "Search failed: check rows");
+
     static final AccessDeniedException ACCESS_DENIED = new AccessDeniedException("denied");
 
     @McpTool(name = "checked-tool", description = "Throws a checked exception")
     public String checkedTool() throws IOException {
       throw new IOException(SOLR_DETAIL);
+    }
+
+    @McpTool(name = "solr-tool", description = "Throws SolrJ's remote error")
+    public String solrTool() {
+      throw new RemoteSolrException(
+          "http://user:pw@internal-solr:8983/solr/books", 400, "undefined field foo", null);
+    }
+
+    @McpTool(name = "safe-solr-tool", description = "Throws a SolrException with no URL or cause")
+    public String safeSolrTool() {
+      throw SAFE_SOLR_FAILURE;
     }
 
     @McpTool(name = "runtime-tool", description = "Throws a runtime exception")
@@ -100,6 +116,22 @@ class McpToolExceptionAspectTest {
     assertTrue(e.getMessage().contains("unable to communicate with Solr"), e.getMessage());
     assertFalse(e.getMessage().contains("internal-solr"), e.getMessage());
     assertNull(e.getCause(), "the client error must not carry SolrJ's text");
+  }
+
+  @Test
+  void solrExceptionKeepsSolrsReasonButNotItsUrl() {
+    SolrException e = assertThrows(SolrException.class, tools::solrTool);
+
+    assertEquals("undefined field foo", e.getMessage());
+    assertEquals(SolrException.ErrorCode.BAD_REQUEST.code, e.code());
+    assertNull(e.getCause(), "the client error must not carry SolrJ's text");
+  }
+
+  @Test
+  void safeSolrExceptionPassesThroughUnchanged() {
+    SolrException e = assertThrows(SolrException.class, tools::safeSolrTool);
+
+    assertSame(FixtureTools.SAFE_SOLR_FAILURE, e);
   }
 
   @Test

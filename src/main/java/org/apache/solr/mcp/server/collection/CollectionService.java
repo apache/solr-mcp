@@ -45,6 +45,7 @@ import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
 import org.apache.solr.mcp.server.util.PromptNames;
+import org.apache.solr.mcp.server.util.SolrErrorText;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -927,8 +928,15 @@ public class CollectionService {
 
     } catch (Exception e) {
       logger.warn("Health check failed for collection: {}", collection, e);
+      // The status goes to the MCP client, and SolrJ's text names the Solr URL.
+      String message = e.getMessage();
       return new SolrHealthStatus(
-          false, e.getMessage(), null, null, Instant.now(), actualCollection);
+          false,
+          message == null ? null : SolrErrorText.redact(message),
+          null,
+          null,
+          Instant.now(),
+          actualCollection);
     }
   }
 
