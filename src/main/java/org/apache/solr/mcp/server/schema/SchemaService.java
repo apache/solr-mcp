@@ -16,7 +16,6 @@
  */
 package org.apache.solr.mcp.server.schema;
 
-import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 import static org.apache.solr.mcp.server.util.PromptText.optionalCodeBlock;
 
 import io.micrometer.observation.annotation.Observed;
@@ -159,13 +158,13 @@ public class SchemaService {
       mimeType = "application/json")
   public String getSchemaResource(String collection) {
     try {
-      return toJson(objectMapper, getSchema(collection));
+      return objectMapper.writeValueAsString(getSchema(collection));
     } catch (Exception e) {
       logger.error("Failed to get schema for collection: {}", collection, e);
       // Serialise via Jackson rather than concatenating: an exception message
       // containing a quote, backslash or newline would otherwise emit invalid
       // JSON to the MCP client.
-      return toJson(objectMapper, Map.of("error", String.valueOf(e.getMessage())));
+      return objectMapper.writeValueAsString(Map.of("error", String.valueOf(e.getMessage())));
     }
   }
 

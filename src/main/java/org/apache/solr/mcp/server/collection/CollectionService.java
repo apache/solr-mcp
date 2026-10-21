@@ -19,7 +19,6 @@ package org.apache.solr.mcp.server.collection;
 import static org.apache.solr.mcp.server.collection.CollectionUtils.getFloat;
 import static org.apache.solr.mcp.server.collection.CollectionUtils.getInteger;
 import static org.apache.solr.mcp.server.collection.CollectionUtils.getLong;
-import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
 import io.micrometer.observation.annotation.Observed;
 import io.modelcontextprotocol.spec.McpSchema.CompleteRequest;
@@ -314,7 +313,7 @@ public class CollectionService {
       description = "List of all Solr collections available in the cluster",
       mimeType = "application/json")
   public String getCollectionsResource() throws SolrServerException, IOException {
-    return toJson(objectMapper, listCollections());
+    return objectMapper.writeValueAsString(listCollections());
   }
 
   /** Maximum number of completion suggestions returned per request. */
