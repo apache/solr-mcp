@@ -37,7 +37,7 @@ import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
-import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Spring Service exposing cluster-wide Solr state to MCP clients.
@@ -54,17 +54,17 @@ public class ClusterService {
 
   private final SolrClient solrClient;
 
-  private final ObjectMapper objectMapper;
+  private final JsonMapper jsonMapper;
 
   /**
    * Constructs a new ClusterService with the required dependencies.
    *
    * @param solrClient the SolrJ client instance for communicating with Solr
-   * @param objectMapper the Jackson ObjectMapper for the resource's JSON
+   * @param jsonMapper the Jackson JsonMapper for the resource's JSON
    */
-  public ClusterService(SolrClient solrClient, ObjectMapper objectMapper) {
+  public ClusterService(SolrClient solrClient, JsonMapper jsonMapper) {
     this.solrClient = solrClient;
-    this.objectMapper = objectMapper;
+    this.jsonMapper = jsonMapper;
   }
 
   /**
@@ -147,10 +147,10 @@ public class ClusterService {
       mimeType = "application/json")
   public String getClusterStatusResource() {
     try {
-      return toJson(objectMapper, getClusterStatus(null));
+      return toJson(jsonMapper, getClusterStatus(null));
     } catch (Exception e) {
       logger.error("Failed to get cluster status", e);
-      return toJson(objectMapper, Map.of("error", String.valueOf(e.getMessage())));
+      return toJson(jsonMapper, Map.of("error", String.valueOf(e.getMessage())));
     }
   }
 }
