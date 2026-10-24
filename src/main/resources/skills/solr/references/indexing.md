@@ -26,8 +26,8 @@ see the Solr Reference Guide.
 
 Forwarded to Solr's own update handlers; the server does not parse the content.
 
-- The only check the server makes is that XML parses, has no DOCTYPE, and has `<add>` as its root
-  element. The tool is for documents: send `<add><doc><field name="...">` content only.
+- `index-xml-documents` takes Solr `<add>` blocks of `<doc>` elements only: send
+  `<add><doc><field name="...">` content and nothing else.
 - Solr's response carries no document count, so none is reported. Confirm with `search` or
   `get-collection-stats`.
 - When Solr rejects a payload, fix it and re-send. The server does not retry these individually.
