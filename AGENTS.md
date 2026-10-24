@@ -143,6 +143,15 @@ Every tool, resource, prompt and completion accepts and returns types the server
 
 The same two tests call every tool that names a collection, alias or configset with one that does not exist, and `McpSolrUnreachableIntegrationTest` / `McpModernSolrUnreachableIntegrationTest` call every tool with `solr.url` pointing at a closed port. Each call must return `isError: true`, never a JSON-RPC error, with no `Error from server at`, `http://` or `https://` in its text. A new tool needs an entry in `McpToolFailures.MISSING_TARGET_ARGUMENTS` (or `TOOLS_WITHOUT_A_TARGET`).
 
+### Solr Agent Skill
+
+`src/main/resources/skills/solr/` holds an Agent Skill (`SKILL.md` + `references/`) about this
+server's tools, not about Solr: the Solr Reference Guide covers Solr itself. Keep it to server
+behaviour that the tool descriptions, prompts and server instructions do not already say.
+`SolrSkillFormatTest` enforces the Agent Skills format and the SEP-2640 size limits. When tool
+behaviour changes (error messages, response wording, id handling), update the skill in the same PR.
+Serving it over MCP is tracked in #280.
+
 ### Document Creators and pass-throughs
 
 Only the formats Solr cannot parse itself go through server-side document creators
