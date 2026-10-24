@@ -112,6 +112,15 @@ Four service classes expose MCP tools via `@McpTool` annotations:
 - **CollectionService** (`collection/`) - List collections, get stats, health checks
 - **SchemaService** (`schema/`) - Schema introspection and additive modification (add-fields, add-field-types)
 
+### Solr Agent Skill
+
+`src/main/resources/skills/solr/` holds an Agent Skill (`SKILL.md` + `references/`) about this
+server's tools, not about Solr: the Solr Reference Guide covers Solr itself. Keep it to server
+behaviour that the tool descriptions, prompts and server instructions do not already say.
+`SolrSkillFormatTest` enforces the Agent Skills format and the SEP-2640 size limits. When tool
+behaviour changes (error messages, response wording, id handling), update the skill in the same PR.
+Serving it over MCP is tracked in #280.
+
 ### Document Creators and pass-throughs
 
 Only the formats Solr cannot parse itself go through server-side document creators
