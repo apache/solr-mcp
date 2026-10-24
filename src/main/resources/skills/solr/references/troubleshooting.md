@@ -36,8 +36,8 @@ written for this case but may not reach you.
 
 - `Successfully indexed N of M` with N < M: some documents were rejected individually. See
   "Partial failures" in `references/indexing.md`.
-- `XML input must be a Solr <add> block containing <doc> elements; <x> is not accepted by this tool`:
-  the XML root is not `<add>`. Send documents only.
+- `XML input must be a Solr <add> block containing <doc> elements ...`: the payload is not a Solr
+  `<add>` block. Send documents only.
 - `Failed to parse XML document`: the XML is malformed, or carries a DOCTYPE, which is refused.
 - `Markdown input cannot be null or empty`: one of the array elements is blank.
 - A CSV or XML payload that Solr rejects returns Solr's error text. Fix the payload and re-send.
