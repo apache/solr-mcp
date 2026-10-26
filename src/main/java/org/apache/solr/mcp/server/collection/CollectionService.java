@@ -19,7 +19,6 @@ package org.apache.solr.mcp.server.collection;
 import static org.apache.solr.mcp.server.collection.CollectionUtils.getFloat;
 import static org.apache.solr.mcp.server.collection.CollectionUtils.getInteger;
 import static org.apache.solr.mcp.server.collection.CollectionUtils.getLong;
-import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
 import io.micrometer.observation.annotation.Observed;
 import io.modelcontextprotocol.spec.McpSchema.CompleteRequest;
@@ -127,6 +126,10 @@ import tools.jackson.databind.json.JsonMapper;
 public class CollectionService {
 
   private static final Logger logger = LoggerFactory.getLogger(CollectionService.class);
+
+  static final String COLLECTIONS_RESOURCE_ERROR =
+      "Failed to list Solr collections. Retry later; if it persists,"
+          + " ask the operator to check Solr availability and the server logs.";
 
   // ========================================
   // Constants for API Parameters and Paths
@@ -304,8 +307,8 @@ public class CollectionService {
    * available in the Solr cluster. The returned JSON contains an array of collection names.
    *
    * @return JSON string containing the list of collections
-   * @throws SolrServerException if there are errors communicating with Solr
-   * @throws IOException if there are I/O errors during communication
+   * @throws IllegalStateException with {@link #COLLECTIONS_RESOURCE_ERROR} if the collections
+   *     cannot be listed or serialized
    */
   @PreAuthorize("isAuthenticated()")
   @McpResource(
@@ -313,8 +316,16 @@ public class CollectionService {
       name = "solr-collections",
       description = "List of all Solr collections available in the cluster",
       mimeType = "application/json")
-  public String getCollectionsResource() throws SolrServerException, IOException {
-    return toJson(objectMapper, listCollections());
+  public String getCollectionsResource() {
+    try {
+      return objectMapper.writeValueAsString(listCollections());
+    } catch (Exception e) {
+      // Deliberately no cause: MCP reports the root cause's message to the client,
+      // and Solr and SolrJ failure text can carry internal host names, URLs and
+      // paths. The log is the sole record of the cause.
+      logger.error("Failed to list collections for the collections resource", e);
+      throw new IllegalStateException(COLLECTIONS_RESOURCE_ERROR);
+    }
   }
 
   /** Maximum number of completion suggestions returned per request. */

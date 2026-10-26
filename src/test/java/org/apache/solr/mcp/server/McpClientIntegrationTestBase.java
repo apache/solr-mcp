@@ -19,6 +19,7 @@ package org.apache.solr.mcp.server;
 import static org.junit.jupiter.api.Assertions.*;
 
 import io.modelcontextprotocol.client.McpSyncClient;
+import io.modelcontextprotocol.spec.McpError;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.CompleteRequest;
@@ -28,6 +29,7 @@ import io.modelcontextprotocol.spec.McpSchema.GetPromptRequest;
 import io.modelcontextprotocol.spec.McpSchema.GetPromptResult;
 import io.modelcontextprotocol.spec.McpSchema.PromptMessage;
 import io.modelcontextprotocol.spec.McpSchema.PromptReference;
+import io.modelcontextprotocol.spec.McpSchema.ReadResourceRequest;
 import io.modelcontextprotocol.spec.McpSchema.ResourceReference;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
@@ -1225,6 +1227,23 @@ public abstract class McpClientIntegrationTestBase {
     assertEquals(Boolean.TRUE, result.isError());
     assertTrue(extractText(result).contains("get-schema"), extractText(result));
     assertFalse(extractText(result).contains("Exception"), extractText(result));
+  }
+
+  @Test
+  @Order(45)
+  void schemaResourceFailureIsAnMcpErrorWithoutTheSolrUrl() {
+    // An unknown collection makes SolrJ raise "Error from server at <solr url>:
+    // ...".
+    McpError e =
+        assertThrows(
+            McpError.class,
+            () ->
+                mcpClient.readResource(
+                    new ReadResourceRequest("solr://no_such_collection_xyz/schema")));
+    String text = e.getMessage() + " " + e.getJsonRpcError();
+    assertTrue(text.contains("Failed to retrieve the schema"), text);
+    assertFalse(text.contains("Error from server"), text);
+    assertFalse(text.contains("http://") || text.contains("https://"), text);
   }
 
   private static String extractFirstMessageText(GetPromptResult result) {
