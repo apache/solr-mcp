@@ -135,9 +135,6 @@ public class CollectionService {
   /** Universal Solr query pattern to match all documents in a collection */
   private static final String ALL_DOCUMENTS_QUERY = "*:*";
 
-  /** Suffix pattern used to identify shard names in SolrCloud deployments */
-  private static final String SHARD_SUFFIX = "_shard";
-
   /**
    * Matches a SolrCloud shard/replica suffix at the end of a core name, e.g. {@code _shard1} or
    * {@code _shard1_replica_n1}. Anchored so that collection names merely containing "_shard" are
@@ -338,13 +335,13 @@ public class CollectionService {
   @PreAuthorize("isAuthenticated()")
   @McpComplete(uri = "solr://{collection}/schema")
   public List<String> completeCollection(CompleteRequest.CompleteArgument argument) {
-    if (argument == null || !"collection".equals(argument.name())) {
+    if (!"collection".equals(argument.name())) {
       return List.of();
     }
-    String prefix = argument.value() == null ? "" : argument.value().toLowerCase(Locale.ROOT);
+    String prefix = argument.value().toLowerCase(Locale.ROOT);
     try {
       return listCollections().stream()
-          .filter(c -> c != null && c.toLowerCase(Locale.ROOT).startsWith(prefix))
+          .filter(c -> c.toLowerCase(Locale.ROOT).startsWith(prefix))
           .sorted()
           .limit(MAX_COMPLETION_RESULTS)
           .toList();
@@ -675,7 +672,7 @@ public class CollectionService {
   }
 
   @SuppressWarnings("unchecked")
-  private @Nullable CacheInfo extractSingleCacheInfo(NamedList<Object> coreMetrics, String key) {
+  private @Nullable CacheInfo extractSingleCacheInfo(NamedList<?> coreMetrics, String key) {
     NamedList<Object> cache = (NamedList<Object>) coreMetrics.get(key);
     if (cache == null) {
       return null;
@@ -752,10 +749,10 @@ public class CollectionService {
    * collection is not enabled.
    *
    * @param stats the handler statistics to evaluate
-   * @return true if the stats are null or all handler types are null
+   * @return true if all handler types are null
    */
   private boolean isHandlerStatsEmpty(HandlerStats stats) {
-    return stats == null || (stats.selectHandler() == null && stats.updateHandler() == null);
+    return stats.selectHandler() == null && stats.updateHandler() == null;
   }
 
   /**
@@ -776,14 +773,14 @@ public class CollectionService {
     GenericSolrRequest request =
         new GenericSolrRequest(SolrRequest.METHOD.GET, ADMIN_METRICS_PATH, params);
 
-    NamedList<Object> response;
+    NamedList<?> response;
     try {
       response = solrClient.request(request);
     } catch (SolrServerException | IOException | SolrException e) {
       logger.debug("Cache/handler metrics unavailable for collection: {}", collection, e);
       return null;
     }
-    NamedList<Object> metrics = (NamedList<Object>) response.get(METRICS_KEY);
+    NamedList<?> metrics = (NamedList<?>) response.get(METRICS_KEY);
     if (metrics == null || metrics.size() == 0) {
       return null;
     }
@@ -833,7 +830,7 @@ public class CollectionService {
    * <p><strong>Extraction Logic:</strong>
    *
    * <ul>
-   *   <li>Detects shard patterns containing the {@value #SHARD_SUFFIX} suffix
+   *   <li>Detects a trailing {@code _shard<N>} or {@code _shard<N>_replica...} suffix
    *   <li>Returns the substring before the shard identifier
    *   <li>Returns the original string if no shard pattern is detected
    * </ul>
@@ -850,10 +847,6 @@ public class CollectionService {
    * @return the extracted collection name, or the original string if no shard pattern found
    */
   String extractCollectionName(String collectionOrShard) {
-    if (collectionOrShard == null || collectionOrShard.isEmpty()) {
-      return collectionOrShard;
-    }
-
     // Strip only a real SolrCloud shard/replica suffix. Matching a bare
     // "_shard" anywhere would truncate legitimate collection names such as
     // "orders_shard_archive" down to "orders".
@@ -965,7 +958,7 @@ public class CollectionService {
           @Nullable Integer replicationFactor)
       throws SolrServerException, IOException {
 
-    if (name == null || name.isBlank()) {
+    if (name.isBlank()) {
       throw new IllegalArgumentException(BLANK_COLLECTION_NAME_ERROR);
     }
 
@@ -1045,7 +1038,7 @@ public class CollectionService {
               description =
                   "Optional one-line description of what the collection is for (used only to ground the conversation).",
               required = false)
-          String purpose) {
+          @Nullable String purpose) {
     String purposeLine =
         (purpose == null || purpose.isBlank()) ? "" : "\nPurpose: %s\n".formatted(purpose.strip());
     return """

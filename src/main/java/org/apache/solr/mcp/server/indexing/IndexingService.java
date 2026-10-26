@@ -39,6 +39,7 @@ import org.apache.solr.common.util.ContentStreamBase;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
 import org.apache.solr.mcp.server.util.PromptNames;
 import org.apache.solr.mcp.server.util.PromptText;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.mcp.annotation.McpArg;
@@ -357,9 +358,6 @@ public class IndexingService {
                   "Markdown documents to index, one string per document, each optionally starting with YAML front matter")
           List<String> documents)
       throws IOException, SolrServerException {
-    if (documents == null) {
-      throw new IllegalArgumentException("documents cannot be null");
-    }
     List<SolrInputDocument> schemalessDoc = new ArrayList<>();
     for (String markdown : documents) {
       schemalessDoc.addAll(indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown));
@@ -564,7 +562,7 @@ public class IndexingService {
   private record IndexTool(String format, String name, String paramName, String payload) {}
 
   private static IndexTool resolveIndexTool(String format) {
-    String normalized = (format == null) ? "" : format.trim().toLowerCase();
+    String normalized = format.trim().toLowerCase();
     return switch (normalized) {
       case "json" ->
           new IndexTool(
@@ -615,7 +613,7 @@ public class IndexingService {
               description =
                   "Optional small sample of the input document(s) to ground field-shape decisions",
               required = false)
-          String sample) {
+          @Nullable String sample) {
     IndexTool indexTool = resolveIndexTool(format);
     String sampleSection =
         PromptText.optionalCodeBlock(

@@ -16,12 +16,15 @@
  */
 package org.apache.solr.mcp.server.collection;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import org.apache.solr.common.util.NamedList;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -32,7 +35,7 @@ class CollectionUtilsTest {
 
   @Test
   void testGetLong_withNullValue() {
-    NamedList<Object> namedList = new NamedList<>();
+    NamedList<@Nullable Object> namedList = new NamedList<>();
     namedList.add("nullKey", null);
 
     assertNull(CollectionUtils.getLong(namedList, "nullKey"));
@@ -119,7 +122,7 @@ class CollectionUtilsTest {
 
   @Test
   void testGetFloat_withNullValue() {
-    NamedList<Object> namedList = new NamedList<>();
+    NamedList<@Nullable Object> namedList = new NamedList<>();
     namedList.add("nullKey", null);
 
     assertNull(CollectionUtils.getFloat(namedList, "nullKey"));
@@ -145,7 +148,7 @@ class CollectionUtilsTest {
     NamedList<Object> namedList = new NamedList<>();
     namedList.add("floatKey", 123.45f);
 
-    assertEquals(123.45f, CollectionUtils.getFloat(namedList, "floatKey"), 0.001f);
+    assertThat(CollectionUtils.getFloat(namedList, "floatKey")).isCloseTo(123.45f, within(0.001f));
   }
 
   @Test
@@ -153,7 +156,8 @@ class CollectionUtilsTest {
     NamedList<Object> namedList = new NamedList<>();
     namedList.add("doubleKey", 123.456789);
 
-    assertEquals(123.456789f, CollectionUtils.getFloat(namedList, "doubleKey"), 0.001f);
+    assertThat(CollectionUtils.getFloat(namedList, "doubleKey"))
+        .isCloseTo(123.456789f, within(0.001f));
   }
 
   @Test
@@ -169,7 +173,7 @@ class CollectionUtilsTest {
     NamedList<Object> namedList = new NamedList<>();
     namedList.add("bigDecKey", new BigDecimal("123.45"));
 
-    assertEquals(123.45f, CollectionUtils.getFloat(namedList, "bigDecKey"), 0.001f);
+    assertThat(CollectionUtils.getFloat(namedList, "bigDecKey")).isCloseTo(123.45f, within(0.001f));
   }
 
   @Test
@@ -177,7 +181,7 @@ class CollectionUtilsTest {
     NamedList<Object> namedList = new NamedList<>();
     namedList.add("stringKey", "123.45");
 
-    assertEquals(123.45f, CollectionUtils.getFloat(namedList, "stringKey"), 0.001f);
+    assertThat(CollectionUtils.getFloat(namedList, "stringKey")).isCloseTo(123.45f, within(0.001f));
   }
 
   @Test
@@ -198,7 +202,7 @@ class CollectionUtilsTest {
 
   @Test
   void testGetInteger_withNullValue() {
-    NamedList<Object> namedList = new NamedList<>();
+    NamedList<@Nullable Object> namedList = new NamedList<>();
     namedList.add("nullKey", null);
 
     assertNull(CollectionUtils.getInteger(namedList, "nullKey"));
@@ -298,7 +302,8 @@ class CollectionUtilsTest {
     NamedList<Object> namedList = new NamedList<>();
     namedList.add("negativeKey", -123.45f);
 
-    assertEquals(-123.45f, CollectionUtils.getFloat(namedList, "negativeKey"), 0.001f);
+    assertThat(CollectionUtils.getFloat(namedList, "negativeKey"))
+        .isCloseTo(-123.45f, within(0.001f));
   }
 
   @Test

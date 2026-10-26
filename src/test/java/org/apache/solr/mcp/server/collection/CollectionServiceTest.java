@@ -39,6 +39,7 @@ import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.util.NamedList;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
@@ -116,15 +117,6 @@ class CollectionServiceTest {
 
     // Then
     assertEquals("simple_collection", result);
-  }
-
-  @Test
-  void extractCollectionName_WithNullInput_ShouldReturnNull() {
-    // When
-    String result = collectionService.extractCollectionName(null);
-
-    // Then
-    assertNull(result);
   }
 
   @Test
@@ -297,7 +289,6 @@ class CollectionServiceTest {
     assertNotNull(result);
     assertTrue(result.isHealthy());
     assertEquals(5000, result.responseTime());
-    assertTrue(result.responseTime() > 1000, "Should capture slow response time");
   }
 
   @Test
@@ -307,6 +298,7 @@ class CollectionServiceTest {
     SolrHealthStatus result = collectionService.checkHealth("error_collection");
 
     assertFalse(result.isHealthy());
+    assertNotNull(result.errorMessage());
     assertTrue(result.errorMessage().contains("Network error"));
     assertNull(result.responseTime());
   }
@@ -706,7 +698,6 @@ class CollectionServiceTest {
 
     HandlerStats emptyStats = new HandlerStats(null, null);
     assertTrue((boolean) method.invoke(collectionService, emptyStats));
-    assertTrue((boolean) method.invoke(collectionService, (HandlerStats) null));
 
     HandlerStats nonEmptyStats =
         new HandlerStats(new HandlerInfo(100L, null, null, null, null, null), null);
@@ -731,7 +722,7 @@ class CollectionServiceTest {
 
   @Test
   void listCollections_NullCollections() throws Exception {
-    NamedList<Object> response = new NamedList<>();
+    NamedList<@Nullable Object> response = new NamedList<>();
     response.add("collections", null);
 
     when(solrClient.request(any(), any())).thenReturn(response);
@@ -833,10 +824,6 @@ class CollectionServiceTest {
 
   private NamedList<Object> createMockSelectHandlerData(String collection) {
     return wrapInMetricsResponse(createSelectHandlerCoreMetrics(), collection);
-  }
-
-  private NamedList<Object> createMockUpdateHandlerData() {
-    return wrapInMetricsResponse(createUpdateHandlerCoreMetrics());
   }
 
   private NamedList<Object> wrapInMetricsResponse(NamedList<Object> coreMetrics) {
@@ -975,11 +962,11 @@ class CollectionServiceTest {
   }
 
   @Test
+  @SuppressWarnings("DataFlowIssue") // passes null on purpose to pin the SDK contract
   void completeCollection_NullValueRejectedAtSdkBoundary() {
     // Since MCP Java SDK 2.0, CompleteArgument's constructor rejects a null
-    // value (1.x and earlier accept it), so the
-    // CollectionService#completeCollection null-value branch is unreachable
-    // from a real MCP client. Document the SDK contract here.
+    // value (1.x and earlier accept it), so CollectionService#completeCollection
+    // does not null-check it. Pin the SDK contract here.
     assertThrows(
         IllegalArgumentException.class,
         () -> new CompleteRequest.CompleteArgument("collection", null));
@@ -1017,13 +1004,6 @@ class CollectionServiceTest {
 
     assertTrue(result.isEmpty());
     verify(spyService, never()).listCollections();
-  }
-
-  @Test
-  void completeCollection_WithNullArgument_ReturnsEmpty() {
-    List<String> result = collectionService.completeCollection(null);
-
-    assertTrue(result.isEmpty());
   }
 
   @Test

@@ -102,17 +102,6 @@ class SchemaServiceIntegrationTest {
   }
 
   @Test
-  void testGetSchema_NullCollection() {
-    // When/Then
-    assertThrows(
-        Exception.class,
-        () -> {
-          schemaService.getSchema(null);
-        },
-        "Getting schema with null collection should throw exception");
-  }
-
-  @Test
   void testGetSchema_EmptyCollection() {
     // When/Then
     assertThrows(
@@ -160,8 +149,8 @@ class SchemaServiceIntegrationTest {
     // Then - verify dynamic fields are accessible
     assertNotNull(schema.getDynamicFields(), "Dynamic fields should not be null");
 
-    // Most Solr schemas have some dynamic fields by default
-    assertTrue(schema.getDynamicFields().size() >= 0, "Dynamic fields should be a valid list");
+    // The _default configset defines dynamic fields such as *_s and *_i
+    assertFalse(schema.getDynamicFields().isEmpty(), "Dynamic fields should not be empty");
 
     // Check for common dynamic field patterns
     boolean hasStringDynamicField =
@@ -182,9 +171,6 @@ class SchemaServiceIntegrationTest {
 
     // Then - verify copy fields are accessible
     assertNotNull(schema.getCopyFields(), "Copy fields should not be null");
-
-    // Copy fields list can be empty, that's valid
-    assertTrue(schema.getCopyFields().size() >= 0, "Copy fields should be a valid list");
   }
 
   @Test

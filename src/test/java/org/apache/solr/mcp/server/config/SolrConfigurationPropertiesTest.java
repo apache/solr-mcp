@@ -74,6 +74,7 @@ class SolrConfigurationPropertiesTest {
 
   /** The binder passes null when the property is absent altogether. */
   @Test
+  @SuppressWarnings("DataFlowIssue") // passes null on purpose, as the binder does
   void rejectsAMissingUrl() {
     assertThatThrownBy(() -> new SolrConfigurationProperties(null, null, null))
         .isInstanceOf(IllegalArgumentException.class)

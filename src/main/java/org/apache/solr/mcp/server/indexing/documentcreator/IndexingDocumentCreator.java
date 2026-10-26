@@ -105,8 +105,8 @@ public class IndexingDocumentCreator {
       throws DocumentProcessingException {
 
     // Input validation
-    if (markdown == null || markdown.trim().isEmpty()) {
-      throw new DocumentProcessingException("Markdown input cannot be null or empty");
+    if (markdown.trim().isEmpty()) {
+      throw new DocumentProcessingException("Markdown input cannot be empty");
     }
 
     return markdownDocumentCreator.create(markdown);
