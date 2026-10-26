@@ -23,34 +23,30 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 /**
- * Installs the application's {@link OpenTelemetry} instance into the Logback
- * {@link OpenTelemetryAppender} so that log records are exported over OTLP.
+ * Installs the application's {@link OpenTelemetry} instance into the Logback {@link
+ * OpenTelemetryAppender} so that log records are exported over OTLP.
  *
- * <p>
- * Spring Boot 4 does not bundle the OpenTelemetry Logback appender, and the
- * appender needs programmatic access to an {@link OpenTelemetry} instance at
- * runtime — it cannot obtain one from the Spring context on its own. This
- * {@link InitializingBean} performs that one-time wiring once the
- * {@link OpenTelemetry} bean is available.
+ * <p>Spring Boot 4 does not bundle the OpenTelemetry Logback appender, and the appender needs
+ * programmatic access to an {@link OpenTelemetry} instance at runtime — it cannot obtain one from
+ * the Spring context on its own. This {@link InitializingBean} performs that one-time wiring once
+ * the {@link OpenTelemetry} bean is available.
  *
- * <p>
- * Active only in the {@code http} profile, where observability export is
- * enabled; the {@code stdio} transport keeps stdout clean for the MCP JSON-RPC
- * stream and does not export logs. Log records emitted before this bean
- * initializes are not exported via OTLP.
+ * <p>Active only in the {@code http} profile, where observability export is enabled; the {@code
+ * stdio} transport keeps stdout clean for the MCP JSON-RPC stream and does not export logs. Log
+ * records emitted before this bean initializes are not exported via OTLP.
  */
 @Component
 @Profile("http")
 class InstallOpenTelemetryAppender implements InitializingBean {
 
-	private final OpenTelemetry openTelemetry;
+  private final OpenTelemetry openTelemetry;
 
-	InstallOpenTelemetryAppender(OpenTelemetry openTelemetry) {
-		this.openTelemetry = openTelemetry;
-	}
+  InstallOpenTelemetryAppender(OpenTelemetry openTelemetry) {
+    this.openTelemetry = openTelemetry;
+  }
 
-	@Override
-	public void afterPropertiesSet() {
-		OpenTelemetryAppender.install(this.openTelemetry);
-	}
+  @Override
+  public void afterPropertiesSet() {
+    OpenTelemetryAppender.install(this.openTelemetry);
+  }
 }

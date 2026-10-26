@@ -25,43 +25,44 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for {@link BuildInfoReader}'s Docker image name resolution.
  *
- * <p>
- * The {@code solr.mcp.docker.image.tag.suffix} handling is otherwise exercised
- * only by {@code dockerIntegrationTest}, which regular CI never runs — that gap
- * is how PR #139 could silently drop the suffix and break the native image
- * matrix. These tests pin the contract in the default {@code test} task.
+ * <p>The {@code solr.mcp.docker.image.tag.suffix} handling is otherwise exercised only by {@code
+ * dockerIntegrationTest}, which regular CI never runs — that gap is how PR #139 could silently drop
+ * the suffix and break the native image matrix. These tests pin the contract in the default {@code
+ * test} task.
  */
 class BuildInfoReaderTest {
 
-	private static final String SUFFIX_PROPERTY = "solr.mcp.docker.image.tag.suffix";
+  private static final String SUFFIX_PROPERTY = "solr.mcp.docker.image.tag.suffix";
 
-	private String previousSuffix;
+  private String previousSuffix;
 
-	@BeforeEach
-	void captureSuffixProperty() {
-		previousSuffix = System.getProperty(SUFFIX_PROPERTY);
-		System.clearProperty(SUFFIX_PROPERTY);
-	}
+  @BeforeEach
+  void captureSuffixProperty() {
+    previousSuffix = System.getProperty(SUFFIX_PROPERTY);
+    System.clearProperty(SUFFIX_PROPERTY);
+  }
 
-	@AfterEach
-	void restoreSuffixProperty() {
-		if (previousSuffix == null) {
-			System.clearProperty(SUFFIX_PROPERTY);
-		} else {
-			System.setProperty(SUFFIX_PROPERTY, previousSuffix);
-		}
-	}
+  @AfterEach
+  void restoreSuffixProperty() {
+    if (previousSuffix == null) {
+      System.clearProperty(SUFFIX_PROPERTY);
+    } else {
+      System.setProperty(SUFFIX_PROPERTY, previousSuffix);
+    }
+  }
 
-	@Test
-	void plainImageNameWhenSuffixUnset() {
-		assertEquals(BuildInfoReader.getArtifact() + ":" + BuildInfoReader.getVersion(),
-				BuildInfoReader.getDockerImageName());
-	}
+  @Test
+  void plainImageNameWhenSuffixUnset() {
+    assertEquals(
+        BuildInfoReader.getArtifact() + ":" + BuildInfoReader.getVersion(),
+        BuildInfoReader.getDockerImageName());
+  }
 
-	@Test
-	void appendsSuffixPropertyToImageName() {
-		System.setProperty(SUFFIX_PROPERTY, "-native-stdio");
-		assertEquals(BuildInfoReader.getArtifact() + ":" + BuildInfoReader.getVersion() + "-native-stdio",
-				BuildInfoReader.getDockerImageName());
-	}
+  @Test
+  void appendsSuffixPropertyToImageName() {
+    System.setProperty(SUFFIX_PROPERTY, "-native-stdio");
+    assertEquals(
+        BuildInfoReader.getArtifact() + ":" + BuildInfoReader.getVersion() + "-native-stdio",
+        BuildInfoReader.getDockerImageName());
+  }
 }

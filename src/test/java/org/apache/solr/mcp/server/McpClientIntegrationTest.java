@@ -27,26 +27,23 @@ import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * MCP client integration test running against the server in HTTP mode. Boots
- * the full application with a real Solr container and exercises all MCP tools
- * via an HTTP transport.
+ * MCP client integration test running against the server in HTTP mode. Boots the full application
+ * with a real Solr container and exercises all MCP tools via an HTTP transport.
  */
 @SpringBootTest(
-		webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-		properties = {"http.security.enabled=false", "spring.docker.compose.enabled=false"})
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    properties = {"http.security.enabled=false", "spring.docker.compose.enabled=false"})
 @ActiveProfiles("http")
 @Import(TestcontainersConfiguration.class)
 @Tag("integration")
 @Testcontainers(disabledWithoutDocker = true)
 class McpClientIntegrationTest extends McpClientIntegrationTestBase {
 
-	@LocalServerPort
-	private int port;
+  @LocalServerPort private int port;
 
-	@Override
-	protected McpSyncClient createClient() {
-		var transport = HttpClientStreamableHttpTransport.builder("http://localhost:" + port).build();
-		return McpClient.sync(transport).build();
-	}
-
+  @Override
+  protected McpSyncClient createClient() {
+    var transport = HttpClientStreamableHttpTransport.builder("http://localhost:" + port).build();
+    return McpClient.sync(transport).build();
+  }
 }

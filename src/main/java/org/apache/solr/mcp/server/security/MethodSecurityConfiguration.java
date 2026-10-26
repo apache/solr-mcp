@@ -22,16 +22,14 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 
 /**
- * Configuration class that enables method-level security only when
- * http.security.enabled=true (or not set).
+ * Configuration class that enables method-level security only when http.security.enabled=true (or
+ * not set).
  *
- * <p>
- * This allows the application to run without authentication when
- * http.security.enabled=false, bypassing @PreAuthorize annotations.
+ * <p>This allows the application to run without authentication when http.security.enabled=false,
+ * bypassing @PreAuthorize annotations.
  */
 @Profile("http")
 @Configuration
 @ConditionalOnProperty(name = "http.security.enabled", havingValue = "true", matchIfMissing = true)
 @EnableMethodSecurity
-class MethodSecurityConfiguration {
-}
+class MethodSecurityConfiguration {}

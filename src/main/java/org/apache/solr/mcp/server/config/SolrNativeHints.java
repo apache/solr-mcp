@@ -34,20 +34,16 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ImportRuntimeHints;
 
 /**
- * GraalVM native image reachability hints for SolrJ types this project actually
- * uses.
+ * GraalVM native image reachability hints for SolrJ types this project actually uses.
  *
- * <p>
- * The project uses the JSON wire format (SolrJ {@code JsonResponseParser} on
- * {@code HttpJdkSolrClient}), avoiding the JavaBin/XML codec paths that
- * historically drive most SolrJ native-image issues. The hints below cover the
- * narrow remaining surface: response containers and the {@code NamedList} admin
- * shape returned by the mbeans path.
+ * <p>The project uses the JSON wire format (SolrJ {@code JsonResponseParser} on {@code
+ * HttpJdkSolrClient}), avoiding the JavaBin/XML codec paths that historically drive most SolrJ
+ * native-image issues. The hints below cover the narrow remaining surface: response containers and
+ * the {@code NamedList} admin shape returned by the mbeans path.
  *
- * <p>
- * This class is registered unconditionally — on the JVM path it is a no-op
- * because no runtime reflection happens against these types at startup. It is
- * only meaningful when running as a native image.
+ * <p>This class is registered unconditionally — on the JVM path it is a no-op because no runtime
+ * reflection happens against these types at startup. It is only meaningful when running as a native
+ * image.
  *
  * @see SolrConfig
  */
@@ -55,107 +51,131 @@ import org.springframework.context.annotation.ImportRuntimeHints;
 @ImportRuntimeHints(SolrNativeHints.Registrar.class)
 public class SolrNativeHints {
 
-	/** Default constructor used by Spring to instantiate this configuration. */
-	public SolrNativeHints() {
-	}
+  /** Default constructor used by Spring to instantiate this configuration. */
+  public SolrNativeHints() {}
 
-	/**
-	 * Record types used by {@code @McpTool} methods as responses or parameters.
-	 * Jackson needs reflection access to serialize responses and to bind request
-	 * parameters in native image. Registered by name because some are
-	 * package-private.
-	 */
-	private static final List<String> MCP_TOOL_RECORDS = List.of("org.apache.solr.mcp.server.collection.AliasResult",
-			"org.apache.solr.mcp.server.collection.CollectionCreationResult",
-			"org.apache.solr.mcp.server.collection.SolrHealthStatus",
-			"org.apache.solr.mcp.server.collection.SolrMetrics", "org.apache.solr.mcp.server.collection.IndexStats",
-			"org.apache.solr.mcp.server.collection.QueryStats", "org.apache.solr.mcp.server.collection.CacheStats",
-			"org.apache.solr.mcp.server.collection.CacheInfo", "org.apache.solr.mcp.server.collection.HandlerStats",
-			"org.apache.solr.mcp.server.collection.HandlerInfo", "org.apache.solr.mcp.server.search.SearchResponse",
-			"org.apache.solr.mcp.server.search.SortClause", "org.apache.solr.mcp.server.schema.SchemaUpdateResult");
+  /**
+   * Record types used by {@code @McpTool} methods as responses or parameters. Jackson needs
+   * reflection access to serialize responses and to bind request parameters in native image.
+   * Registered by name because some are package-private.
+   */
+  private static final List<String> MCP_TOOL_RECORDS =
+      List.of(
+          "org.apache.solr.mcp.server.collection.AliasResult",
+          "org.apache.solr.mcp.server.collection.CollectionCreationResult",
+          "org.apache.solr.mcp.server.collection.SolrHealthStatus",
+          "org.apache.solr.mcp.server.collection.SolrMetrics",
+          "org.apache.solr.mcp.server.collection.IndexStats",
+          "org.apache.solr.mcp.server.collection.QueryStats",
+          "org.apache.solr.mcp.server.collection.CacheStats",
+          "org.apache.solr.mcp.server.collection.CacheInfo",
+          "org.apache.solr.mcp.server.collection.HandlerStats",
+          "org.apache.solr.mcp.server.collection.HandlerInfo",
+          "org.apache.solr.mcp.server.search.SearchResponse",
+          "org.apache.solr.mcp.server.search.SortClause",
+          "org.apache.solr.mcp.server.schema.SchemaUpdateResult");
 
-	static class Registrar implements RuntimeHintsRegistrar {
-		@Override
-		public void registerHints(RuntimeHints hints, @Nullable ClassLoader classLoader) {
-			MemberCategory[] categories = {MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
-					MemberCategory.INVOKE_DECLARED_METHODS, MemberCategory.ACCESS_DECLARED_FIELDS};
+  static class Registrar implements RuntimeHintsRegistrar {
+    @Override
+    public void registerHints(RuntimeHints hints, @Nullable ClassLoader classLoader) {
+      MemberCategory[] categories = {
+        MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
+        MemberCategory.INVOKE_DECLARED_METHODS,
+        MemberCategory.ACCESS_DECLARED_FIELDS
+      };
 
-			// SolrJ response types
-			hints.reflection().registerType(QueryResponse.class, categories);
-			hints.reflection().registerType(UpdateResponse.class, categories);
-			hints.reflection().registerType(NamedList.class, categories);
-			hints.reflection().registerType(SimpleOrderedMap.class, categories);
-			hints.reflection().registerType(SolrDocument.class, categories);
-			hints.reflection().registerType(SolrDocumentList.class, categories);
+      // SolrJ response types
+      hints.reflection().registerType(QueryResponse.class, categories);
+      hints.reflection().registerType(UpdateResponse.class, categories);
+      hints.reflection().registerType(NamedList.class, categories);
+      hints.reflection().registerType(SimpleOrderedMap.class, categories);
+      hints.reflection().registerType(SolrDocument.class, categories);
+      hints.reflection().registerType(SolrDocumentList.class, categories);
 
-			// SolrJ input/indexing types
-			hints.reflection().registerType(SolrInputDocument.class, categories);
-			hints.reflection().registerType(SolrInputField.class, categories);
+      // SolrJ input/indexing types
+      hints.reflection().registerType(SolrInputDocument.class, categories);
+      hints.reflection().registerType(SolrInputField.class, categories);
 
-			// SolrJ facet types
-			hints.reflection().registerType(FacetField.class, categories);
-			hints.reflection().registerType(FacetField.Count.class, categories);
+      // SolrJ facet types
+      hints.reflection().registerType(FacetField.class, categories);
+      hints.reflection().registerType(FacetField.Count.class, categories);
 
-			// SolrJ / Solr API model types used by CoreAdminResponse.getCoreStatus()
-			// which deserializes via Jackson reflection.
-			for (String solrApiType : List.of("org.apache.solr.client.api.model.SolrJerseyResponse",
-					"org.apache.solr.client.api.model.SolrJerseyResponse$ResponseHeader",
-					"org.apache.solr.client.api.model.ErrorInfo", "org.apache.solr.client.api.model.CoreStatusResponse",
-					"org.apache.solr.client.api.model.CoreStatusResponse$SingleCoreData",
-					"org.apache.solr.client.api.model.CoreStatusResponse$CloudDetails",
-					"org.apache.solr.client.api.model.CoreStatusResponse$IndexDetails")) {
-				hints.reflection().registerTypeIfPresent(classLoader, solrApiType, categories);
-			}
+      // SolrJ / Solr API model types used by CoreAdminResponse.getCoreStatus()
+      // which deserializes via Jackson reflection.
+      for (String solrApiType :
+          List.of(
+              "org.apache.solr.client.api.model.SolrJerseyResponse",
+              "org.apache.solr.client.api.model.SolrJerseyResponse$ResponseHeader",
+              "org.apache.solr.client.api.model.ErrorInfo",
+              "org.apache.solr.client.api.model.CoreStatusResponse",
+              "org.apache.solr.client.api.model.CoreStatusResponse$SingleCoreData",
+              "org.apache.solr.client.api.model.CoreStatusResponse$CloudDetails",
+              "org.apache.solr.client.api.model.CoreStatusResponse$IndexDetails")) {
+        hints.reflection().registerTypeIfPresent(classLoader, solrApiType, categories);
+      }
 
-			// Spring AI MCP annotation internals — MetaUtils reflectively
-			// instantiates DefaultMetaProvider via its no-arg constructor.
-			hints.reflection().registerTypeIfPresent(classLoader,
-					"org.springframework.ai.mcp.annotation.context.DefaultMetaProvider", categories);
+      // Spring AI MCP annotation internals — MetaUtils reflectively
+      // instantiates DefaultMetaProvider via its no-arg constructor.
+      hints
+          .reflection()
+          .registerTypeIfPresent(
+              classLoader,
+              "org.springframework.ai.mcp.annotation.context.DefaultMetaProvider",
+              categories);
 
-			// SolrJ schema request types (needed for Jackson's convertValue in native
-			// image when add-field-types deserializes analyzer trees)
-			hints.reflection().registerType(org.apache.solr.client.solrj.request.schema.AnalyzerDefinition.class,
-					categories);
-			hints.reflection().registerType(org.apache.solr.client.solrj.request.schema.FieldTypeDefinition.class,
-					categories);
+      // SolrJ schema request types (needed for Jackson's convertValue in native
+      // image when add-field-types deserializes analyzer trees)
+      hints
+          .reflection()
+          .registerType(
+              org.apache.solr.client.solrj.request.schema.AnalyzerDefinition.class, categories);
+      hints
+          .reflection()
+          .registerType(
+              org.apache.solr.client.solrj.request.schema.FieldTypeDefinition.class, categories);
 
-			// SolrJ schema response type — returned by the get-schema MCP tool and
-			// serialized to JSON by Spring AI for MCP clients. Without reflection
-			// hints the JSON Spring AI produces in native image is missing the
-			// fields/fieldTypes/dynamicFields/copyFields arrays, which silently
-			// breaks any consumer that introspects the schema.
-			hints.reflection().registerType(org.apache.solr.client.solrj.response.schema.SchemaRepresentation.class,
-					categories);
+      // SolrJ schema response type — returned by the get-schema MCP tool and
+      // serialized to JSON by Spring AI for MCP clients. Without reflection
+      // hints the JSON Spring AI produces in native image is missing the
+      // fields/fieldTypes/dynamicFields/copyFields arrays, which silently
+      // breaks any consumer that introspects the schema.
+      hints
+          .reflection()
+          .registerType(
+              org.apache.solr.client.solrj.response.schema.SchemaRepresentation.class, categories);
 
-			// MCP tool request/response records (some package-private, registered by
-			// name); request records are deserialized reflectively by Jackson when
-			// tool arguments are bound
-			for (String className : MCP_TOOL_RECORDS) {
-				hints.reflection().registerTypeIfPresent(classLoader, className, categories);
-			}
+      // MCP tool request/response records (some package-private, registered by
+      // name); request records are deserialized reflectively by Jackson when
+      // tool arguments are bound
+      for (String className : MCP_TOOL_RECORDS) {
+        hints.reflection().registerTypeIfPresent(classLoader, className, categories);
+      }
 
-			// SolrJ EnvUtils loads these properties files in its static
-			// initializer; without them getResourceAsStream returns null
-			// and the <clinit> throws NullPointerException.
-			hints.resources().registerPattern("EnvToSyspropMappings.properties");
-			hints.resources().registerPattern("DeprecatedSystemPropertyMappings.properties");
+      // SolrJ EnvUtils loads these properties files in its static
+      // initializer; without them getResourceAsStream returns null
+      // and the <clinit> throws NullPointerException.
+      hints.resources().registerPattern("EnvToSyspropMappings.properties");
+      hints.resources().registerPattern("DeprecatedSystemPropertyMappings.properties");
 
-			// Older springaicommunity location of DefaultMetaProvider (Spring AI 1.x
-			// transitive). Spring AI 2.x relocated this to
-			// org.springframework.ai.mcp.annotation.context.DefaultMetaProvider,
-			// which is registered above. Kept defensively via registerTypeIfPresent
-			// so this is a no-op when the older class isn't on the classpath.
-			hints.reflection().registerTypeIfPresent(classLoader,
-					"org.springaicommunity.mcp.context.DefaultMetaProvider",
-					MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
+      // Older springaicommunity location of DefaultMetaProvider (Spring AI 1.x
+      // transitive). Spring AI 2.x relocated this to
+      // org.springframework.ai.mcp.annotation.context.DefaultMetaProvider,
+      // which is registered above. Kept defensively via registerTypeIfPresent
+      // so this is a no-op when the older class isn't on the classpath.
+      hints
+          .reflection()
+          .registerTypeIfPresent(
+              classLoader,
+              "org.springaicommunity.mcp.context.DefaultMetaProvider",
+              MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
 
-			// logback-spring.xml is the only logback configuration; Spring Boot
-			// resolves it by convention. Under AOT the parsed model is replayed
-			// from META-INF/spring/logback-model, so this hint is belt-and-braces
-			// for the non-AOT path. Logback's own pre-Spring status output is
-			// silenced by Main, not by a second configuration file; see
-			// LoggingConfigurationTest.
-			hints.resources().registerPattern("logback-spring.xml");
-		}
-	}
+      // logback-spring.xml is the only logback configuration; Spring Boot
+      // resolves it by convention. Under AOT the parsed model is replayed
+      // from META-INF/spring/logback-model, so this hint is belt-and-braces
+      // for the non-AOT path. Logback's own pre-Spring status output is
+      // silenced by Main, not by a second configuration file; see
+      // LoggingConfigurationTest.
+      hints.resources().registerPattern("logback-spring.xml");
+    }
+  }
 }
