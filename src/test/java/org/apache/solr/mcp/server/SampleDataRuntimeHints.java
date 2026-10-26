@@ -38,7 +38,7 @@ import org.springframework.test.context.aot.TestRuntimeHintsRegistrar;
  * It lives in test sources on purpose: {@code SolrNativeHints} is the production equivalent and
  * must not ship test fixture names in the application image.
  *
- * @see org.apache.solr.mcp.server.indexing.ShowsSampleDataIntegrationTest
+ * <p>Used by {@code indexing.ShowsSampleDataIntegrationTest}.
  */
 public class SampleDataRuntimeHints implements TestRuntimeHintsRegistrar {
 

@@ -32,6 +32,7 @@ import org.apache.solr.client.solrj.request.schema.FieldTypeDefinition;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
 import org.apache.solr.mcp.server.util.PromptNames;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.mcp.annotation.McpArg;
@@ -429,13 +430,13 @@ public class SchemaService {
   }
 
   private static void requireCollection(String collection) {
-    if (collection == null || collection.isBlank()) {
+    if (collection.isBlank()) {
       throw new IllegalArgumentException("Collection name must not be blank");
     }
   }
 
   private static void requireNonEmpty(List<?> list, String name) {
-    if (list == null || list.isEmpty()) {
+    if (list.isEmpty()) {
       throw new IllegalArgumentException(name + " must not be empty");
     }
   }
@@ -521,7 +522,7 @@ public class SchemaService {
               name = "sampleDocument",
               description = "Optional single document in JSON to ground field inference",
               required = false)
-          String sampleDocument) {
+          @Nullable String sampleDocument) {
     String sampleSection =
         optionalCodeBlock(
             sampleDocument,

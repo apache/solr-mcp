@@ -30,8 +30,6 @@ import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest.MultiUpdate;
-import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
-import org.apache.solr.client.solrj.response.schema.SchemaResponse;
 import org.apache.solr.common.util.NamedList;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,10 +51,6 @@ class SchemaServiceTest {
   @Mock private SolrClient solrClient;
 
   @Mock private ObjectMapper objectMapper;
-
-  @Mock private SchemaResponse schemaResponse;
-
-  @Mock private SchemaRepresentation schemaRepresentation;
 
   private SchemaService schemaService;
 
@@ -126,18 +120,6 @@ class SchemaServiceTest {
   }
 
   @Test
-  void testGetSchema_WithNullCollection() {
-    // Given a null collection name
-    // Then should throw an exception (NullPointerException or
-    // IllegalArgumentException)
-    assertThrows(
-        Exception.class,
-        () -> {
-          schemaService.getSchema(null);
-        });
-  }
-
-  @Test
   void testGetSchema_WithEmptyCollection() {
     // Given an empty collection name
     // Then should throw an exception
@@ -156,19 +138,7 @@ class SchemaServiceTest {
   }
 
   @Test
-  void testConstructor_WithNullClient() {
-    // Test constructor with null client
-    assertDoesNotThrow(
-        () -> {
-          new SchemaService(null, objectMapper);
-        });
-  }
-
-  @Test
   void addFields_blankCollection_throws() {
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> schemaService.addFields(null, List.of(Map.of("name", "x", "type", "string"))));
     assertThrows(
         IllegalArgumentException.class,
         () -> schemaService.addFields("", List.of(Map.of("name", "x", "type", "string"))));
@@ -179,7 +149,6 @@ class SchemaServiceTest {
 
   @Test
   void addFields_emptyList_throws() {
-    assertThrows(IllegalArgumentException.class, () -> schemaService.addFields("col", null));
     assertThrows(IllegalArgumentException.class, () -> schemaService.addFields("col", List.of()));
   }
 
@@ -228,11 +197,6 @@ class SchemaServiceTest {
         IllegalArgumentException.class,
         () ->
             schemaService.addFieldTypes(
-                null, List.of(Map.of("name", "x", "class", "solr.StrField"))));
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            schemaService.addFieldTypes(
                 "", List.of(Map.of("name", "x", "class", "solr.StrField"))));
     assertThrows(
         IllegalArgumentException.class,
@@ -243,7 +207,6 @@ class SchemaServiceTest {
 
   @Test
   void addFieldTypes_emptyList_throws() {
-    assertThrows(IllegalArgumentException.class, () -> schemaService.addFieldTypes("col", null));
     assertThrows(
         IllegalArgumentException.class, () -> schemaService.addFieldTypes("col", List.of()));
   }

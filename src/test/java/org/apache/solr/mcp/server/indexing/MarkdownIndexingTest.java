@@ -42,7 +42,7 @@ class MarkdownIndexingTest {
   @Autowired private IndexingDocumentCreator indexingDocumentCreator;
 
   @Test
-  void testCreateSchemalessDocumentsFromMarkdownWithFrontMatter() throws Exception {
+  void testCreateSchemalessDocumentsFromMarkdownWithFrontMatter() {
     // Given
     String markdown =
         """
@@ -89,7 +89,7 @@ class MarkdownIndexingTest {
   }
 
   @Test
-  void testFrontMatterTitleWinsOverFirstHeading() throws Exception {
+  void testFrontMatterTitleWinsOverFirstHeading() {
     // Given
     String markdown =
         """
@@ -111,7 +111,7 @@ class MarkdownIndexingTest {
   }
 
   @Test
-  void testCreateSchemalessDocumentsFromMarkdownWithoutFrontMatter() throws Exception {
+  void testCreateSchemalessDocumentsFromMarkdownWithoutFrontMatter() {
     // Given
     String markdown =
         """
@@ -141,7 +141,7 @@ class MarkdownIndexingTest {
   }
 
   @Test
-  void testPlainTextMarkdownWithoutHeadings() throws Exception {
+  void testPlainTextMarkdownWithoutHeadings() {
     // Given
     String markdown = "Just a plain paragraph of text without any structure.";
 
@@ -160,7 +160,7 @@ class MarkdownIndexingTest {
   }
 
   @Test
-  void testFrontMatterFieldNamesAreUsedAsGiven() throws Exception {
+  void testFrontMatterFieldNamesAreUsedAsGiven() {
     // Given
     String markdown =
         """
@@ -186,7 +186,7 @@ class MarkdownIndexingTest {
   }
 
   @Test
-  void testFrontMatterListValuesBecomeMultiValuedFields() throws Exception {
+  void testFrontMatterListValuesBecomeMultiValuedFields() {
     // Given
     String markdown =
         """
@@ -209,7 +209,7 @@ class MarkdownIndexingTest {
   }
 
   @Test
-  void testFrontMatterBlockListValuesBecomeMultiValuedFields() throws Exception {
+  void testFrontMatterBlockListValuesBecomeMultiValuedFields() {
     // Given
     String markdown =
         """
@@ -233,7 +233,7 @@ class MarkdownIndexingTest {
   }
 
   @Test
-  void testFrontMatterIdIsUsedAsDocumentId() throws Exception {
+  void testFrontMatterIdIsUsedAsDocumentId() {
     // Given
     String markdown =
         """
@@ -255,7 +255,7 @@ class MarkdownIndexingTest {
   }
 
   @Test
-  void testGeneratedIdIsStableForSameContent() throws Exception {
+  void testGeneratedIdIsStableForSameContent() {
     // Given
     String markdown = "# Stable\n\nSame content, same id.";
 
@@ -279,11 +279,11 @@ class MarkdownIndexingTest {
   void testEmptyMarkdownThrowsException() {
     assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(""))
         .isInstanceOf(DocumentProcessingException.class)
-        .hasMessageContaining("cannot be null or empty");
+        .hasMessageContaining("cannot be empty");
   }
 
   @Test
-  void testMarkdownFormattingIsStrippedFromContent() throws Exception {
+  void testMarkdownFormattingIsStrippedFromContent() {
     // Given
     String markdown =
         """

@@ -90,7 +90,7 @@ class JsonResponseParser extends ResponseParser {
   private static final String FACET_FIELDS_PATH = "facet_counts/facet_fields";
 
   @Override
-  public NamedList<Object> processResponse(InputStream body, String encoding) {
+  public NamedList<@Nullable Object> processResponse(InputStream body, String encoding) {
     try {
       return toNamedList(mapper.readTree(body), "");
     } catch (JacksonException e) {
@@ -99,8 +99,8 @@ class JsonResponseParser extends ResponseParser {
     }
   }
 
-  private SimpleOrderedMap<Object> toNamedList(JsonNode objectNode, String path) {
-    SimpleOrderedMap<Object> result = new SimpleOrderedMap<>();
+  private SimpleOrderedMap<@Nullable Object> toNamedList(JsonNode objectNode, String path) {
+    SimpleOrderedMap<@Nullable Object> result = new SimpleOrderedMap<>();
     objectNode
         .properties()
         .forEach(
@@ -150,7 +150,7 @@ class JsonResponseParser extends ResponseParser {
     if (isFlatNamedList(arrayNode)) {
       return flatArrayToNamedList(arrayNode);
     }
-    List<Object> list = new ArrayList<>(arrayNode.size());
+    List<@Nullable Object> list = new ArrayList<>(arrayNode.size());
     arrayNode.forEach(element -> list.add(convertValue(element, path)));
     return list;
   }
@@ -177,8 +177,8 @@ class JsonResponseParser extends ResponseParser {
     return true;
   }
 
-  private SimpleOrderedMap<Object> flatArrayToNamedList(JsonNode arrayNode) {
-    SimpleOrderedMap<Object> result = new SimpleOrderedMap<>();
+  private SimpleOrderedMap<@Nullable Object> flatArrayToNamedList(JsonNode arrayNode) {
+    SimpleOrderedMap<@Nullable Object> result = new SimpleOrderedMap<>();
     for (int i = 0; i < arrayNode.size(); i += 2) {
       // Values here are facet counts (scalars), never nested facet arrays.
       result.add(arrayNode.get(i).textValue(), convertValue(arrayNode.get(i + 1), ""));
@@ -210,7 +210,7 @@ class JsonResponseParser extends ResponseParser {
               JsonNode val = entry.getValue();
               if (val.isArray()) {
                 // Multi-valued field — always a plain list, never a flat NamedList
-                List<Object> values = new ArrayList<>(val.size());
+                List<@Nullable Object> values = new ArrayList<>(val.size());
                 val.forEach(v -> values.add(convertValue(v, "")));
                 doc.setField(entry.getKey(), values);
               } else {

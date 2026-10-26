@@ -157,7 +157,7 @@ record QueryStats(
     Long start,
 
     /** Highest relevance score among the returned documents */
-    Float maxScore) {}
+    @Nullable Float maxScore) {}
 
 /**
  * Solr cache utilization statistics across all cache types.

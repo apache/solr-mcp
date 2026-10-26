@@ -20,8 +20,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import io.micrometer.tracing.test.simple.SimpleTracer;
+import java.time.Instant;
 import java.util.concurrent.TimeUnit;
-import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.search.SearchService;
 import org.junit.jupiter.api.AfterEach;
@@ -71,8 +71,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class DistributedTracingTest {
 
   @Autowired private SearchService searchService;
-
-  @Autowired private SolrClient solrClient;
 
   @Autowired private SimpleTracer tracer;
 
@@ -218,7 +216,9 @@ class DistributedTracingTest {
               assertThat(spans)
                   .as("All spans should have start and end times")
                   .allMatch(
-                      span -> span.getStartTimestamp() != null && span.getEndTimestamp() != null);
+                      span ->
+                          span.getStartTimestamp().isAfter(Instant.EPOCH)
+                              && !span.getEndTimestamp().isBefore(span.getStartTimestamp()));
             });
   }
 }
