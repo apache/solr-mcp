@@ -38,7 +38,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Comprehensive test suite for the SchemaService class. Tests schema retrieval functionality with
@@ -50,7 +50,7 @@ class SchemaServiceTest {
 
   @Mock private SolrClient solrClient;
 
-  @Mock private ObjectMapper objectMapper;
+  @Mock private JsonMapper objectMapper;
 
   private SchemaService schemaService;
 
@@ -213,8 +213,8 @@ class SchemaServiceTest {
 
   @Test
   void addFieldTypes_happyPathWithAnalyzer_buildsCorrectFieldTypeDefinition() throws Exception {
-    // Use a real ObjectMapper so convertValue actually works
-    ObjectMapper realMapper = new ObjectMapper();
+    // Use a real JsonMapper so convertValue actually works
+    JsonMapper realMapper = JsonMapper.builder().build();
     SchemaService service = new SchemaService(solrClient, realMapper);
 
     List<Map<String, Object>> types =
@@ -244,7 +244,7 @@ class SchemaServiceTest {
 
   @Test
   void addFieldTypes_separateAnalyzers_buildsCorrectFieldTypeDefinition() throws Exception {
-    ObjectMapper realMapper = new ObjectMapper();
+    JsonMapper realMapper = JsonMapper.builder().build();
     SchemaService service = new SchemaService(solrClient, realMapper);
 
     List<Map<String, Object>> types =
@@ -284,7 +284,7 @@ class SchemaServiceTest {
 
   @Test
   void addFieldTypes_denseVectorField_noAnalyzer() throws Exception {
-    ObjectMapper realMapper = new ObjectMapper();
+    JsonMapper realMapper = JsonMapper.builder().build();
     SchemaService service = new SchemaService(solrClient, realMapper);
 
     List<Map<String, Object>> types =
@@ -310,7 +310,7 @@ class SchemaServiceTest {
 
   @Test
   void addFieldTypes_solrThrows_propagates() throws Exception {
-    ObjectMapper realMapper = new ObjectMapper();
+    JsonMapper realMapper = JsonMapper.builder().build();
     SchemaService service = new SchemaService(solrClient, realMapper);
 
     when(solrClient.request(any(SolrRequest.class), eq("col")))
@@ -331,7 +331,7 @@ class SchemaServiceTest {
    */
   @Test
   void addFieldTypes_analyzerWithOnlyClassKey_preservesClassInWireFormat() throws Exception {
-    ObjectMapper realMapper = new ObjectMapper();
+    JsonMapper realMapper = JsonMapper.builder().build();
     SchemaService service = new SchemaService(solrClient, realMapper);
 
     List<Map<String, Object>> types =

@@ -24,7 +24,7 @@ import org.apache.solr.common.SolrInputDocument;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Utility class for processing JSON documents and converting them to SolrInputDocument objects.
@@ -35,14 +35,14 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class JsonDocumentCreator implements SolrDocumentCreator {
 
-  private final ObjectMapper objectMapper;
+  private final JsonMapper objectMapper;
 
   /**
-   * Constructs the creator with the Jackson {@link ObjectMapper} used to parse incoming JSON.
+   * Constructs the creator with the Jackson {@link JsonMapper} used to parse incoming JSON.
    *
    * @param objectMapper the JSON parser injected by Spring
    */
-  public JsonDocumentCreator(ObjectMapper objectMapper) {
+  public JsonDocumentCreator(JsonMapper objectMapper) {
     this.objectMapper = objectMapper;
   }
 
