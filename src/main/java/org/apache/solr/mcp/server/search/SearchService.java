@@ -138,9 +138,6 @@ public class SearchService {
   static final String LIST_COLLECTIONS_HINT =
       ". Hint: call list-collections to see available collections.";
 
-  private static final String CONNECTION_ERROR =
-      "Search failed: unable to communicate with Solr. Retry later;"
-          + " if it persists, ask the operator to check Solr availability and connection settings.";
   private static final String RESPONSE_ERROR =
       "Search failed: unable to process the Solr response."
           + " If facetFields were supplied, call get-schema to check those fields or retry without facetFields;"
@@ -326,12 +323,6 @@ public class SearchService {
           documents.getNumFound(), documents.getStart(), documents.getMaxScore(), docs, facets);
     } catch (SolrException e) {
       throw withRemediationHint(e, collection);
-    } catch (SolrServerException e) {
-      logger.warn("Solr query failed on collection {}", collection, e);
-      throw new SolrServerException(CONNECTION_ERROR);
-    } catch (IOException e) {
-      logger.warn("Solr query failed on collection {}", collection, e);
-      throw new IOException(CONNECTION_ERROR);
     } catch (RuntimeException e) {
       // The client only sees RESPONSE_ERROR; the log is the sole record of the cause.
       logger.warn("Solr query response failed on collection {}", collection, e);
@@ -340,22 +331,21 @@ public class SearchService {
   }
 
   /**
-   * Wraps common Solr query failures with a next-step hint. MCP unwraps exception causes, so
-   * client-facing exceptions must omit the cause to preserve safe guidance; the original failure is
-   * logged for server-side diagnostics.
+   * Wraps common Solr query failures with a next-step hint. The client-facing exceptions omit the
+   * cause because the MCP tool error includes the root cause's message, and Solr's raw text can
+   * name internal URLs and paths; the original failure is logged for server-side diagnostics.
    *
    * @param e the Solr exception raised by the query
    * @param collection the collection that was queried
-   * @return an exception carrying safe guidance; never with a cause, which MCP would unwrap in
-   *     place of the guidance
+   * @return an exception carrying safe guidance; never with a cause, whose message would reach the
+   *     client
    */
   private static RuntimeException withRemediationHint(SolrException e, String collection) {
     final String message = String.valueOf(e.getMessage());
 
-    // Deliberately no cause on the exceptions below: the MCP annotation layer
-    // reports the ROOT cause's message as the tool error, so attaching the Solr
-    // failure would discard the guidance and the client would never see it. This
-    // log is therefore the only server-side record of the failure.
+    // Deliberately no cause on the exceptions below: the MCP tool error appends
+    // the root cause's message, which would put Solr's raw text in front of the
+    // client. This log is therefore the only server-side record of the failure.
     logger.warn("Solr query failed on collection {}", collection, e);
 
     // An unknown collection is a 404 whose body is Solr's HTML "not found" page,

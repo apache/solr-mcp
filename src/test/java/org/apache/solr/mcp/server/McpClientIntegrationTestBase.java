@@ -1233,6 +1233,70 @@ public abstract class McpClientIntegrationTestBase {
     assertFalse(extractText(result).contains("Exception"), extractText(result));
   }
 
+  @Test
+  @Order(41)
+  void xmlParseFailureIsAnActionableMcpToolError() {
+    var result =
+        mcpClient.callTool(
+            new CallToolRequest(
+                "index-xml-documents", Map.of("collection", COLLECTION, "xml", "not xml")));
+    String text = extractText(result);
+    assertEquals(Boolean.TRUE, result.isError(), text);
+    assertTrue(text.startsWith("Failed to parse XML document"), text);
+    // The second line is the parser's detail, which tells the model what to fix.
+    String[] lines = text.split("\\R", 2);
+    assertEquals(2, lines.length, text);
+    assertFalse(lines[1].isBlank(), text);
+  }
+
+  @Test
+  @Order(42)
+  void markdownFrontMatterFailureIsAnActionableMcpToolError() {
+    String markdown =
+        """
+        ---
+        title: [unclosed
+        ---
+        # Body
+        """;
+    var result =
+        mcpClient.callTool(
+            new CallToolRequest(
+                "index-markdown-documents",
+                Map.of("collection", COLLECTION, "documents", List.of(markdown))));
+    String text = extractText(result);
+    assertEquals(Boolean.TRUE, result.isError(), text);
+    assertTrue(text.contains("Failed to parse YAML front matter"), text);
+  }
+
+  @Test
+  @Order(43)
+  void unknownCollectionStatsIsAnActionableMcpToolError() {
+    var result =
+        mcpClient.callTool(
+            new CallToolRequest(
+                "get-collection-stats", Map.of("collection", "no_such_collection_xyz")));
+    String text = extractText(result);
+    assertEquals(Boolean.TRUE, result.isError(), text);
+    assertTrue(text.contains("list-collections"), text);
+    assertFalse(text.contains("Error from server"), text);
+  }
+
+  @Test
+  @Order(44)
+  void solrErrorReachesTheClientWithoutTheSolrUrl() {
+    // An unknown collection makes SolrJ raise a RemoteSolrException, whose message starts with
+    // "Error from server at <solr url>".
+    var result =
+        mcpClient.callTool(
+            new CallToolRequest("get-schema", Map.of("collection", "no_such_collection_xyz")));
+    String text = extractText(result);
+    assertEquals(Boolean.TRUE, result.isError(), text);
+    assertFalse(text.isBlank(), text);
+    assertFalse(text.contains("Error from server"), text);
+    assertFalse(text.contains("://"), text);
+  }
+
   private static String extractFirstMessageText(GetPromptResult result) {
     List<PromptMessage> messages = result.messages();
     assertFalse(messages.isEmpty(), "messages must not be empty");

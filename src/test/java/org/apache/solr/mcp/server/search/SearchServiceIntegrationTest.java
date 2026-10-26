@@ -257,7 +257,7 @@ class SearchServiceIntegrationTest {
     assertTrue(
         e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
         () -> "expected get-schema hint, got: " + e.getMessage());
-    assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+    assertNull(e.getCause(), "the client error must not carry Solr's raw text");
   }
 
   @Test
@@ -277,7 +277,7 @@ class SearchServiceIntegrationTest {
     assertTrue(
         e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
         () -> "expected get-schema hint, got: " + e.getMessage());
-    assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+    assertNull(e.getCause(), "the client error must not carry Solr's raw text");
   }
 
   /** Faceting words it differently: {@code undefined field: "name"}. */
@@ -298,7 +298,7 @@ class SearchServiceIntegrationTest {
     assertTrue(
         e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
         () -> "expected get-schema hint, got: " + e.getMessage());
-    assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+    assertNull(e.getCause(), "the client error must not carry Solr's raw text");
   }
 
   /**
@@ -315,7 +315,7 @@ class SearchServiceIntegrationTest {
     assertTrue(
         e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
         () -> "expected get-schema hint, got: " + e.getMessage());
-    assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+    assertNull(e.getCause(), "the client error must not carry Solr's raw text");
   }
 
   @Test
@@ -327,7 +327,7 @@ class SearchServiceIntegrationTest {
     assertTrue(
         e.getMessage().contains(SearchService.LUCENE_SYNTAX_HINT),
         () -> "expected Lucene syntax hint, got: " + e.getMessage());
-    assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+    assertNull(e.getCause(), "the client error must not carry Solr's raw text");
   }
 
   /**
@@ -346,7 +346,7 @@ class SearchServiceIntegrationTest {
     assertTrue(
         e.getMessage().contains(SearchService.LIST_COLLECTIONS_HINT),
         () -> "expected list-collections hint, got: " + e.getMessage());
-    assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+    assertNull(e.getCause(), "the client error must not carry Solr's raw text");
   }
 
   /**
@@ -364,7 +364,7 @@ class SearchServiceIntegrationTest {
     assertEquals(SolrException.ErrorCode.BAD_REQUEST.code, e.code());
     assertTrue(e.getMessage().contains("pagination"));
     assertTrue(e.getMessage().contains("get-schema"));
-    assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+    assertNull(e.getCause(), "the client error must not carry Solr's raw text");
   }
 
   /**
