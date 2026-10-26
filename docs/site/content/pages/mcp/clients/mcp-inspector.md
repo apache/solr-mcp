@@ -48,6 +48,9 @@ This starts the Inspector UI at `http://localhost:6274`.
         # Or Docker (local image — build first with ./gradlew jibDockerBuild)
         docker run -p 8080:8080 --rm \
             -e PROFILES=http \
+            -e OTEL_TRACES_URL=http://host.docker.internal:4318/v1/traces \
+            -e OTEL_METRICS_URL=http://host.docker.internal:4318/v1/metrics \
+            -e OTEL_LOGS_URL=http://host.docker.internal:4318/v1/logs \
             -e SOLR_URL=http://host.docker.internal:8983/solr/ \
             solr-mcp:latest
 
