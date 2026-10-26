@@ -22,15 +22,16 @@ plugins {
 
 rootProject.name = "solr-mcp"
 
-// GitHub Actions sets CI=true on every runner.
-val isCiBuild = providers.environmentVariable("CI").isPresent
-
 // Build scans go to the ASF's shared instance; https://infra.apache.org/gradle.html
 develocity {
     server = "https://develocity.apache.org"
     projectId = "solr-mcp"
 
     buildScan {
+        // GitHub Actions sets CI=true on every runner.
+        // Kept local to this block: a script-level val would be captured by the onlyIf lambda
+        // below as a script reference, which the configuration cache cannot serialize.
+        val isCiBuild = providers.environmentVariable("CI").isPresent
         uploadInBackground = !isCiBuild
 
         // Publish from CI, or locally when opted in with -Pscan, and only with an access key
