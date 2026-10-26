@@ -166,10 +166,6 @@ configurations {
     }
 }
 
-repositories {
-    mavenCentral()
-}
-
 dependencies {
 
     developmentOnly(libs.bundles.spring.boot.dev)
@@ -272,24 +268,25 @@ tasks.withType<Test> {
     }
 }
 
-tasks.register<Test>("unitTest") {
-    description = "Runs unit tests only (no Testcontainers)"
-    group = "verification"
+val unitTest =
+    tasks.register<Test>("unitTest") {
+        description = "Runs unit tests only (no Testcontainers)"
+        group = "verification"
 
-    useJUnitPlatform {
-        excludeTags("integration", "docker-integration")
+        useJUnitPlatform {
+            excludeTags("integration", "docker-integration")
+        }
+
+        testClassesDirs = sourceSets["test"].output.classesDirs
+        classpath = sourceSets["test"].runtimeClasspath
+
+        finalizedBy(tasks.jacocoTestReport)
+
+        reports {
+            html.outputLocation.set(layout.buildDirectory.dir("reports/unitTest"))
+            junitXml.outputLocation.set(layout.buildDirectory.dir("test-results/unitTest"))
+        }
     }
-
-    testClassesDirs = sourceSets["test"].output.classesDirs
-    classpath = sourceSets["test"].runtimeClasspath
-
-    finalizedBy(tasks.jacocoTestReport)
-
-    reports {
-        html.outputLocation.set(layout.buildDirectory.dir("reports/unitTest"))
-        junitXml.outputLocation.set(layout.buildDirectory.dir("test-results/unitTest"))
-    }
-}
 
 tasks.register<Test>("integrationTest") {
     description = "Runs Testcontainers-based integration tests"
@@ -302,7 +299,7 @@ tasks.register<Test>("integrationTest") {
     testClassesDirs = sourceSets["test"].output.classesDirs
     classpath = sourceSets["test"].runtimeClasspath
 
-    mustRunAfter(tasks.named("unitTest"))
+    mustRunAfter(unitTest)
     finalizedBy(tasks.jacocoTestReport)
 
     reports {
@@ -320,16 +317,14 @@ tasks.jacocoTestReport {
     }
     // Exclude docker integration tests from coverage
     classDirectories.setFrom(
-        files(
-            classDirectories.files.map {
-                fileTree(it) {
-                    exclude(
-                        "**/DockerImageStdioIntegrationTest*.class",
-                        "**/DockerImageHttpIntegrationTest*.class",
-                    )
-                }
-            },
-        ),
+        sourceSets.main.map {
+            it.output.classesDirs.asFileTree.matching {
+                exclude(
+                    "**/DockerImageStdioIntegrationTest*.class",
+                    "**/DockerImageHttpIntegrationTest*.class",
+                )
+            }
+        },
     )
 }
 
@@ -448,10 +443,17 @@ tasks.register<Test>("dockerIntegrationTest") {
     // Always run this task, don't use Gradle's up-to-date checking
     outputs.upToDateWhen { false }
 
+    // providers.exec (not ProcessBuilder) so the configuration cache tracks the probe
+    // as a build input; a missing docker binary makes it throw, which also means "unavailable".
     val dockerAvailable =
         try {
-            val process = ProcessBuilder("docker", "info").start()
-            process.waitFor() == 0
+            providers
+                .exec {
+                    commandLine("docker", "info")
+                    isIgnoreExitValue = true
+                }.result
+                .get()
+                .exitValue == 0
         } catch (e: Exception) {
             false
         }
@@ -466,7 +468,7 @@ tasks.register<Test>("dockerIntegrationTest") {
 
     if (dockerAvailable) {
         if (nativeBuild) {
-            dependsOn(tasks.named("bootBuildImage"))
+            dependsOn(tasks.bootBuildImage)
         } else {
             dependsOn(tasks.jibDockerBuild)
         }
@@ -535,18 +537,13 @@ tasks.register<Test>("dockerIntegrationTest") {
 jib {
     dockerClient {
         executable = System.getenv("DOCKER_EXECUTABLE")
-            ?: when {
-                org.gradle.internal.os.OperatingSystem
-                    .current()
-                    .isMacOsX -> "/usr/local/bin/docker"
-                org.gradle.internal.os.OperatingSystem
-                    .current()
-                    .isLinux -> "/usr/bin/docker"
-                org.gradle.internal.os.OperatingSystem
-                    .current()
-                    .isWindows ->
-                    "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe"
-                else -> "docker"
+            ?: System.getProperty("os.name").lowercase().let { os ->
+                when {
+                    "mac" in os -> "/usr/local/bin/docker"
+                    "linux" in os -> "/usr/bin/docker"
+                    "windows" in os -> "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe"
+                    else -> "docker"
+                }
             }
     }
     from {
@@ -589,7 +586,7 @@ jib {
     }
 }
 
-tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("bootBuildImage") {
+tasks.bootBuildImage {
     if (nativeBuild) {
         imageName.set("solr-mcp:$version-native-$nativeProfile")
         tags.set(listOf("solr-mcp:latest-native-$nativeProfile"))
