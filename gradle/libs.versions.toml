@@ -29,6 +29,8 @@ changelog-plugin = "2.5.0"
 spring-ai = "2.0.1"
 solr = "10.0.0"
 mcp-server-security = "0.1.14"
+# spring-ai-typesafe: the judge and its input types, for the opt-in evals (test classpath only)
+typesafe = "0.4.0"
 # MCP Java SDK. Spring AI 2.0.1 pulls 2.0.0 transitively; 2.0.1 fixes error
 # handling when a handler is not registered on a stateless server (our HTTP
 # profile), empty-completion handling for unmatched refs, and adds bounded
@@ -74,6 +76,10 @@ spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-te
 spring-ai-starter-mcp-server-webmvc = { module = "org.springframework.ai:spring-ai-starter-mcp-server-webmvc" }
 spring-ai-spring-boot-docker-compose = { module = "org.springframework.ai:spring-ai-spring-boot-docker-compose" }
 spring-ai-spring-boot-testcontainers = { module = "org.springframework.ai:spring-ai-spring-boot-testcontainers" }
+# Opt-in tool-selection evals (./gradlew eval); test classpath only
+spring-ai-starter-model-openai = { module = "org.springframework.ai:spring-ai-starter-model-openai" }
+spring-ai-starter-mcp-client = { module = "org.springframework.ai:spring-ai-starter-mcp-client" }
+typesafe-spring-ai = { module = "org.springaicommunity:typesafe-spring-ai", version.ref = "typesafe" }
 
 # MCP Java SDK (pinned ahead of what Spring AI 2.0.1 resolves; see [versions])
 mcp-bom = { module = "io.modelcontextprotocol.sdk:mcp-bom", version.ref = "mcp-sdk" }
@@ -144,6 +150,12 @@ test = [
     "jetty-http",
     "jetty-io",
     "jetty-util"
+]
+
+eval = [
+    "spring-ai-starter-model-openai",
+    "spring-ai-starter-mcp-client",
+    "typesafe-spring-ai"
 ]
 
 errorprone = [
