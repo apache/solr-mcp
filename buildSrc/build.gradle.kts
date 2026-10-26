@@ -22,12 +22,6 @@ plugins {
     `kotlin-dsl`
 }
 
-repositories {
-    mavenCentral()
-    // Hosts the Apache RAT plugin marker below — it is not published to Maven Central.
-    gradlePluginPortal()
-}
-
 dependencies {
     // Makes the Apache RAT plugin (id `org.nosphere.apache.rat`) available to the
     // `org.apache.solr.mcp.rat` convention plugin's `plugins {}` block. The version lives
@@ -48,4 +42,13 @@ dependencies {
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+}
+
+// Since Gradle 8 the root build asks buildSrc only for the jar it puts on the build script
+// classpath, so buildSrc's tests no longer run. Finalizing the jar with them brings them
+// back: any root invocation, `./gradlew build` included, fails when the license, NOTICE or
+// RAT tasks regress, and the tests are up to date unless buildSrc changed. It can't be
+// `dependsOn`: compiling the Kotlin tests needs the jar, which would be a cycle.
+tasks.jar {
+    finalizedBy(tasks.test)
 }

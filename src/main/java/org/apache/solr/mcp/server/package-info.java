@@ -17,12 +17,10 @@
 /**
  * Root package for the Solr MCP Server.
  *
- * <p>
- * Houses the Spring Boot entrypoint and the MCP tool, resource, prompt, and
- * completion handlers that expose Apache Solr to AI clients over the Model
- * Context Protocol. Subpackages group the implementations by concern:
- * {@code collection}, {@code indexing}, {@code schema}, {@code search}, and
- * {@code config}.
+ * <p>Houses the Spring Boot entrypoint and the MCP tool, resource, prompt, and completion handlers
+ * that expose Apache Solr to AI clients over the Model Context Protocol. Subpackages group the
+ * implementations by concern: {@code collection}, {@code indexing}, {@code schema}, {@code search},
+ * and {@code config}.
  */
 @NullMarked
 package org.apache.solr.mcp.server;

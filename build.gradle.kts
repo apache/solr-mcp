@@ -166,10 +166,6 @@ configurations {
     }
 }
 
-repositories {
-    mavenCentral()
-}
-
 dependencies {
 
     developmentOnly(libs.bundles.spring.boot.dev)
@@ -272,24 +268,25 @@ tasks.withType<Test> {
     }
 }
 
-tasks.register<Test>("unitTest") {
-    description = "Runs unit tests only (no Testcontainers)"
-    group = "verification"
+val unitTest =
+    tasks.register<Test>("unitTest") {
+        description = "Runs unit tests only (no Testcontainers)"
+        group = "verification"
 
-    useJUnitPlatform {
-        excludeTags("integration", "docker-integration")
+        useJUnitPlatform {
+            excludeTags("integration", "docker-integration")
+        }
+
+        testClassesDirs = sourceSets["test"].output.classesDirs
+        classpath = sourceSets["test"].runtimeClasspath
+
+        finalizedBy(tasks.jacocoTestReport)
+
+        reports {
+            html.outputLocation.set(layout.buildDirectory.dir("reports/unitTest"))
+            junitXml.outputLocation.set(layout.buildDirectory.dir("test-results/unitTest"))
+        }
     }
-
-    testClassesDirs = sourceSets["test"].output.classesDirs
-    classpath = sourceSets["test"].runtimeClasspath
-
-    finalizedBy(tasks.jacocoTestReport)
-
-    reports {
-        html.outputLocation.set(layout.buildDirectory.dir("reports/unitTest"))
-        junitXml.outputLocation.set(layout.buildDirectory.dir("test-results/unitTest"))
-    }
-}
 
 tasks.register<Test>("integrationTest") {
     description = "Runs Testcontainers-based integration tests"
@@ -302,7 +299,7 @@ tasks.register<Test>("integrationTest") {
     testClassesDirs = sourceSets["test"].output.classesDirs
     classpath = sourceSets["test"].runtimeClasspath
 
-    mustRunAfter(tasks.named("unitTest"))
+    mustRunAfter(unitTest)
     finalizedBy(tasks.jacocoTestReport)
 
     reports {
@@ -320,16 +317,14 @@ tasks.jacocoTestReport {
     }
     // Exclude docker integration tests from coverage
     classDirectories.setFrom(
-        files(
-            classDirectories.files.map {
-                fileTree(it) {
-                    exclude(
-                        "**/DockerImageStdioIntegrationTest*.class",
-                        "**/DockerImageHttpIntegrationTest*.class",
-                    )
-                }
-            },
-        ),
+        sourceSets.main.map {
+            it.output.classesDirs.asFileTree.matching {
+                exclude(
+                    "**/DockerImageStdioIntegrationTest*.class",
+                    "**/DockerImageHttpIntegrationTest*.class",
+                )
+            }
+        },
     )
 }
 
@@ -386,18 +381,8 @@ tasks.wrapper {
 spotless {
     java {
         target("src/**/*.java")
-        // Use Eclipse JDT formatter to avoid google-java-format's incompatibility
-        // with cutting-edge JDKs (e.g., 25) which can trigger NoSuchMethodError
-        // against internal javac classes. Override only the annotation-argument
-        // alignment so multi-arg @Mcp* annotations render one-arg-per-line.
-        // Pinned to the JDT version Spotless 7.0.2 defaulted to: Spotless 8's
-        // default JDT (4.39) collapses Javadoc <pre>{@code} blocks and folds
-        // @param/@see tags into the preceding paragraph.
-        eclipse("4.34").configFile("config/spotless/eclipse-java-formatter.properties")
-        removeUnusedImports()
-        trimTrailingWhitespace()
-        endWithNewline()
-        importOrder()
+        // Pinned so a Spotless upgrade cannot reformat the codebase on its own.
+        googleJavaFormat("1.35.0")
         formatAnnotations()
     }
     kotlinGradle {
@@ -422,10 +407,13 @@ spotless {
 // Gradle's own `project.version` (e.g. "1.0.0-SNAPSHOT") and fails with MissingVersionException
 // if neither is given.
 //
-// See the release process doc (apache/solr-mcp#157; will land as dev-docs/release-process.md)
-// for where this fits in an ASF release.
+// patchChangelog names the new section after `project.version`, so run it after the release
+// commit sets `version` above; `-Pversion=` does not work because this script assigns `version`.
+// versionPrefix matches the release tags (releases/solr-mcp/<x>) so the generated compare and
+// commits links resolve. See dev-docs/CHANGELOG_GUIDE.md and dev-docs/release-process.md.
 changelog {
     repositoryUrl = "https://github.com/apache/solr-mcp"
+    versionPrefix = "releases/solr-mcp/"
     groups = listOf("Added", "Changed", "Fixed", "Security")
 }
 
@@ -448,10 +436,17 @@ tasks.register<Test>("dockerIntegrationTest") {
     // Always run this task, don't use Gradle's up-to-date checking
     outputs.upToDateWhen { false }
 
+    // providers.exec (not ProcessBuilder) so the configuration cache tracks the probe
+    // as a build input; a missing docker binary makes it throw, which also means "unavailable".
     val dockerAvailable =
         try {
-            val process = ProcessBuilder("docker", "info").start()
-            process.waitFor() == 0
+            providers
+                .exec {
+                    commandLine("docker", "info")
+                    isIgnoreExitValue = true
+                }.result
+                .get()
+                .exitValue == 0
         } catch (e: Exception) {
             false
         }
@@ -466,7 +461,7 @@ tasks.register<Test>("dockerIntegrationTest") {
 
     if (dockerAvailable) {
         if (nativeBuild) {
-            dependsOn(tasks.named("bootBuildImage"))
+            dependsOn(tasks.bootBuildImage)
         } else {
             dependsOn(tasks.jibDockerBuild)
         }
@@ -535,18 +530,13 @@ tasks.register<Test>("dockerIntegrationTest") {
 jib {
     dockerClient {
         executable = System.getenv("DOCKER_EXECUTABLE")
-            ?: when {
-                org.gradle.internal.os.OperatingSystem
-                    .current()
-                    .isMacOsX -> "/usr/local/bin/docker"
-                org.gradle.internal.os.OperatingSystem
-                    .current()
-                    .isLinux -> "/usr/bin/docker"
-                org.gradle.internal.os.OperatingSystem
-                    .current()
-                    .isWindows ->
-                    "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe"
-                else -> "docker"
+            ?: System.getProperty("os.name").lowercase().let { os ->
+                when {
+                    "mac" in os -> "/usr/local/bin/docker"
+                    "linux" in os -> "/usr/bin/docker"
+                    "windows" in os -> "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe"
+                    else -> "docker"
+                }
             }
     }
     from {
@@ -589,7 +579,7 @@ jib {
     }
 }
 
-tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("bootBuildImage") {
+tasks.bootBuildImage {
     if (nativeBuild) {
         imageName.set("solr-mcp:$version-native-$nativeProfile")
         tags.set(listOf("solr-mcp:latest-native-$nativeProfile"))

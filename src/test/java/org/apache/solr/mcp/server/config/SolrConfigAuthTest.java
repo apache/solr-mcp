@@ -36,14 +36,11 @@ import org.springframework.util.ReflectionUtils;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Unit tests for the optional HTTP Basic Authentication wiring performed by
- * {@link SolrConfig}.
+ * Unit tests for the optional HTTP Basic Authentication wiring performed by {@link SolrConfig}.
  *
- * <p>
- * Verifies that credentials are only attached to the SolrJ client when both
- * {@code username} and {@code password} are provided, and that the resulting
- * {@code Authorization} header string matches the expected Basic scheme
- * encoding.
+ * <p>Verifies that credentials are only attached to the SolrJ client when both {@code username} and
+ * {@code password} are provided, and that the resulting {@code Authorization} header string matches
+ * the expected Basic scheme encoding.
  */
 @JsonTest
 // Reflects into SolrJ's private basicAuthAuthorizationStr field, which is not
@@ -52,40 +49,42 @@ import tools.jackson.databind.ObjectMapper;
 @DisabledInNativeImage
 class SolrConfigAuthTest {
 
-	@Autowired
-	private ObjectMapper objectMapper;
+  @Autowired private ObjectMapper objectMapper;
 
-	@Test
-	void noCredentialsWhenBothMissing() throws Exception {
-		assertNull(authorizationHeaderFor(null, null));
-	}
+  @Test
+  void noCredentialsWhenBothMissing() throws Exception {
+    assertNull(authorizationHeaderFor(null, null));
+  }
 
-	@ParameterizedTest
-	@CsvSource({"alice,", ",secret", "'',secret"})
-	void noCredentialsWhenEitherValueIsMissingOrBlank(String username, String password) throws Exception {
-		assertNull(authorizationHeaderFor(username, password));
-	}
+  @ParameterizedTest
+  @CsvSource({"alice,", ",secret", "'',secret"})
+  void noCredentialsWhenEitherValueIsMissingOrBlank(String username, String password)
+      throws Exception {
+    assertNull(authorizationHeaderFor(username, password));
+  }
 
-	@Test
-	void credentialsAppliedWhenBothProvided() throws Exception {
-		String header = authorizationHeaderFor("alice", "s3cret");
-		String expected = "Basic "
-				+ Base64.getEncoder().encodeToString("alice:s3cret".getBytes(StandardCharsets.UTF_8));
-		assertEquals(expected, header);
-	}
+  @Test
+  void credentialsAppliedWhenBothProvided() throws Exception {
+    String header = authorizationHeaderFor("alice", "s3cret");
+    String expected =
+        "Basic "
+            + Base64.getEncoder().encodeToString("alice:s3cret".getBytes(StandardCharsets.UTF_8));
+    assertEquals(expected, header);
+  }
 
-	private @org.jspecify.annotations.Nullable String authorizationHeaderFor(
-			@org.jspecify.annotations.Nullable String username, @org.jspecify.annotations.Nullable String password)
-			throws Exception {
-		SolrConfigurationProperties properties = new SolrConfigurationProperties("http://localhost:8983/solr/",
-				username, password);
-		SolrConfig config = new SolrConfig();
-		try (SolrClient client = config.solrClient(properties, new JsonResponseParser(objectMapper))) {
-			HttpJdkSolrClient httpClient = assertInstanceOf(HttpJdkSolrClient.class, client);
-			Field field = ReflectionUtils.findField(httpClient.getClass(), "basicAuthAuthorizationStr");
-			assertNotNull(field, "SolrJ field 'basicAuthAuthorizationStr' not found");
-			ReflectionUtils.makeAccessible(field);
-			return (String) ReflectionUtils.getField(field, httpClient);
-		}
-	}
+  private @org.jspecify.annotations.Nullable String authorizationHeaderFor(
+      @org.jspecify.annotations.Nullable String username,
+      @org.jspecify.annotations.Nullable String password)
+      throws Exception {
+    SolrConfigurationProperties properties =
+        new SolrConfigurationProperties("http://localhost:8983/solr/", username, password);
+    SolrConfig config = new SolrConfig();
+    try (SolrClient client = config.solrClient(properties, new JsonResponseParser(objectMapper))) {
+      HttpJdkSolrClient httpClient = assertInstanceOf(HttpJdkSolrClient.class, client);
+      Field field = ReflectionUtils.findField(httpClient.getClass(), "basicAuthAuthorizationStr");
+      assertNotNull(field, "SolrJ field 'basicAuthAuthorizationStr' not found");
+      ReflectionUtils.makeAccessible(field);
+      return (String) ReflectionUtils.getField(field, httpClient);
+    }
+  }
 }

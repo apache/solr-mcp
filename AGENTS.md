@@ -397,7 +397,8 @@ See [infra.apache.org/licensing-howto](https://infra.apache.org/licensing-howto.
   `build.gradle.kts` only applies the plugin. The tasks are unit-tested in
   `buildSrc/src/test/kotlin/.../LicenseNoticeTasksTest.kt` (appendix listing, SBOM
   name/URL handling, the completeness gate, and NOTICE de-duplication); `buildSrc`'s
-  `test` runs as part of `./gradlew build`.
+  `test` runs as part of `./gradlew build`, because `buildSrc/build.gradle.kts` finalizes its
+  `jar` with `test` (Gradle 8+ otherwise builds only the jar the root build needs).
 
 ## Testing Structure
 

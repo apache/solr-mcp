@@ -29,24 +29,27 @@ import tools.jackson.databind.json.JsonMapper;
 @JsonTest
 class SolrConfigUrlNormalizationTest {
 
-	@Autowired
-	private JsonMapper jsonMapper;
+  @Autowired private JsonMapper jsonMapper;
 
-	@ParameterizedTest
-	@CsvSource({"http://localhost:8983, http://localhost:8983/solr",
-			"http://localhost:8983/, http://localhost:8983/solr",
-			"http://localhost:8983/solr, http://localhost:8983/solr",
-			"http://localhost:8983/solr/, http://localhost:8983/solr",
-			"http://localhost:8983/custom/solr/, http://localhost:8983/custom/solr"})
-	void testUrlNormalization(String inputUrl, String expectedUrl) throws Exception {
-		SolrConfigurationProperties testProperties = new SolrConfigurationProperties(inputUrl, null, null);
-		SolrConfig solrConfig = new SolrConfig();
+  @ParameterizedTest
+  @CsvSource({
+    "http://localhost:8983, http://localhost:8983/solr",
+    "http://localhost:8983/, http://localhost:8983/solr",
+    "http://localhost:8983/solr, http://localhost:8983/solr",
+    "http://localhost:8983/solr/, http://localhost:8983/solr",
+    "http://localhost:8983/custom/solr/, http://localhost:8983/custom/solr"
+  })
+  void testUrlNormalization(String inputUrl, String expectedUrl) throws Exception {
+    SolrConfigurationProperties testProperties =
+        new SolrConfigurationProperties(inputUrl, null, null);
+    SolrConfig solrConfig = new SolrConfig();
 
-		try (SolrClient client = solrConfig.solrClient(testProperties, new JsonResponseParser(jsonMapper))) {
-			assertNotNull(client);
+    try (SolrClient client =
+        solrConfig.solrClient(testProperties, new JsonResponseParser(jsonMapper))) {
+      assertNotNull(client);
 
-			var httpClient = assertInstanceOf(HttpJdkSolrClient.class, client);
-			assertEquals(expectedUrl, httpClient.getBaseURL());
-		}
-	}
+      var httpClient = assertInstanceOf(HttpJdkSolrClient.class, client);
+      assertEquals(expectedUrl, httpClient.getBaseURL());
+    }
+  }
 }

@@ -25,37 +25,37 @@ import org.testcontainers.utility.DockerImageName;
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfiguration {
 
-	private static final int SOLR_PORT = 8983;
+  private static final int SOLR_PORT = 8983;
 
-	private static final String SOLR_IMAGE_PROPERTY = "solr.test.image";
+  private static final String SOLR_IMAGE_PROPERTY = "solr.test.image";
 
-	/**
-	 * The Solr image under test: pinned in gradle/libs.versions.toml as
-	 * test-image-solr; -Dsolr.test.image overrides it for a single run (e.g. the
-	 * Solr compatibility matrix in CI).
-	 */
-	public static String solrImage() {
-		return System.getProperty(SOLR_IMAGE_PROPERTY, "solr:9.9.0-slim");
-	}
+  /**
+   * The Solr image under test: pinned in gradle/libs.versions.toml as test-image-solr;
+   * -Dsolr.test.image overrides it for a single run (e.g. the Solr compatibility matrix in CI).
+   */
+  public static String solrImage() {
+    return System.getProperty(SOLR_IMAGE_PROPERTY, "solr:9.9.0-slim");
+  }
 
-	/**
-	 * Major version of the Solr image under test, read from its tag
-	 * ({@code solr:10-slim} is 10, {@code solr:9.4-slim} is 9), for tests whose
-	 * expected outcome differs by Solr version.
-	 */
-	public static int solrMajorVersion() {
-		String tag = DockerImageName.parse(solrImage()).getVersionPart();
-		return Integer.parseInt(tag.split("[.-]", 2)[0]);
-	}
+  /**
+   * Major version of the Solr image under test, read from its tag ({@code solr:10-slim} is 10,
+   * {@code solr:9.4-slim} is 9), for tests whose expected outcome differs by Solr version.
+   */
+  public static int solrMajorVersion() {
+    String tag = DockerImageName.parse(solrImage()).getVersionPart();
+    return Integer.parseInt(tag.split("[.-]", 2)[0]);
+  }
 
-	@Bean
-	SolrContainer solr() {
-		return new SolrContainer(DockerImageName.parse(solrImage()));
-	}
+  @Bean
+  SolrContainer solr() {
+    return new SolrContainer(DockerImageName.parse(solrImage()));
+  }
 
-	@Bean
-	DynamicPropertyRegistrar propertiesRegistrar(SolrContainer solr) {
-		return registry -> registry.add("solr.url",
-				() -> "http://" + solr.getHost() + ":" + solr.getMappedPort(SOLR_PORT) + "/solr/");
-	}
+  @Bean
+  DynamicPropertyRegistrar propertiesRegistrar(SolrContainer solr) {
+    return registry ->
+        registry.add(
+            "solr.url",
+            () -> "http://" + solr.getHost() + ":" + solr.getMappedPort(SOLR_PORT) + "/solr/");
+  }
 }

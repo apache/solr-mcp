@@ -27,59 +27,67 @@ import org.springframework.aot.hint.TypeReference;
 import org.springframework.aot.hint.predicate.RuntimeHintsPredicates;
 
 /**
- * Verifies that {@link SolrNativeHints.Registrar} registers the reflection and
- * resource hints the native image depends on.
+ * Verifies that {@link SolrNativeHints.Registrar} registers the reflection and resource hints the
+ * native image depends on.
  *
- * <p>
- * The hints are otherwise only exercised by {@code nativeTest -Pnative} (a full
- * GraalVM build), so an accidentally removed registration would surface as a
- * hard-to-diagnose native-only startup failure. This test pins the
- * registrations on the plain JVM path where a regression fails in seconds.
+ * <p>The hints are otherwise only exercised by {@code nativeTest -Pnative} (a full GraalVM build),
+ * so an accidentally removed registration would surface as a hard-to-diagnose native-only startup
+ * failure. This test pins the registrations on the plain JVM path where a regression fails in
+ * seconds.
  */
 class SolrNativeHintsTest {
 
-	private final RuntimeHints hints = new RuntimeHints();
+  private final RuntimeHints hints = new RuntimeHints();
 
-	@BeforeEach
-	void registerHints() {
-		new SolrNativeHints.Registrar().registerHints(hints, getClass().getClassLoader());
-	}
+  @BeforeEach
+  void registerHints() {
+    new SolrNativeHints.Registrar().registerHints(hints, getClass().getClassLoader());
+  }
 
-	@Test
-	void registersDefaultMetaProviderConstructorHint() {
-		// Spring AI MCP instantiates DefaultMetaProvider reflectively in
-		// MetaUtils.getMeta(); without this hint every Spring context refresh
-		// fails in native image with "Required no-arg constructor not found".
-		// Spring AI 2.x moved the class out of the springaicommunity package and
-		// into Spring AI core, so this pins the current coordinate — the legacy
-		// org.springaicommunity.mcp.context name is still registered defensively
-		// in the Registrar, but registerTypeIfPresent no-ops when, as here, the
-		// class is absent from the classpath.
-		assertTrue(RuntimeHintsPredicates.reflection()
-				.onType(TypeReference.of("org.springframework.ai.mcp.annotation.context.DefaultMetaProvider"))
-				.withMemberCategory(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS).test(hints));
-	}
+  @Test
+  void registersDefaultMetaProviderConstructorHint() {
+    // Spring AI MCP instantiates DefaultMetaProvider reflectively in
+    // MetaUtils.getMeta(); without this hint every Spring context refresh
+    // fails in native image with "Required no-arg constructor not found".
+    // Spring AI 2.x moved the class out of the springaicommunity package and
+    // into Spring AI core, so this pins the current coordinate — the legacy
+    // org.springaicommunity.mcp.context name is still registered defensively
+    // in the Registrar, but registerTypeIfPresent no-ops when, as here, the
+    // class is absent from the classpath.
+    assertTrue(
+        RuntimeHintsPredicates.reflection()
+            .onType(
+                TypeReference.of(
+                    "org.springframework.ai.mcp.annotation.context.DefaultMetaProvider"))
+            .withMemberCategory(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS)
+            .test(hints));
+  }
 
-	@Test
-	void registersSolrjResponseTypeHints() {
-		assertTrue(
-				RuntimeHintsPredicates.reflection().onType(QueryResponse.class)
-						.withMemberCategories(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
-								MemberCategory.INVOKE_DECLARED_METHODS, MemberCategory.ACCESS_DECLARED_FIELDS)
-						.test(hints));
-	}
+  @Test
+  void registersSolrjResponseTypeHints() {
+    assertTrue(
+        RuntimeHintsPredicates.reflection()
+            .onType(QueryResponse.class)
+            .withMemberCategories(
+                MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
+                MemberCategory.INVOKE_DECLARED_METHODS,
+                MemberCategory.ACCESS_DECLARED_FIELDS)
+            .test(hints));
+  }
 
-	@Test
-	void registersMcpResponseRecordHints() {
-		assertTrue(RuntimeHintsPredicates.reflection()
-				.onType(TypeReference.of("org.apache.solr.mcp.server.search.SearchResponse"))
-				.withMemberCategory(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS).test(hints));
-	}
+  @Test
+  void registersMcpResponseRecordHints() {
+    assertTrue(
+        RuntimeHintsPredicates.reflection()
+            .onType(TypeReference.of("org.apache.solr.mcp.server.search.SearchResponse"))
+            .withMemberCategory(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS)
+            .test(hints));
+  }
 
-	@Test
-	void registersLogbackSpringXmlResourceHint() {
-		// The configuration Spring Boot loads by convention; it carries the
-		// per-profile appenders and must survive AOT.
-		assertTrue(RuntimeHintsPredicates.resource().forResource("logback-spring.xml").test(hints));
-	}
+  @Test
+  void registersLogbackSpringXmlResourceHint() {
+    // The configuration Spring Boot loads by convention; it carries the
+    // per-profile appenders and must survive AOT.
+    assertTrue(RuntimeHintsPredicates.resource().forResource("logback-spring.xml").test(hints));
+  }
 }

@@ -29,28 +29,34 @@ import org.testcontainers.utility.DockerImageName;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * MCP client integration test running against the server in STDIO mode. Spawns
- * the application jar as a subprocess using {@link StdioClientTransport} and
- * exercises all MCP tools via the stdio JSON-RPC protocol.
+ * MCP client integration test running against the server in STDIO mode. Spawns the application jar
+ * as a subprocess using {@link StdioClientTransport} and exercises all MCP tools via the stdio
+ * JSON-RPC protocol.
  */
 @Tag("integration")
 @Testcontainers(disabledWithoutDocker = true)
 class McpClientStdioIntegrationTest extends McpClientIntegrationTestBase {
 
-	@Container
-	static final SolrContainer solrContainer = new SolrContainer(
-			DockerImageName.parse(System.getProperty("solr.test.image", "solr:9.9-slim")));
+  @Container
+  static final SolrContainer solrContainer =
+      new SolrContainer(
+          DockerImageName.parse(System.getProperty("solr.test.image", "solr:9.9-slim")));
 
-	@Override
-	protected McpSyncClient createClient() {
-		String solrUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/";
-		String jarPath = "build/libs/" + BuildInfoReader.getJarFileName();
+  @Override
+  protected McpSyncClient createClient() {
+    String solrUrl =
+        "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/";
+    String jarPath = "build/libs/" + BuildInfoReader.getJarFileName();
 
-		var params = ServerParameters.builder("java").args("-jar", jarPath).addEnvVar("SOLR_URL", solrUrl)
-				.addEnvVar("SPRING_DOCKER_COMPOSE_ENABLED", "false").build();
+    var params =
+        ServerParameters.builder("java")
+            .args("-jar", jarPath)
+            .addEnvVar("SOLR_URL", solrUrl)
+            .addEnvVar("SPRING_DOCKER_COMPOSE_ENABLED", "false")
+            .build();
 
-		var transport = new StdioClientTransport(params, new JacksonMcpJsonMapper(JsonMapper.builder().build()));
-		return McpClient.sync(transport).build();
-	}
-
+    var transport =
+        new StdioClientTransport(params, new JacksonMcpJsonMapper(JsonMapper.builder().build()));
+    return McpClient.sync(transport).build();
+  }
 }

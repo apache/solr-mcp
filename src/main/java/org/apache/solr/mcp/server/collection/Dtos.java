@@ -38,33 +38,24 @@ import org.jspecify.annotations.Nullable;
  *   <li>Immutable data structures using Java records
  *   <li>ISO 8601 timestamp formatting for consistent date serialization
  * </ul>
- *
  */
 
 /**
  * Top-level container for comprehensive Solr collection metrics.
  *
- * <p>
- * This class aggregates various types of Solr performance and operational
- * metrics including index statistics, query performance, cache utilization, and
- * request handler metrics. It serves as the primary response object for
- * collection monitoring and analysis tools.
+ * <p>This class aggregates various types of Solr performance and operational metrics including
+ * index statistics, query performance, cache utilization, and request handler metrics. It serves as
+ * the primary response object for collection monitoring and analysis tools.
  *
- * <p>
- * The metrics are collected from multiple Solr admin endpoints and MBeans to
- * provide a comprehensive view of collection health and performance
- * characteristics.
+ * <p>The metrics are collected from multiple Solr admin endpoints and MBeans to provide a
+ * comprehensive view of collection health and performance characteristics.
  *
- * <p>
- * <strong>Null-Safe Design:</strong>
+ * <p><strong>Null-Safe Design:</strong>
  *
- * <p>
- * Individual metric components (cache stats, handler stats) may be null if the
- * corresponding data is unavailable or empty. Always check for null values
- * before accessing nested properties.
+ * <p>Individual metric components (cache stats, handler stats) may be null if the corresponding
+ * data is unavailable or empty. Always check for null values before accessing nested properties.
  *
- * <p>
- * <strong>Example usage:</strong>
+ * <p><strong>Example usage:</strong>
  *
  * <pre>{@code
  * SolrMetrics metrics = collectionService.getCollectionStats("my_collection");
@@ -84,320 +75,260 @@ import org.jspecify.annotations.Nullable;
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record SolrMetrics(
-		/**
-		 * Index-related statistics including document counts and segment information
-		 */
-		IndexStats indexStats,
+    /** Index-related statistics including document counts and segment information */
+    IndexStats indexStats,
 
-		/** Query performance metrics from the most recent search operations */
-		QueryStats queryStats,
+    /** Query performance metrics from the most recent search operations */
+    QueryStats queryStats,
 
-		/**
-		 * Cache utilization statistics for query result, document, and filter caches
-		 * (may be null)
-		 */
-		@Nullable CacheStats cacheStats,
+    /** Cache utilization statistics for query result, document, and filter caches (may be null) */
+    @Nullable CacheStats cacheStats,
 
-		/**
-		 * Request handler performance metrics for select and update operations (may be
-		 * null)
-		 */
-		@Nullable HandlerStats handlerStats,
+    /** Request handler performance metrics for select and update operations (may be null) */
+    @Nullable HandlerStats handlerStats,
 
-		/** Timestamp when these metrics were collected, formatted as ISO 8601 */
-		@JsonFormat(shape = JsonFormat.Shape.STRING) Instant timestamp) {
-}
+    /** Timestamp when these metrics were collected, formatted as ISO 8601 */
+    @JsonFormat(shape = JsonFormat.Shape.STRING) Instant timestamp) {}
 
 /**
  * Lucene index statistics for a Solr collection.
  *
- * <p>
- * Provides essential information about the underlying Lucene index structure
- * and document composition. These metrics are retrieved using Solr's Luke
- * request handler which exposes Lucene-level index information.
+ * <p>Provides essential information about the underlying Lucene index structure and document
+ * composition. These metrics are retrieved using Solr's Luke request handler which exposes
+ * Lucene-level index information.
  *
- * <p>
- * <strong>Available Metrics:</strong>
+ * <p><strong>Available Metrics:</strong>
  *
  * <ul>
- * <li><strong>numDocs</strong>: Total number of documents excluding deleted
- * documents
- * <li><strong>segmentCount</strong>: Number of Lucene segments (affects search
- * performance)
+ *   <li><strong>numDocs</strong>: Total number of documents excluding deleted documents
+ *   <li><strong>segmentCount</strong>: Number of Lucene segments (affects search performance)
  * </ul>
  *
- * <p>
- * <strong>Performance Implications:</strong>
+ * <p><strong>Performance Implications:</strong>
  *
- * <p>
- * High segment counts may indicate the need for index optimization to improve
- * search performance. The optimal segment count depends on index size and
- * update frequency.
+ * <p>High segment counts may indicate the need for index optimization to improve search
+ * performance. The optimal segment count depends on index size and update frequency.
  *
  * @see org.apache.solr.client.solrj.request.LukeRequest
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record IndexStats(
-		/** Total number of documents in the index (excluding deleted documents) */
-		@Nullable Integer numDocs,
+    /** Total number of documents in the index (excluding deleted documents) */
+    @Nullable Integer numDocs,
 
-		/**
-		 * Number of Lucene segments in the index (lower numbers generally indicate
-		 * better performance)
-		 */
-		@Nullable Integer segmentCount) {
-}
+    /**
+     * Number of Lucene segments in the index (lower numbers generally indicate better performance)
+     */
+    @Nullable Integer segmentCount) {}
 
 /**
  * Query execution performance metrics from Solr search operations.
  *
- * <p>
- * Captures performance characteristics and result metadata from the most recent
- * query execution. These metrics help identify query performance patterns and
- * potential optimization opportunities.
+ * <p>Captures performance characteristics and result metadata from the most recent query execution.
+ * These metrics help identify query performance patterns and potential optimization opportunities.
  *
- * <p>
- * <strong>Available Metrics:</strong>
+ * <p><strong>Available Metrics:</strong>
  *
  * <ul>
- * <li><strong>queryTime</strong>: Time in milliseconds to execute the query
- * <li><strong>totalResults</strong>: Total number of matching documents found
- * <li><strong>start</strong>: Starting offset for pagination
- * <li><strong>maxScore</strong>: Highest relevance score in the result set
+ *   <li><strong>queryTime</strong>: Time in milliseconds to execute the query
+ *   <li><strong>totalResults</strong>: Total number of matching documents found
+ *   <li><strong>start</strong>: Starting offset for pagination
+ *   <li><strong>maxScore</strong>: Highest relevance score in the result set
  * </ul>
  *
- * <p>
- * <strong>Performance Analysis:</strong>
+ * <p><strong>Performance Analysis:</strong>
  *
- * <p>
- * Query time metrics help identify slow queries that may need optimization,
- * while result counts and scores provide insight into search effectiveness and
- * relevance tuning needs.
+ * <p>Query time metrics help identify slow queries that may need optimization, while result counts
+ * and scores provide insight into search effectiveness and relevance tuning needs.
  *
  * @see org.apache.solr.client.solrj.response.QueryResponse
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record QueryStats(
-		/** Time in milliseconds required to execute the most recent query */
-		Integer queryTime,
+    /** Time in milliseconds required to execute the most recent query */
+    Integer queryTime,
 
-		/** Total number of documents matching the query criteria */
-		Long totalResults,
+    /** Total number of documents matching the query criteria */
+    Long totalResults,
 
-		/** Starting position for paginated results (0-based offset) */
-		Long start,
+    /** Starting position for paginated results (0-based offset) */
+    Long start,
 
-		/** Highest relevance score among the returned documents */
-		Float maxScore) {
-}
+    /** Highest relevance score among the returned documents */
+    Float maxScore) {}
 
 /**
  * Solr cache utilization statistics across all cache types.
  *
- * <p>
- * Aggregates cache performance metrics for the three primary Solr caches. Cache
- * performance directly impacts query response times and system resource
- * utilization, making these metrics critical for performance tuning.
+ * <p>Aggregates cache performance metrics for the three primary Solr caches. Cache performance
+ * directly impacts query response times and system resource utilization, making these metrics
+ * critical for performance tuning.
  *
- * <p>
- * <strong>Monitored Cache Types:</strong>
+ * <p><strong>Monitored Cache Types:</strong>
  *
  * <ul>
- * <li><strong>queryResultCache</strong>: Caches complete query results
- * <li><strong>documentCache</strong>: Caches retrieved document data
- * <li><strong>filterCache</strong>: Caches filter query results
+ *   <li><strong>queryResultCache</strong>: Caches complete query results
+ *   <li><strong>documentCache</strong>: Caches retrieved document data
+ *   <li><strong>filterCache</strong>: Caches filter query results
  * </ul>
  *
- * <p>
- * <strong>Cache Analysis:</strong>
+ * <p><strong>Cache Analysis:</strong>
  *
- * <p>
- * Poor cache hit ratios may indicate undersized caches or query patterns that
- * don't benefit from caching. Cache evictions suggest memory pressure or cache
- * size optimization needs.
+ * <p>Poor cache hit ratios may indicate undersized caches or query patterns that don't benefit from
+ * caching. Cache evictions suggest memory pressure or cache size optimization needs.
  *
  * @see CacheInfo
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record CacheStats(
-		/** Performance metrics for the query result cache */
-		@Nullable CacheInfo queryResultCache,
+    /** Performance metrics for the query result cache */
+    @Nullable CacheInfo queryResultCache,
 
-		/** Performance metrics for the document cache */
-		@Nullable CacheInfo documentCache,
+    /** Performance metrics for the document cache */
+    @Nullable CacheInfo documentCache,
 
-		/** Performance metrics for the filter cache */
-		@Nullable CacheInfo filterCache) {
-}
+    /** Performance metrics for the filter cache */
+    @Nullable CacheInfo filterCache) {}
 
 /**
  * Detailed performance metrics for individual Solr cache instances.
  *
- * <p>
- * Provides comprehensive cache utilization statistics including hit ratios,
- * eviction rates, and current size metrics. These metrics are essential for
- * cache tuning and memory management optimization.
+ * <p>Provides comprehensive cache utilization statistics including hit ratios, eviction rates, and
+ * current size metrics. These metrics are essential for cache tuning and memory management
+ * optimization.
  *
- * <p>
- * <strong>Key Performance Indicators:</strong>
+ * <p><strong>Key Performance Indicators:</strong>
  *
  * <ul>
- * <li><strong>hitratio</strong>: Cache effectiveness (higher is better)
- * <li><strong>evictions</strong>: Memory pressure indicator
- * <li><strong>size</strong>: Current cache utilization
- * <li><strong>lookups vs hits</strong>: Cache request patterns
+ *   <li><strong>hitratio</strong>: Cache effectiveness (higher is better)
+ *   <li><strong>evictions</strong>: Memory pressure indicator
+ *   <li><strong>size</strong>: Current cache utilization
+ *   <li><strong>lookups vs hits</strong>: Cache request patterns
  * </ul>
  *
- * <p>
- * <strong>Performance Targets:</strong>
+ * <p><strong>Performance Targets:</strong>
  *
- * <p>
- * Optimal cache performance typically shows high hit ratios (>0.80) with
- * minimal evictions. High eviction rates suggest cache size increases may
- * improve performance.
+ * <p>Optimal cache performance typically shows high hit ratios (>0.80) with minimal evictions. High
+ * eviction rates suggest cache size increases may improve performance.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record CacheInfo(
-		/** Total number of cache lookup requests */
-		@Nullable Long lookups,
+    /** Total number of cache lookup requests */
+    @Nullable Long lookups,
 
-		/** Number of successful cache hits */
-		@Nullable Long hits,
+    /** Number of successful cache hits */
+    @Nullable Long hits,
 
-		/**
-		 * Cache hit ratio (hits/lookups) - higher values indicate better cache
-		 * performance
-		 */
-		@Nullable Float hitratio,
+    /** Cache hit ratio (hits/lookups) - higher values indicate better cache performance */
+    @Nullable Float hitratio,
 
-		/** Number of new entries added to the cache */
-		@Nullable Long inserts,
+    /** Number of new entries added to the cache */
+    @Nullable Long inserts,
 
-		/**
-		 * Number of entries removed due to cache size limits (indicates memory
-		 * pressure)
-		 */
-		@Nullable Long evictions,
+    /** Number of entries removed due to cache size limits (indicates memory pressure) */
+    @Nullable Long evictions,
 
-		/** Current number of entries stored in the cache */
-		@Nullable Long size) {
-}
+    /** Current number of entries stored in the cache */
+    @Nullable Long size) {}
 
 /**
  * Request handler performance statistics for core Solr operations.
  *
- * <p>
- * Tracks performance metrics for the primary Solr request handlers that process
- * search and update operations. Handler performance directly affects user
- * experience and system throughput capacity.
+ * <p>Tracks performance metrics for the primary Solr request handlers that process search and
+ * update operations. Handler performance directly affects user experience and system throughput
+ * capacity.
  *
- * <p>
- * <strong>Monitored Handlers:</strong>
+ * <p><strong>Monitored Handlers:</strong>
  *
  * <ul>
- * <li><strong>selectHandler</strong>: Processes search/query requests (/select)
- * <li><strong>updateHandler</strong>: Processes document indexing requests
- * (/update)
+ *   <li><strong>selectHandler</strong>: Processes search/query requests (/select)
+ *   <li><strong>updateHandler</strong>: Processes document indexing requests (/update)
  * </ul>
  *
- * <p>
- * <strong>Performance Analysis:</strong>
+ * <p><strong>Performance Analysis:</strong>
  *
- * <p>
- * Handler metrics help identify bottlenecks in request processing and guide
- * capacity planning decisions. High error rates or response times indicate
- * potential optimization needs.
+ * <p>Handler metrics help identify bottlenecks in request processing and guide capacity planning
+ * decisions. High error rates or response times indicate potential optimization needs.
  *
  * @see HandlerInfo
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record HandlerStats(
-		/** Performance metrics for the search/select request handler */
-		@Nullable HandlerInfo selectHandler,
+    /** Performance metrics for the search/select request handler */
+    @Nullable HandlerInfo selectHandler,
 
-		/** Performance metrics for the document update request handler */
-		@Nullable HandlerInfo updateHandler) {
-}
+    /** Performance metrics for the document update request handler */
+    @Nullable HandlerInfo updateHandler) {}
 
 /**
  * Detailed performance metrics for individual Solr request handlers.
  *
- * <p>
- * Provides comprehensive request handler statistics including throughput, error
- * rates, and performance characteristics. These metrics are crucial for
- * identifying performance bottlenecks and system reliability issues.
+ * <p>Provides comprehensive request handler statistics including throughput, error rates, and
+ * performance characteristics. These metrics are crucial for identifying performance bottlenecks
+ * and system reliability issues.
  *
- * <p>
- * <strong>Performance Metrics:</strong>
+ * <p><strong>Performance Metrics:</strong>
  *
  * <ul>
- * <li><strong>requests</strong>: Total volume processed
- * <li><strong>errors</strong>: Reliability indicator
- * <li><strong>avgTimePerRequest</strong>: Response time performance
- * <li><strong>avgRequestsPerSecond</strong>: Throughput capacity
+ *   <li><strong>requests</strong>: Total volume processed
+ *   <li><strong>errors</strong>: Reliability indicator
+ *   <li><strong>avgTimePerRequest</strong>: Response time performance
+ *   <li><strong>avgRequestsPerSecond</strong>: Throughput capacity
  * </ul>
  *
- * <p>
- * <strong>Health Indicators:</strong>
+ * <p><strong>Health Indicators:</strong>
  *
- * <p>
- * High error rates may indicate system stress or configuration issues.
- * Increasing response times suggest capacity limits or optimization needs.
+ * <p>High error rates may indicate system stress or configuration issues. Increasing response times
+ * suggest capacity limits or optimization needs.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record HandlerInfo(
-		/** Total number of requests processed by this handler */
-		@Nullable Long requests,
+    /** Total number of requests processed by this handler */
+    @Nullable Long requests,
 
-		/** Number of requests that resulted in errors */
-		@Nullable Long errors,
+    /** Number of requests that resulted in errors */
+    @Nullable Long errors,
 
-		/** Number of requests that exceeded timeout limits */
-		@Nullable Long timeouts,
+    /** Number of requests that exceeded timeout limits */
+    @Nullable Long timeouts,
 
-		/** Cumulative time spent processing all requests (milliseconds) */
-		@Nullable Long totalTime,
+    /** Cumulative time spent processing all requests (milliseconds) */
+    @Nullable Long totalTime,
 
-		/** Average time per request in milliseconds */
-		@Nullable Float avgTimePerRequest,
+    /** Average time per request in milliseconds */
+    @Nullable Float avgTimePerRequest,
 
-		/** Average throughput in requests per second */
-		@Nullable Float avgRequestsPerSecond) {
-}
+    /** Average throughput in requests per second */
+    @Nullable Float avgRequestsPerSecond) {}
 
 /**
  * Comprehensive health status assessment for Solr collections.
  *
- * <p>
- * Provides a complete health check result including availability status,
- * performance metrics, and diagnostic information. This serves as a primary
- * monitoring endpoint for collection operational status.
+ * <p>Provides a complete health check result including availability status, performance metrics,
+ * and diagnostic information. This serves as a primary monitoring endpoint for collection
+ * operational status.
  *
- * <p>
- * <strong>Health Assessment Components:</strong>
+ * <p><strong>Health Assessment Components:</strong>
  *
  * <ul>
- * <li><strong>isHealthy</strong>: Overall collection availability
- * <li><strong>responseTime</strong>: Performance indicator
- * <li><strong>totalDocuments</strong>: Content availability
- * <li><strong>errorMessage</strong>: Diagnostic information when unhealthy
+ *   <li><strong>isHealthy</strong>: Overall collection availability
+ *   <li><strong>responseTime</strong>: Performance indicator
+ *   <li><strong>totalDocuments</strong>: Content availability
+ *   <li><strong>errorMessage</strong>: Diagnostic information when unhealthy
  * </ul>
  *
- * <p>
- * <strong>Monitoring Integration:</strong>
+ * <p><strong>Monitoring Integration:</strong>
  *
- * <p>
- * This DTO is typically used by monitoring systems and dashboards to provide
- * real-time collection health status and enable automated alerting on failures.
+ * <p>This DTO is typically used by monitoring systems and dashboards to provide real-time
+ * collection health status and enable automated alerting on failures.
  *
- * <p>
- * <strong>Example usage:</strong>
+ * <p><strong>Example usage:</strong>
  *
  * <pre>{@code
  * SolrHealthStatus status = collectionService.checkHealth("my_collection");
@@ -409,45 +340,42 @@ record HandlerInfo(
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record SolrHealthStatus(
-		/** Overall health status - true if collection is operational and responding */
-		boolean isHealthy,
+    /** Overall health status - true if collection is operational and responding */
+    boolean isHealthy,
 
-		/** Detailed error message when isHealthy is false, null when healthy */
-		@Nullable String errorMessage,
+    /** Detailed error message when isHealthy is false, null when healthy */
+    @Nullable String errorMessage,
 
-		/** Response time in milliseconds for the health check ping request */
-		@Nullable Long responseTime,
+    /** Response time in milliseconds for the health check ping request */
+    @Nullable Long responseTime,
 
-		/** Total number of documents currently indexed in the collection */
-		@Nullable Long totalDocuments,
+    /** Total number of documents currently indexed in the collection */
+    @Nullable Long totalDocuments,
 
-		/** Timestamp when this health check was performed, formatted as ISO 8601 */
-		@JsonFormat(shape = JsonFormat.Shape.STRING) Instant lastChecked,
+    /** Timestamp when this health check was performed, formatted as ISO 8601 */
+    @JsonFormat(shape = JsonFormat.Shape.STRING) Instant lastChecked,
 
-		/** Name of the collection that was checked */
-		String collection) {
-}
+    /** Name of the collection that was checked */
+    String collection) {}
 
 /**
  * Result of a collection creation operation.
  *
- * <p>
- * Returned by the {@code create-collection} MCP tool to communicate the outcome
- * of a collection creation request. On success, {@code success} is {@code true}
- * and {@code createdAt} records when the operation completed.
+ * <p>Returned by the {@code create-collection} MCP tool to communicate the outcome of a collection
+ * creation request. On success, {@code success} is {@code true} and {@code createdAt} records when
+ * the operation completed.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record CollectionCreationResult(
-		/** Name of the collection that was created */
-		String name,
+    /** Name of the collection that was created */
+    String name,
 
-		/** Whether the collection was successfully created */
-		boolean success,
+    /** Whether the collection was successfully created */
+    boolean success,
 
-		/** Optional message describing the outcome */
-		String message,
+    /** Optional message describing the outcome */
+    String message,
 
-		/** Timestamp when the collection was created, formatted as ISO 8601 */
-		@JsonFormat(shape = JsonFormat.Shape.STRING) Instant createdAt) {
-}
+    /** Timestamp when the collection was created, formatted as ISO 8601 */
+    @JsonFormat(shape = JsonFormat.Shape.STRING) Instant createdAt) {}

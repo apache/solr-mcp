@@ -31,22 +31,21 @@ import org.springframework.test.context.TestPropertySource;
 /**
  * Test class for markdown indexing functionality in IndexingService.
  *
- * <p>
- * This test verifies that the IndexingService can correctly parse markdown
- * content — including YAML front matter, headings, and body text — and convert
- * it into SolrInputDocument objects using the schema-less approach.
+ * <p>This test verifies that the IndexingService can correctly parse markdown content — including
+ * YAML front matter, headings, and body text — and convert it into SolrInputDocument objects using
+ * the schema-less approach.
  */
 @SpringBootTest
 @TestPropertySource(locations = "classpath:application.properties")
 class MarkdownIndexingTest {
 
-	@Autowired
-	private IndexingDocumentCreator indexingDocumentCreator;
+  @Autowired private IndexingDocumentCreator indexingDocumentCreator;
 
-	@Test
-	void testCreateSchemalessDocumentsFromMarkdownWithFrontMatter() throws Exception {
-		// Given
-		String markdown = """
+  @Test
+  void testCreateSchemalessDocumentsFromMarkdownWithFrontMatter() throws Exception {
+    // Given
+    String markdown =
+        """
 				---
 				author: George R.R. Martin
 				genre: fantasy
@@ -63,34 +62,37 @@ class MarkdownIndexingTest {
 				Widely acclaimed.
 				""";
 
-		// When
-		List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
+    // When
+    List<SolrInputDocument> documents =
+        indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
 
-		// Then
-		assertThat(documents).hasSize(1);
+    // Then
+    assertThat(documents).hasSize(1);
 
-		SolrInputDocument doc = documents.getFirst();
-		assertThat(doc.getFieldValue("author")).isEqualTo("George R.R. Martin");
-		assertThat(doc.getFieldValue("genre")).isEqualTo("fantasy");
-		assertThat(doc.getFieldValue("published")).isEqualTo("1996");
+    SolrInputDocument doc = documents.getFirst();
+    assertThat(doc.getFieldValue("author")).isEqualTo("George R.R. Martin");
+    assertThat(doc.getFieldValue("genre")).isEqualTo("fantasy");
+    assertThat(doc.getFieldValue("published")).isEqualTo("1996");
 
-		// Title comes from the first level-1 heading (no front matter title)
-		assertThat(doc.getFieldValue("title")).isEqualTo("A Game of Thrones");
+    // Title comes from the first level-1 heading (no front matter title)
+    assertThat(doc.getFieldValue("title")).isEqualTo("A Game of Thrones");
 
-		// All heading texts are collected into a multi-valued field
-		assertThat(doc.getFieldValues("headings")).containsExactly("A Game of Thrones", "Synopsis", "Reception");
+    // All heading texts are collected into a multi-valued field
+    assertThat(doc.getFieldValues("headings"))
+        .containsExactly("A Game of Thrones", "Synopsis", "Reception");
 
-		// Body text is searchable and excludes front matter
-		String content = (String) doc.getFieldValue("content");
-		assertThat(content).contains("The first book in A Song of Ice and Fire.");
-		assertThat(content).contains("Widely acclaimed.");
-		assertThat(content).doesNotContain("George R.R. Martin");
-	}
+    // Body text is searchable and excludes front matter
+    String content = (String) doc.getFieldValue("content");
+    assertThat(content).contains("The first book in A Song of Ice and Fire.");
+    assertThat(content).contains("Widely acclaimed.");
+    assertThat(content).doesNotContain("George R.R. Martin");
+  }
 
-	@Test
-	void testFrontMatterTitleWinsOverFirstHeading() throws Exception {
-		// Given
-		String markdown = """
+  @Test
+  void testFrontMatterTitleWinsOverFirstHeading() throws Exception {
+    // Given
+    String markdown =
+        """
 				---
 				title: Front Matter Title
 				---
@@ -99,18 +101,20 @@ class MarkdownIndexingTest {
 				Some body text.
 				""";
 
-		// When
-		List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
+    // When
+    List<SolrInputDocument> documents =
+        indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
 
-		// Then
-		assertThat(documents).hasSize(1);
-		assertThat(documents.getFirst().getFieldValue("title")).isEqualTo("Front Matter Title");
-	}
+    // Then
+    assertThat(documents).hasSize(1);
+    assertThat(documents.getFirst().getFieldValue("title")).isEqualTo("Front Matter Title");
+  }
 
-	@Test
-	void testCreateSchemalessDocumentsFromMarkdownWithoutFrontMatter() throws Exception {
-		// Given
-		String markdown = """
+  @Test
+  void testCreateSchemalessDocumentsFromMarkdownWithoutFrontMatter() throws Exception {
+    // Given
+    String markdown =
+        """
 				# Getting Started
 
 				Install the package and run the server.
@@ -120,42 +124,46 @@ class MarkdownIndexingTest {
 				Set the `SOLR_URL` environment variable.
 				""";
 
-		// When
-		List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
+    // When
+    List<SolrInputDocument> documents =
+        indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
 
-		// Then
-		assertThat(documents).hasSize(1);
+    // Then
+    assertThat(documents).hasSize(1);
 
-		SolrInputDocument doc = documents.getFirst();
-		assertThat(doc.getFieldValue("title")).isEqualTo("Getting Started");
-		assertThat(doc.getFieldValues("headings")).containsExactly("Getting Started", "Configuration");
+    SolrInputDocument doc = documents.getFirst();
+    assertThat(doc.getFieldValue("title")).isEqualTo("Getting Started");
+    assertThat(doc.getFieldValues("headings")).containsExactly("Getting Started", "Configuration");
 
-		String content = (String) doc.getFieldValue("content");
-		assertThat(content).contains("Install the package and run the server.");
-		assertThat(content).contains("SOLR_URL");
-	}
+    String content = (String) doc.getFieldValue("content");
+    assertThat(content).contains("Install the package and run the server.");
+    assertThat(content).contains("SOLR_URL");
+  }
 
-	@Test
-	void testPlainTextMarkdownWithoutHeadings() throws Exception {
-		// Given
-		String markdown = "Just a plain paragraph of text without any structure.";
+  @Test
+  void testPlainTextMarkdownWithoutHeadings() throws Exception {
+    // Given
+    String markdown = "Just a plain paragraph of text without any structure.";
 
-		// When
-		List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
+    // When
+    List<SolrInputDocument> documents =
+        indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
 
-		// Then
-		assertThat(documents).hasSize(1);
+    // Then
+    assertThat(documents).hasSize(1);
 
-		SolrInputDocument doc = documents.getFirst();
-		assertThat(doc.getFieldValue("title")).isNull();
-		assertThat(doc.getFieldValues("headings")).isNull();
-		assertThat(doc.getFieldValue("content")).isEqualTo("Just a plain paragraph of text without any structure.");
-	}
+    SolrInputDocument doc = documents.getFirst();
+    assertThat(doc.getFieldValue("title")).isNull();
+    assertThat(doc.getFieldValues("headings")).isNull();
+    assertThat(doc.getFieldValue("content"))
+        .isEqualTo("Just a plain paragraph of text without any structure.");
+  }
 
-	@Test
-	void testFrontMatterFieldNamesAreUsedAsGiven() throws Exception {
-		// Given
-		String markdown = """
+  @Test
+  void testFrontMatterFieldNamesAreUsedAsGiven() throws Exception {
+    // Given
+    String markdown =
+        """
 				---
 				Created-By: Jane Doe
 				last.updated: 2026-01-01
@@ -165,21 +173,23 @@ class MarkdownIndexingTest {
 				Body.
 				""";
 
-		// When
-		List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
+    // When
+    List<SolrInputDocument> documents =
+        indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
 
-		// Then
-		assertThat(documents).hasSize(1);
+    // Then
+    assertThat(documents).hasSize(1);
 
-		SolrInputDocument doc = documents.getFirst();
-		assertThat(doc.getFieldValue("Created-By")).isEqualTo("Jane Doe");
-		assertThat(doc.getFieldValue("last.updated")).isEqualTo("2026-01-01");
-	}
+    SolrInputDocument doc = documents.getFirst();
+    assertThat(doc.getFieldValue("Created-By")).isEqualTo("Jane Doe");
+    assertThat(doc.getFieldValue("last.updated")).isEqualTo("2026-01-01");
+  }
 
-	@Test
-	void testFrontMatterListValuesBecomeMultiValuedFields() throws Exception {
-		// Given
-		String markdown = """
+  @Test
+  void testFrontMatterListValuesBecomeMultiValuedFields() throws Exception {
+    // Given
+    String markdown =
+        """
 				---
 				tags: [search, solr, mcp]
 				---
@@ -188,18 +198,21 @@ class MarkdownIndexingTest {
 				Body.
 				""";
 
-		// When
-		List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
+    // When
+    List<SolrInputDocument> documents =
+        indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
 
-		// Then
-		assertThat(documents).hasSize(1);
-		assertThat(documents.getFirst().getFieldValues("tags")).containsExactly("search", "solr", "mcp");
-	}
+    // Then
+    assertThat(documents).hasSize(1);
+    assertThat(documents.getFirst().getFieldValues("tags"))
+        .containsExactly("search", "solr", "mcp");
+  }
 
-	@Test
-	void testFrontMatterBlockListValuesBecomeMultiValuedFields() throws Exception {
-		// Given
-		String markdown = """
+  @Test
+  void testFrontMatterBlockListValuesBecomeMultiValuedFields() throws Exception {
+    // Given
+    String markdown =
+        """
 				---
 				tags:
 				  - search
@@ -210,18 +223,20 @@ class MarkdownIndexingTest {
 				Body.
 				""";
 
-		// When
-		List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
+    // When
+    List<SolrInputDocument> documents =
+        indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
 
-		// Then
-		assertThat(documents).hasSize(1);
-		assertThat(documents.getFirst().getFieldValues("tags")).containsExactly("search", "solr");
-	}
+    // Then
+    assertThat(documents).hasSize(1);
+    assertThat(documents.getFirst().getFieldValues("tags")).containsExactly("search", "solr");
+  }
 
-	@Test
-	void testFrontMatterIdIsUsedAsDocumentId() throws Exception {
-		// Given
-		String markdown = """
+  @Test
+  void testFrontMatterIdIsUsedAsDocumentId() throws Exception {
+    // Given
+    String markdown =
+        """
 				---
 				id: doc-42
 				---
@@ -230,58 +245,65 @@ class MarkdownIndexingTest {
 				Body.
 				""";
 
-		// When
-		List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
+    // When
+    List<SolrInputDocument> documents =
+        indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
 
-		// Then
-		assertThat(documents).hasSize(1);
-		assertThat(documents.getFirst().getFieldValue("id")).isEqualTo("doc-42");
-	}
+    // Then
+    assertThat(documents).hasSize(1);
+    assertThat(documents.getFirst().getFieldValue("id")).isEqualTo("doc-42");
+  }
 
-	@Test
-	void testGeneratedIdIsStableForSameContent() throws Exception {
-		// Given
-		String markdown = "# Stable\n\nSame content, same id.";
+  @Test
+  void testGeneratedIdIsStableForSameContent() throws Exception {
+    // Given
+    String markdown = "# Stable\n\nSame content, same id.";
 
-		// When
-		List<SolrInputDocument> first = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
-		List<SolrInputDocument> second = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
-		List<SolrInputDocument> other = indexingDocumentCreator
-				.createSchemalessDocumentsFromMarkdown("# Different\n\nOther content.");
+    // When
+    List<SolrInputDocument> first =
+        indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
+    List<SolrInputDocument> second =
+        indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
+    List<SolrInputDocument> other =
+        indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(
+            "# Different\n\nOther content.");
 
-		// Then: re-indexing the same markdown must overwrite the same document
-		Object firstId = first.getFirst().getFieldValue("id");
-		assertThat(firstId).isNotNull();
-		assertThat(firstId).isEqualTo(second.getFirst().getFieldValue("id"));
-		assertThat(firstId).isNotEqualTo(other.getFirst().getFieldValue("id"));
-	}
+    // Then: re-indexing the same markdown must overwrite the same document
+    Object firstId = first.getFirst().getFieldValue("id");
+    assertThat(firstId).isNotNull();
+    assertThat(firstId).isEqualTo(second.getFirst().getFieldValue("id"));
+    assertThat(firstId).isNotEqualTo(other.getFirst().getFieldValue("id"));
+  }
 
-	@Test
-	void testEmptyMarkdownThrowsException() {
-		assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(""))
-				.isInstanceOf(DocumentProcessingException.class).hasMessageContaining("cannot be null or empty");
-	}
+  @Test
+  void testEmptyMarkdownThrowsException() {
+    assertThatThrownBy(() -> indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(""))
+        .isInstanceOf(DocumentProcessingException.class)
+        .hasMessageContaining("cannot be null or empty");
+  }
 
-	@Test
-	void testMarkdownFormattingIsStrippedFromContent() throws Exception {
-		// Given
-		String markdown = """
+  @Test
+  void testMarkdownFormattingIsStrippedFromContent() throws Exception {
+    // Given
+    String markdown =
+        """
 				# Formatted
 
 				Some **bold** and *italic* text with a [link](https://solr.apache.org) and `inline code`.
 				""";
 
-		// When
-		List<SolrInputDocument> documents = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
+    // When
+    List<SolrInputDocument> documents =
+        indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown);
 
-		// Then
-		assertThat(documents).hasSize(1);
+    // Then
+    assertThat(documents).hasSize(1);
 
-		String content = (String) documents.getFirst().getFieldValue("content");
-		assertThat(content).contains("bold");
-		assertThat(content).contains("italic");
-		assertThat(content).contains("inline code");
-		assertThat(content).doesNotContain("**");
-		assertThat(content).doesNotContain("](");
-	}
+    String content = (String) documents.getFirst().getFieldValue("content");
+    assertThat(content).contains("bold");
+    assertThat(content).contains("italic");
+    assertThat(content).contains("inline code");
+    assertThat(content).doesNotContain("**");
+    assertThat(content).doesNotContain("](");
+  }
 }

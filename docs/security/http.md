@@ -69,11 +69,24 @@ The `mcpServerOAuth2()` configurer wires a Spring Security
 1. **Signature** against the JWKS fetched from `issuer-uri`/`.well-known/openid-configuration`.
 2. **Issuer** matches the configured `issuer-uri`.
 3. **Expiration** (`exp`) and not-before (`nbf`).
-4. **Audience** (`aud`) matches the canonical resource indicator declared by
-   `resourcePath("/mcp")` — per
+4. **Audience** (`aud`) contains the server's canonical resource URI — per
    [RFC 8707 Resource Indicators](https://www.rfc-editor.org/rfc/rfc8707.html)
    and
    [the MCP Authorization spec's Token Audience Binding requirement](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization).
+
+   That URI is **not a fixed string**. `McpServerOAuth2Configurer` builds it per
+   request from the scheme, host and port the client used plus
+   `resourcePath("/mcp")`. A client that calls `http://localhost:8080/mcp` needs a
+   token with `aud` containing exactly `http://localhost:8080/mcp`; the same token
+   sent to `http://127.0.0.1:8080/mcp` is rejected with
+   `401 ... "The aud claim is not valid"`. Behind a reverse proxy or under a
+   public hostname, the audience is the public URL. Read the value the server
+   expects from the running instance rather than guessing:
+
+   ```bash
+   curl -s http://localhost:8080/.well-known/oauth-protected-resource | jq -r .resource
+   # http://localhost:8080/mcp
+   ```
 
 Without audience validation, any valid JWT from the same IdP issued for any
 sibling application would be accepted (CWE-345).
@@ -85,9 +98,9 @@ resource URI. Per IdP:
 
 | IdP | How to populate `aud` |
 |---|---|
-| **Auth0** | Pass `audience=<MCP server URL>` on the auth request. Auth0 reflects it into `aud` automatically. Configure the API in the Auth0 dashboard with the same identifier. [Auth0 docs](https://auth0.com/docs/secure/tokens/access-tokens). |
+| **Auth0** | Create an API whose **Identifier** is the MCP server's resource URI (for a local trial `http://localhost:8080/mcp`), and pass `audience=<that identifier>` on the token request. Auth0 reflects it into `aud`. A different identifier such as `https://solr-mcp-api` yields tokens the server rejects. [Auth0 docs](https://auth0.com/docs/secure/tokens/access-tokens) · [step by step](./auth0.md). |
 | **Okta** | Configure the audience on the Authorization Server (`Security → API → Authorization Servers → Settings`). Tokens issued from that AS will carry the configured `aud`. |
-| **Keycloak** | Keycloak does **not** yet honor RFC 8707 `resource=` natively (see [Keycloak issue #41526](https://github.com/keycloak/keycloak/issues/41526)). Workaround: add an **Audience** protocol mapper on a client scope, set `Included Custom Audience` to the MCP server URL, and assign that client scope as a default scope on the MCP client. [Keycloak MCP integration docs](https://www.keycloak.org/securing-apps/mcp-authz-server). |
+| **Keycloak** | Keycloak does **not** yet honor RFC 8707 `resource=` natively (see [Keycloak issue #41526](https://github.com/keycloak/keycloak/issues/41526)). Workaround: add an **Audience** protocol mapper on a client scope, set `Included Custom Audience` to the MCP server URL, and assign that client scope as a default scope on the MCP client. [Keycloak MCP integration docs](https://www.keycloak.org/securing-apps/mcp-authz-server) · [step by step](./keycloak.md). |
 
 ### 4. CORS
 
@@ -106,14 +119,70 @@ MCP clients (Claude Desktop, Spring AI MCP client, etc.) speak HTTP from a
 backend or native process and don't trigger CORS preflights — the allowlist
 exists for browser-based tooling.
 
+## Connecting an MCP client to a secured server
+
+What a client observes, verified on 2026-09-16 against Keycloak 26.0 with the
+audience mapper in place and against an Auth0 tenant with the API identifier
+set to the resource URI (`curl`, the MCP Inspector CLI and Claude Code 2.1):
+
+| Request | Without a token | With a valid token |
+|---|---|---|
+| `initialize`, `tools/list` on `/mcp` | `200` — `/mcp` is `permitAll` | `200` |
+| `tools/call` on `/mcp` | `200` with `{"content":[{"text":"Access Denied"}],"isError":true}` — `@PreAuthorize` denies inside the tool | tool result |
+| `/actuator/metrics` (any actuator except `health`) | `401` + `WWW-Authenticate` | `200` |
+| Anything, with an invalid or expired token | `401` + `WWW-Authenticate` naming the reason (`Jwt expired at …`, `The aud claim is not valid`, `Malformed token`) | — |
+
+Two consequences for client setup:
+
+1. **The server never answers an anonymous `/mcp` request with `401`, so MCP
+   clients do not start an OAuth flow on their own.** Claude Code, the MCP
+   Inspector and `mcp-remote` all document that they begin OAuth only when the
+   server responds `401`/`403`. A client configured with just the URL therefore
+   shows the server as *connected*, lists every tool, and gets `Access Denied`
+   from every call — no browser opens, nothing looks broken. Give the client a
+   token explicitly. Obtain one from your IdP first
+   ([Keycloak](./keycloak.md#obtain-a-token) · [Auth0](./auth0.md#4-get-an-access-token)),
+   then:
+
+   | Client | Where the token goes |
+   |---|---|
+   | Claude Code | `claude mcp add --transport http solr-mcp http://localhost:8080/mcp --header "Authorization: Bearer $TOKEN"` |
+   | MCP Inspector, CLI | `npx @modelcontextprotocol/inspector --cli http://localhost:8080/mcp --transport http --header "Authorization: Bearer $TOKEN" --method tools/call --tool-name list-collections` |
+   | MCP Inspector, web UI | `npx @modelcontextprotocol/inspector --server-url http://localhost:8080/mcp --transport http --header "Authorization: Bearer $TOKEN"` |
+   | Claude Desktop, JetBrains (via `mcp-remote`) | `"args": ["mcp-remote", "http://localhost:8080/mcp", "--header", "Authorization: Bearer ${TOKEN}"]` with `"env": {"TOKEN": "…"}` |
+   | VS Code | `"headers": {"Authorization": "Bearer ${input:token}"}` on the `http` server entry |
+   | Cursor | `"headers": {"Authorization": "Bearer ${env:TOKEN}"}` on the server entry |
+   | Zed | `"headers": {"Authorization": "Bearer …"}` on the remote-server entry |
+
+   Each per-client guide under [`docs/clients/`](../clients/) shows the full
+   snippet.
+
+2. **Tokens expire, and a static header does not refresh itself.** Keycloak's
+   default access-token lifetime is 300 s; Auth0's is 86 400 s. When the token
+   expires, tool calls fail with `401` and a client with a configured
+   `Authorization` header reports the connection as failed rather than
+   re-authenticating. For a trial, either raise the lifetime at the IdP
+   (Keycloak: [one Admin API call](./keycloak.md#connecting-an-mcp-client)) or
+   re-add the server with a fresh token. An application that calls this server
+   should hold a `client_credentials` registration and refresh the token itself
+   — [Configuring a Spring AI MCP Client](./keycloak.md#configuring-a-spring-ai-mcp-client)
+   shows that pattern.
+
+Interactive browser login (Claude Code `claude mcp login <name>`, the
+Inspector's OAuth flow) additionally needs a client registered at the IdP with
+the client's callback URL, and is not covered by these guides.
+
 ## Operational guidance
 
 ### Required for production
 
 1. **Set a real `OAUTH2_ISSUER_URI`** pointing at your authorization server.
-   The placeholder default fails to start.
-2. **Configure your IdP to populate `aud`** with the MCP server's URL (see
-   table above).
+   With the default (empty) value the filter chain answers `401`/`403` to
+   everything except `/actuator/health` and the anonymous `/mcp` handshake, so
+   no tool can be called; with an unreachable value the server fails to start,
+   because the JWT decoder resolves the issuer eagerly.
+2. **Configure your IdP to populate `aud`** with the URL clients use to reach
+   the server (see table above and §2).
 3. **Bind to a private network or behind an authenticated ingress**. The MCP
    transport spec recommends localhost binding for local servers and
    authentication for everything else.

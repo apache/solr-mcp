@@ -37,169 +37,188 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 /**
  * Tests for distributed tracing using Micrometer Tracing with OpenTelemetry.
  *
- * <p>
- * These tests verify that:
+ * <p>These tests verify that:
+ *
  * <ul>
- * <li>Spans are created for @Observed methods</li>
- * <li>Span attributes are correctly set</li>
- * <li>Span hierarchy is correct (parent-child relationships)</li>
- * <li>Span names follow conventions</li>
+ *   <li>Spans are created for @Observed methods
+ *   <li>Span attributes are correctly set
+ *   <li>Span hierarchy is correct (parent-child relationships)
+ *   <li>Span names follow conventions
  * </ul>
  *
- * <p>
- * Uses SimpleTracer from micrometer-tracing-test to capture spans without
- * requiring external infrastructure.
+ * <p>Uses SimpleTracer from micrometer-tracing-test to capture spans without requiring external
+ * infrastructure.
  */
 @SpringBootTest(
-		properties = {
-				// Enable HTTP mode for observability
-				"spring.profiles.active=http",
-				// Tracing test does not exercise the OAuth2 filter chain; opt out of
-				// secure-by-default to avoid requiring a live JWKS endpoint at startup.
-				"http.security.enabled=false",
-				// Disable OTLP export in tests - we're using SimpleTracer instead
-				"management.tracing.export.otlp.enabled=false",
-				"management.opentelemetry.logging.export.otlp.enabled=false",
-				// Ensure 100% sampling for tests
-				"management.tracing.sampling.probability=1.0",
-				// Enable @Observed annotation support
-				"management.observations.annotations.enabled=true"})
+    properties = {
+      // Enable HTTP mode for observability
+      "spring.profiles.active=http",
+      // Tracing test does not exercise the OAuth2 filter chain; opt out of
+      // secure-by-default to avoid requiring a live JWKS endpoint at startup.
+      "http.security.enabled=false",
+      // Disable OTLP export in tests - we're using SimpleTracer instead
+      "management.tracing.export.otlp.enabled=false",
+      "management.opentelemetry.logging.export.otlp.enabled=false",
+      // Ensure 100% sampling for tests
+      "management.tracing.sampling.probability=1.0",
+      // Enable @Observed annotation support
+      "management.observations.annotations.enabled=true"
+    })
 @Import({TestcontainersConfiguration.class, OpenTelemetryTestConfiguration.class})
 @Tag("integration")
 @Testcontainers(disabledWithoutDocker = true)
 @ActiveProfiles("http")
 class DistributedTracingTest {
 
-	@Autowired
-	private SearchService searchService;
+  @Autowired private SearchService searchService;
 
-	@Autowired
-	private SolrClient solrClient;
+  @Autowired private SolrClient solrClient;
 
-	@Autowired
-	private SimpleTracer tracer;
+  @Autowired private SimpleTracer tracer;
 
-	@BeforeEach
-	void setUp() {
-		// Clear any existing spans before each test
-		tracer.getSpans().clear();
-	}
+  @BeforeEach
+  void setUp() {
+    // Clear any existing spans before each test
+    tracer.getSpans().clear();
+  }
 
-	@AfterEach
-	void tearDown() {
-		// Clean up after each test
-		tracer.getSpans().clear();
-	}
+  @AfterEach
+  void tearDown() {
+    // Clean up after each test
+    tracer.getSpans().clear();
+  }
 
-	@Test
-	void shouldCreateSpanForSearchServiceMethod() {
-		// Given: A Solr collection (assume test collection exists)
-		String collectionName = "test_collection";
+  @Test
+  void shouldCreateSpanForSearchServiceMethod() {
+    // Given: A Solr collection (assume test collection exists)
+    String collectionName = "test_collection";
 
-		// When: We execute a search operation
-		try {
-			searchService.search(collectionName, "*:*", null, null, null, null, null);
-		} catch (Exception _) {
-			// Ignore errors - we're testing span creation, not business logic
-		}
+    // When: We execute a search operation
+    try {
+      searchService.search(collectionName, "*:*", null, null, null, null, null);
+    } catch (Exception _) {
+      // Ignore errors - we're testing span creation, not business logic
+    }
 
-		// Then: A span should be created with the correct name
-		// Note: Spring's @Observed annotation generates span names in kebab-case
-		// format: "class-name#method-name"
-		await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
-			var spans = tracer.getSpans();
-			assertThat(spans).as("Should have created at least one span").isNotEmpty();
-			assertThat(spans).as("Should have span for SearchService#search method")
-					.anyMatch(span -> span.getName().equals("SearchService#search"));
-		});
-	}
+    // Then: A span should be created with the correct name
+    // Note: Spring's @Observed annotation generates span names in kebab-case
+    // format: "class-name#method-name"
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              var spans = tracer.getSpans();
+              assertThat(spans).as("Should have created at least one span").isNotEmpty();
+              assertThat(spans)
+                  .as("Should have span for SearchService#search method")
+                  .anyMatch(span -> span.getName().equals("SearchService#search"));
+            });
+  }
 
-	@Test
-	void shouldIncludeSpanAttributes() {
-		// Given: A search query
-		String collectionName = "test_collection";
-		String query = "test:query";
+  @Test
+  void shouldIncludeSpanAttributes() {
+    // Given: A search query
+    String collectionName = "test_collection";
+    String query = "test:query";
 
-		// When: We execute a search with parameters
-		try {
-			searchService.search(collectionName, query, null, null, null, 0, 10);
-		} catch (Exception _) {
-			// Ignore errors
-		}
+    // When: We execute a search with parameters
+    try {
+      searchService.search(collectionName, query, null, null, null, 0, 10);
+    } catch (Exception _) {
+      // Ignore errors
+    }
 
-		// Then: Spans should include relevant attributes
-		await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
-			var spans = tracer.getSpans();
-			assertThat(spans).as("Should have created spans").isNotEmpty();
-			assertThat(spans).as("At least one span should have tags/attributes")
-					.anyMatch(span -> !span.getTags().isEmpty());
-		});
-	}
+    // Then: Spans should include relevant attributes
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              var spans = tracer.getSpans();
+              assertThat(spans).as("Should have created spans").isNotEmpty();
+              assertThat(spans)
+                  .as("At least one span should have tags/attributes")
+                  .anyMatch(span -> !span.getTags().isEmpty());
+            });
+  }
 
-	@Test
-	void shouldCreateSpanHierarchy() {
-		// When: We execute a complex operation that triggers multiple spans
-		try {
-			searchService.search("test_collection", "*:*", null, null, null, null, null);
-		} catch (Exception _) {
-			// Ignore errors
-		}
+  @Test
+  void shouldCreateSpanHierarchy() {
+    // When: We execute a complex operation that triggers multiple spans
+    try {
+      searchService.search("test_collection", "*:*", null, null, null, null, null);
+    } catch (Exception _) {
+      // Ignore errors
+    }
 
-		// Then: We should see spans created
-		await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
-			var spans = tracer.getSpans();
-			assertThat(spans).as("Should have created spans").isNotEmpty();
-		});
-	}
+    // Then: We should see spans created
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              var spans = tracer.getSpans();
+              assertThat(spans).as("Should have created spans").isNotEmpty();
+            });
+  }
 
-	@Test
-	void shouldSetCorrectSpanKind() {
-		// When: We execute a service method
-		try {
-			searchService.search("test_collection", "*:*", null, null, null, null, null);
-		} catch (Exception _) {
-			// Ignore errors
-		}
+  @Test
+  void shouldSetCorrectSpanKind() {
+    // When: We execute a service method
+    try {
+      searchService.search("test_collection", "*:*", null, null, null, null, null);
+    } catch (Exception _) {
+      // Ignore errors
+    }
 
-		// Then: Spans should have appropriate span kinds
-		await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
-			var spans = tracer.getSpans();
-			assertThat(spans).as("Should have created spans").isNotEmpty();
-		});
-	}
+    // Then: Spans should have appropriate span kinds
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              var spans = tracer.getSpans();
+              assertThat(spans).as("Should have created spans").isNotEmpty();
+            });
+  }
 
-	@Test
-	void shouldIncludeServiceNameInResource() {
-		// When: We execute any operation
-		try {
-			searchService.search("test_collection", "*:*", null, null, null, null, null);
-		} catch (Exception _) {
-			// Ignore errors
-		}
+  @Test
+  void shouldIncludeServiceNameInResource() {
+    // When: We execute any operation
+    try {
+      searchService.search("test_collection", "*:*", null, null, null, null, null);
+    } catch (Exception _) {
+      // Ignore errors
+    }
 
-		// Then: Spans should be created (service name is in resource attributes in
-		// OpenTelemetry)
-		await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
-			var spans = tracer.getSpans();
-			assertThat(spans).as("Should have created spans").isNotEmpty();
-		});
-	}
+    // Then: Spans should be created (service name is in resource attributes in
+    // OpenTelemetry)
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              var spans = tracer.getSpans();
+              assertThat(spans).as("Should have created spans").isNotEmpty();
+            });
+  }
 
-	@Test
-	void shouldRecordSpanDuration() {
-		// When: We execute an operation
-		try {
-			searchService.search("test_collection", "*:*", null, null, null, null, null);
-		} catch (Exception _) {
-			// Ignore errors
-		}
+  @Test
+  void shouldRecordSpanDuration() {
+    // When: We execute an operation
+    try {
+      searchService.search("test_collection", "*:*", null, null, null, null, null);
+    } catch (Exception _) {
+      // Ignore errors
+    }
 
-		// Then: All spans should have valid durations
-		await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
-			var spans = tracer.getSpans();
-			assertThat(spans).as("Should have created spans").isNotEmpty();
-			assertThat(spans).as("All spans should have start and end times")
-					.allMatch(span -> span.getStartTimestamp() != null && span.getEndTimestamp() != null);
-		});
-	}
+    // Then: All spans should have valid durations
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              var spans = tracer.getSpans();
+              assertThat(spans).as("Should have created spans").isNotEmpty();
+              assertThat(spans)
+                  .as("All spans should have start and end times")
+                  .allMatch(
+                      span -> span.getStartTimestamp() != null && span.getEndTimestamp() != null);
+            });
+  }
 }

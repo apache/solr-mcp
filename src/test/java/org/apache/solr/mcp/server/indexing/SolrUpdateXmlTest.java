@@ -24,47 +24,60 @@ import org.apache.solr.mcp.server.indexing.documentcreator.DocumentProcessingExc
 import org.junit.jupiter.api.Test;
 
 /**
- * Solr's update XML grammar carries {@code <delete>}, {@code <commit>} and
- * {@code <optimize>} on the same endpoint as {@code <add>}. These tests pin the
- * one thing the server does with an XML payload before forwarding it: refuse
- * anything that is not an {@code <add>} block.
+ * Solr's update XML grammar carries {@code <delete>}, {@code <commit>} and {@code <optimize>} on
+ * the same endpoint as {@code <add>}. These tests pin the one thing the server does with an XML
+ * payload before forwarding it: refuse anything that is not an {@code <add>} block.
  */
 class SolrUpdateXmlTest {
 
-	@Test
-	void addBlockIsAccepted() {
-		assertThatCode(() -> SolrUpdateXml.requireAddBlock("""
+  @Test
+  void addBlockIsAccepted() {
+    assertThatCode(
+            () ->
+                SolrUpdateXml.requireAddBlock(
+                    """
 				<?xml version="1.0" encoding="UTF-8"?>
 				<!-- shows -->
 				<add>
 				  <doc><field name="id">1</field><field name="genres">a</field><field name="genres">b</field></doc>
 				</add>
-				""")).doesNotThrowAnyException();
-	}
+				"""))
+        .doesNotThrowAnyException();
+  }
 
-	@Test
-	void commandsOtherThanAddAreRejected() {
-		for (String command : List.of("<delete><query>*:*</query></delete>", "<commit/>", "<optimize/>", "<rollback/>",
-				"<shows><show><id>x</id></show></shows>")) {
-			assertThatThrownBy(() -> SolrUpdateXml.requireAddBlock(command)).as(command)
-					.isInstanceOf(DocumentProcessingException.class).hasMessageContaining("<add>");
-		}
-	}
+  @Test
+  void commandsOtherThanAddAreRejected() {
+    for (String command :
+        List.of(
+            "<delete><query>*:*</query></delete>",
+            "<commit/>",
+            "<optimize/>",
+            "<rollback/>",
+            "<shows><show><id>x</id></show></shows>")) {
+      assertThatThrownBy(() -> SolrUpdateXml.requireAddBlock(command))
+          .as(command)
+          .isInstanceOf(DocumentProcessingException.class)
+          .hasMessageContaining("<add>");
+    }
+  }
 
-	@Test
-	void doctypeIsRejectedSoEntitiesCanNeverResolve() {
-		String xxe = """
+  @Test
+  void doctypeIsRejectedSoEntitiesCanNeverResolve() {
+    String xxe =
+        """
 				<!DOCTYPE add [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
 				<add><doc><field name="id">&xxe;</field></doc></add>
 				""";
-		assertThatThrownBy(() -> SolrUpdateXml.requireAddBlock(xxe)).isInstanceOf(DocumentProcessingException.class);
-	}
+    assertThatThrownBy(() -> SolrUpdateXml.requireAddBlock(xxe))
+        .isInstanceOf(DocumentProcessingException.class);
+  }
 
-	@Test
-	void blankAndUnparseableInputAreRejected() {
-		assertThatThrownBy(() -> SolrUpdateXml.requireAddBlock("  ")).isInstanceOf(DocumentProcessingException.class)
-				.hasMessage("XML input cannot be empty");
-		assertThatThrownBy(() -> SolrUpdateXml.requireAddBlock("not xml at all"))
-				.isInstanceOf(DocumentProcessingException.class);
-	}
+  @Test
+  void blankAndUnparseableInputAreRejected() {
+    assertThatThrownBy(() -> SolrUpdateXml.requireAddBlock("  "))
+        .isInstanceOf(DocumentProcessingException.class)
+        .hasMessage("XML input cannot be empty");
+    assertThatThrownBy(() -> SolrUpdateXml.requireAddBlock("not xml at all"))
+        .isInstanceOf(DocumentProcessingException.class);
+  }
 }

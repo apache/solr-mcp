@@ -45,61 +45,47 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 /**
- * Spring Service providing comprehensive search capabilities for Apache Solr
- * collections through Model Context Protocol (MCP) integration.
+ * Spring Service providing comprehensive search capabilities for Apache Solr collections through
+ * Model Context Protocol (MCP) integration.
  *
- * <p>
- * This service serves as the primary interface for executing search operations
- * against Solr collections, offering a rich set of features including text
- * search, filtering, faceting, sorting, and pagination. It transforms complex
- * Solr query syntax into accessible MCP tools that AI clients can invoke
- * through natural language requests.
+ * <p>This service serves as the primary interface for executing search operations against Solr
+ * collections, offering a rich set of features including text search, filtering, faceting, sorting,
+ * and pagination. It transforms complex Solr query syntax into accessible MCP tools that AI clients
+ * can invoke through natural language requests.
  *
- * <p>
- * <strong>Core Features:</strong>
+ * <p><strong>Core Features:</strong>
  *
  * <ul>
- * <li><strong>Full-Text Search</strong>: Advanced text search with relevance
- * scoring
- * <li><strong>Filtering</strong>: Multi-criteria filtering using Solr filter
- * queries
- * <li><strong>Faceting</strong>: Dynamic facet generation for result
- * categorization
- * <li><strong>Sorting</strong>: Flexible result ordering by multiple fields
- * <li><strong>Pagination</strong>: Efficient handling of large result sets
+ *   <li><strong>Full-Text Search</strong>: Advanced text search with relevance scoring
+ *   <li><strong>Filtering</strong>: Multi-criteria filtering using Solr filter queries
+ *   <li><strong>Faceting</strong>: Dynamic facet generation for result categorization
+ *   <li><strong>Sorting</strong>: Flexible result ordering by multiple fields
+ *   <li><strong>Pagination</strong>: Efficient handling of large result sets
  * </ul>
  *
- * <p>
- * <strong>Dynamic Field Support:</strong>
+ * <p><strong>Dynamic Field Support:</strong>
  *
- * <p>
- * The service handles Solr's dynamic field naming conventions where field names
- * include type suffixes that indicate data types and indexing behavior:
+ * <p>The service handles Solr's dynamic field naming conventions where field names include type
+ * suffixes that indicate data types and indexing behavior:
  *
  * <ul>
- * <li><strong>_s</strong>: String fields for exact matching
- * <li><strong>_t</strong>: Text fields with tokenization and analysis
- * <li><strong>_i, _l, _f, _d</strong>: Numeric fields (int, long, float,
- * double)
- * <li><strong>_dt</strong>: Date/time fields
- * <li><strong>_b</strong>: Boolean fields
+ *   <li><strong>_s</strong>: String fields for exact matching
+ *   <li><strong>_t</strong>: Text fields with tokenization and analysis
+ *   <li><strong>_i, _l, _f, _d</strong>: Numeric fields (int, long, float, double)
+ *   <li><strong>_dt</strong>: Date/time fields
+ *   <li><strong>_b</strong>: Boolean fields
  * </ul>
  *
- * <p>
- * <strong>MCP Tool Integration:</strong>
+ * <p><strong>MCP Tool Integration:</strong>
  *
- * <p>
- * Search operations are exposed as MCP tools that AI clients can invoke through
- * natural language requests such as "search for books by George R.R. Martin" or
- * "find products under $50 in the electronics category".
+ * <p>Search operations are exposed as MCP tools that AI clients can invoke through natural language
+ * requests such as "search for books by George R.R. Martin" or "find products under $50 in the
+ * electronics category".
  *
- * <p>
- * <strong>Response Format:</strong>
+ * <p><strong>Response Format:</strong>
  *
- * <p>
- * Returns structured {@link SearchResponse} objects that encapsulate search
- * results, metadata, and facet information in a format optimized for JSON
- * serialization and consumption by AI clients.
+ * <p>Returns structured {@link SearchResponse} objects that encapsulate search results, metadata,
+ * and facet information in a format optimized for JSON serialization and consumption by AI clients.
  *
  * @see SearchResponse
  * @see SolrClient
@@ -109,118 +95,122 @@ import org.springframework.util.StringUtils;
 @Observed
 public class SearchService {
 
-	private static final Logger logger = LoggerFactory.getLogger(SearchService.class);
+  private static final Logger logger = LoggerFactory.getLogger(SearchService.class);
 
-	/**
-	 * Fragments of Solr's own error text that identify a failure we can advise on.
-	 *
-	 * <p>
-	 * These are matched rather than imported because they are produced by
-	 * <em>solr-core</em>, which is not on this server's classpath — only
-	 * {@code solr-solrj} is. Nothing couples them to Solr at compile time, so
-	 * {@code SearchServiceIntegrationTest} pins each one against a real Solr
-	 * server: if a future Solr rewords a message, that test fails rather than the
-	 * hint silently disappearing. Prefer a structured signal (see
-	 * {@link SolrException#code()} below) whenever one exists.
-	 */
-	static final String UNDEFINED_FIELD_TOKEN = "undefined field";
-	/** @see #UNDEFINED_FIELD_TOKEN */
-	static final String SORT_FIELD_NOT_FOUND_TOKEN = "field can't be found";
-	/** @see #UNDEFINED_FIELD_TOKEN */
-	static final String SYNTAX_ERROR_TOKEN = "syntaxerror";
-	/** @see #UNDEFINED_FIELD_TOKEN */
-	static final String CANNOT_PARSE_TOKEN = "cannot parse";
+  /**
+   * Fragments of Solr's own error text that identify a failure we can advise on.
+   *
+   * <p>These are matched rather than imported because they are produced by <em>solr-core</em>,
+   * which is not on this server's classpath — only {@code solr-solrj} is. Nothing couples them to
+   * Solr at compile time, so {@code SearchServiceIntegrationTest} pins each one against a real Solr
+   * server: if a future Solr rewords a message, that test fails rather than the hint silently
+   * disappearing. Prefer a structured signal (see {@link SolrException#code()} below) whenever one
+   * exists.
+   */
+  static final String UNDEFINED_FIELD_TOKEN = "undefined field";
 
-	/**
-	 * Remediation hint naming the {@code get-schema} tool; takes the collection.
-	 */
-	static final String GET_SCHEMA_HINT_FORMAT = ". Hint: call get-schema on collection '%s' to see the fields that"
-			+ " exist; schemaless collections often store values under dynamic-suffix names such as name_s or price_d.";
-	/** Remediation hint for an unparseable {@code q}. */
-	static final String LUCENE_SYNTAX_HINT = ". Hint: the q parameter uses Lucene query syntax; quote or escape"
-			+ " special characters and check any {!...} local params.";
-	/** Remediation hint naming the {@code list-collections} tool. */
-	static final String LIST_COLLECTIONS_HINT = ". Hint: call list-collections to see available collections.";
+  /**
+   * @see #UNDEFINED_FIELD_TOKEN
+   */
+  static final String SORT_FIELD_NOT_FOUND_TOKEN = "field can't be found";
 
-	private static final String CONNECTION_ERROR = "Search failed: unable to communicate with Solr. Retry later;"
-			+ " if it persists, ask the operator to check Solr availability and connection settings.";
-	private static final String RESPONSE_ERROR = "Search failed: unable to process the Solr response."
-			+ " If facetFields were supplied, call get-schema to check those fields or retry without facetFields;"
-			+ " if it persists, ask the operator to check server logs and Solr compatibility.";
+  /**
+   * @see #UNDEFINED_FIELD_TOKEN
+   */
+  static final String SYNTAX_ERROR_TOKEN = "syntaxerror";
 
-	private final SolrClient solrClient;
+  /**
+   * @see #UNDEFINED_FIELD_TOKEN
+   */
+  static final String CANNOT_PARSE_TOKEN = "cannot parse";
 
-	/**
-	 * Constructs a new SearchService with the required SolrClient dependency.
-	 *
-	 * <p>
-	 * This constructor is automatically called by Spring's dependency injection
-	 * framework during application startup, providing the service with the
-	 * necessary Solr client for executing search operations.
-	 *
-	 * @param solrClient
-	 *            the SolrJ client instance for communicating with Solr
-	 * @see SolrClient
-	 */
-	public SearchService(SolrClient solrClient) {
-		this.solrClient = solrClient;
-	}
+  /** Remediation hint naming the {@code get-schema} tool; takes the collection. */
+  static final String GET_SCHEMA_HINT_FORMAT =
+      ". Hint: call get-schema on collection '%s' to see the fields that"
+          + " exist; schemaless collections often store values under dynamic-suffix names such as name_s or price_d.";
 
-	/**
-	 * Extracts facet information from a QueryResponse.
-	 *
-	 * @param queryResponse
-	 *            The QueryResponse containing facet results
-	 * @return A Map where keys are facet field names and values are Maps of facet
-	 *         values to counts, both in Solr's original (count-sorted) order
-	 */
-	private static Map<String, Map<String, Long>> getFacets(QueryResponse queryResponse) {
-		Map<String, Map<String, Long>> facets = new LinkedHashMap<>();
-		if (queryResponse.getFacetFields() != null && !queryResponse.getFacetFields().isEmpty()) {
-			queryResponse.getFacetFields().forEach(facetField -> {
-				Map<String, Long> facetValues = new LinkedHashMap<>();
-				for (FacetField.Count count : facetField.getValues()) {
-					facetValues.put(count.getName(), count.getCount());
-				}
-				facets.put(facetField.getName(), facetValues);
-			});
-		}
-		return facets;
-	}
+  /** Remediation hint for an unparseable {@code q}. */
+  static final String LUCENE_SYNTAX_HINT =
+      ". Hint: the q parameter uses Lucene query syntax; quote or escape"
+          + " special characters and check any {!...} local params.";
 
-	/**
-	 * Searches a Solr collection with the specified parameters. This method is
-	 * exposed as a tool for MCP clients to use.
-	 *
-	 * @param collection
-	 *            The Solr collection to query
-	 * @param query
-	 *            The Solr query string (q parameter). Defaults to "*:*" if not
-	 *            specified
-	 * @param filterQueries
-	 *            List of filter queries (fq parameter); blank entries are ignored
-	 * @param facetFields
-	 *            List of fields to facet on; blank entries are ignored
-	 * @param sortClauses
-	 *            List of sort clauses for ordering results; each names a field and
-	 *            an optional {@code asc}/{@code desc} order (default {@code asc});
-	 *            entries with blank fields are ignored
-	 * @param start
-	 *            Starting offset for pagination
-	 * @param rows
-	 *            Number of rows to return
-	 * @return A SearchResponse containing the search results and facets
-	 * @throws SolrServerException
-	 *             If there's an error communicating with Solr
-	 * @throws IOException
-	 *             If there's an I/O error
-	 */
-	@PreAuthorize("isAuthenticated()")
-	// @formatter:off — keep this @McpTool wrapped like the others; the text block disguises the real line length.
-	@McpTool(
-			name = "search",
-			annotations = @McpTool.McpAnnotations(readOnlyHint = true),
-			description = """
+  /** Remediation hint naming the {@code list-collections} tool. */
+  static final String LIST_COLLECTIONS_HINT =
+      ". Hint: call list-collections to see available collections.";
+
+  private static final String CONNECTION_ERROR =
+      "Search failed: unable to communicate with Solr. Retry later;"
+          + " if it persists, ask the operator to check Solr availability and connection settings.";
+  private static final String RESPONSE_ERROR =
+      "Search failed: unable to process the Solr response."
+          + " If facetFields were supplied, call get-schema to check those fields or retry without facetFields;"
+          + " if it persists, ask the operator to check server logs and Solr compatibility.";
+
+  private final SolrClient solrClient;
+
+  /**
+   * Constructs a new SearchService with the required SolrClient dependency.
+   *
+   * <p>This constructor is automatically called by Spring's dependency injection framework during
+   * application startup, providing the service with the necessary Solr client for executing search
+   * operations.
+   *
+   * @param solrClient the SolrJ client instance for communicating with Solr
+   * @see SolrClient
+   */
+  public SearchService(SolrClient solrClient) {
+    this.solrClient = solrClient;
+  }
+
+  /**
+   * Extracts facet information from a QueryResponse.
+   *
+   * @param queryResponse The QueryResponse containing facet results
+   * @return A Map where keys are facet field names and values are Maps of facet values to counts,
+   *     both in Solr's original (count-sorted) order
+   */
+  private static Map<String, Map<String, Long>> getFacets(QueryResponse queryResponse) {
+    Map<String, Map<String, Long>> facets = new LinkedHashMap<>();
+    if (queryResponse.getFacetFields() != null && !queryResponse.getFacetFields().isEmpty()) {
+      queryResponse
+          .getFacetFields()
+          .forEach(
+              facetField -> {
+                Map<String, Long> facetValues = new LinkedHashMap<>();
+                for (FacetField.Count count : facetField.getValues()) {
+                  facetValues.put(count.getName(), count.getCount());
+                }
+                facets.put(facetField.getName(), facetValues);
+              });
+    }
+    return facets;
+  }
+
+  /**
+   * Searches a Solr collection with the specified parameters. This method is exposed as a tool for
+   * MCP clients to use.
+   *
+   * @param collection The Solr collection to query
+   * @param query The Solr query string (q parameter). Defaults to "*:*" if not specified
+   * @param filterQueries List of filter queries (fq parameter); blank entries are ignored
+   * @param facetFields List of fields to facet on; blank entries are ignored
+   * @param sortClauses List of sort clauses for ordering results; each names a field and an
+   *     optional {@code asc}/{@code desc} order (default {@code asc}); entries with blank fields
+   *     are ignored
+   * @param start Starting offset for pagination
+   * @param rows Number of rows to return
+   * @return A SearchResponse containing the search results and facets
+   * @throws SolrServerException If there's an error communicating with Solr
+   * @throws IOException If there's an I/O error
+   */
+  @PreAuthorize("isAuthenticated()")
+  // @formatter:off — keep this @McpTool wrapped like the others; the text block disguises the real
+  // line length.
+  @McpTool(
+      name = "search",
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true),
+      description =
+          """
 			Search specified Solr collection with query, optional filters, facets, sorting, and pagination.
 			The q parameter accepts Lucene query syntax. There are no separate defType/qf/mm parameters:
 			to use eDisMax features (multi-field search, minimum-match, boosts), embed Solr local params
@@ -250,178 +240,187 @@ public class SearchService {
 			      "_root_":"0553579908"
 			    }
 			""")
-	// @formatter:on
-	public SearchResponse search(@McpToolParam(description = "Solr collection to query") String collection,
-			@McpToolParam(
-					description = "Solr q parameter. Lucene syntax; supports local params such as"
-							+ " {!edismax qf='name author'}. If none specified defaults to \"*:*\"",
-					required = false) @Nullable String query,
-			@McpToolParam(
-					description = "Solr fq parameter: list of filter queries, one filter per entry. Blank entries are ignored",
-					required = false) @Nullable List<String> filterQueries,
-			@McpToolParam(
-					description = "Solr facet fields. Blank entries are ignored",
-					required = false) @Nullable List<String> facetFields,
-			@McpToolParam(
-					description = "Sort clauses applied in order. Each has 'field' (field name to sort"
-							+ " on) and 'order' ('asc' or 'desc', default 'asc'). Entries with blank fields are ignored",
-					required = false) @Nullable List<SortClause> sortClauses,
-			@McpToolParam(description = "Starting offset for pagination", required = false) @Nullable Integer start,
-			@McpToolParam(description = "Number of rows to return", required = false) @Nullable Integer rows)
-			throws SolrServerException, IOException {
+  // @formatter:on
+  public SearchResponse search(
+      @McpToolParam(description = "Solr collection to query") String collection,
+      @McpToolParam(
+              description =
+                  "Solr q parameter. Lucene syntax; supports local params such as"
+                      + " {!edismax qf='name author'}. If none specified defaults to \"*:*\"",
+              required = false)
+          @Nullable String query,
+      @McpToolParam(
+              description =
+                  "Solr fq parameter: list of filter queries, one filter per entry. Blank entries are ignored",
+              required = false)
+          @Nullable List<String> filterQueries,
+      @McpToolParam(description = "Solr facet fields. Blank entries are ignored", required = false)
+          @Nullable List<String> facetFields,
+      @McpToolParam(
+              description =
+                  "Sort clauses applied in order. Each has 'field' (field name to sort"
+                      + " on) and 'order' ('asc' or 'desc', default 'asc'). Entries with blank fields are ignored",
+              required = false)
+          @Nullable List<SortClause> sortClauses,
+      @McpToolParam(description = "Starting offset for pagination", required = false)
+          @Nullable Integer start,
+      @McpToolParam(description = "Number of rows to return", required = false)
+          @Nullable Integer rows)
+      throws SolrServerException, IOException {
 
-		// query
-		final SolrQuery solrQuery = new SolrQuery("*:*");
-		if (StringUtils.hasText(query)) {
-			solrQuery.setQuery(query);
-		}
+    // query
+    final SolrQuery solrQuery = new SolrQuery("*:*");
+    if (StringUtils.hasText(query)) {
+      solrQuery.setQuery(query);
+    }
 
-		// fl=score,* — Solr only returns maxScore and per-document score when asked
-		solrQuery.setIncludeScore(true);
+    // fl=score,* — Solr only returns maxScore and per-document score when asked
+    solrQuery.setIncludeScore(true);
 
-		// filter queries
-		if (!CollectionUtils.isEmpty(filterQueries)) {
-			filterQueries.stream().filter(StringUtils::hasText).forEach(solrQuery::addFilterQuery);
-		}
+    // filter queries
+    if (!CollectionUtils.isEmpty(filterQueries)) {
+      filterQueries.stream().filter(StringUtils::hasText).forEach(solrQuery::addFilterQuery);
+    }
 
-		// facets
-		if (!CollectionUtils.isEmpty(facetFields)) {
-			facetFields.stream().filter(StringUtils::hasText).forEach(solrQuery::addFacetField);
-		}
-		// addFacetField sets facet=true; getFacetFields() is null until the first one
-		if (solrQuery.getFacetFields() != null) {
-			solrQuery.setFacetMinCount(1);
-			solrQuery.setFacetSort(FacetParams.FACET_SORT_COUNT);
-		}
+    // facets
+    if (!CollectionUtils.isEmpty(facetFields)) {
+      facetFields.stream().filter(StringUtils::hasText).forEach(solrQuery::addFacetField);
+    }
+    // addFacetField sets facet=true; getFacetFields() is null until the first one
+    if (solrQuery.getFacetFields() != null) {
+      solrQuery.setFacetMinCount(1);
+      solrQuery.setFacetSort(FacetParams.FACET_SORT_COUNT);
+    }
 
-		// sorting
-		if (!CollectionUtils.isEmpty(sortClauses)) {
-			sortClauses.stream().filter(clause -> clause != null && StringUtils.hasText(clause.field()))
-					.map(SortClause::toSolrSortClause).forEach(solrQuery::addSort);
-		}
+    // sorting
+    if (!CollectionUtils.isEmpty(sortClauses)) {
+      sortClauses.stream()
+          .filter(clause -> clause != null && StringUtils.hasText(clause.field()))
+          .map(SortClause::toSolrSortClause)
+          .forEach(solrQuery::addSort);
+    }
 
-		// pagination
-		if (start != null) {
-			solrQuery.setStart(start);
-		}
+    // pagination
+    if (start != null) {
+      solrQuery.setStart(start);
+    }
 
-		if (rows != null) {
-			solrQuery.setRows(rows);
-		}
+    if (rows != null) {
+      solrQuery.setRows(rows);
+    }
 
-		try {
-			final QueryResponse queryResponse = solrClient.query(collection, solrQuery);
+    try {
+      final QueryResponse queryResponse = solrClient.query(collection, solrQuery);
 
-			// Add documents
-			final SolrDocumentList documents = queryResponse.getResults();
+      // Add documents
+      final SolrDocumentList documents = queryResponse.getResults();
 
-			// Convert SolrDocuments to Maps
-			// SolrDocument is a Map in Solr's field order, so no per-document copy
-			final List<Map<String, Object>> docs = Collections.unmodifiableList(documents);
+      // Convert SolrDocuments to Maps
+      // SolrDocument is a Map in Solr's field order, so no per-document copy
+      final List<Map<String, Object>> docs = Collections.unmodifiableList(documents);
 
-			// Add facets if present
-			final var facets = getFacets(queryResponse);
+      // Add facets if present
+      final var facets = getFacets(queryResponse);
 
-			return new SearchResponse(documents.getNumFound(), documents.getStart(), documents.getMaxScore(), docs,
-					facets);
-		} catch (SolrException e) {
-			throw withRemediationHint(e, collection);
-		} catch (SolrServerException e) {
-			logger.warn("Solr query failed on collection {}", collection, e);
-			throw new SolrServerException(CONNECTION_ERROR);
-		} catch (IOException e) {
-			logger.warn("Solr query failed on collection {}", collection, e);
-			throw new IOException(CONNECTION_ERROR);
-		} catch (RuntimeException e) {
-			// The client only sees RESPONSE_ERROR; the log is the sole record of the cause.
-			logger.warn("Solr query response failed on collection {}", collection, e);
-			throw new IllegalStateException(RESPONSE_ERROR);
-		}
-	}
+      return new SearchResponse(
+          documents.getNumFound(), documents.getStart(), documents.getMaxScore(), docs, facets);
+    } catch (SolrException e) {
+      throw withRemediationHint(e, collection);
+    } catch (SolrServerException e) {
+      logger.warn("Solr query failed on collection {}", collection, e);
+      throw new SolrServerException(CONNECTION_ERROR);
+    } catch (IOException e) {
+      logger.warn("Solr query failed on collection {}", collection, e);
+      throw new IOException(CONNECTION_ERROR);
+    } catch (RuntimeException e) {
+      // The client only sees RESPONSE_ERROR; the log is the sole record of the cause.
+      logger.warn("Solr query response failed on collection {}", collection, e);
+      throw new IllegalStateException(RESPONSE_ERROR);
+    }
+  }
 
-	/**
-	 * Wraps common Solr query failures with a next-step hint. MCP unwraps exception
-	 * causes, so client-facing exceptions must omit the cause to preserve safe
-	 * guidance; the original failure is logged for server-side diagnostics.
-	 *
-	 * @param e
-	 *            the Solr exception raised by the query
-	 * @param collection
-	 *            the collection that was queried
-	 * @return an exception carrying safe guidance; never with a cause, which MCP
-	 *         would unwrap in place of the guidance
-	 */
-	private static RuntimeException withRemediationHint(SolrException e, String collection) {
-		final String message = String.valueOf(e.getMessage());
+  /**
+   * Wraps common Solr query failures with a next-step hint. MCP unwraps exception causes, so
+   * client-facing exceptions must omit the cause to preserve safe guidance; the original failure is
+   * logged for server-side diagnostics.
+   *
+   * @param e the Solr exception raised by the query
+   * @param collection the collection that was queried
+   * @return an exception carrying safe guidance; never with a cause, which MCP would unwrap in
+   *     place of the guidance
+   */
+  private static RuntimeException withRemediationHint(SolrException e, String collection) {
+    final String message = String.valueOf(e.getMessage());
 
-		// Deliberately no cause on the exceptions below: the MCP annotation layer
-		// reports the ROOT cause's message as the tool error, so attaching the Solr
-		// failure would discard the guidance and the client would never see it. This
-		// log is therefore the only server-side record of the failure.
-		logger.warn("Solr query failed on collection {}", collection, e);
+    // Deliberately no cause on the exceptions below: the MCP annotation layer
+    // reports the ROOT cause's message as the tool error, so attaching the Solr
+    // failure would discard the guidance and the client would never see it. This
+    // log is therefore the only server-side record of the failure.
+    logger.warn("Solr query failed on collection {}", collection, e);
 
-		// An unknown collection is a 404 whose body is Solr's HTML "not found" page,
-		// so SolrJ reports it as a mime-type mismatch and leaves getMetadata() null.
-		// The status code is the only signal that survives; match it rather than the
-		// message text, which mentions neither the collection nor "404".
-		if (e.code() == SolrException.ErrorCode.NOT_FOUND.code) {
-			return new IllegalArgumentException("Search failed: the collection was not found" + LIST_COLLECTIONS_HINT);
-		}
+    // An unknown collection is a 404 whose body is Solr's HTML "not found" page,
+    // so SolrJ reports it as a mime-type mismatch and leaves getMetadata() null.
+    // The status code is the only signal that survives; match it rather than the
+    // message text, which mentions neither the collection nor "404".
+    if (e.code() == SolrException.ErrorCode.NOT_FOUND.code) {
+      return new IllegalArgumentException(
+          "Search failed: the collection was not found" + LIST_COLLECTIONS_HINT);
+    }
 
-		// Everything below is a 400 carrying a generic SolrException, indistinguishable
-		// except by Solr's message text.
-		final String lower = message.toLowerCase(Locale.ROOT);
-		if (e.code() == SolrException.ErrorCode.BAD_REQUEST.code) {
-			if (lower.contains(UNDEFINED_FIELD_TOKEN) || lower.contains(SORT_FIELD_NOT_FOUND_TOKEN)) {
-				return new IllegalArgumentException("Search failed: a referenced field is not defined"
-						+ GET_SCHEMA_HINT_FORMAT.formatted(collection));
-			}
-			if (lower.contains(SYNTAX_ERROR_TOKEN) || lower.contains(CANNOT_PARSE_TOKEN)) {
-				return new IllegalArgumentException(
-						"Search failed: Solr could not parse the query or filters" + LUCENE_SYNTAX_HINT);
-			}
-			return new SolrException(SolrException.ErrorCode.BAD_REQUEST,
-					"Search failed: Solr rejected the request. Check query syntax, filter queries, facet fields,"
-							+ " sort clauses, and pagination; call get-schema to verify the fields.");
-		}
-		if (e.code() == SolrException.ErrorCode.UNAUTHORIZED.code
-				|| e.code() == SolrException.ErrorCode.FORBIDDEN.code) {
-			return new SolrException(SolrException.ErrorCode.getErrorCode(e.code()),
-					"Search failed: Solr denied access. Ask the operator to check the configured Solr credentials"
-							+ " and collection permissions.");
-		}
-		return new SolrException(SolrException.ErrorCode.getErrorCode(e.code()),
-				"Search failed: Solr could not complete the request. Retry later; if it persists,"
-						+ " ask the operator to check Solr health and server logs.");
-	}
+    // Everything below is a 400 carrying a generic SolrException, indistinguishable
+    // except by Solr's message text.
+    final String lower = message.toLowerCase(Locale.ROOT);
+    if (e.code() == SolrException.ErrorCode.BAD_REQUEST.code) {
+      if (lower.contains(UNDEFINED_FIELD_TOKEN) || lower.contains(SORT_FIELD_NOT_FOUND_TOKEN)) {
+        return new IllegalArgumentException(
+            "Search failed: a referenced field is not defined"
+                + GET_SCHEMA_HINT_FORMAT.formatted(collection));
+      }
+      if (lower.contains(SYNTAX_ERROR_TOKEN) || lower.contains(CANNOT_PARSE_TOKEN)) {
+        return new IllegalArgumentException(
+            "Search failed: Solr could not parse the query or filters" + LUCENE_SYNTAX_HINT);
+      }
+      return new SolrException(
+          SolrException.ErrorCode.BAD_REQUEST,
+          "Search failed: Solr rejected the request. Check query syntax, filter queries, facet fields,"
+              + " sort clauses, and pagination; call get-schema to verify the fields.");
+    }
+    if (e.code() == SolrException.ErrorCode.UNAUTHORIZED.code
+        || e.code() == SolrException.ErrorCode.FORBIDDEN.code) {
+      return new SolrException(
+          SolrException.ErrorCode.getErrorCode(e.code()),
+          "Search failed: Solr denied access. Ask the operator to check the configured Solr credentials"
+              + " and collection permissions.");
+    }
+    return new SolrException(
+        SolrException.ErrorCode.getErrorCode(e.code()),
+        "Search failed: Solr could not complete the request. Retry later; if it persists,"
+            + " ask the operator to check Solr health and server logs.");
+  }
 
-	/**
-	 * MCP prompt that guides the client through translating a natural-language
-	 * question into a Solr query: inspect the schema, build the query, run the
-	 * search, and refine the result.
-	 *
-	 * @param collection
-	 *            target Solr collection name
-	 * @param question
-	 *            the user's natural-language search question or information need
-	 * @return the prompt text instructing the model how to run the search
-	 */
-	@PreAuthorize("isAuthenticated()")
-
-	@McpPrompt(
-			name = PromptNames.SEARCH_COLLECTION,
-			title = "Search a Solr collection from a natural-language question",
-			description = "Guides the assistant through inspecting the schema, translating a user question into a Solr query, running the search, and refining the result.")
-	public String searchCollectionPrompt(
-			@McpArg(
-					name = "collection",
-					description = "Target Solr collection name",
-					required = true) String collection,
-			@McpArg(
-					name = "question",
-					description = "The user's natural-language search question or information need",
-					required = true) String question) {
-		return """
+  /**
+   * MCP prompt that guides the client through translating a natural-language question into a Solr
+   * query: inspect the schema, build the query, run the search, and refine the result.
+   *
+   * @param collection target Solr collection name
+   * @param question the user's natural-language search question or information need
+   * @return the prompt text instructing the model how to run the search
+   */
+  @PreAuthorize("isAuthenticated()")
+  @McpPrompt(
+      name = PromptNames.SEARCH_COLLECTION,
+      title = "Search a Solr collection from a natural-language question",
+      description =
+          "Guides the assistant through inspecting the schema, translating a user question into a Solr query, running the search, and refining the result.")
+  public String searchCollectionPrompt(
+      @McpArg(name = "collection", description = "Target Solr collection name", required = true)
+          String collection,
+      @McpArg(
+              name = "question",
+              description = "The user's natural-language search question or information need",
+              required = true)
+          String question) {
+    return """
 				You are searching collection `%s` to answer:
 
 				    %s
@@ -469,6 +468,7 @@ public class SearchService {
 				   - Answer the user's question grounded in the documents found, citing concrete field
 				     values (title, id, etc.). If the search did not produce a clear answer, surface
 				     that explicitly rather than guessing.
-				""".formatted(collection, question, collection, collection);
-	}
+				"""
+        .formatted(collection, question, collection, collection);
+  }
 }
