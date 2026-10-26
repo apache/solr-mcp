@@ -105,8 +105,10 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 | `index-markdown-documents` | Index markdown documents into a collection (one array element per document), extracting front matter, title, headings, and body text |
 | `create-collection` | Create a collection (configSet, numShards, replicationFactor optional — default `_default`, `1`, `1`) |
 | `list-collections` | List all available Solr collections |
-| `get-collection-stats` | Get statistics and metrics for a collection |
-| `check-health` | Check the health status of a collection |
+| `get-collection-stats` | Size and performance of one collection: document and segment counts, query, cache and handler stats |
+| `check-health` | Check that one collection answers queries: a ping plus its document count. It does not report replica state; use `get-cluster-status` for that |
+| `get-cluster-status` | Cluster-wide view from Solr's CLUSTERSTATUS: live nodes and the state of every shard and replica |
+| `list-configsets` | List the configsets in the cluster, to pick one for `create-collection` |
 | `add-fields` | Add fields to a collection schema (additive only; existing fields cannot be modified) |
 | `add-field-types` | Add field types — custom analyzers, `DenseVectorField` for semantic search, etc. |
 | `get-schema` | Retrieve schema information for a collection |
@@ -122,6 +124,7 @@ Every tool advertises MCP behavior hints (`readOnlyHint`, `destructiveHint`, `id
 |--------------|-------------|
 | `solr://collections` | List of all Solr collections in the cluster |
 | `solr://{collection}/schema` | Schema definition for a collection (supports autocompletion) |
+| `solr://cluster/status` | Live nodes and the state of every shard and replica, as `get-cluster-status` reports it |
 
 ### Prompts
 
