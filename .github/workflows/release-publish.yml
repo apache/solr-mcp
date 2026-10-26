@@ -246,7 +246,7 @@ jobs:
       - name: Generate SBOM (Software Bill of Materials)
         # The CycloneDX plugin is wired in build.gradle.kts; bootJar already
         # depends on cyclonedxBom transitively. Running it explicitly here
-        # ensures build/reports/application.cdx.json exists for the upload
+        # ensures build/reports/cyclonedx/application.cdx.json exists for the upload
         # steps below even if the `Build project` step above used a cached
         # bootJar output.
         run: ./gradlew cyclonedxBom
@@ -258,7 +258,8 @@ jobs:
           # The release_version input is constrained by validate-release; safe to
           # interpolate into the artifact name.
           name: solr-mcp-sbom-${{ inputs.release_version }}
-          path: build/reports/application.cdx.json
+          path: build/reports/cyclonedx/application.cdx.json
+          if-no-files-found: error
           retention-days: 90
 
       - name: Attach SBOM to GitHub Release
@@ -271,7 +272,7 @@ jobs:
           RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
           # Rename to include the version so the asset is unambiguous on the release page.
-          cp build/reports/application.cdx.json "solr-mcp-${RELEASE_VERSION}.cdx.json"
+          cp build/reports/cyclonedx/application.cdx.json "solr-mcp-${RELEASE_VERSION}.cdx.json"
           # --clobber lets re-runs of this workflow replace a previously uploaded SBOM.
           # If the v<version> GitHub Release does not exist yet, log and continue —
           # the workflow artifact above is still captured.
