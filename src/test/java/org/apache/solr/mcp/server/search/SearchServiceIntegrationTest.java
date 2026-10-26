@@ -43,33 +43,28 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-/**
- * Integration tests for SearchService using a real Solr instance via
- * Testcontainers.
- */
+/** Integration tests for SearchService using a real Solr instance via Testcontainers. */
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
 @Tag("integration")
 @Testcontainers(disabledWithoutDocker = true)
 class SearchServiceIntegrationTest {
 
-	private static final String COLLECTION_NAME = "search_test_" + System.currentTimeMillis();
-	private static boolean initialized = false;
-	@Autowired
-	private SearchService searchService;
-	@Autowired
-	private IndexingService indexingService;
-	@Autowired
-	private SolrClient solrClient;
+  private static final String COLLECTION_NAME = "search_test_" + System.currentTimeMillis();
+  private static boolean initialized = false;
+  @Autowired private SearchService searchService;
+  @Autowired private IndexingService indexingService;
+  @Autowired private SolrClient solrClient;
 
-	@BeforeEach
-	void setUp() throws Exception {
-		if (!initialized) {
-			CollectionAdminRequest.Create createRequest = CollectionAdminRequest.createCollection(COLLECTION_NAME,
-					"_default", 1, 1);
-			createRequest.process(solrClient);
+  @BeforeEach
+  void setUp() throws Exception {
+    if (!initialized) {
+      CollectionAdminRequest.Create createRequest =
+          CollectionAdminRequest.createCollection(COLLECTION_NAME, "_default", 1, 1);
+      createRequest.process(solrClient);
 
-			String sampleData = """
+      String sampleData =
+          """
 					[
 					  {
 					    "id": "book001",
@@ -177,357 +172,421 @@ class SearchServiceIntegrationTest {
 					]
 					""";
 
-			indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(sampleData));
-			solrClient.commit(COLLECTION_NAME);
-			initialized = true;
-		}
-	}
+      indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(sampleData));
+      solrClient.commit(COLLECTION_NAME);
+      initialized = true;
+    }
+  }
 
-	@Test
-	void testBasicSearch() throws SolrServerException, IOException {
-		SearchResponse result = searchService.search(COLLECTION_NAME, null, null, null, null, null, null);
-		assertNotNull(result);
-		List<Map<String, Object>> documents = result.documents();
-		assertFalse(documents.isEmpty());
-		assertEquals(10, documents.size());
-	}
+  @Test
+  void testBasicSearch() throws SolrServerException, IOException {
+    SearchResponse result =
+        searchService.search(COLLECTION_NAME, null, null, null, null, null, null);
+    assertNotNull(result);
+    List<Map<String, Object>> documents = result.documents();
+    assertFalse(documents.isEmpty());
+    assertEquals(10, documents.size());
+  }
 
-	/**
-	 * Zero matches is an ordinary search outcome, not an error. Solr writes an
-	 * empty facet as {@code []}, which must still reach SolrJ as a NamedList —
-	 * {@code QueryResponse.getFacetFields()} casts to one, so a plain list surfaces
-	 * as {@code ClassCastException: ArrayList cannot be cast to
-	 * NamedList} instead of an empty result.
-	 *
-	 * <p>
-	 * {@link org.apache.solr.mcp.server.config.JsonResponseParserTest} pins the
-	 * same behaviour at the parser boundary against a hand-written payload. This
-	 * test is the end-to-end counterpart: it proves a real Solr actually emits
-	 * {@code []} for a zero-hit facet, which is the premise the unit tests assume.
-	 */
-	@Test
-	void facetingAQueryThatMatchesNothingReturnsEmptyFacets() throws SolrServerException, IOException {
-		SearchResponse result = searchService.search(COLLECTION_NAME, "genre_s:no_such_genre_exists", null,
-				List.of("genre_s"), null, null, 0);
+  /**
+   * Zero matches is an ordinary search outcome, not an error. Solr writes an empty facet as {@code
+   * []}, which must still reach SolrJ as a NamedList — {@code QueryResponse.getFacetFields()} casts
+   * to one, so a plain list surfaces as {@code ClassCastException: ArrayList cannot be cast to
+   * NamedList} instead of an empty result.
+   *
+   * <p>{@link org.apache.solr.mcp.server.config.JsonResponseParserTest} pins the same behaviour at
+   * the parser boundary against a hand-written payload. This test is the end-to-end counterpart: it
+   * proves a real Solr actually emits {@code []} for a zero-hit facet, which is the premise the
+   * unit tests assume.
+   */
+  @Test
+  void facetingAQueryThatMatchesNothingReturnsEmptyFacets()
+      throws SolrServerException, IOException {
+    SearchResponse result =
+        searchService.search(
+            COLLECTION_NAME,
+            "genre_s:no_such_genre_exists",
+            null,
+            List.of("genre_s"),
+            null,
+            null,
+            0);
 
-		assertNotNull(result);
-		assertEquals(0, result.numFound(), "the filter is designed to match nothing");
-		assertNotNull(result.facets(), "facets must be present even when nothing matched");
-		assertTrue(result.facets().getOrDefault("genre_s", Map.of()).isEmpty(),
-				() -> "expected no facet buckets, got: " + result.facets().get("genre_s"));
-	}
+    assertNotNull(result);
+    assertEquals(0, result.numFound(), "the filter is designed to match nothing");
+    assertNotNull(result.facets(), "facets must be present even when nothing matched");
+    assertTrue(
+        result.facets().getOrDefault("genre_s", Map.of()).isEmpty(),
+        () -> "expected no facet buckets, got: " + result.facets().get("genre_s"));
+  }
 
-	@Test
-	void searchWithBlankOptionsPreservesFiltersFacetsAndSort() throws Exception {
-		SearchResponse result = searchService.search(COLLECTION_NAME, " \t", List.of("", "platform_ss:netflix", " "),
-				List.of(" ", "platform_ss", ""), List.of(new SortClause("", ""), new SortClause("id", "desc")), 0, 10);
-		assertEquals(2, result.numFound());
-		assertEquals(List.of("book002", "book001"), getDocumentIds(result.documents()));
-		assertEquals(Map.of("netflix", 2L), result.facets().get("platform_ss"));
-	}
+  @Test
+  void searchWithBlankOptionsPreservesFiltersFacetsAndSort() throws Exception {
+    SearchResponse result =
+        searchService.search(
+            COLLECTION_NAME,
+            " \t",
+            List.of("", "platform_ss:netflix", " "),
+            List.of(" ", "platform_ss", ""),
+            List.of(new SortClause("", ""), new SortClause("id", "desc")),
+            0,
+            10);
+    assertEquals(2, result.numFound());
+    assertEquals(List.of("book002", "book001"), getDocumentIds(result.documents()));
+    assertEquals(Map.of("netflix", 2L), result.facets().get("platform_ss"));
+  }
 
-	/**
-	 * Remediation hints classify Solr's error text, which this server cannot see at
-	 * compile time — the strings are produced by solr-core, and only solr-solrj is
-	 * on the classpath. These tests therefore provoke each failure on a real Solr
-	 * server and assert the hint survives: they are the only thing standing between
-	 * a reworded Solr message and a hint that silently stops appearing.
-	 *
-	 * <p>
-	 * Each asserts on the hint constant, never on the token being matched — an
-	 * assertion routed through the same token the matcher uses would pass even if
-	 * Solr changed its wording, which is exactly the regression being guarded.
-	 */
-	@Test
-	void searchWithUndefinedFieldInQueryReturnsGetSchemaHint() {
-		IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> searchService
-				.search(COLLECTION_NAME, "definitely_not_a_field:value", null, null, null, null, null));
-		assertTrue(e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
-				() -> "expected get-schema hint, got: " + e.getMessage());
-		assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
-	}
+  /**
+   * Remediation hints classify Solr's error text, which this server cannot see at compile time —
+   * the strings are produced by solr-core, and only solr-solrj is on the classpath. These tests
+   * therefore provoke each failure on a real Solr server and assert the hint survives: they are the
+   * only thing standing between a reworded Solr message and a hint that silently stops appearing.
+   *
+   * <p>Each asserts on the hint constant, never on the token being matched — an assertion routed
+   * through the same token the matcher uses would pass even if Solr changed its wording, which is
+   * exactly the regression being guarded.
+   */
+  @Test
+  void searchWithUndefinedFieldInQueryReturnsGetSchemaHint() {
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                searchService.search(
+                    COLLECTION_NAME, "definitely_not_a_field:value", null, null, null, null, null));
+    assertTrue(
+        e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
+        () -> "expected get-schema hint, got: " + e.getMessage());
+    assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+  }
 
-	@Test
-	void searchWithUndefinedFieldInFilterQueryReturnsGetSchemaHint() {
-		IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> searchService
-				.search(COLLECTION_NAME, "*:*", List.of("definitely_not_a_field:value"), null, null, null, null));
-		assertTrue(e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
-				() -> "expected get-schema hint, got: " + e.getMessage());
-		assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
-	}
+  @Test
+  void searchWithUndefinedFieldInFilterQueryReturnsGetSchemaHint() {
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                searchService.search(
+                    COLLECTION_NAME,
+                    "*:*",
+                    List.of("definitely_not_a_field:value"),
+                    null,
+                    null,
+                    null,
+                    null));
+    assertTrue(
+        e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
+        () -> "expected get-schema hint, got: " + e.getMessage());
+    assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+  }
 
-	/** Faceting words it differently: {@code undefined field: "name"}. */
-	@Test
-	void searchWithUndefinedFacetFieldReturnsGetSchemaHint() {
-		IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> searchService
-				.search(COLLECTION_NAME, "*:*", null, List.of("definitely_not_a_field"), null, null, null));
-		assertTrue(e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
-				() -> "expected get-schema hint, got: " + e.getMessage());
-		assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
-	}
+  /** Faceting words it differently: {@code undefined field: "name"}. */
+  @Test
+  void searchWithUndefinedFacetFieldReturnsGetSchemaHint() {
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                searchService.search(
+                    COLLECTION_NAME,
+                    "*:*",
+                    null,
+                    List.of("definitely_not_a_field"),
+                    null,
+                    null,
+                    null));
+    assertTrue(
+        e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
+        () -> "expected get-schema hint, got: " + e.getMessage());
+    assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+  }
 
-	/**
-	 * Sorting words it differently again: {@code sort param field can't be found},
-	 * which is why the matcher carries a second undefined-field token.
-	 */
-	@Test
-	void searchWithUndefinedSortFieldReturnsGetSchemaHint() {
-		List<SortClause> sort = List.of(new SortClause("definitely_not_a_field", "asc"));
-		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-				() -> searchService.search(COLLECTION_NAME, "*:*", null, null, sort, null, null));
-		assertTrue(e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
-				() -> "expected get-schema hint, got: " + e.getMessage());
-		assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
-	}
+  /**
+   * Sorting words it differently again: {@code sort param field can't be found}, which is why the
+   * matcher carries a second undefined-field token.
+   */
+  @Test
+  void searchWithUndefinedSortFieldReturnsGetSchemaHint() {
+    List<SortClause> sort = List.of(new SortClause("definitely_not_a_field", "asc"));
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> searchService.search(COLLECTION_NAME, "*:*", null, null, sort, null, null));
+    assertTrue(
+        e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
+        () -> "expected get-schema hint, got: " + e.getMessage());
+    assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+  }
 
-	@Test
-	void searchWithUnparseableQueryReturnsLuceneSyntaxHint() {
-		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-				() -> searchService.search(COLLECTION_NAME, "name:(", null, null, null, null, null));
-		assertTrue(e.getMessage().contains(SearchService.LUCENE_SYNTAX_HINT),
-				() -> "expected Lucene syntax hint, got: " + e.getMessage());
-		assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
-	}
+  @Test
+  void searchWithUnparseableQueryReturnsLuceneSyntaxHint() {
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> searchService.search(COLLECTION_NAME, "name:(", null, null, null, null, null));
+    assertTrue(
+        e.getMessage().contains(SearchService.LUCENE_SYNTAX_HINT),
+        () -> "expected Lucene syntax hint, got: " + e.getMessage());
+    assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+  }
 
-	/**
-	 * An unknown collection is a 404 whose body is Solr's HTML page, so the message
-	 * names neither the collection nor "404" — it reads
-	 * {@code Expected mime type in
-	 * [application/json, text/plain] but got text/html}. Matched on
-	 * {@link org.apache.solr.common.SolrException#code()} instead.
-	 */
-	@Test
-	void searchOnMissingCollectionReturnsListCollectionsHint() {
-		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-				() -> searchService.search("definitely_not_a_collection", "*:*", null, null, null, null, null));
-		assertTrue(e.getMessage().contains(SearchService.LIST_COLLECTIONS_HINT),
-				() -> "expected list-collections hint, got: " + e.getMessage());
-		assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
-	}
+  /**
+   * An unknown collection is a 404 whose body is Solr's HTML page, so the message names neither the
+   * collection nor "404" — it reads {@code Expected mime type in [application/json, text/plain] but
+   * got text/html}. Matched on {@link org.apache.solr.common.SolrException#code()} instead.
+   */
+  @Test
+  void searchOnMissingCollectionReturnsListCollectionsHint() {
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                searchService.search(
+                    "definitely_not_a_collection", "*:*", null, null, null, null, null));
+    assertTrue(
+        e.getMessage().contains(SearchService.LIST_COLLECTIONS_HINT),
+        () -> "expected list-collections hint, got: " + e.getMessage());
+    assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+  }
 
-	/**
-	 * An unclassified Solr error keeps its status but replaces backend text with
-	 * safe request guidance. Negative {@code rows} is structurally identical to the
-	 * undefined-field failures, so it also pins that text matching is not
-	 * over-broad.
-	 */
-	@Test
-	void searchWithUnrecognizedSolrErrorPropagatesWithoutHint() {
-		SolrException e = assertThrows(SolrException.class,
-				() -> searchService.search(COLLECTION_NAME, "*:*", null, null, null, null, -5));
-		assertFalse(e.getMessage().contains("Hint:"), () -> "expected no hint, got: " + e.getMessage());
-		assertEquals(SolrException.ErrorCode.BAD_REQUEST.code, e.code());
-		assertTrue(e.getMessage().contains("pagination"));
-		assertTrue(e.getMessage().contains("get-schema"));
-		assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
-	}
+  /**
+   * An unclassified Solr error keeps its status but replaces backend text with safe request
+   * guidance. Negative {@code rows} is structurally identical to the undefined-field failures, so
+   * it also pins that text matching is not over-broad.
+   */
+  @Test
+  void searchWithUnrecognizedSolrErrorPropagatesWithoutHint() {
+    SolrException e =
+        assertThrows(
+            SolrException.class,
+            () -> searchService.search(COLLECTION_NAME, "*:*", null, null, null, null, -5));
+    assertFalse(e.getMessage().contains("Hint:"), () -> "expected no hint, got: " + e.getMessage());
+    assertEquals(SolrException.ErrorCode.BAD_REQUEST.code, e.code());
+    assertTrue(e.getMessage().contains("pagination"));
+    assertTrue(e.getMessage().contains("get-schema"));
+    assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+  }
 
-	/**
-	 * The search tool always requests the relevance score (fl=score,*), so a
-	 * non-{@code *:*} query — which actually produces a meaningful ranking — must
-	 * come back with a non-null {@code maxScore} and a {@code score} on every
-	 * document. Both were silently dropped before this fix: Solr only populates
-	 * them when {@code score} is in the field list, which this service never set.
-	 */
-	@Test
-	void testSearchWithQueryPopulatesMaxScoreAndDocumentScore() throws SolrServerException, IOException {
-		SearchResponse result = searchService.search(COLLECTION_NAME, "genre_s:fantasy", null, null, null, null, null);
-		assertNotNull(result);
-		assertNotNull(result.maxScore(), "maxScore must be populated for a non-*:* query");
-		assertTrue(result.maxScore() > 0, "maxScore should be a positive relevance score");
-		assertFalse(result.documents().isEmpty());
-		for (Map<String, Object> book : result.documents()) {
-			assertNotNull(book.get("score"), "each document should carry its relevance score");
-		}
-	}
+  /**
+   * The search tool always requests the relevance score (fl=score,*), so a non-{@code *:*} query —
+   * which actually produces a meaningful ranking — must come back with a non-null {@code maxScore}
+   * and a {@code score} on every document. Both were silently dropped before this fix: Solr only
+   * populates them when {@code score} is in the field list, which this service never set.
+   */
+  @Test
+  void testSearchWithQueryPopulatesMaxScoreAndDocumentScore()
+      throws SolrServerException, IOException {
+    SearchResponse result =
+        searchService.search(COLLECTION_NAME, "genre_s:fantasy", null, null, null, null, null);
+    assertNotNull(result);
+    assertNotNull(result.maxScore(), "maxScore must be populated for a non-*:* query");
+    assertTrue(result.maxScore() > 0, "maxScore should be a positive relevance score");
+    assertFalse(result.documents().isEmpty());
+    for (Map<String, Object> book : result.documents()) {
+      assertNotNull(book.get("score"), "each document should carry its relevance score");
+    }
+  }
 
-	@Test
-	void testSearchWithQuery() throws SolrServerException, IOException {
-		SearchResponse result = searchService.search(COLLECTION_NAME, "name:\"Game of Thrones\"", null, null, null,
-				null, null);
-		assertNotNull(result);
-		List<Map<String, Object>> documents = result.documents();
-		assertEquals(1, documents.size());
-		Map<String, Object> book = documents.getFirst();
-		assertEquals("A Game of Thrones", ((List<?>) book.get("name")).getFirst());
-	}
+  @Test
+  void testSearchWithQuery() throws SolrServerException, IOException {
+    SearchResponse result =
+        searchService.search(
+            COLLECTION_NAME, "name:\"Game of Thrones\"", null, null, null, null, null);
+    assertNotNull(result);
+    List<Map<String, Object>> documents = result.documents();
+    assertEquals(1, documents.size());
+    Map<String, Object> book = documents.getFirst();
+    assertEquals("A Game of Thrones", ((List<?>) book.get("name")).getFirst());
+  }
 
-	@Test
-	void testSearchReturnsAuthor() throws Exception {
-		SearchResponse result = searchService.search(COLLECTION_NAME, "author_ss:\"George R.R. Martin\"", null, null,
-				null, null, null);
-		assertNotNull(result);
-		List<Map<String, Object>> documents = result.documents();
-		assertEquals(3, documents.size());
-		Map<String, Object> book = documents.getFirst();
-		assertEquals("George R.R. Martin", ((List<?>) book.get("author_ss")).getFirst());
-	}
+  @Test
+  void testSearchReturnsAuthor() throws Exception {
+    SearchResponse result =
+        searchService.search(
+            COLLECTION_NAME, "author_ss:\"George R.R. Martin\"", null, null, null, null, null);
+    assertNotNull(result);
+    List<Map<String, Object>> documents = result.documents();
+    assertEquals(3, documents.size());
+    Map<String, Object> book = documents.getFirst();
+    assertEquals("George R.R. Martin", ((List<?>) book.get("author_ss")).getFirst());
+  }
 
-	@Test
-	void testSearchWithFacets() throws Exception {
-		SearchResponse result = searchService.search(COLLECTION_NAME, null, null, List.of("genre_s"), null, null, null);
-		assertNotNull(result);
-		Map<String, Map<String, Long>> facets = result.facets();
-		assertNotNull(facets);
-		assertTrue(facets.containsKey("genre_s"));
-	}
+  @Test
+  void testSearchWithFacets() throws Exception {
+    SearchResponse result =
+        searchService.search(COLLECTION_NAME, null, null, List.of("genre_s"), null, null, null);
+    assertNotNull(result);
+    Map<String, Map<String, Long>> facets = result.facets();
+    assertNotNull(facets);
+    assertTrue(facets.containsKey("genre_s"));
+  }
 
-	@Test
-	void testSearchWithPrice() throws Exception {
-		SearchResponse result = searchService.search(COLLECTION_NAME, null, null, null, null, null, null);
-		assertNotNull(result);
-		List<Map<String, Object>> documents = result.documents();
-		assertFalse(documents.isEmpty());
-		Map<String, Object> book = documents.getFirst();
-		double currentPrice = ((List<?>) book.get("price")).isEmpty()
-				? 0.0
-				: ((Number) ((List<?>) book.get("price")).getFirst()).doubleValue();
-		assertTrue(currentPrice > 0);
-	}
+  @Test
+  void testSearchWithPrice() throws Exception {
+    SearchResponse result =
+        searchService.search(COLLECTION_NAME, null, null, null, null, null, null);
+    assertNotNull(result);
+    List<Map<String, Object>> documents = result.documents();
+    assertFalse(documents.isEmpty());
+    Map<String, Object> book = documents.getFirst();
+    double currentPrice =
+        ((List<?>) book.get("price")).isEmpty()
+            ? 0.0
+            : ((Number) ((List<?>) book.get("price")).getFirst()).doubleValue();
+    assertTrue(currentPrice > 0);
+  }
 
-	@Test
-	void testSortByPriceAscending() throws Exception {
-		List<SortClause> sortClauses = List.of(new SortClause("price", "asc"));
-		SearchResponse result = searchService.search(COLLECTION_NAME, null, null, null, sortClauses, null, null);
-		assertNotNull(result);
-		List<Map<String, Object>> documents = result.documents();
-		assertFalse(documents.isEmpty());
-		double previousPrice = 0.0;
-		for (Map<String, Object> book : documents) {
-			OptionalDouble priceOpt = extractPrice(book);
-			if (priceOpt.isEmpty())
-				continue;
-			double currentPrice = priceOpt.getAsDouble();
-			assertTrue(currentPrice >= previousPrice, "Books should be sorted by price in ascending order");
-			previousPrice = currentPrice;
-		}
-	}
+  @Test
+  void testSortByPriceAscending() throws Exception {
+    List<SortClause> sortClauses = List.of(new SortClause("price", "asc"));
+    SearchResponse result =
+        searchService.search(COLLECTION_NAME, null, null, null, sortClauses, null, null);
+    assertNotNull(result);
+    List<Map<String, Object>> documents = result.documents();
+    assertFalse(documents.isEmpty());
+    double previousPrice = 0.0;
+    for (Map<String, Object> book : documents) {
+      OptionalDouble priceOpt = extractPrice(book);
+      if (priceOpt.isEmpty()) continue;
+      double currentPrice = priceOpt.getAsDouble();
+      assertTrue(
+          currentPrice >= previousPrice, "Books should be sorted by price in ascending order");
+      previousPrice = currentPrice;
+    }
+  }
 
-	@Test
-	void testSortByPriceDescending() throws Exception {
-		List<SortClause> sortClauses = List.of(new SortClause("price", "desc"));
-		SearchResponse result = searchService.search(COLLECTION_NAME, null, null, null, sortClauses, null, null);
-		assertNotNull(result);
-		List<Map<String, Object>> documents = result.documents();
-		assertFalse(documents.isEmpty());
-		double previousPrice = Double.MAX_VALUE;
-		for (Map<String, Object> book : documents) {
-			OptionalDouble priceOpt = extractPrice(book);
-			if (priceOpt.isEmpty())
-				continue;
-			double currentPrice = priceOpt.getAsDouble();
-			assertTrue(currentPrice <= previousPrice, "Books should be sorted by price in descending order");
-			previousPrice = currentPrice;
-		}
-	}
+  @Test
+  void testSortByPriceDescending() throws Exception {
+    List<SortClause> sortClauses = List.of(new SortClause("price", "desc"));
+    SearchResponse result =
+        searchService.search(COLLECTION_NAME, null, null, null, sortClauses, null, null);
+    assertNotNull(result);
+    List<Map<String, Object>> documents = result.documents();
+    assertFalse(documents.isEmpty());
+    double previousPrice = Double.MAX_VALUE;
+    for (Map<String, Object> book : documents) {
+      OptionalDouble priceOpt = extractPrice(book);
+      if (priceOpt.isEmpty()) continue;
+      double currentPrice = priceOpt.getAsDouble();
+      assertTrue(
+          currentPrice <= previousPrice, "Books should be sorted by price in descending order");
+      previousPrice = currentPrice;
+    }
+  }
 
-	@Test
-	void testSortBySequence() throws Exception {
-		List<SortClause> sortClauses = List.of(new SortClause("sequence_i", "asc"));
-		List<String> filterQueries = List.of("series_s:\"A Song of Ice and Fire\"");
-		SearchResponse result = searchService.search(COLLECTION_NAME, null, filterQueries, null, sortClauses, null,
-				null);
-		assertNotNull(result);
-		List<Map<String, Object>> documents = result.documents();
-		assertFalse(documents.isEmpty());
-		int previousSequence = 0;
-		for (Map<String, Object> book : documents) {
-			int currentSequence = ((Number) book.get("sequence_i")).intValue();
-			assertTrue(currentSequence >= previousSequence, "Books should be sorted by sequence_i in ascending order");
-			previousSequence = currentSequence;
-		}
-	}
+  @Test
+  void testSortBySequence() throws Exception {
+    List<SortClause> sortClauses = List.of(new SortClause("sequence_i", "asc"));
+    List<String> filterQueries = List.of("series_s:\"A Song of Ice and Fire\"");
+    SearchResponse result =
+        searchService.search(COLLECTION_NAME, null, filterQueries, null, sortClauses, null, null);
+    assertNotNull(result);
+    List<Map<String, Object>> documents = result.documents();
+    assertFalse(documents.isEmpty());
+    int previousSequence = 0;
+    for (Map<String, Object> book : documents) {
+      int currentSequence = ((Number) book.get("sequence_i")).intValue();
+      assertTrue(
+          currentSequence >= previousSequence,
+          "Books should be sorted by sequence_i in ascending order");
+      previousSequence = currentSequence;
+    }
+  }
 
-	@Test
-	void testFilterByGenre() throws Exception {
-		List<String> filterQueries = List.of("genre_s:fantasy");
-		SearchResponse result = searchService.search(COLLECTION_NAME, null, filterQueries, null, null, null, null);
-		assertNotNull(result);
-		List<Map<String, Object>> documents = result.documents();
-		assertFalse(documents.isEmpty());
-		for (Map<String, Object> book : documents) {
-			String genre = (String) book.get("genre_s");
-			assertEquals("fantasy", genre, "All books should have genre_s = fantasy");
-		}
-	}
+  @Test
+  void testFilterByGenre() throws Exception {
+    List<String> filterQueries = List.of("genre_s:fantasy");
+    SearchResponse result =
+        searchService.search(COLLECTION_NAME, null, filterQueries, null, null, null, null);
+    assertNotNull(result);
+    List<Map<String, Object>> documents = result.documents();
+    assertFalse(documents.isEmpty());
+    for (Map<String, Object> book : documents) {
+      String genre = (String) book.get("genre_s");
+      assertEquals("fantasy", genre, "All books should have genre_s = fantasy");
+    }
+  }
 
-	@Test
-	void testFilterByPriceRange() throws Exception {
-		List<String> filterQueries = List.of("price:[6.0 TO 7.0]");
-		SearchResponse result = searchService.search(COLLECTION_NAME, null, filterQueries, null, null, null, null);
-		assertNotNull(result);
-		List<Map<String, Object>> documents = result.documents();
-		assertFalse(documents.isEmpty());
-		for (Map<String, Object> book : documents) {
-			if (book.get("price") == null)
-				continue;
-			OptionalDouble priceOpt = extractPrice(book);
-			if (priceOpt.isEmpty())
-				continue;
-			double price = priceOpt.getAsDouble();
-			assertTrue(price >= 6.0 && price <= 7.0, "All books should have price between 6.0 and 7.0");
-		}
-	}
+  @Test
+  void testFilterByPriceRange() throws Exception {
+    List<String> filterQueries = List.of("price:[6.0 TO 7.0]");
+    SearchResponse result =
+        searchService.search(COLLECTION_NAME, null, filterQueries, null, null, null, null);
+    assertNotNull(result);
+    List<Map<String, Object>> documents = result.documents();
+    assertFalse(documents.isEmpty());
+    for (Map<String, Object> book : documents) {
+      if (book.get("price") == null) continue;
+      OptionalDouble priceOpt = extractPrice(book);
+      if (priceOpt.isEmpty()) continue;
+      double price = priceOpt.getAsDouble();
+      assertTrue(price >= 6.0 && price <= 7.0, "All books should have price between 6.0 and 7.0");
+    }
+  }
 
-	@Test
-	void testCombinedSortingAndFiltering() throws Exception {
-		List<SortClause> sortClauses = List.of(new SortClause("price", "desc"));
-		List<String> filterQueries = List.of("genre_s:fantasy");
-		SearchResponse result = searchService.search(COLLECTION_NAME, null, filterQueries, null, sortClauses, null,
-				null);
-		assertNotNull(result);
-		List<Map<String, Object>> documents = result.documents();
-		assertFalse(documents.isEmpty());
-		for (Map<String, Object> book : documents) {
-			String genre = (String) book.get("genre_s");
-			assertEquals("fantasy", genre, "All books should have genre_s = fantasy");
-		}
-		double previousPrice = Double.MAX_VALUE;
-		for (Map<String, Object> book : documents) {
-			Object priceObj = book.get("price");
-			double currentPrice;
-			if (priceObj instanceof List) {
-				List<?> priceList = (List<?>) priceObj;
-				if (priceList.isEmpty()) {
-					continue;
-				}
-				currentPrice = ((Number) priceList.getFirst()).doubleValue();
-			} else if (priceObj instanceof Number) {
-				currentPrice = ((Number) priceObj).doubleValue();
-			} else {
-				continue;
-			}
-			assertTrue(currentPrice <= previousPrice, "Books should be sorted by price in descending order");
-			previousPrice = currentPrice;
-		}
-	}
+  @Test
+  void testCombinedSortingAndFiltering() throws Exception {
+    List<SortClause> sortClauses = List.of(new SortClause("price", "desc"));
+    List<String> filterQueries = List.of("genre_s:fantasy");
+    SearchResponse result =
+        searchService.search(COLLECTION_NAME, null, filterQueries, null, sortClauses, null, null);
+    assertNotNull(result);
+    List<Map<String, Object>> documents = result.documents();
+    assertFalse(documents.isEmpty());
+    for (Map<String, Object> book : documents) {
+      String genre = (String) book.get("genre_s");
+      assertEquals("fantasy", genre, "All books should have genre_s = fantasy");
+    }
+    double previousPrice = Double.MAX_VALUE;
+    for (Map<String, Object> book : documents) {
+      Object priceObj = book.get("price");
+      double currentPrice;
+      if (priceObj instanceof List) {
+        List<?> priceList = (List<?>) priceObj;
+        if (priceList.isEmpty()) {
+          continue;
+        }
+        currentPrice = ((Number) priceList.getFirst()).doubleValue();
+      } else if (priceObj instanceof Number) {
+        currentPrice = ((Number) priceObj).doubleValue();
+      } else {
+        continue;
+      }
+      assertTrue(
+          currentPrice <= previousPrice, "Books should be sorted by price in descending order");
+      previousPrice = currentPrice;
+    }
+  }
 
-	@Test
-	void testPagination() throws Exception {
-		SearchResponse allResults = searchService.search(COLLECTION_NAME, null, null, null, null, null, null);
-		assertNotNull(allResults);
-		long totalDocuments = allResults.numFound();
-		assertTrue(totalDocuments > 0, "Should have at least some documents");
-		SearchResponse firstPage = searchService.search(COLLECTION_NAME, null, null, null, null, 0, 2);
-		assertNotNull(firstPage);
-		assertEquals(0, firstPage.start(), "Start offset should be 0");
-		assertEquals(totalDocuments, firstPage.numFound(), "Total count should match");
-		assertEquals(2, firstPage.documents().size(), "Should return exactly 2 documents");
-		SearchResponse secondPage = searchService.search(COLLECTION_NAME, null, null, null, null, 2, 2);
-		assertNotNull(secondPage);
-		assertEquals(2, secondPage.start(), "Start offset should be 2");
-		assertEquals(totalDocuments, secondPage.numFound(), "Total count should match");
-		assertEquals(2, secondPage.documents().size(), "Should return exactly 2 documents");
-		List<String> firstPageIds = getDocumentIds(firstPage.documents());
-		List<String> secondPageIds = getDocumentIds(secondPage.documents());
-		for (String id : firstPageIds) {
-			assertFalse(secondPageIds.contains(id), "Second page should not contain documents from first page");
-		}
-	}
+  @Test
+  void testPagination() throws Exception {
+    SearchResponse allResults =
+        searchService.search(COLLECTION_NAME, null, null, null, null, null, null);
+    assertNotNull(allResults);
+    long totalDocuments = allResults.numFound();
+    assertTrue(totalDocuments > 0, "Should have at least some documents");
+    SearchResponse firstPage = searchService.search(COLLECTION_NAME, null, null, null, null, 0, 2);
+    assertNotNull(firstPage);
+    assertEquals(0, firstPage.start(), "Start offset should be 0");
+    assertEquals(totalDocuments, firstPage.numFound(), "Total count should match");
+    assertEquals(2, firstPage.documents().size(), "Should return exactly 2 documents");
+    SearchResponse secondPage = searchService.search(COLLECTION_NAME, null, null, null, null, 2, 2);
+    assertNotNull(secondPage);
+    assertEquals(2, secondPage.start(), "Start offset should be 2");
+    assertEquals(totalDocuments, secondPage.numFound(), "Total count should match");
+    assertEquals(2, secondPage.documents().size(), "Should return exactly 2 documents");
+    List<String> firstPageIds = getDocumentIds(firstPage.documents());
+    List<String> secondPageIds = getDocumentIds(secondPage.documents());
+    for (String id : firstPageIds) {
+      assertFalse(
+          secondPageIds.contains(id), "Second page should not contain documents from first page");
+    }
+  }
 
-	@Test
-	void testSpecialCharactersInQuery() throws Exception {
-		String specialJson = """
+  @Test
+  void testSpecialCharactersInQuery() throws Exception {
+    String specialJson =
+        """
 				[
 				  {
 				    "id": "special001",
@@ -537,49 +596,50 @@ class SearchServiceIntegrationTest {
 				  }
 				]
 				""";
-		indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(specialJson));
-		solrClient.commit(COLLECTION_NAME);
-		String query = "id:special001";
-		SearchResponse result = searchService.search(COLLECTION_NAME, query, null, null, null, null, null);
-		assertNotNull(result);
-		assertEquals(1, result.numFound(), "Should find exactly one document");
-		query = "author_ss:\"Special Author \\(" + "with parentheses\\)\""; // escape parentheses
-		result = searchService.search(COLLECTION_NAME, query, null, null, null, null, null);
-		assertNotNull(result);
-		assertEquals(1, result.numFound(), "Should find exactly one document");
-		query = "title:special*";
-		result = searchService.search(COLLECTION_NAME, query, null, null, null, null, null);
-		assertNotNull(result);
-		assertTrue(result.numFound() > 0, "Should find at least one document");
-	}
+    indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(specialJson));
+    solrClient.commit(COLLECTION_NAME);
+    String query = "id:special001";
+    SearchResponse result =
+        searchService.search(COLLECTION_NAME, query, null, null, null, null, null);
+    assertNotNull(result);
+    assertEquals(1, result.numFound(), "Should find exactly one document");
+    query = "author_ss:\"Special Author \\(" + "with parentheses\\)\""; // escape parentheses
+    result = searchService.search(COLLECTION_NAME, query, null, null, null, null, null);
+    assertNotNull(result);
+    assertEquals(1, result.numFound(), "Should find exactly one document");
+    query = "title:special*";
+    result = searchService.search(COLLECTION_NAME, query, null, null, null, null, null);
+    assertNotNull(result);
+    assertTrue(result.numFound() > 0, "Should find at least one document");
+  }
 
-	private OptionalDouble extractPrice(Map<String, Object> document) {
-		Object priceObj = document.get("price");
-		if (priceObj == null) {
-			return OptionalDouble.empty();
-		}
-		if (priceObj instanceof List) {
-			List<?> priceList = (List<?>) priceObj;
-			if (priceList.isEmpty()) {
-				return OptionalDouble.empty();
-			}
-			return OptionalDouble.of(((Number) priceList.getFirst()).doubleValue());
-		} else if (priceObj instanceof Number) {
-			return OptionalDouble.of(((Number) priceObj).doubleValue());
-		}
-		return OptionalDouble.empty();
-	}
+  private OptionalDouble extractPrice(Map<String, Object> document) {
+    Object priceObj = document.get("price");
+    if (priceObj == null) {
+      return OptionalDouble.empty();
+    }
+    if (priceObj instanceof List) {
+      List<?> priceList = (List<?>) priceObj;
+      if (priceList.isEmpty()) {
+        return OptionalDouble.empty();
+      }
+      return OptionalDouble.of(((Number) priceList.getFirst()).doubleValue());
+    } else if (priceObj instanceof Number) {
+      return OptionalDouble.of(((Number) priceObj).doubleValue());
+    }
+    return OptionalDouble.empty();
+  }
 
-	private List<String> getDocumentIds(List<Map<String, Object>> documents) {
-		List<String> ids = new ArrayList<>();
-		for (Map<String, Object> doc : documents) {
-			Object idObj = doc.get("id");
-			if (idObj instanceof List) {
-				ids.add(((List<?>) idObj).getFirst().toString());
-			} else if (idObj != null) {
-				ids.add(idObj.toString());
-			}
-		}
-		return ids;
-	}
+  private List<String> getDocumentIds(List<Map<String, Object>> documents) {
+    List<String> ids = new ArrayList<>();
+    for (Map<String, Object> doc : documents) {
+      Object idObj = doc.get("id");
+      if (idObj instanceof List) {
+        ids.add(((List<?>) idObj).getFirst().toString());
+      } else if (idObj != null) {
+        ids.add(idObj.toString());
+      }
+    }
+    return ids;
+  }
 }

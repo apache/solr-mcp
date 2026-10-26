@@ -40,8 +40,8 @@ import org.springframework.context.annotation.Import;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * End-to-end integration test that exercises the full create, index, and search
- * workflow using the DevNexus 2026 conference schedule sample data.
+ * End-to-end integration test that exercises the full create, index, and search workflow using the
+ * DevNexus 2026 conference schedule sample data.
  */
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
@@ -51,114 +51,124 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class ConferenceEndToEndIntegrationTest {
 
-	private static final String COLLECTION = "conferences";
+  private static final String COLLECTION = "conferences";
 
-	private static final int TOTAL_SESSIONS = 116;
+  private static final int TOTAL_SESSIONS = 116;
 
-	@Autowired
-	private CollectionService collectionService;
+  @Autowired private CollectionService collectionService;
 
-	@Autowired
-	private IndexingService indexingService;
+  @Autowired private IndexingService indexingService;
 
-	@Autowired
-	private SearchService searchService;
+  @Autowired private SearchService searchService;
 
-	@BeforeAll
-	void createAndIndexConferences() throws Exception {
-		CollectionCreationResult result = collectionService.createCollection(COLLECTION, null, null, null);
-		assertTrue(result.success(), "Collection creation should succeed: " + result.message());
+  @BeforeAll
+  void createAndIndexConferences() throws Exception {
+    CollectionCreationResult result =
+        collectionService.createCollection(COLLECTION, null, null, null);
+    assertTrue(result.success(), "Collection creation should succeed: " + result.message());
 
-		String json = Files.readString(Path.of("mydata/devnexus-2026.json"));
-		indexingService.indexJsonDocuments(COLLECTION, TestDocuments.json(json));
-	}
+    String json = Files.readString(Path.of("mydata/devnexus-2026.json"));
+    indexingService.indexJsonDocuments(COLLECTION, TestDocuments.json(json));
+  }
 
-	@Test
-	@Order(1)
-	void collectionAppearsInList() throws Exception {
-		List<String> collections = collectionService.listCollections();
-		boolean found = collections.contains(COLLECTION)
-				|| collections.stream().anyMatch(c -> c.startsWith(COLLECTION + "_shard"));
-		assertTrue(found, "conferences collection should be listed, found: " + collections);
-	}
+  @Test
+  @Order(1)
+  void collectionAppearsInList() throws Exception {
+    List<String> collections = collectionService.listCollections();
+    boolean found =
+        collections.contains(COLLECTION)
+            || collections.stream().anyMatch(c -> c.startsWith(COLLECTION + "_shard"));
+    assertTrue(found, "conferences collection should be listed, found: " + collections);
+  }
 
-	@Test
-	@Order(2)
-	void collectionHealthIsHealthy() {
-		SolrHealthStatus health = collectionService.checkHealth(COLLECTION);
-		assertTrue(health.isHealthy(), "conferences collection should be healthy");
-		assertEquals(Long.valueOf(TOTAL_SESSIONS), health.totalDocuments(), "Should contain 116 conference sessions");
-	}
+  @Test
+  @Order(2)
+  void collectionHealthIsHealthy() {
+    SolrHealthStatus health = collectionService.checkHealth(COLLECTION);
+    assertTrue(health.isHealthy(), "conferences collection should be healthy");
+    assertEquals(
+        Long.valueOf(TOTAL_SESSIONS),
+        health.totalDocuments(),
+        "Should contain 116 conference sessions");
+  }
 
-	@Test
-	@Order(3)
-	void searchAllDocumentsReturns116() throws Exception {
-		SearchResponse response = searchService.search(COLLECTION, "*:*", null, null, null, 0, 0);
-		assertEquals(TOTAL_SESSIONS, response.numFound(), "Total results should be 116");
-	}
+  @Test
+  @Order(3)
+  void searchAllDocumentsReturns116() throws Exception {
+    SearchResponse response = searchService.search(COLLECTION, "*:*", null, null, null, 0, 0);
+    assertEquals(TOTAL_SESSIONS, response.numFound(), "Total results should be 116");
+  }
 
-	@Test
-	@Order(4)
-	void searchByTrackReturnsFilteredResults() throws Exception {
-		SearchResponse response = searchService.search(COLLECTION, "*:*", List.of("track:Workshop"), null, null, 0, 10);
-		assertTrue(response.numFound() > 0, "Should find workshop sessions");
-		for (Map<String, Object> doc : response.documents()) {
-			Object track = doc.get("track");
-			String trackValue = track instanceof List ? ((List<?>) track).get(0).toString() : track.toString();
-			assertEquals("Workshop", trackValue, "All results should be workshops");
-		}
-	}
+  @Test
+  @Order(4)
+  void searchByTrackReturnsFilteredResults() throws Exception {
+    SearchResponse response =
+        searchService.search(COLLECTION, "*:*", List.of("track:Workshop"), null, null, 0, 10);
+    assertTrue(response.numFound() > 0, "Should find workshop sessions");
+    for (Map<String, Object> doc : response.documents()) {
+      Object track = doc.get("track");
+      String trackValue =
+          track instanceof List ? ((List<?>) track).get(0).toString() : track.toString();
+      assertEquals("Workshop", trackValue, "All results should be workshops");
+    }
+  }
 
-	@Test
-	@Order(5)
-	void searchByKeywordFindsMatchingSessions() throws Exception {
-		SearchResponse response = searchService.search(COLLECTION, "title:Spring", null, null, null, 0, 50);
-		assertTrue(response.numFound() > 0, "Should find sessions with 'Spring' in the title");
-		for (Map<String, Object> doc : response.documents()) {
-			Object title = doc.get("title");
-			String titleValue = title instanceof List ? ((List<?>) title).get(0).toString() : title.toString();
-			assertTrue(titleValue.toLowerCase().contains("spring"), "Title should contain 'spring': " + titleValue);
-		}
-	}
+  @Test
+  @Order(5)
+  void searchByKeywordFindsMatchingSessions() throws Exception {
+    SearchResponse response =
+        searchService.search(COLLECTION, "title:Spring", null, null, null, 0, 50);
+    assertTrue(response.numFound() > 0, "Should find sessions with 'Spring' in the title");
+    for (Map<String, Object> doc : response.documents()) {
+      Object title = doc.get("title");
+      String titleValue =
+          title instanceof List ? ((List<?>) title).get(0).toString() : title.toString();
+      assertTrue(
+          titleValue.toLowerCase().contains("spring"),
+          "Title should contain 'spring': " + titleValue);
+    }
+  }
 
-	@Test
-	@Order(6)
-	void facetByIdReturnsResults() throws Exception {
-		// Facet on 'id' which is always a string type in Solr's _default configset;
-		// schema-less text fields (track, day) are tokenized and return empty facets.
-		SearchResponse response = searchService.search(COLLECTION, "*:*", null, List.of("id"), null, 0, 0);
-		assertNotNull(response.facets(), "Facets should not be null");
-		assertTrue(response.facets().containsKey("id"), "Should have id facet");
+  @Test
+  @Order(6)
+  void facetByIdReturnsResults() throws Exception {
+    // Facet on 'id' which is always a string type in Solr's _default configset;
+    // schema-less text fields (track, day) are tokenized and return empty facets.
+    SearchResponse response =
+        searchService.search(COLLECTION, "*:*", null, List.of("id"), null, 0, 0);
+    assertNotNull(response.facets(), "Facets should not be null");
+    assertTrue(response.facets().containsKey("id"), "Should have id facet");
 
-		Map<String, Long> idFacets = response.facets().get("id");
-		assertFalse(idFacets.isEmpty(), "Id facets should not be empty");
-		// Solr default facet.limit is 100, so we get at most 100 entries
-		assertTrue(idFacets.size() >= 100, "Should have facet entries for sessions");
-	}
+    Map<String, Long> idFacets = response.facets().get("id");
+    assertFalse(idFacets.isEmpty(), "Id facets should not be empty");
+    // Solr default facet.limit is 100, so we get at most 100 entries
+    assertTrue(idFacets.size() >= 100, "Should have facet entries for sessions");
+  }
 
-	@Test
-	@Order(7)
-	void paginationWorks() throws Exception {
-		SearchResponse page1 = searchService.search(COLLECTION, "*:*", null, null, null, 0, 10);
-		SearchResponse page2 = searchService.search(COLLECTION, "*:*", null, null, null, 10, 10);
+  @Test
+  @Order(7)
+  void paginationWorks() throws Exception {
+    SearchResponse page1 = searchService.search(COLLECTION, "*:*", null, null, null, 0, 10);
+    SearchResponse page2 = searchService.search(COLLECTION, "*:*", null, null, null, 10, 10);
 
-		assertEquals(10, page1.documents().size(), "Page 1 should have 10 documents");
-		assertEquals(10, page2.documents().size(), "Page 2 should have 10 documents");
-		assertEquals(TOTAL_SESSIONS, page1.numFound(), "Total should be 116 across pages");
+    assertEquals(10, page1.documents().size(), "Page 1 should have 10 documents");
+    assertEquals(10, page2.documents().size(), "Page 2 should have 10 documents");
+    assertEquals(TOTAL_SESSIONS, page1.numFound(), "Total should be 116 across pages");
 
-		Object id1 = page1.documents().get(0).get("id");
-		Object id2 = page2.documents().get(0).get("id");
-		assertNotEquals(id1, id2, "Pages should return different documents");
-	}
+    Object id1 = page1.documents().get(0).get("id");
+    Object id2 = page2.documents().get(0).get("id");
+    assertNotEquals(id1, id2, "Pages should return different documents");
+  }
 
-	@Test
-	@Order(8)
-	void collectionStatsShowIndexedDocuments() throws Exception {
-		SolrMetrics metrics = collectionService.getCollectionStats(COLLECTION);
-		assertNotNull(metrics, "Metrics should not be null");
-		assertNotNull(metrics.indexStats(), "Index stats should not be null");
-		assertEquals(Integer.valueOf(TOTAL_SESSIONS), metrics.indexStats().numDocs(),
-				"Should report 116 indexed documents");
-	}
-
+  @Test
+  @Order(8)
+  void collectionStatsShowIndexedDocuments() throws Exception {
+    SolrMetrics metrics = collectionService.getCollectionStats(COLLECTION);
+    assertNotNull(metrics, "Metrics should not be null");
+    assertNotNull(metrics.indexStats(), "Index stats should not be null");
+    assertEquals(
+        Integer.valueOf(TOTAL_SESSIONS),
+        metrics.indexStats().numDocs(),
+        "Should report 116 indexed documents");
+  }
 }

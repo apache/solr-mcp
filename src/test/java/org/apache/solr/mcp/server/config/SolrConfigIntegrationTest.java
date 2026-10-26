@@ -35,36 +35,34 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers(disabledWithoutDocker = true)
 class SolrConfigIntegrationTest {
 
-	@Autowired
-	private SolrClient solrClient;
+  @Autowired private SolrClient solrClient;
 
-	@Autowired
-	SolrContainer solrContainer;
+  @Autowired SolrContainer solrContainer;
 
-	@Autowired
-	private SolrConfigurationProperties properties;
+  @Autowired private SolrConfigurationProperties properties;
 
-	@Test
-	void testSolrClientConfiguration() {
-		// Verify that the SolrClient is properly configured
-		assertNotNull(solrClient);
+  @Test
+  void testSolrClientConfiguration() {
+    // Verify that the SolrClient is properly configured
+    assertNotNull(solrClient);
 
-		// Verify that the SolrClient is using the correct URL
-		// Note: SolrConfig normalizes the URL to have trailing slash, but
-		// HttpJdkSolrClient removes
-		// it
-		var httpSolrClient = assertInstanceOf(HttpJdkSolrClient.class, solrClient);
-		String expectedUrl = "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr";
-		assertEquals(expectedUrl, httpSolrClient.getBaseURL());
-	}
+    // Verify that the SolrClient is using the correct URL
+    // Note: SolrConfig normalizes the URL to have trailing slash, but
+    // HttpJdkSolrClient removes
+    // it
+    var httpSolrClient = assertInstanceOf(HttpJdkSolrClient.class, solrClient);
+    String expectedUrl =
+        "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr";
+    assertEquals(expectedUrl, httpSolrClient.getBaseURL());
+  }
 
-	@Test
-	void testSolrConfigurationProperties() {
-		// Verify that the properties are correctly loaded
-		assertNotNull(properties);
-		assertNotNull(properties.url());
-		assertEquals("http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/",
-				properties.url());
-	}
-
+  @Test
+  void testSolrConfigurationProperties() {
+    // Verify that the properties are correctly loaded
+    assertNotNull(properties);
+    assertNotNull(properties.url());
+    assertEquals(
+        "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/",
+        properties.url());
+  }
 }

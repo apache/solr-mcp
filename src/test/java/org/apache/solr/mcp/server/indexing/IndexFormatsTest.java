@@ -24,17 +24,27 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class IndexFormatsTest {
 
-	@ParameterizedTest
-	@CsvSource({"json,json", "csv,csv", "xml,xml", "md,markdown", "markdown,markdown", "JSON,json", " Csv ,csv",
-			"MD,markdown"})
-	void normalizesKeywordsCaseInsensitivelyAndTrimmed(String keyword, String expected) {
-		assertEquals(expected, IndexFormats.normalize(keyword));
-	}
+  @ParameterizedTest
+  @CsvSource({
+    "json,json",
+    "csv,csv",
+    "xml,xml",
+    "md,markdown",
+    "markdown,markdown",
+    "JSON,json",
+    " Csv ,csv",
+    "MD,markdown"
+  })
+  void normalizesKeywordsCaseInsensitivelyAndTrimmed(String keyword, String expected) {
+    assertEquals(expected, IndexFormats.normalize(keyword));
+  }
 
-	@ParameterizedTest
-	@ValueSource(strings = {"", "  ", "yaml", "txt", "html", "jsonl"})
-	void rejectsUnknownOrBlankKeywords(String keyword) {
-		var e = assertThrows(IllegalArgumentException.class, () -> IndexFormats.normalize(keyword));
-		assertEquals("Cannot determine the file format. Supply format=json, csv, xml or markdown.", e.getMessage());
-	}
+  @ParameterizedTest
+  @ValueSource(strings = {"", "  ", "yaml", "txt", "html", "jsonl"})
+  void rejectsUnknownOrBlankKeywords(String keyword) {
+    var e = assertThrows(IllegalArgumentException.class, () -> IndexFormats.normalize(keyword));
+    assertEquals(
+        "Cannot determine the file format. Supply format=json, csv, xml or markdown.",
+        e.getMessage());
+  }
 }

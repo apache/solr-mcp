@@ -19,32 +19,29 @@ package org.apache.solr.mcp.server.indexing;
 import java.util.Locale;
 
 /**
- * Maps a caller-supplied format keyword or file extension to the canonical
- * format name the document creators understand.
+ * Maps a caller-supplied format keyword or file extension to the canonical format name the document
+ * creators understand.
  */
 final class IndexFormats {
 
-	static final String UNKNOWN_FORMAT = "Cannot determine the file format. Supply format=json, csv, xml or markdown.";
+  static final String UNKNOWN_FORMAT =
+      "Cannot determine the file format. Supply format=json, csv, xml or markdown.";
 
-	private IndexFormats() {
-	}
+  private IndexFormats() {}
 
-	/**
-	 * Returns {@code json}, {@code csv}, {@code xml} or {@code markdown}.
-	 *
-	 * @param keyword
-	 *            a format keyword or file extension, any case, surrounding
-	 *            whitespace ignored
-	 * @throws IllegalArgumentException
-	 *             if the keyword is blank or not a supported format
-	 */
-	static String normalize(String keyword) {
-		return switch (keyword.trim().toLowerCase(Locale.ROOT)) {
-			case "json" -> "json";
-			case "csv" -> "csv";
-			case "xml" -> "xml";
-			case "md", "markdown" -> "markdown";
-			default -> throw new IllegalArgumentException(UNKNOWN_FORMAT);
-		};
-	}
+  /**
+   * Returns {@code json}, {@code csv}, {@code xml} or {@code markdown}.
+   *
+   * @param keyword a format keyword or file extension, any case, surrounding whitespace ignored
+   * @throws IllegalArgumentException if the keyword is blank or not a supported format
+   */
+  static String normalize(String keyword) {
+    return switch (keyword.trim().toLowerCase(Locale.ROOT)) {
+      case "json" -> "json";
+      case "csv" -> "csv";
+      case "xml" -> "xml";
+      case "md", "markdown" -> "markdown";
+      default -> throw new IllegalArgumentException(UNKNOWN_FORMAT);
+    };
+  }
 }

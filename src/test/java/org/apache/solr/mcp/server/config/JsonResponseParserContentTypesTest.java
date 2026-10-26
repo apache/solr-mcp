@@ -24,27 +24,26 @@ import org.springframework.http.MediaType;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Unit tests verifying the Content-Types accepted by
- * {@link JsonResponseParser}.
+ * Unit tests verifying the Content-Types accepted by {@link JsonResponseParser}.
  *
- * <p>
- * Some Solr request handlers (notably {@code /admin/ping}) return JSON-encoded
- * bodies with Content-Type {@code text/plain} rather than
- * {@code application/json}. SolrJ rejects the response unless the configured
- * {@link org.apache.solr.client.solrj.response.ResponseParser} advertises that
- * Content-Type, so the parser must tolerate both.
+ * <p>Some Solr request handlers (notably {@code /admin/ping}) return JSON-encoded bodies with
+ * Content-Type {@code text/plain} rather than {@code application/json}. SolrJ rejects the response
+ * unless the configured {@link org.apache.solr.client.solrj.response.ResponseParser} advertises
+ * that Content-Type, so the parser must tolerate both.
  */
 class JsonResponseParserContentTypesTest {
 
-	@Test
-	void advertisesJsonAndTextPlain() {
-		JsonResponseParser parser = new JsonResponseParser(JsonMapper.builder().build());
+  @Test
+  void advertisesJsonAndTextPlain() {
+    JsonResponseParser parser = new JsonResponseParser(JsonMapper.builder().build());
 
-		Collection<String> contentTypes = parser.getContentTypes();
+    Collection<String> contentTypes = parser.getContentTypes();
 
-		assertTrue(contentTypes.contains(MediaType.APPLICATION_JSON_VALUE),
-				"Parser must advertise application/json so SolrJ accepts standard Solr responses");
-		assertTrue(contentTypes.contains(MediaType.TEXT_PLAIN_VALUE),
-				"Parser must advertise text/plain so SolrJ accepts responses from handlers that mislabel JSON bodies");
-	}
+    assertTrue(
+        contentTypes.contains(MediaType.APPLICATION_JSON_VALUE),
+        "Parser must advertise application/json so SolrJ accepts standard Solr responses");
+    assertTrue(
+        contentTypes.contains(MediaType.TEXT_PLAIN_VALUE),
+        "Parser must advertise text/plain so SolrJ accepts responses from handlers that mislabel JSON bodies");
+  }
 }
