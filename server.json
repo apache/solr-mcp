@@ -1,6 +1,7 @@
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.apache/solr-mcp",
+  "title": "Apache Solr",
   "description": "MCP server for Apache Solr providing search, indexing, schema and collection management",
   "repository": {
     "url": "https://github.com/apache/solr-mcp",
@@ -9,9 +10,8 @@
   "version": "1.0.0-SNAPSHOT",
   "packages": [
     {
-      "registryType": "docker",
-      "identifier": "ghcr.io/apache/solr-mcp-server",
-      "version": "1.0.0-SNAPSHOT",
+      "registryType": "oci",
+      "identifier": "docker.io/apache/solr-mcp:1.0.0-SNAPSHOT",
       "transport": {
         "type": "stdio"
       },
@@ -26,12 +26,10 @@
       ]
     },
     {
-      "registryType": "docker",
-      "identifier": "ghcr.io/apache/solr-mcp-server",
-      "version": "1.0.0-SNAPSHOT",
+      "registryType": "oci",
+      "identifier": "ghcr.io/apache/solr-mcp:1.0.0-SNAPSHOT",
       "transport": {
-        "type": "streamable-http",
-        "url": "http://localhost:8080/mcp"
+        "type": "stdio"
       },
       "environmentVariables": [
         {
@@ -40,13 +38,6 @@
           "format": "string",
           "isSecret": false,
           "name": "SOLR_URL"
-        },
-        {
-          "description": "Enable HTTP mode (set to 'http' for streamable-http transport)",
-          "isRequired": true,
-          "format": "string",
-          "isSecret": false,
-          "name": "PROFILES"
         }
       ]
     }

@@ -203,98 +203,12 @@ To publish images, use Jib from your local machine or set up your own workflow:
 
 ### MCP Registry Publishing
 
-The `publish-mcp-registry` job in `.github/workflows/release-publish.yml` publishes to the Model Context Protocol Registry.
-
-**Triggers:**
-- Version tags (e.g., `v0.1.0`)
-- Manual workflow dispatch
-
-**Authentication:**
-Uses GitHub OIDC (no secrets required)
-
-**Publishing Process:**
-
-1. Tag a release:
-   ```bash
-   git tag v0.1.0
-   git push origin v0.1.0
-   ```
-
-2. GitHub Actions automatically:
-   - Updates `server.json` version
-   - Authenticates with MCP Registry via OIDC
-   - Publishes server metadata
-   - Verifies publication
-
-3. Verify in registry:
-   ```bash
-   curl "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.apache/solr-mcp"
-   ```
-
-## MCP Registry Configuration
-
-### server.json
-
-The `server.json` file defines MCP registry metadata:
-
-```json
-{
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
-  "name": "io.github.apache/solr-mcp",
-  "description": "MCP server for Apache Solr",
-  "version": "1.0.0",
-  "packages": [
-    {
-      "registryType": "docker",
-      "identifier": "ghcr.io/apache/solr-mcp",
-      "version": "1.0.0-SNAPSHOT",
-      "transport": {
-        "type": "stdio"
-      }
-    }
-  ]
-}
-```
-
-### Docker Image Label
-
-The Docker image includes an MCP label for registry discovery:
-
-```kotlin
-labels.set(
-    mapOf(
-        "io.modelcontextprotocol.server.name" to "io.github.apache/solr-mcp"
-    )
-)
-```
-
-## Manual MCP Registry Publishing
-
-If you need to publish manually:
-
-1. **Install MCP Publisher CLI**
-   ```bash
-   # macOS
-   brew install modelcontextprotocol/tap/mcp-publisher
-
-   # Or download from GitHub releases
-   curl -L https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher-[OS]-[ARCH].tar.gz | tar xz
-   ```
-
-2. **Authenticate**
-   ```bash
-   # GitHub OIDC (recommended)
-   mcp-publisher login github-oidc
-
-   # Or with token
-   export MCP_GITHUB_TOKEN=your_token
-   mcp-publisher login github
-   ```
-
-3. **Publish**
-   ```bash
-   mcp-publisher publish
-   ```
+The `publish-mcp-registry` job in `.github/workflows/release-publish.yml` publishes a
+voted release to the [official MCP Registry](https://modelcontextprotocol.io/registry/about)
+as `io.github.apache/solr-mcp`, from `server.json` at the repository root. It runs only
+after the vote, as part of the ATR release, and authenticates with GitHub OIDC from the
+workflow; there is no supported manual path. See [MCP_REGISTRY.md](MCP_REGISTRY.md) for
+what the registry checks, what the job does, and where it sits in the ATR release.
 
 ## Docker Executable Configuration
 

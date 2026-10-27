@@ -57,7 +57,7 @@ Currently, this repository does not define an automated workflow for per-merge d
 
 ```bash
 # Tag the release candidate
-git tag -s v1.0.0-rc1 -m "Release candidate 1 for version 1.0.0"
+git tag -s releases/solr-mcp/1.0.0-rc1 -m "Release candidate 1 for version 1.0.0"
 
 # Create source distribution
 tar czf solr-mcp-1.0.0-rc1-src.tar.gz --exclude='.git' --exclude='build' .
@@ -124,11 +124,9 @@ echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
 
 ### Docker Hub
 
-For Apache official images, set these secrets in GitHub:
-- `DOCKERHUB_APACHE_USERNAME`
-- `DOCKERHUB_APACHE_TOKEN`
-
-Create token at: https://hub.docker.com/settings/security
+For Apache official images, `release-publish.yml` reads the `DOCKERHUB_USER` /
+`DOCKERHUB_TOKEN` repository secrets. ASF Infra provisions them on request
+([#251](https://github.com/apache/solr-mcp/issues/251)); committers don't set them.
 
 ### Apache Nightlies
 
@@ -144,7 +142,8 @@ The Docker image includes MCP metadata labels:
 LABEL io.modelcontextprotocol.server.name="io.github.apache/solr-mcp"
 ```
 
-After release, the image should be registered with the MCP registry for discoverability.
+The registry checks that this label matches the server name in `server.json` when a
+release is published. See [MCP_REGISTRY.md](MCP_REGISTRY.md).
 
 ## Security Considerations
 

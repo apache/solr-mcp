@@ -163,7 +163,7 @@ on:
 
 #### What It Does
 
-1. **Validates** release tag exists (`v1.0.0-rc1`)
+1. **Validates** release tag exists (`releases/solr-mcp/1.0.0-rc1`)
 2. **Builds** the project from approved RC tag
 3. **Signs** artifacts — placeholder only; this step logs a message and does
    not produce or verify a signature. Publication below is **not** gated on a
@@ -184,8 +184,8 @@ on:
 
 #### Required Secrets
 
-- `DOCKERHUB_APACHE_USERNAME` - Apache PMC Docker Hub credentials
-- `DOCKERHUB_APACHE_TOKEN` - Apache PMC Docker Hub token
+- `DOCKERHUB_USER` - Docker Hub user provisioned by ASF Infra (#251)
+- `DOCKERHUB_TOKEN` - Docker Hub token provisioned by ASF Infra (#251)
 - `GITHUB_TOKEN` (automatic) - For GHCR and GitHub releases
 
 #### How to Use
@@ -194,8 +194,8 @@ on:
 
 1. **Create Release Candidate**:
    ```bash
-   git tag v1.0.0-rc1 -m "Release candidate 1 for version 1.0.0"
-   git push origin v1.0.0-rc1
+   git tag releases/solr-mcp/1.0.0-rc1 -m "Release candidate 1 for version 1.0.0"
+   git push origin releases/solr-mcp/1.0.0-rc1
    ```
 
 2. **Call ASF Vote** (email to dev@solr.apache.org):
@@ -228,7 +228,7 @@ on:
    docker pull apache/solr-mcp:1.0.0
 
    # Check MCP Registry
-   curl "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.apache/solr-mcp" | jq .
+   curl -fsS "https://registry.modelcontextprotocol.io/v0.1/servers/io.github.apache%2Fsolr-mcp/versions/1.0.0" | jq .server
    ```
 
 6. **Announce Release** (email to announce@apache.org)
@@ -441,8 +441,8 @@ gh workflow run atr-release.yml \
 
 ```bash
 # 1. Create RC tag
-git tag v1.0.0-rc1 -m "Release candidate 1"
-git push origin v1.0.0-rc1
+git tag releases/solr-mcp/1.0.0-rc1 -m "Release candidate 1"
+git push origin releases/solr-mcp/1.0.0-rc1
 
 # 2. Call ASF vote (email to dev@solr.apache.org)
 # 3. Wait 72+ hours for vote to pass
@@ -492,8 +492,8 @@ gh secret set DOCKERHUB_TOKEN --body "your-access-token"
 **Solution**: Ensure you've created and pushed the tag:
 
 ```bash
-git tag v1.0.0-rc1 -m "Release candidate 1"
-git push origin v1.0.0-rc1
+git tag releases/solr-mcp/1.0.0-rc1 -m "Release candidate 1"
+git push origin releases/solr-mcp/1.0.0-rc1
 ```
 
 ### "ASF_USERNAME not configured"
@@ -563,10 +563,10 @@ gh secret set SECRET_NAME --body "value"
 gh secret delete SECRET_NAME
 
 # Tag management for releases
-git tag v1.0.0-rc1 -m "Release candidate 1"
-git push origin v1.0.0-rc1
-git tag -d v1.0.0-rc1  # Delete local
-git push origin :refs/tags/v1.0.0-rc1  # Delete remote
+git tag releases/solr-mcp/1.0.0-rc1 -m "Release candidate 1"
+git push origin releases/solr-mcp/1.0.0-rc1
+git tag -d releases/solr-mcp/1.0.0-rc1  # Delete local
+git push origin :refs/tags/releases/solr-mcp/1.0.0-rc1  # Delete remote
 ```
 
 ---
