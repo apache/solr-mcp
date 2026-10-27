@@ -72,6 +72,26 @@ class SolrConfigurationPropertiesTest {
         .hasMessageContaining("http://localhost:8983/solr/");
   }
 
+  /**
+   * Credentials belong in {@code solr.username} / {@code solr.password}: SolrJ does not
+   * authenticate with the URL's user info, and SolrJ's error text repeats the URL verbatim.
+   */
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "http://admin:secret@solr:8983/solr/",
+        "https://admin@solr.example.com",
+        "http://admin:secret@localhost:8983"
+      })
+  void rejectsCredentialsInTheUrl(String url) {
+    assertThatThrownBy(() -> new SolrConfigurationProperties(url, null, null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("solr.url must not contain a username or password")
+        .hasMessageContaining("solr.username")
+        .hasMessageNotContaining("secret")
+        .hasMessageNotContaining("admin");
+  }
+
   /** The binder passes null when the property is absent altogether. */
   @Test
   @SuppressWarnings("DataFlowIssue") // passes null on purpose, as the binder does
