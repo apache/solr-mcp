@@ -377,5 +377,11 @@ record CollectionCreationResult(
     /** Optional message describing the outcome */
     String message,
 
+    /**
+     * The configset the collection uses: {@code <name>.AUTOCREATED} for a private copy of _default,
+     * otherwise the shared configset that was named
+     */
+    String configSet,
+
     /** Timestamp when the collection was created, formatted as ISO 8601 */
     @JsonFormat(shape = JsonFormat.Shape.STRING) Instant createdAt) {}
