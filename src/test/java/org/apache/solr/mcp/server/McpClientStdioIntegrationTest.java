@@ -48,8 +48,14 @@ class McpClientStdioIntegrationTest extends McpClientIntegrationTestBase {
         "http://" + solrContainer.getHost() + ":" + solrContainer.getMappedPort(8983) + "/solr/";
     String jarPath = "build/libs/" + BuildInfoReader.getJarFileName();
 
+    String javaExecutable =
+        ProcessHandle.current()
+            .info()
+            .command()
+            .orElseGet(() -> System.getProperty("java.home") + "/bin/java");
+
     var params =
-        ServerParameters.builder("java")
+        ServerParameters.builder(javaExecutable)
             .args("-jar", jarPath)
             .addEnvVar("SOLR_URL", solrUrl)
             .addEnvVar("SPRING_DOCKER_COMPOSE_ENABLED", "false")

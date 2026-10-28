@@ -29,7 +29,13 @@ public class ClientStdio {
 
     String jarName = String.format("build/libs/%s", BuildInfoReader.getJarFileName());
 
-    var stdioParams = ServerParameters.builder("java").args("-jar", jarName).build();
+    String javaExecutable =
+        ProcessHandle.current()
+            .info()
+            .command()
+            .orElseGet(() -> System.getProperty("java.home") + "/bin/java");
+
+    var stdioParams = ServerParameters.builder(javaExecutable).args("-jar", jarName).build();
 
     var transport =
         new StdioClientTransport(

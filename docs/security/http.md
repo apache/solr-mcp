@@ -50,9 +50,8 @@ http.authorizeHttpRequests(auth -> {
 
 - `/mcp` is permitted at the HTTP layer because Spring AI MCP routes the entire
   JSON-RPC stream through one path. **Per-tool authorization is enforced via
-  `@PreAuthorize("isAuthenticated()")` on every `@McpTool` method.** This is
-  the canonical pattern from
-  [`spring-ai-community/mcp-security` "secured tools" sample](https://github.com/spring-ai-community/mcp-security/blob/main/samples/sample-mcp-server-secured-tools/src/main/java/org/springaicommunity/mcp/security/sample/server/securedtools/HistoricalWeatherService.java).
+  `@PreAuthorize(McpAuthorities.READ)` / `WRITE` / `ADMIN` on every MCP endpoint.** This
+  replaces coarse authentication checks with fine-grained functional scopes.
 - `/actuator/health` stays anonymous so load balancers and orchestrators can
   probe liveness. Everything else under `/actuator` requires auth so an
   unauthenticated caller cannot read the SBOM, scrape Prometheus metrics that
@@ -171,6 +170,37 @@ Two consequences for client setup:
 Interactive browser login (Claude Code `claude mcp login <name>`, the
 Inspector's OAuth flow) additionally needs a client registered at the IdP with
 the client's callback URL, and is not covered by these guides.
+
+## Upgrading to scoped authorization
+
+Every MCP endpoint is gated by one of three independent, non-hierarchical scopes:
+
+| Scope | Authority Checked | Intended Purpose & Coverage |
+|---|---|---|
+| `solr:read` | `SCOPE_solr:read` | All read-only operations: `search`, `list-collections`, `get-collection-stats`, `check-health`, `get-schema`, `list-aliases`, MCP resources (`solr://collections`, `solr://{collection}/schema`), MCP prompts (`search-collection`, `explore-collections`, `setup-collection`, `index-data`, `view-schema`, `design-schema`), and completions. |
+| `solr:write` | `SCOPE_solr:write` | Document indexing operations: `index-json-documents`, `index-csv-documents`, `index-xml-documents`, and `index-markdown-documents`. |
+| `solr:admin` | `SCOPE_solr:admin` | Administrative and schema-altering actions: `create-collection`, `create-alias`, `delete-alias`, `add-fields`, and `add-field-types`. |
+
+Tokens lacking the required scope are denied tool execution.
+
+### Migration path
+
+1. In your IdP, create `solr:read`, `solr:write`, and `solr:admin` and grant them to each client. By default, Spring Security reads standard `scope`/`scp` claims. For alternative claim mappings:
+   - Keycloak realm roles (`realm_access.roles`): `spring.security.oauth2.resourceserver.jwt.authorities-claim-expressions=[realm_access][roles]`
+   - Auth0 RBAC (`permissions` array): `spring.security.oauth2.resourceserver.jwt.authorities-claim-name=permissions`
+2. **Compatibility bridge:** To upgrade before the IdP is ready, grant all three scopes to every valid token with configuration only. This restores pre-upgrade behavior:
+
+   ```properties
+   spring.security.oauth2.resourceserver.jwt.authorities-claim-expressions[0]={'solr:read','solr:write','solr:admin'}
+   ```
+
+   or in the environment:
+   ```bash
+   export SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUTHORITIESCLAIMEXPRESSIONS_0="{'solr:read','solr:write','solr:admin'}"
+   ```
+
+   > **Note:** The `[0]` index is required so Spring Boot's configuration binder does not split the comma-separated list into separate expression strings.
+3. Decode a token from the IdP to confirm the scopes are present before removing the compatibility bridge.
 
 ## Operational guidance
 

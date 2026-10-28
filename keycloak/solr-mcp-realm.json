@@ -2,6 +2,47 @@
   "realm": "solr-mcp",
   "enabled": true,
   "displayName": "Solr MCP (development)",
+  "clientScopes": [
+    {
+      "name": "solr:read",
+      "description": "Read-only access to Solr collections, resources, and search",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    },
+    {
+      "name": "solr:write",
+      "description": "Write access to index documents into Solr collections",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    },
+    {
+      "name": "solr:admin",
+      "description": "Admin access to manage collections, aliases, and schemas",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    }
+  ],
+  "defaultDefaultClientScopes": [
+    "role_list",
+    "profile",
+    "email",
+    "roles",
+    "web-origins",
+    "acr",
+    "basic",
+    "solr:read",
+    "solr:write",
+    "solr:admin"
+  ],
   "clients": [
     {
       "clientId": "solr-mcp-service",
@@ -13,6 +54,17 @@
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "secret": "dev-only-not-a-secret",
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "roles",
+        "profile",
+        "basic",
+        "email",
+        "solr:read",
+        "solr:write",
+        "solr:admin"
+      ],
       "protocolMappers": [
         {
           "name": "mcp-audience",
@@ -35,6 +87,17 @@
       "directAccessGrantsEnabled": true,
       "redirectUris": [ "http://localhost:6274/*", "http://localhost:*" ],
       "webOrigins": [ "http://localhost:6274" ],
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "roles",
+        "profile",
+        "basic",
+        "email",
+        "solr:read",
+        "solr:write",
+        "solr:admin"
+      ],
       "protocolMappers": [
         {
           "name": "mcp-audience",

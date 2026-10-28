@@ -108,12 +108,21 @@ After creation, you'll see the application settings page. Note down:
     - **Signing Algorithm**: Leave as **RS256** (recommended)
 2. Click **Create**
 
-### Step 3: Configure API Permissions (Optional)
+### Step 3: Configure API Permissions (Scopes)
 
 1. Go to the **Permissions** tab
-2. Add scopes if needed (e.g., `read:schema`, `write:documents`)
-3. For basic setup, you can skip this and add permissions later. The shipped
-   server checks `isAuthenticated()` only; scopes are not evaluated.
+2. Add the three MCP scopes:
+   - `solr:read` — Read-only access to collections, schemas, and search
+   - `solr:write` — Write access to index JSON, CSV, XML, and markdown documents
+   - `solr:admin` — Administrative access to create collections, manage aliases, and alter schemas
+3. When using Auth0 RBAC (`permissions` array in the access token), configure the server to read authorities from the `permissions` claim via `application.properties`:
+   ```properties
+   spring.security.oauth2.resourceserver.jwt.authorities-claim-name=permissions
+   ```
+   or in the environment:
+   ```bash
+   export SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUTHORITIES_CLAIM_NAME=permissions
+   ```
 
 ---
 

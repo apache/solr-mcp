@@ -9,6 +9,7 @@ When running in HTTP mode, the Solr MCP Server supports **OAuth2 authentication*
 
 * **Protocol**: OAuth2 Resource Server with JWT validation
 * **Supported providers**: Auth0, Keycloak, Okta, or any OAuth2/OIDC provider
+* **Granular Scopes**: `solr:read` (search, schema inspection, collections), `solr:write` (indexing), `solr:admin` (collection creation, aliases, schema edits)
 * **STDIO mode**: Security is not applicable (OS-level process isolation)
 * **HTTP mode**: **Secured by default** &mdash; set `OAUTH2_ISSUER_URI` to wire up a provider; disable for local dev only with `HTTP_SECURITY_ENABLED=false`
 

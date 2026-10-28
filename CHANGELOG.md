@@ -20,6 +20,8 @@ Apache Solr MCP 1.0.0 is the project's first release: a Model Context Protocol (
 
 ### Changed
 
+- **Scoped tool authorization ([#66](https://github.com/apache/solr-mcp/issues/66))**: Gated all 28 MCP entry points by three independent scopes: `solr:read`, `solr:write`, and `solr:admin`. In secured HTTP mode, tokens without required scopes are denied. See the [upgrade guide](docs/security/http.md#upgrading-to-scoped-authorization) for migration instructions and the zero-code compatibility bridge.
+
 ### Fixed
 
 ### Security

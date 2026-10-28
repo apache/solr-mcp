@@ -914,77 +914,50 @@ Automatically assign roles to GitHub users:
    - Mapper Type: `Hardcoded Role`
    - Role: Select a role (e.g., `solr-query`)
 
-## Role-Based Access Control (Optional)
+## Scoped Access Control and Realm Roles
 
-The shipped configuration authorizes with `@PreAuthorize("isAuthenticated()")`
-on each `@McpTool` method. To authorize on Keycloak *roles* instead, you need a
-converter that reads them out of the JWT.
+The MCP server enforces fine-grained authorization using three distinct scopes: `solr:read`, `solr:write`, and `solr:admin`.
 
-### Create Roles in Keycloak
+### Option A: Keycloak Client Scopes (Recommended)
 
-1. Navigate to **Realm roles** → **Create role**
-2. Create roles like `admin`, `solr-query`, `solr-admin`
-3. Assign roles to users via **Users** → select user → **Role mappings**
+The shipped realm (`keycloak/solr-mcp-realm.json`) defines `solr:read`, `solr:write`, and `solr:admin` as `openid-connect` client scopes and includes them by default.
 
-### Keycloak Role Locations
-
-| Location | Claim Path | Use Case |
-|----------|------------|----------|
-| Realm roles | `realm_access.roles` | Global roles across all clients |
-| Client roles | `resource_access.<client-id>.roles` | Roles specific to a client |
-
-### Configure Spring Security
-
-Keycloak nests realm roles under `realm_access.roles`, which
-`JwtGrantedAuthoritiesConverter` cannot read directly — it expects a top-level
-claim holding a list. Extract the nested list yourself:
-
-```java
-import java.util.List;
-import java.util.Map;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-
-@Bean
-@ConditionalOnProperty(name = "http.security.enabled", havingValue = "true", matchIfMissing = true)
-public JwtAuthenticationConverter jwtAuthenticationConverter() {
-    JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-    converter.setJwtGrantedAuthoritiesConverter(jwt -> {
-        Map<String, Object> realmAccess = jwt.getClaimAsMap("realm_access");
-        if (realmAccess == null || realmAccess.get("roles") == null) {
-            return List.of();
-        }
-        @SuppressWarnings("unchecked")
-        List<String> roles = (List<String>) realmAccess.get("roles");
-        return roles.stream()
-                .map(role -> (GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + role))
-                .toList();
-    });
-    return converter;
+When clients request these scopes, Keycloak emits them into the standard `scope` claim:
+```json
+{
+  "scope": "openid email profile solr:read solr:write solr:admin"
 }
 ```
 
-> **This is a sketch, not shipped configuration.** The converter above is
-> correct for reading Keycloak's nested `realm_access.roles`, but wiring it in
-> depends on how the JWT decoder is built. The shipped chain constructs its
-> decoder through `McpServerOAuth2Configurer`, so verify that a standalone
-> `JwtAuthenticationConverter` bean is actually picked up in your build before
-> relying on role checks — and add a test that asserts a role-gated tool call
-> succeeds with a role-bearing token and fails without one.
+Spring Security's default `JwtGrantedAuthoritiesConverter` extracts the `scope` claim and maps each entry to `SCOPE_solr:read`, `SCOPE_solr:write`, and `SCOPE_solr:admin`. No custom converter code or configuration properties are required.
 
-### Use Role Annotations
+### Option B: Keycloak Realm Roles (`realm_access.roles`)
 
-```java
-@PreAuthorize("hasRole('admin')")
-public String deleteCollection(String name) { ... }
+If your organization manages permissions using Keycloak realm roles rather than client scopes, create realm roles named `solr:read`, `solr:write`, and `solr:admin` in Keycloak and assign them to users or groups.
 
-@PreAuthorize("hasRole('solr-query')")
-public String executeQuery(String collection, String query) { ... }
-
-@PreAuthorize("hasAnyRole('solr-query', 'solr-admin')")
-public String getSchema(String collection) { ... }
+Keycloak places realm roles in the nested `realm_access.roles` claim:
+```json
+{
+  "realm_access": {
+    "roles": ["solr:read", "solr:write"]
+  }
+}
 ```
+
+In Spring Boot 4.1.1, configure Spring Security to extract authorities from nested claims declaratively via `application.properties`:
+
+```properties
+spring.security.oauth2.resourceserver.jwt.authorities-claim-expressions=[realm_access][roles]
+```
+
+or via environment variable:
+```bash
+export SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUTHORITIES_CLAIM_EXPRESSIONS="[realm_access][roles]"
+```
+
+Spring Security evaluates the expression against the JWT and produces the required `SCOPE_solr:read` and `SCOPE_solr:write` authorities automatically, with no custom Java converter beans required.
+
+> **Note on authority prefix:** Do not customize `authority-prefix` (leave it at default). The server's method security annotations explicitly match `SCOPE_`.
 
 > **Do not copy an older filter-chain snippet over the shipped one.** The
 > current chain in `HttpSecurityConfiguration` authenticates `/actuator/**`

@@ -70,10 +70,16 @@ tasks.withType<RatTask>().configureEach {
             // ASF infra metadata and tool config (no header by convention)
             ".asf.yaml",
             "config/**",
-            // Local developer tooling not tracked by git — Claude Code worktrees/settings
-            // and the Kotlin compiler cache (analogous to the gitignored .idea/.gradle).
+            // Local developer tooling not tracked by git — Claude Code worktrees/settings,
+            // Codex/Playwright MCP caches, unpacked jar dirs, and the Kotlin compiler cache.
             // Present only on some local checkouts, never in CI.
             ".claude/**",
+            ".codex/**",
+            ".playwright-mcp/**",
+            ".output.txt",
+            "BOOT-INF/**",
+            "META-INF/**",
+            "org/**",
             "**/.kotlin/**",
             // Tabular data — no comment syntax to hold a header
             "**/*.csv",
