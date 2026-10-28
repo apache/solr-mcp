@@ -121,7 +121,7 @@ After creation, you'll see the application settings page. Note down:
    ```
    or in the environment:
    ```bash
-   export SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUTHORITIES_CLAIM_NAME=permissions
+   export SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUTHORITIESCLAIMNAME=permissions
    ```
 
 ---

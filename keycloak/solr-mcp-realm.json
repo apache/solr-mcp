@@ -4,6 +4,27 @@
   "displayName": "Solr MCP (development)",
   "clientScopes": [
     {
+      "name": "basic",
+      "description": "Minimal token claims: the sub claim Keycloak otherwise only adds through its built-in basic scope",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "sub",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "consentRequired": false,
+          "config": {
+            "introspection.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
       "name": "solr:read",
       "description": "Read-only access to Solr collections, resources, and search",
       "protocol": "openid-connect",
@@ -32,16 +53,8 @@
     }
   ],
   "defaultDefaultClientScopes": [
-    "role_list",
-    "profile",
-    "email",
-    "roles",
-    "web-origins",
-    "acr",
     "basic",
-    "solr:read",
-    "solr:write",
-    "solr:admin"
+    "solr:read"
   ],
   "clients": [
     {
@@ -55,15 +68,8 @@
       "directAccessGrantsEnabled": false,
       "secret": "dev-only-not-a-secret",
       "defaultClientScopes": [
-        "web-origins",
-        "acr",
-        "roles",
-        "profile",
         "basic",
-        "email",
-        "solr:read",
-        "solr:write",
-        "solr:admin"
+        "solr:read"
       ],
       "protocolMappers": [
         {
@@ -77,6 +83,10 @@
             "introspection.token.claim": "true"
           }
         }
+      ],
+      "optionalClientScopes": [
+        "solr:write",
+        "solr:admin"
       ]
     },
     {
@@ -85,18 +95,16 @@
       "enabled": true,
       "publicClient": true,
       "directAccessGrantsEnabled": true,
-      "redirectUris": [ "http://localhost:6274/*", "http://localhost:*" ],
-      "webOrigins": [ "http://localhost:6274" ],
+      "redirectUris": [
+        "http://localhost:6274/*",
+        "http://localhost:*"
+      ],
+      "webOrigins": [
+        "http://localhost:6274"
+      ],
       "defaultClientScopes": [
-        "web-origins",
-        "acr",
-        "roles",
-        "profile",
         "basic",
-        "email",
-        "solr:read",
-        "solr:write",
-        "solr:admin"
+        "solr:read"
       ],
       "protocolMappers": [
         {
@@ -110,6 +118,10 @@
             "introspection.token.claim": "true"
           }
         }
+      ],
+      "optionalClientScopes": [
+        "solr:write",
+        "solr:admin"
       ]
     }
   ],
@@ -121,7 +133,17 @@
       "lastName": "User",
       "enabled": true,
       "emailVerified": true,
-      "credentials": [ { "type": "password", "value": "testpassword", "temporary": false } ]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "testpassword",
+          "temporary": false
+        }
+      ]
     }
+  ],
+  "defaultOptionalClientScopes": [
+    "solr:write",
+    "solr:admin"
   ]
 }

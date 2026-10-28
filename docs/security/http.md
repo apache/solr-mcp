@@ -171,7 +171,7 @@ Interactive browser login (Claude Code `claude mcp login <name>`, the
 Inspector's OAuth flow) additionally needs a client registered at the IdP with
 the client's callback URL, and is not covered by these guides.
 
-## Upgrading to scoped authorization
+## Scoped authorization
 
 Every MCP endpoint is gated by one of three independent, non-hierarchical scopes:
 
@@ -183,12 +183,12 @@ Every MCP endpoint is gated by one of three independent, non-hierarchical scopes
 
 Tokens lacking the required scope are denied tool execution.
 
-### Migration path
+### Granting the scopes
 
 1. In your IdP, create `solr:read`, `solr:write`, and `solr:admin` and grant them to each client. By default, Spring Security reads standard `scope`/`scp` claims. For alternative claim mappings:
    - Keycloak realm roles (`realm_access.roles`): `spring.security.oauth2.resourceserver.jwt.authorities-claim-expressions=[realm_access][roles]`
    - Auth0 RBAC (`permissions` array): `spring.security.oauth2.resourceserver.jwt.authorities-claim-name=permissions`
-2. **Compatibility bridge:** To upgrade before the IdP is ready, grant all three scopes to every valid token with configuration only. This restores pre-upgrade behavior:
+2. **Compatibility bridge:** If your IdP cannot issue these scopes yet, grant all three to every valid token with configuration only. This turns per-token scope enforcement off — every authenticated caller can use every tool — and the server logs a startup `WARN` while it is set:
 
    ```properties
    spring.security.oauth2.resourceserver.jwt.authorities-claim-expressions[0]={'solr:read','solr:write','solr:admin'}
@@ -200,7 +200,7 @@ Tokens lacking the required scope are denied tool execution.
    ```
 
    > **Note:** The `[0]` index is required so Spring Boot's configuration binder does not split the comma-separated list into separate expression strings.
-3. Decode a token from the IdP to confirm the scopes are present before removing the compatibility bridge.
+3. Decode a token from the IdP to confirm the scopes are present, then remove the compatibility bridge.
 
 ## Operational guidance
 

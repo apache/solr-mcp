@@ -920,14 +920,16 @@ The MCP server enforces fine-grained authorization using three distinct scopes: 
 
 ### Option A: Keycloak Client Scopes (Recommended)
 
-The shipped realm (`keycloak/solr-mcp-realm.json`) defines `solr:read`, `solr:write`, and `solr:admin` as `openid-connect` client scopes and includes them by default.
+The shipped realm (`keycloak/solr-mcp-realm.json`) defines `solr:read`, `solr:write`, and `solr:admin` as `openid-connect` client scopes. Least privilege is the default: `solr:read` is a default client scope, while `solr:write` and `solr:admin` are *optional* and only appear in a token when the client asks for them with the `scope` parameter (for example `scope=solr:read solr:admin`).
 
-When clients request these scopes, Keycloak emits them into the standard `scope` claim:
+Keycloak emits the granted scopes into the standard `scope` claim:
 ```json
 {
-  "scope": "openid email profile solr:read solr:write solr:admin"
+  "scope": "solr:read solr:admin"
 }
 ```
+
+> The realm also defines the `basic` client scope, which carries the `sub` claim. Keycloak only creates its built-in scopes (`basic`, `profile`, `email`, ...) automatically when a realm import has no `clientScopes` array, so a realm that declares its own scopes must declare `basic` too or tokens come out without a subject.
 
 Spring Security's default `JwtGrantedAuthoritiesConverter` extracts the `scope` claim and maps each entry to `SCOPE_solr:read`, `SCOPE_solr:write`, and `SCOPE_solr:admin`. No custom converter code or configuration properties are required.
 
@@ -952,7 +954,7 @@ spring.security.oauth2.resourceserver.jwt.authorities-claim-expressions=[realm_a
 
 or via environment variable:
 ```bash
-export SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUTHORITIES_CLAIM_EXPRESSIONS="[realm_access][roles]"
+export SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUTHORITIESCLAIMEXPRESSIONS="[realm_access][roles]"
 ```
 
 Spring Security evaluates the expression against the JWT and produces the required `SCOPE_solr:read` and `SCOPE_solr:write` authorities automatically, with no custom Java converter beans required.

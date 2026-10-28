@@ -29,6 +29,7 @@ import org.apache.solr.mcp.server.schema.SchemaService;
 import org.apache.solr.mcp.server.search.SearchService;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -127,6 +128,10 @@ class MethodSecurityEnforcementTest {
   @Test
   @WithMockUser(authorities = "SCOPE_solr:write")
   void writeScopeAllowsWriteToolsAndDeniesAdminAndReadTools() {
+    assertNotDenied(
+        () -> indexingService.indexJsonDocuments("scope-write-col", List.of(Map.of("id", "1"))),
+        "index-json-documents requires solr:write and must pass the gate for SCOPE_solr:write.");
+
     assertThrows(
         AccessDeniedException.class,
         () -> schemaService.addFields("test-col", List.of(Map.of("name", "f", "type", "string"))),
@@ -145,9 +150,28 @@ class MethodSecurityEnforcementTest {
   @Test
   @WithMockUser(authorities = "SCOPE_solr:admin")
   void adminScopeDoesNotImplyReadScope() {
+    assertNotDenied(
+        () -> collectionService.createCollection("scope-admin-col", null, null, null),
+        "create-collection requires solr:admin and must pass the gate for SCOPE_solr:admin.");
+
     assertThrows(
         AccessDeniedException.class,
         () -> searchService.search("test-col", "*:*", null, null, null, null, null),
         "solr:admin does not imply solr:read, so search must reject a caller with only solr:admin.");
+  }
+
+  /**
+   * Asserts the call got past method security. The Solr call behind the gate may succeed or fail
+   * (missing collection, wrong payload) — only an {@link AccessDeniedException} means the gate
+   * itself refused the caller, so any other outcome proves the scope was accepted.
+   */
+  private static void assertNotDenied(Executable call, String message) {
+    try {
+      call.execute();
+    } catch (AccessDeniedException e) {
+      throw new AssertionError(message, e);
+    } catch (Throwable ignoredSolrFailure) {
+      // The gate passed; the downstream Solr outcome is not what this test is about.
+    }
   }
 }
