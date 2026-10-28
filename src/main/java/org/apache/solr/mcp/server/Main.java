@@ -93,7 +93,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class Main {
 
   /** Default constructor used by Spring Boot to bootstrap the application. */
-  public Main() {}
+  public Main() {
+    // Declared only to carry the Javadoc above; javadoc warns on an implicit constructor.
+  }
 
   /**
    * Logback's own system property naming the status listener to install during its

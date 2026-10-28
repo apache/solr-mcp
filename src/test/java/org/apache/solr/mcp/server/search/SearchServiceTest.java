@@ -136,18 +136,11 @@ class SearchServiceTest {
   @Test
   void search_WithInvalidNonblankSortOrder_ShouldStillFail() {
     SearchService localService = new SearchService(mock(SolrClient.class));
+    List<SortClause> sort = List.of(new SortClause("price", "descending"));
     IllegalArgumentException e =
         assertThrows(
             IllegalArgumentException.class,
-            () ->
-                localService.search(
-                    "test_collection",
-                    null,
-                    null,
-                    null,
-                    List.of(new SortClause("price", "descending")),
-                    null,
-                    null));
+            () -> localService.search("test_collection", null, null, null, sort, null, null));
     assertTrue(e.getMessage().contains("'asc' or 'desc'"));
   }
 
@@ -198,12 +191,12 @@ class SearchServiceTest {
     when(mockResponse.getFacetFields()).thenThrow(failure);
     when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenReturn(mockResponse);
     SearchService localService = new SearchService(mockClient);
+    List<String> facetFields = List.of("platform");
     IllegalStateException e =
         assertThrows(
             IllegalStateException.class,
             () ->
-                localService.search(
-                    "test_collection", "*:*", null, List.of("platform"), null, null, null));
+                localService.search("test_collection", "*:*", null, facetFields, null, null, null));
     assertFalse(e.getMessage().contains("ClassCastException"));
     assertFalse(e.getMessage().contains("NamedList"));
     assertTrue(e.getMessage().contains("facetFields"));

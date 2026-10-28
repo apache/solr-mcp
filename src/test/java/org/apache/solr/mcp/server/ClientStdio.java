@@ -27,7 +27,7 @@ public class ClientStdio {
 
   static void main() {
 
-    String jarName = String.format("build/libs/%s", BuildInfoReader.getJarFileName());
+    String jarName = "build/libs/" + BuildInfoReader.getJarFileName();
 
     var stdioParams = ServerParameters.builder("java").args("-jar", jarName).build();
 

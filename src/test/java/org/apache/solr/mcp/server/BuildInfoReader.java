@@ -99,7 +99,7 @@ public class BuildInfoReader {
    */
   public static String getDockerImageName() {
     String suffix = System.getProperty("solr.mcp.docker.image.tag.suffix", "");
-    return String.format("%s:%s%s", getArtifact(), getVersion(), suffix);
+    return getArtifact() + ":" + getVersion() + suffix;
   }
 
   /**
@@ -108,6 +108,6 @@ public class BuildInfoReader {
    * @return JAR file name (e.g., "solr-mcp-1.0.0-SNAPSHOT.jar")
    */
   public static String getJarFileName() {
-    return String.format("%s-%s.jar", getArtifact(), getVersion());
+    return getArtifact() + "-" + getVersion() + ".jar";
   }
 }
