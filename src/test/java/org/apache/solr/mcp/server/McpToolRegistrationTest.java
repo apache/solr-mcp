@@ -23,11 +23,16 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.solr.mcp.server.collection.AliasService;
 import org.apache.solr.mcp.server.collection.CollectionService;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.apache.solr.mcp.server.schema.SchemaService;
 import org.apache.solr.mcp.server.search.SearchService;
+import org.apache.solr.mcp.server.security.McpAuthorities;
 import org.apache.solr.mcp.server.util.PromptNames;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.mcp.annotation.McpComplete;
@@ -269,39 +274,95 @@ class McpToolRegistrationTest {
     }
   }
 
+  private static final Map<String, String> EXPECTED_ENDPOINT_SCOPES =
+      Map.ofEntries(
+          // SearchService
+          Map.entry("SearchService#search", McpAuthorities.READ),
+          Map.entry("SearchService#searchCollectionPrompt", McpAuthorities.READ),
+
+          // CollectionService
+          Map.entry("CollectionService#getCollectionsResource", McpAuthorities.READ),
+          Map.entry("CollectionService#completeCollection", McpAuthorities.READ),
+          Map.entry("CollectionService#completeSearchCollectionPromptArg", McpAuthorities.READ),
+          Map.entry("CollectionService#completeIndexDataPromptArg", McpAuthorities.READ),
+          Map.entry("CollectionService#completeViewSchemaPromptArg", McpAuthorities.READ),
+          Map.entry("CollectionService#completeDesignSchemaPromptArg", McpAuthorities.READ),
+          Map.entry("CollectionService#listCollections", McpAuthorities.READ),
+          Map.entry("CollectionService#getCollectionStats", McpAuthorities.READ),
+          Map.entry("CollectionService#checkHealth", McpAuthorities.READ),
+          Map.entry("CollectionService#createCollection", McpAuthorities.ADMIN),
+          Map.entry("CollectionService#exploreCollectionsPrompt", McpAuthorities.READ),
+          Map.entry("CollectionService#setupCollectionPrompt", McpAuthorities.READ),
+
+          // IndexingService
+          Map.entry("IndexingService#indexJsonDocuments", McpAuthorities.WRITE),
+          Map.entry("IndexingService#indexCsvDocuments", McpAuthorities.WRITE),
+          Map.entry("IndexingService#indexXmlDocuments", McpAuthorities.WRITE),
+          Map.entry("IndexingService#indexMarkdownDocuments", McpAuthorities.WRITE),
+          Map.entry("IndexingService#indexDataPrompt", McpAuthorities.READ),
+
+          // SchemaService
+          Map.entry("SchemaService#getSchemaResource", McpAuthorities.READ),
+          Map.entry("SchemaService#getSchema", McpAuthorities.READ),
+          Map.entry("SchemaService#addFields", McpAuthorities.ADMIN),
+          Map.entry("SchemaService#addFieldTypes", McpAuthorities.ADMIN),
+          Map.entry("SchemaService#viewSchemaPrompt", McpAuthorities.READ),
+          Map.entry("SchemaService#designSchemaPrompt", McpAuthorities.READ),
+
+          // AliasService
+          Map.entry("AliasService#listAliases", McpAuthorities.READ),
+          Map.entry("AliasService#createAlias", McpAuthorities.ADMIN),
+          Map.entry("AliasService#deleteAlias", McpAuthorities.ADMIN));
+
   /**
    * Invariant: every public MCP entry point — tool, resource, prompt, or completion — must carry
-   * {@code @PreAuthorize}. Annotating a shared helper is not sufficient because Spring's
-   * proxy-based method security is bypassed by self-invocation, so each MCP-visible method must be
-   * gated independently.
+   * {@code @PreAuthorize} with its exact required scope constant from {@link McpAuthorities}.
+   * Annotating a shared helper is not sufficient because Spring's proxy-based method security is
+   * bypassed by self-invocation, so each MCP-visible method must be gated independently.
    *
-   * <p>Adding a new {@code @Mcp*} method without {@code @PreAuthorize} fails this test, surfacing
-   * the omission in CI rather than relying on reviewer memory.
+   * <p>This test asserts that:
+   *
+   * <ol>
+   *   <li>The set of discovered {@code @Mcp*} methods across all service classes exactly equals the
+   *       expected map's keys (no unclassified endpoints).
+   *   <li>Every method's {@code @PreAuthorize} value matches the expected authority constant.
+   * </ol>
    */
   @Test
-  void everyMcpEndpointIsPreAuthorized() {
+  void everyMcpEndpointRequiresItsScope() {
     List<Class<? extends Annotation>> mcpAnnotations =
         List.of(McpTool.class, McpResource.class, McpPrompt.class, McpComplete.class);
 
-    List<String> violations =
+    List<Method> discoveredMethods =
         Stream.of(
                 CollectionService.class,
                 SchemaService.class,
                 SearchService.class,
-                IndexingService.class)
+                IndexingService.class,
+                AliasService.class)
             .flatMap(c -> Arrays.stream(c.getDeclaredMethods()))
             .filter(m -> mcpAnnotations.stream().anyMatch(m::isAnnotationPresent))
-            .filter(m -> !m.isAnnotationPresent(PreAuthorize.class))
-            .map(m -> m.getDeclaringClass().getSimpleName() + "#" + m.getName())
-            .sorted()
             .toList();
 
-    assertTrue(
-        violations.isEmpty(),
-        "Every @McpTool / @McpResource / @McpPrompt / @McpComplete method must declare @PreAuthorize. "
-            + "Self-invocation bypasses the Spring Security proxy, so a shared helper's annotation does not "
-            + "protect the public entry point. Missing on: "
-            + violations);
+    Set<String> discoveredKeys =
+        discoveredMethods.stream()
+            .map(m -> m.getDeclaringClass().getSimpleName() + "#" + m.getName())
+            .collect(Collectors.toSet());
+
+    assertEquals(
+        EXPECTED_ENDPOINT_SCOPES.keySet(),
+        discoveredKeys,
+        "Discovered MCP endpoints must exactly match the expected endpoint set");
+
+    for (Method method : discoveredMethods) {
+      String key = method.getDeclaringClass().getSimpleName() + "#" + method.getName();
+      PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+      assertNotNull(preAuthorize, "Method " + key + " is missing @PreAuthorize annotation");
+      assertEquals(
+          EXPECTED_ENDPOINT_SCOPES.get(key),
+          preAuthorize.value(),
+          "Method " + key + " has incorrect @PreAuthorize scope expression");
+    }
   }
 
   // Helper method to extract tool names from a service class

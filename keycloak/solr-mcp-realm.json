@@ -2,6 +2,60 @@
   "realm": "solr-mcp",
   "enabled": true,
   "displayName": "Solr MCP (development)",
+  "clientScopes": [
+    {
+      "name": "basic",
+      "description": "Minimal token claims: the sub claim Keycloak otherwise only adds through its built-in basic scope",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "sub",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "consentRequired": false,
+          "config": {
+            "introspection.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "solr:read",
+      "description": "Read-only access to Solr collections, resources, and search",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    },
+    {
+      "name": "solr:write",
+      "description": "Write access to index documents into Solr collections",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    },
+    {
+      "name": "solr:admin",
+      "description": "Admin access to manage collections, aliases, and schemas",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    }
+  ],
+  "defaultDefaultClientScopes": [
+    "basic",
+    "solr:read"
+  ],
   "clients": [
     {
       "clientId": "solr-mcp-service",
@@ -13,6 +67,10 @@
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "secret": "dev-only-not-a-secret",
+      "defaultClientScopes": [
+        "basic",
+        "solr:read"
+      ],
       "protocolMappers": [
         {
           "name": "mcp-audience",
@@ -25,6 +83,10 @@
             "introspection.token.claim": "true"
           }
         }
+      ],
+      "optionalClientScopes": [
+        "solr:write",
+        "solr:admin"
       ]
     },
     {
@@ -33,8 +95,17 @@
       "enabled": true,
       "publicClient": true,
       "directAccessGrantsEnabled": true,
-      "redirectUris": [ "http://localhost:6274/*", "http://localhost:*" ],
-      "webOrigins": [ "http://localhost:6274" ],
+      "redirectUris": [
+        "http://localhost:6274/*",
+        "http://localhost:*"
+      ],
+      "webOrigins": [
+        "http://localhost:6274"
+      ],
+      "defaultClientScopes": [
+        "basic",
+        "solr:read"
+      ],
       "protocolMappers": [
         {
           "name": "mcp-audience",
@@ -47,6 +118,10 @@
             "introspection.token.claim": "true"
           }
         }
+      ],
+      "optionalClientScopes": [
+        "solr:write",
+        "solr:admin"
       ]
     }
   ],
@@ -58,7 +133,17 @@
       "lastName": "User",
       "enabled": true,
       "emailVerified": true,
-      "credentials": [ { "type": "password", "value": "testpassword", "temporary": false } ]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "testpassword",
+          "temporary": false
+        }
+      ]
     }
+  ],
+  "defaultOptionalClientScopes": [
+    "solr:write",
+    "solr:admin"
   ]
 }

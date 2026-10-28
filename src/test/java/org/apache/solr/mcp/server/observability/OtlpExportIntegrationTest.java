@@ -118,7 +118,9 @@ class OtlpExportIntegrationTest {
    */
   @BeforeEach
   void authenticateTestThread() {
-    var authentication = new TestingAuthenticationToken("otlp-test", null, "ROLE_USER");
+    var authentication =
+        new TestingAuthenticationToken(
+            "otlp-test", null, "SCOPE_solr:read", "SCOPE_solr:write", "SCOPE_solr:admin");
     SecurityContextHolder.getContext().setAuthentication(authentication);
   }
 
