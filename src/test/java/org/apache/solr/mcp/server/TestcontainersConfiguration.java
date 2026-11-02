@@ -19,7 +19,6 @@ package org.apache.solr.mcp.server;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.DynamicPropertyRegistrar;
-import org.testcontainers.containers.SolrContainer;
 import org.testcontainers.utility.DockerImageName;
 
 @TestConfiguration(proxyBeanMethods = false)
@@ -47,12 +46,12 @@ public class TestcontainersConfiguration {
   }
 
   @Bean
-  SolrContainer solr() {
-    return new SolrContainer(DockerImageName.parse(solrImage()));
+  EmbeddedZkSolrContainer solr() {
+    return new EmbeddedZkSolrContainer(DockerImageName.parse(solrImage()));
   }
 
   @Bean
-  DynamicPropertyRegistrar propertiesRegistrar(SolrContainer solr) {
+  DynamicPropertyRegistrar propertiesRegistrar(EmbeddedZkSolrContainer solr) {
     return registry ->
         registry.add(
             "solr.url",
