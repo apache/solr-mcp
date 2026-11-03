@@ -24,6 +24,7 @@ import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.response.CollectionAdminResponse;
+import org.apache.solr.mcp.server.security.McpAuthorities;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -85,7 +86,7 @@ public class AliasService {
    * @throws SolrServerException if there are errors communicating with Solr
    * @throws IOException if there are I/O errors during communication
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.READ)
   @McpTool(
       name = "list-aliases",
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
@@ -116,7 +117,7 @@ public class AliasService {
    * @throws SolrServerException if Solr returns an error
    * @throws IOException if there are I/O errors during communication
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.ADMIN)
   @McpTool(
       name = "create-alias",
       annotations = @McpTool.McpAnnotations(idempotentHint = true),
@@ -167,7 +168,7 @@ public class AliasService {
    * @throws SolrServerException if Solr returns an error
    * @throws IOException if there are I/O errors during communication
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.ADMIN)
   @McpTool(
       name = "delete-alias",
       annotations = @McpTool.McpAnnotations(destructiveHint = true),

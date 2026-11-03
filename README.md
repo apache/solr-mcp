@@ -199,6 +199,43 @@ The server reads configuration from environment variables. The essentials:
 
 Running in **HTTP mode** — OAuth2, CORS, and the `HTTP_SECURITY_ENABLED` toggle (secured by default) — is covered in the [security docs](docs/security/). Tracing, metrics and log-export env vars (`OTEL_SAMPLING_PROBABILITY`, `OTEL_TRACES_URL`, `OTEL_METRICS_URL`, `OTEL_LOGS_URL`) are covered in [Observability](docs/observability.md).
 
+## Least-Privilege Best Practices
+
+To protect your Apache Solr cluster, apply least-privilege principles across three distinct defense-in-depth layers:
+
+1. **Backend Solr permissions (Solr Layer):** Scope the credentials configured in `SOLR_USERNAME`/`SOLR_PASSWORD` using Solr's [Rule-Based Authorization Plugin](https://solr.apache.org/guide/solr/latest/deployment-guide/rule-based-authorization-plugin.html). Restrict the user to only the collections and operations required.
+2. **Identity Provider scopes (Server Layer):** In HTTP mode, grant only the necessary functional scopes in the OAuth2 access token:
+   - `solr:read` — Read-only querying, schema inspection, and metadata
+   - `solr:write` — Indexing documents (JSON, CSV, XML, Markdown)
+   - `solr:admin` — Administrative actions (creating collections/aliases, deleting aliases, adding fields and field types)
+3. **Client tool permissions (Client Layer):** In MCP clients such as Claude Code, explicitly restrict or allow specific tools in `.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "mcp__solr-mcp__search",
+      "mcp__solr-mcp__list-collections",
+      "mcp__solr-mcp__get-collection-stats",
+      "mcp__solr-mcp__check-health",
+      "mcp__solr-mcp__get-schema",
+      "mcp__solr-mcp__list-aliases"
+    ],
+    "deny": [
+      "mcp__solr-mcp__create-collection",
+      "mcp__solr-mcp__create-alias",
+      "mcp__solr-mcp__delete-alias",
+      "mcp__solr-mcp__add-fields",
+      "mcp__solr-mcp__add-field-types",
+      "mcp__solr-mcp__index-json-documents",
+      "mcp__solr-mcp__index-csv-documents",
+      "mcp__solr-mcp__index-xml-documents",
+      "mcp__solr-mcp__index-markdown-documents"
+    ]
+  }
+}
+```
+
 ## Documentation
 
 **Using it**
