@@ -186,8 +186,8 @@ Tokens lacking the required scope are denied tool execution.
 ### Granting the scopes
 
 1. In your IdP, create `solr:read`, `solr:write`, and `solr:admin` and grant them to each client. By default, Spring Security reads standard `scope`/`scp` claims. For alternative claim mappings:
-   - Keycloak realm roles (`realm_access.roles`): `spring.security.oauth2.resourceserver.jwt.authorities-claim-expressions=[realm_access][roles]`
-   - Auth0 RBAC (`permissions` array): `spring.security.oauth2.resourceserver.jwt.authorities-claim-name=permissions`
+   - Keycloak realm roles (`realm_access.roles`): `OAUTH2_AUTHORITIES_CLAIM_EXPRESSION=[realm_access][roles]`
+   - Auth0 RBAC (`permissions` array): `OAUTH2_AUTHORITIES_CLAIM_EXPRESSION=[permissions]`
 2. **Compatibility bridge:** If your IdP cannot issue these scopes yet, grant all three to every valid token with configuration only. This turns per-token scope enforcement off — every authenticated caller can use every tool:
 
    ```properties
@@ -196,10 +196,10 @@ Tokens lacking the required scope are denied tool execution.
 
    or in the environment:
    ```bash
-   export SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUTHORITIESCLAIMEXPRESSIONS_0="{'solr:read','solr:write','solr:admin'}"
+   export OAUTH2_AUTHORITIES_CLAIM_EXPRESSION="{'solr:read','solr:write','solr:admin'}"
    ```
 
-   > **Note:** The `[0]` index is required so Spring Boot's configuration binder does not split the comma-separated list into separate expression strings.
+   > **Note:** In a properties file the `[0]` index is required so the configuration binder does not split the comma-separated list into separate expression strings. The `OAUTH2_AUTHORITIES_CLAIM_EXPRESSION` variable is bound at `[0]` for you.
 3. Decode a token from the IdP to confirm the scopes are present, then remove the compatibility bridge.
 
 ## Operational guidance

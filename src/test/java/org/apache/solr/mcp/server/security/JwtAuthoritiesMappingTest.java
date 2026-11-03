@@ -52,9 +52,50 @@ class JwtAuthoritiesMappingTest {
   @Nested
   @SpringBootTest(properties = "spring.docker.compose.enabled=false")
   @ActiveProfiles("http")
-  @TestPropertySource(
-      properties =
-          "spring.security.oauth2.resourceserver.jwt.authorities-claim-expressions=[realm_access][roles]")
+  class DefaultScopeClaimsTest {
+
+    @Autowired private JwtAuthenticationConverter jwtAuthenticationConverter;
+
+    @Test
+    void mapsStandardScopeClaim() {
+      Jwt jwt =
+          Jwt.withTokenValue("mock-scope-token")
+              .header("alg", "none")
+              .subject("user-4")
+              .claim("scope", "solr:read solr:write")
+              .build();
+
+      Set<String> authorities = getAuthorityStrings(jwtAuthenticationConverter, jwt);
+      assertTrue(authorities.contains("SCOPE_solr:read"), "got: " + authorities);
+      assertTrue(authorities.contains("SCOPE_solr:write"), "got: " + authorities);
+    }
+
+    @Test
+    void fallsBackToScpClaim() {
+      Jwt jwt =
+          Jwt.withTokenValue("mock-scp-token")
+              .header("alg", "none")
+              .subject("user-5")
+              .claim("scp", List.of("solr:admin"))
+              .build();
+
+      Set<String> authorities = getAuthorityStrings(jwtAuthenticationConverter, jwt);
+      assertTrue(authorities.contains("SCOPE_solr:admin"), "got: " + authorities);
+    }
+
+    @Test
+    void tokenWithoutScopesGetsNoAuthorities() {
+      Jwt jwt = Jwt.withTokenValue("mock-bare-token").header("alg", "none").subject("u").build();
+      assertTrue(
+          getAuthorityStrings(jwtAuthenticationConverter, jwt).stream()
+              .noneMatch(a -> a.startsWith("SCOPE_")));
+    }
+  }
+
+  @Nested
+  @SpringBootTest(properties = "spring.docker.compose.enabled=false")
+  @ActiveProfiles("http")
+  @TestPropertySource(properties = "OAUTH2_AUTHORITIES_CLAIM_EXPRESSION=[realm_access][roles]")
   class KeycloakRealmRolesTest {
 
     @Autowired private JwtAuthenticationConverter jwtAuthenticationConverter;
@@ -78,8 +119,7 @@ class JwtAuthoritiesMappingTest {
   @Nested
   @SpringBootTest(properties = "spring.docker.compose.enabled=false")
   @ActiveProfiles("http")
-  @TestPropertySource(
-      properties = "spring.security.oauth2.resourceserver.jwt.authorities-claim-name=permissions")
+  @TestPropertySource(properties = "OAUTH2_AUTHORITIES_CLAIM_EXPRESSION=[permissions]")
   class Auth0PermissionsTest {
 
     @Autowired private JwtAuthenticationConverter jwtAuthenticationConverter;
@@ -104,8 +144,7 @@ class JwtAuthoritiesMappingTest {
   @SpringBootTest(properties = "spring.docker.compose.enabled=false")
   @ActiveProfiles("http")
   @TestPropertySource(
-      properties =
-          "spring.security.oauth2.resourceserver.jwt.authorities-claim-expressions[0]={'solr:read','solr:write','solr:admin'}")
+      properties = "OAUTH2_AUTHORITIES_CLAIM_EXPRESSION={'solr:read','solr:write','solr:admin'}")
   class MigrationBridgeTest {
 
     @Autowired private JwtAuthenticationConverter jwtAuthenticationConverter;

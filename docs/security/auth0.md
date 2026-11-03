@@ -117,11 +117,11 @@ After creation, you'll see the application settings page. Note down:
    - `solr:admin` — Administrative access to create collections, manage aliases, and alter schemas
 3. When using Auth0 RBAC (`permissions` array in the access token), configure the server to read authorities from the `permissions` claim via `application.properties`:
    ```properties
-   spring.security.oauth2.resourceserver.jwt.authorities-claim-name=permissions
+   spring.security.oauth2.resourceserver.jwt.authorities-claim-expressions[0]=[permissions]
    ```
    or in the environment:
    ```bash
-   export SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUTHORITIESCLAIMNAME=permissions
+   export OAUTH2_AUTHORITIES_CLAIM_EXPRESSION="[permissions]"
    ```
 
 ---

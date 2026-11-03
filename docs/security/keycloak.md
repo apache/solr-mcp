@@ -954,7 +954,7 @@ spring.security.oauth2.resourceserver.jwt.authorities-claim-expressions=[realm_a
 
 or via environment variable:
 ```bash
-export SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_AUTHORITIESCLAIMEXPRESSIONS="[realm_access][roles]"
+export OAUTH2_AUTHORITIES_CLAIM_EXPRESSION="[realm_access][roles]"
 ```
 
 Spring Security evaluates the expression against the JWT and produces the required `SCOPE_solr:read` and `SCOPE_solr:write` authorities automatically, with no custom Java converter beans required.
