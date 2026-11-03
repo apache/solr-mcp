@@ -37,8 +37,8 @@ import tools.jackson.databind.json.JsonMapper;
 class McpClientStdioIntegrationTest extends McpClientIntegrationTestBase {
 
   @Container
-  static final EmbeddedZkSolrContainer solrContainer =
-      new EmbeddedZkSolrContainer(
+  static final SolrContainer solrContainer =
+      new SolrContainer(
           DockerImageName.parse(System.getProperty("solr.test.image", "solr:9.9-slim")));
 
   @Override

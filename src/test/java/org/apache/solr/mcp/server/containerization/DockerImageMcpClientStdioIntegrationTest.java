@@ -22,8 +22,8 @@ import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.client.transport.StdioClientTransport;
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import org.apache.solr.mcp.server.BuildInfoReader;
-import org.apache.solr.mcp.server.EmbeddedZkSolrContainer;
 import org.apache.solr.mcp.server.McpClientIntegrationTestBase;
+import org.apache.solr.mcp.server.SolrContainer;
 import org.junit.jupiter.api.Tag;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -50,8 +50,8 @@ class DockerImageMcpClientStdioIntegrationTest extends McpClientIntegrationTestB
   private static final String DOCKER_IMAGE = BuildInfoReader.getDockerImageName();
 
   @Container
-  static final EmbeddedZkSolrContainer solrContainer =
-      new EmbeddedZkSolrContainer(
+  static final SolrContainer solrContainer =
+      new SolrContainer(
           DockerImageName.parse(System.getProperty("solr.test.image", "solr:9.9-slim")));
 
   @Override

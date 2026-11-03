@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import org.apache.solr.mcp.server.BuildInfoReader;
-import org.apache.solr.mcp.server.EmbeddedZkSolrContainer;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -91,7 +90,7 @@ class DockerImageStdioIntegrationTest {
   // 3. Stops and cleans up the container after tests complete
   @Container
   private static final SolrContainer solrContainer =
-      new EmbeddedZkSolrContainer(DockerImageName.parse(SOLR_IMAGE))
+      new org.apache.solr.mcp.server.SolrContainer(DockerImageName.parse(SOLR_IMAGE))
           .withNetwork(network)
           .withNetworkAliases("solr")
           .withLogConsumer(new Slf4jLogConsumer(log).withPrefix("SOLR"));

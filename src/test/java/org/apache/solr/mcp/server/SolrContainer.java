@@ -17,23 +17,25 @@
 package org.apache.solr.mcp.server;
 
 import java.util.Arrays;
-import org.testcontainers.containers.SolrContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * A {@link SolrContainer} that starts embedded ZooKeeper with {@code -DzkRun=true}.
+ * A Testcontainers {@code SolrContainer} that starts embedded ZooKeeper with {@code -DzkRun=true}.
  *
  * <p>Testcontainers launches Solr with a bare {@code -DzkRun}. Solr 10.1 deprecated that property
  * in favour of {@code solr.zookeeper.server.enabled} and parses its value as a boolean, so the
  * empty value Testcontainers passes aborts startup with {@code invalid boolean value:} and the
  * container never becomes ready. An explicit {@code =true} is accepted by every supported Solr
  * version (9.4 through 10.1).
+ *
+ * <p>Temporary: remove once Testcontainers ships the fix tracked in
+ * https://github.com/testcontainers/testcontainers-java/issues/12147 (PR #12148).
  */
-public class EmbeddedZkSolrContainer extends SolrContainer {
+public class SolrContainer extends org.testcontainers.containers.SolrContainer {
 
   private static final String BARE_ZK_RUN = "-DzkRun";
 
-  public EmbeddedZkSolrContainer(DockerImageName image) {
+  public SolrContainer(DockerImageName image) {
     super(image);
   }
 

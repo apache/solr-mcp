@@ -46,12 +46,12 @@ public class TestcontainersConfiguration {
   }
 
   @Bean
-  EmbeddedZkSolrContainer solr() {
-    return new EmbeddedZkSolrContainer(DockerImageName.parse(solrImage()));
+  SolrContainer solr() {
+    return new SolrContainer(DockerImageName.parse(solrImage()));
   }
 
   @Bean
-  DynamicPropertyRegistrar propertiesRegistrar(EmbeddedZkSolrContainer solr) {
+  DynamicPropertyRegistrar propertiesRegistrar(SolrContainer solr) {
     return registry ->
         registry.add(
             "solr.url",
