@@ -204,10 +204,13 @@ four `--initialize-at-build-time` entries in `nativeImageBuildArgs`:
 proxy classes that cannot be build-time initialized; including it breaks the
 build.
 
-**OTel dependency alignment.** Spring Boot 4.1 manages the OpenTelemetry SDK
-(`opentelemetry-api:1.62.0`) through the starter, so the logback appender is
-held at `2.28.1-alpha` — the newest release built against `1.62.0`, whose
-transitive `opentelemetry-api-incubator:1.62.0-alpha` matches. A newer appender
+**OTel dependency alignment.** Spring Boot 4.2 manages the OpenTelemetry SDK
+(`opentelemetry-api:1.67.0`) through the starter, so the logback appender is
+held at `2.33.1-alpha` — the newest release built against `1.67.0`, whose
+transitive `opentelemetry-api-incubator:1.67.0-alpha` matches. Boot does not
+manage the incubator, so a stale appender leaves it behind while the SDK moves
+on: on Boot 4.2 the 1.62 incubator fails `OpenTelemetrySdk` creation with
+`NoClassDefFoundError: io/opentelemetry/api/internal/ConfigUtil`. A newer appender
 is built against a newer API that the Boot BOM would downgrade, risking a
 `NoSuchMethodError` (an older one pulls an incubator lacking
 `DeclarativeConfigProperties.get(String)`, which SB4's `OpenTelemetrySdk`
