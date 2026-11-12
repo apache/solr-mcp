@@ -100,6 +100,7 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 |------|-------------|
 | `search` | Full-text search with filtering, faceting, sorting, and pagination |
 | `index-json-documents` | Index documents passed as a JSON array of objects into a collection |
+| `index-url` | Index a JSON, CSV, Solr update XML or Markdown document from an http(s) URL on the allow-list (both transports; any size: JSON, CSV and XML stream into Solr) |
 | `index-csv-documents` | Index documents from a CSV string via Solr's CSV handler; repeat a column name for multi-valued fields |
 | `index-xml-documents` | Index documents from Solr update XML (`<add><doc><field name="...">`); only `<add>` blocks are accepted |
 | `index-markdown-documents` | Index markdown documents into a collection (one array element per document), extracting front matter, title, headings, and body text |
@@ -115,6 +116,29 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 | `delete-alias` | Delete a Solr alias (underlying collections are not affected) |
 
 Every tool advertises MCP behavior hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`) so clients can build sensible approval UX — `search` and the metadata tools are read-only, indexing is destructive but idempotent, schema modification is additive.
+
+**Index from a URL:** call `index-url` with
+`{"collection":"shows","url":"https://raw.githubusercontent.com/apache/solr-mcp/main/src/test/resources/shows.json"}`
+in either transport. The server fetches the URL from its own network with no
+credentials or custom headers, so `localhost` means the server, not your client.
+Only allow-listed hosts are fetched: by default `raw.githubusercontent.com`,
+`*.githubusercontent.com` and `github.com`. `SOLR_INDEX_URL_ALLOWED_HOSTS` takes a
+comma-separated list of exact hosts, `*.suffix` patterns, or `*` for any host the
+server can reach; link-local addresses and the known cloud-metadata addresses
+(AWS, Alibaba Cloud, Azure) are always refused. There is no size limit: JSON, CSV
+and XML stream from the URL straight into Solr's update handlers without being held
+in the server's memory (XML must be a Solr `<add>` block, as for
+`index-xml-documents`), and Markdown is read whole and parsed by the server. The
+commit is sent only once the whole document has arrived; if the source stops
+partway, the tool says so and nothing is committed, though documents Solr had already
+read may appear later, so re-run the call. For a file on your own machine, index
+directly with Solr, for example `bin/solr post -c shows shows.json`. The format comes
+from the URL path extension, then the `Content-Type`; add `"format":"csv"` when
+neither identifies it. Non-2xx responses and HTML pages are errors.
+`SOLR_INDEX_URL_CONNECT_TIMEOUT` (`10s`), `SOLR_INDEX_URL_READ_TIMEOUT` (`30s`, per
+read) and `SOLR_INDEX_URL_TOTAL_TIMEOUT` (`5m`, the whole fetch including redirects)
+bound one fetch, and `SOLR_INDEX_URL_MAX_CONCURRENT_FETCHES` (`4`) bounds how many run
+at once; a call beyond that limit fails immediately with a retry message.
 
 ### Resources
 
