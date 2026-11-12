@@ -136,6 +136,18 @@ Slash-command-style workflow templates that walk the assistant through a canonic
 | `index-data` | `collection`, `format` (`json` / `csv` / `xml`), `sample` (optional) | Pick the right indexing tool and confirm the result |
 | `search-collection` | `collection`, `question` | Translate a natural-language question into a Solr query |
 
+### Skill
+
+`src/main/resources/skills/solr/` is an [Agent Skill](https://agentskills.io/specification) for this
+server's tools: what to know before writing data (shared `_default` configset, document ids, how field
+names and values are stored), how the indexing tools respond, how to read the server's errors, and
+what differs across Solr versions. It does not teach Solr itself; the Solr Reference Guide covers that.
+
+To use it today, copy the directory into your client's skills location, for example
+`cp -r src/main/resources/skills/solr ~/.claude/skills/`. Serving it to clients over MCP itself, once
+the protocol and SDK support the Skills extension, is tracked in
+[#280](https://github.com/apache/solr-mcp/issues/280).
+
 ### Completions
 
 The server implements MCP argument autocompletion, so clients can suggest valid values as you type:
