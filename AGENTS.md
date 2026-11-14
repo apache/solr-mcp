@@ -141,6 +141,12 @@ count.
 - **STDIO** (default): For Claude Desktop integration. Uses stdin/stdout for communication. Spring Web disabled.
 - **HTTP**: For MCP Inspector and remote access. Servlet-based with optional OAuth2 security.
 
+Both transports speak the 2025 MCP revisions by default (`stateless` HTTP, `streamable`
+STDIO; up to 2025-11-25). `MCP_PROTOCOL=modern` switches either one to the 2026-07-28
+revision, served by the modern server in MCP Java SDK 2.2.0 (the first GA SDK release
+with it) that Spring AI 2.1.0 auto-configures. It is opt-in because the revisions are not
+wire-compatible. See [docs/modern-protocol.md](docs/modern-protocol.md).
+
 Configuration files: `application-stdio.properties`, `application-http.properties`
 
 ### SBOM Architecture
@@ -298,7 +304,10 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
   `--spring.profiles.active=$nativeProfile` where `nativeProfile` is `stdio`
   by default or `http` if `-Pprofile=http` is passed. Activating both profiles
   during AOT picks `servlet` and forces Tomcat regardless of runtime
-  `PROFILES`, breaking stdio — hence one native image per profile.
+  `PROFILES`, breaking stdio — hence one native image per profile. The MCP
+  protocol revision is frozen the same way: Spring AI picks the modern server
+  with `@ConditionalOnProperty`, so `MCP_PROTOCOL` at runtime has no effect on a
+  native image (see [docs/modern-protocol.md](docs/modern-protocol.md)).
 - **Cross-platform builds:** `bootBuildImage` compiles inside a Linux builder
   container, so it works on any host OS (macOS, Linux, Windows). Multi-arch
   (amd64+arm64) is handled in CI via a GitHub Actions matrix; local builds
@@ -354,6 +363,8 @@ changed these things; keep them in mind when reading older docs or PRs:
 - **MCP SDK:** `io.modelcontextprotocol.sdk:mcp`, with the Jackson 3 module
   (`mcp-json-jackson3`), at the version Spring AI depends on (2.2.0 under Spring AI
   2.1.0). There is no separate SDK pin; Spring AI 2.0.1 needed one via `mcp-bom`.
+  SDK 2.2.0 is the first GA release with the 2026-07-28 ("modern") server, behind
+  `MCP_PROTOCOL=modern`.
 - **Span naming:** `@Observed` spans use `ClassName#methodName` (PascalCase) instead of
   the earlier `class-name#method-name` (kebab-case).
 
@@ -489,6 +500,9 @@ Remaining known differences from Solr 9:
 Environment variables:
 - `SOLR_URL`: Solr URL (default: `http://localhost:8983/solr/`)
 - `PROFILES`: Transport mode (`stdio` or `http`)
+- `MCP_PROTOCOL`: MCP spec revision. Unset = 2025 revisions (`stateless` HTTP, `streamable`
+  STDIO); `modern` = 2026-07-28. Sets `spring.ai.mcp.server.protocol`; fixed at build time in
+  native images.
 - `OAUTH2_ISSUER_URI`: OAuth2 issuer URL (HTTP mode only)
 - `OTEL_SAMPLING_PROBABILITY`: trace sampling rate (default `1.0`)
 - `OTEL_TRACES_URL` / `OTEL_METRICS_URL` / `OTEL_LOGS_URL`: OTLP/HTTP endpoints
