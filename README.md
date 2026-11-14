@@ -196,6 +196,7 @@ The server reads configuration from environment variables. The essentials:
 |----------|-------------|---------|
 | `SOLR_URL` | Solr base URL | `http://localhost:8983/solr/` |
 | `PROFILES` | Transport mode: `stdio` (default, for Claude Desktop) or `http` (remote / multi-client) | `stdio` |
+| `MCP_PROTOCOL` | MCP spec revision: the 2025 revisions today's clients speak (default), or `modern` for the [2026-07-28 revision](docs/modern-protocol.md) | `stateless` (HTTP), `streamable` (STDIO) |
 
 Running in **HTTP mode** — OAuth2, CORS, and the `HTTP_SECURITY_ENABLED` toggle (secured by default) — is covered in the [security docs](docs/security/). Tracing, metrics and log-export env vars (`OTEL_SAMPLING_PROBABILITY`, `OTEL_TRACES_URL`, `OTEL_METRICS_URL`, `OTEL_LOGS_URL`) are covered in [Observability](docs/observability.md).
 
@@ -205,6 +206,7 @@ Running in **HTTP mode** — OAuth2, CORS, and the `HTTP_SECURITY_ENABLED` toggl
 - [Quick start](#quick-start) · [Client setup](docs/clients/) — Claude Desktop, Claude Code, Codex, ChatGPT, VS Code, Cursor, JetBrains, Zed, MCP Inspector
 - [Tutorial: your first collection](docs/tutorial.md) — index a dataset twice, schemaless then with a designed schema, and see why field types matter
 - [Observability](docs/observability.md) — OpenTelemetry traces, metrics, logs
+- [MCP 2026-07-28 protocol (`MCP_PROTOCOL=modern`)](docs/modern-protocol.md) — opting in to the newest spec revision, and what it changes for clients
 - Security: [Deployment model (single-tenant)](docs/security/deployment-model.md) · [STDIO model](docs/security/stdio.md) · [HTTP model](docs/security/http.md) · OAuth2 setup: [Auth0](docs/security/auth0.md) · [Keycloak](docs/security/keycloak.md)
 
 **Developing it**
