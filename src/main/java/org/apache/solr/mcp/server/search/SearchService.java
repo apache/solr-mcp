@@ -143,7 +143,7 @@ public class SearchService {
           + " if it persists, ask the operator to check Solr availability and connection settings.";
   private static final String RESPONSE_ERROR =
       "Search failed: unable to process the Solr response."
-          + " If facetFields were supplied, call list-fields to check those fields have docValues or retry without facetFields;"
+          + " If facetFields were supplied, call list-fields to check those fields or retry without facetFields;"
           + " if it persists, ask the operator to check server logs and Solr compatibility.";
 
   private final SolrClient solrClient;
@@ -218,7 +218,7 @@ public class SearchService {
 			Put filters in fq (filterQueries) instead of q so Solr can cache and reuse them.
 			Call list-fields first to get the field names that hold data and their types, rather than
 			guessing names: dynamic fields such as genre_s exist only once documents use them. Facet
-			and sort only on fields that list-fields reports with docValues.
+			only on fields that list-fields reports with docValues, and sort only on single-valued ones.
 			""")
   // @formatter:on
   public SearchResponse search(
@@ -363,7 +363,8 @@ public class SearchService {
       return new SolrException(
           SolrException.ErrorCode.BAD_REQUEST,
           "Search failed: Solr rejected the request. Check query syntax, filter queries, facet fields,"
-              + " sort clauses, and pagination; call list-fields to verify the field names.");
+              + " sort clauses, and pagination; call list-fields to verify the field names, and facet and"
+              + " sort only on single-valued fields with D (docValues) in their schema flags.");
     }
     if (e.code() == SolrException.ErrorCode.UNAUTHORIZED.code
         || e.code() == SolrException.ErrorCode.FORBIDDEN.code) {
@@ -414,8 +415,8 @@ public class SearchService {
 				     (`text_general` or similar tokenized types), which are filterable exact-match
 				     (`string`/`strings`), and which are numeric/date ranges. A `D` in a field's
 				     `schema` flags (decoded by `info.key`) means docValues: those are the fields you
-				     can facet and sort on. `dynamicBase` shows which pattern a field came from
-				     (e.g. `*_s`).
+				     can facet on, and sort on when they are single-valued (no `M`). `dynamicBase`
+				     shows which pattern a field came from (e.g. `*_s`).
 
 				2. Translate the question into Solr query parts.
 				   - Pick the most informative tokens from the question. Map them to fields:

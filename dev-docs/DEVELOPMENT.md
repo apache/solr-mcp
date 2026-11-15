@@ -213,7 +213,7 @@ Tests run against the Solr image pinned as `test-image-solr` in `gradle/libs.ver
 ./gradlew test -Dsolr.test.image=solr:10-slim     # Solr 10
 ```
 
-**Tested compatible versions:** 9.4, 9.9, 9.10, 10.
+**Tested compatible versions:** 9.4, 9.9, 9.10, 9.11, 10.
 
 **Solr 10 notes.** Solr 10 is fully supported with the JSON wire format. The `/admin/mbeans`
 endpoint was removed in Solr 10, so `getCacheMetrics()`/`getHandlerMetrics()` catch

@@ -465,10 +465,11 @@ The Solr Docker image used in tests is pinned as `test-image-solr` in `gradle/li
 ./gradlew test -Dsolr.test.image=solr:9.4-slim     # Solr 9.4
 ./gradlew test -Dsolr.test.image=solr:9.9.0-slim     # Solr 9.9 (the pinned default)
 ./gradlew test -Dsolr.test.image=solr:9.10-slim    # Solr 9.10
+./gradlew test -Dsolr.test.image=solr:9.11-slim    # Solr 9.11
 ./gradlew test -Dsolr.test.image=solr:10-slim      # Solr 10
 ```
 
-**Tested compatible versions:** 9.4, 9.9, 9.10, 10
+**Tested compatible versions:** 9.4, 9.9, 9.10, 9.11, 10
 
 ### Solr 10 Compatibility
 

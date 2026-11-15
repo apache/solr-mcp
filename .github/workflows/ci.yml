@@ -160,6 +160,7 @@ jobs:
                 solr-version:
                     - "9.4-slim"
                     - "9.10-slim"
+                    - "9.11-slim"
                     - "10-slim"
 
         steps:

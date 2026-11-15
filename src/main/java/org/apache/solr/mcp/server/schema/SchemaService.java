@@ -307,8 +307,9 @@ public class SchemaService {
    *
    * @param collection the collection to list fields for
    * @return Luke's {@code fields} and {@code info} sections as nested maps
-   * @throws SolrServerException if Solr returns an error; an unknown collection surfaces as an
-   *     unchecked {@code SolrException} (404)
+   * @throws SolrServerException if the request cannot be sent or its response read; an error Solr
+   *     returns, an unknown collection's 404 included, surfaces as an unchecked {@code
+   *     SolrException}
    * @throws IOException if communication with Solr fails
    */
   @PreAuthorize("isAuthenticated()")
@@ -334,7 +335,10 @@ public class SchemaService {
     LukeRequest lukeRequest = new LukeRequest();
     lukeRequest.setNumTerms(0);
     lukeRequest.setIncludeIndexFieldFlags(false);
-    NamedList<Object> response = lukeRequest.process(solrClient, collection).getResponse();
+    // request(), not lukeRequest.process(): process() also builds SolrJ's typed LukeResponse,
+    // which casts each field's docs to Integer and fails on a distributed sum past 2^31 (a Long).
+    // The tool returns the raw sections, so that parse is never needed.
+    NamedList<Object> response = solrClient.request(lukeRequest, collection);
 
     Map<String, Object> sections = new LinkedHashMap<>();
     for (String section : List.of(LUKE_FIELDS_KEY, LUKE_INFO_KEY)) {

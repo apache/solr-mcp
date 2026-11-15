@@ -172,7 +172,7 @@ jobs:
     # ============================================================================
     # Tests the server against multiple Solr versions using Testcontainers.
     # Runs in parallel so each Solr version is an independent job.
-    # Tested versions: 9.4, 9.9, 9.10, 10
+    # Tested versions: 9.4, 9.9, 9.10, 9.11, 10
     # ============================================================================
     solr-compatibility:
         name: Solr ${{ matrix.solr-version }} Compatibility
@@ -185,6 +185,7 @@ jobs:
                     - "9.4-slim"
                     - "9.9-slim"
                     - "9.10-slim"
+                    - "9.11-slim"
                     - "10-slim"
 
         steps:
