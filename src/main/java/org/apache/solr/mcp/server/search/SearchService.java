@@ -124,10 +124,10 @@ public class SearchService {
    */
   static final String CANNOT_PARSE_TOKEN = "cannot parse";
 
-  /** Remediation hint naming the {@code get-schema} tool; takes the collection. */
-  static final String GET_SCHEMA_HINT_FORMAT =
-      ". Hint: call get-schema on collection '%s' to see the fields that"
-          + " exist; schemaless collections often store values under dynamic-suffix names such as name_s or price_d.";
+  /** Remediation hint naming the {@code list-fields} tool; takes the collection. */
+  static final String LIST_FIELDS_HINT_FORMAT =
+      ". Hint: call list-fields on collection '%s' to see the field names that"
+          + " hold data, dynamic-field instances such as name_s or price_d included.";
 
   /** Remediation hint for an unparseable {@code q}. */
   static final String LUCENE_SYNTAX_HINT =
@@ -143,7 +143,7 @@ public class SearchService {
           + " if it persists, ask the operator to check Solr availability and connection settings.";
   private static final String RESPONSE_ERROR =
       "Search failed: unable to process the Solr response."
-          + " If facetFields were supplied, call get-schema to check those fields or retry without facetFields;"
+          + " If facetFields were supplied, call list-fields to check those fields have docValues or retry without facetFields;"
           + " if it persists, ask the operator to check server logs and Solr compatibility.";
 
   private final SolrClient solrClient;
@@ -216,29 +216,9 @@ public class SearchService {
 			to use eDisMax features (multi-field search, minimum-match, boosts), embed Solr local params
 			in q, e.g. {!edismax qf='name author' mm=2}george martin.
 			Put filters in fq (filterQueries) instead of q so Solr can cache and reuse them.
-			Note that solr has dynamic fields where name of field in schema may end with suffixes
-			_s: Represents a string field, used for exact string matching.
-			_i: Represents an integer field.
-			_l: Represents a long field.
-			_f: Represents a float field.
-			_d: Represents a double field.
-			_dt: Represents a date field.
-			_b: Represents a boolean field.
-			_t: Often used for text fields that undergo tokenization and analysis.
-			One example from the books collection:
-			{
-			      "id":"0553579908",
-			      "cat":["book"],
-			      "name":["A Clash of Kings"],
-			      "price":[7.99],
-			      "inStock":[true],
-			      "author":["George R.R. Martin"],
-			      "series_t":"A Song of Ice and Fire",
-			      "sequence_i":2,
-			      "genre_s":"fantasy",
-			      "_version_":1836275819373133824,
-			      "_root_":"0553579908"
-			    }
+			Call list-fields first to get the field names that hold data and their types, rather than
+			guessing names: dynamic fields such as genre_s exist only once documents use them. Facet
+			and sort only on fields that list-fields reports with docValues.
 			""")
   // @formatter:on
   public SearchResponse search(
@@ -374,7 +354,7 @@ public class SearchService {
       if (lower.contains(UNDEFINED_FIELD_TOKEN) || lower.contains(SORT_FIELD_NOT_FOUND_TOKEN)) {
         return new IllegalArgumentException(
             "Search failed: a referenced field is not defined"
-                + GET_SCHEMA_HINT_FORMAT.formatted(collection));
+                + LIST_FIELDS_HINT_FORMAT.formatted(collection));
       }
       if (lower.contains(SYNTAX_ERROR_TOKEN) || lower.contains(CANNOT_PARSE_TOKEN)) {
         return new IllegalArgumentException(
@@ -383,7 +363,7 @@ public class SearchService {
       return new SolrException(
           SolrException.ErrorCode.BAD_REQUEST,
           "Search failed: Solr rejected the request. Check query syntax, filter queries, facet fields,"
-              + " sort clauses, and pagination; call get-schema to verify the fields.");
+              + " sort clauses, and pagination; call list-fields to verify the field names.");
     }
     if (e.code() == SolrException.ErrorCode.UNAUTHORIZED.code
         || e.code() == SolrException.ErrorCode.FORBIDDEN.code) {
@@ -428,11 +408,14 @@ public class SearchService {
 				Work incrementally — Solr query design is sensitive to the schema, so anchor on the
 				schema before constructing queries.
 
-				1. Learn the schema.
-				   - Call `get-schema` on `%s`. Identify which fields are searchable text
+				1. Learn the fields.
+				   - Call `list-fields` on `%s`. It lists the fields that hold data, dynamic-field
+				     instances included. From each field's `type` identify which are searchable text
 				     (`text_general` or similar tokenized types), which are filterable exact-match
-				     (`string`/`strings`), which are numeric/date ranges, and which have `docValues`
-				     (needed for faceting and sorting).
+				     (`string`/`strings`), and which are numeric/date ranges. A `D` in a field's
+				     `schema` flags (decoded by `info.key`) means docValues: those are the fields you
+				     can facet and sort on. `dynamicBase` shows which pattern a field came from
+				     (e.g. `*_s`).
 
 				2. Translate the question into Solr query parts.
 				   - Pick the most informative tokens from the question. Map them to fields:

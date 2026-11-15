@@ -237,13 +237,13 @@ class McpToolRegistrationTest {
             .map(m -> m.getAnnotation(McpComplete.class))
             .toList();
 
-    // Exactly one resource-template binding (the {collection}/schema URI).
+    // One resource-template binding per collection-scoped resource.
     List<String> uriBindings =
         completions.stream().map(McpComplete::uri).filter(s -> !s.isEmpty()).sorted().toList();
     assertEquals(
-        List.of("solr://{collection}/schema"),
+        List.of("solr://{collection}/fields", "solr://{collection}/schema"),
         uriBindings,
-        "Exactly one resource-template completion expected (the schema URI)");
+        "One resource-template completion expected per collection-scoped resource");
 
     // One prompt binding per prompt that takes a `collection` argument.
     // Referenced via PromptNames so a rename or deletion breaks compilation
@@ -305,6 +305,29 @@ class McpToolRegistrationTest {
   }
 
   // Helper method to extract tool names from a service class
+  @Test
+  void fieldToolDescriptionsRouteToEachOther() {
+    // Several tools talk about fields. A model picks between them by description,
+    // so each one names the tool for the job it does not do.
+    String listFields = toolDescription(SchemaService.class, "list-fields");
+    String getSchema = toolDescription(SchemaService.class, "get-schema");
+
+    assertTrue(listFields.contains("get-schema"), listFields);
+    assertTrue(getSchema.contains("list-fields"), getSchema);
+    assertTrue(toolDescription(SearchService.class, "search").contains("list-fields"));
+    assertTrue(
+        toolDescription(CollectionService.class, "get-collection-stats").contains("list-fields"));
+  }
+
+  private static String toolDescription(Class<?> serviceClass, String toolName) {
+    return Arrays.stream(serviceClass.getDeclaredMethods())
+        .map(m -> m.getAnnotation(McpTool.class))
+        .filter(tool -> tool != null && tool.name().equals(toolName))
+        .map(McpTool::description)
+        .findFirst()
+        .orElseThrow(() -> new AssertionError("no @McpTool named " + toolName));
+  }
+
   private void addToolNames(Class<?> serviceClass, List<String> toolNames) {
     Method[] methods = serviceClass.getDeclaredMethods();
     Arrays.stream(methods)

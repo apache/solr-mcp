@@ -362,6 +362,19 @@ public class CollectionService {
   }
 
   /**
+   * Completion for the {@code {collection}} segment of the {@code solr://{collection}/fields}
+   * resource template (defined in {@code SchemaService}).
+   *
+   * @param argument the partial value the client is completing
+   * @return matching collection names, capped at {@link #MAX_COMPLETION_RESULTS}
+   */
+  @PreAuthorize("isAuthenticated()")
+  @McpComplete(uri = "solr://{collection}/fields")
+  public List<String> completeFieldsResourceCollection(CompleteRequest.CompleteArgument argument) {
+    return completeCollection(argument);
+  }
+
+  /**
    * Completion for the {@code collection} argument of the {@code search-collection} prompt (defined
    * in {@code SearchService}).
    *
@@ -498,7 +511,9 @@ public class CollectionService {
       name = "get-collection-stats",
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
       description =
-          "Get stats/metrics on a Solr collection. cacheStats and handlerStats may be"
+          "Get index size and performance metrics for a Solr collection: document and segment "
+              + "counts, and query, cache and handler stats. It does not describe fields; use "
+              + "list-fields for the fields that hold data. cacheStats and handlerStats may be"
               + " null when Solr's /admin/metrics API does not provide them for the collection;"
               + " this is expected and not an error.")
   public SolrMetrics getCollectionStats(

@@ -254,7 +254,7 @@ class SearchServiceIntegrationTest {
                 searchService.search(
                     COLLECTION_NAME, "definitely_not_a_field:value", null, null, null, null, null));
     assertTrue(
-        e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
+        e.getMessage().contains(SearchService.LIST_FIELDS_HINT_FORMAT.formatted(COLLECTION_NAME)),
         () -> "expected get-schema hint, got: " + e.getMessage());
     assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
   }
@@ -274,7 +274,7 @@ class SearchServiceIntegrationTest {
                     null,
                     null));
     assertTrue(
-        e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
+        e.getMessage().contains(SearchService.LIST_FIELDS_HINT_FORMAT.formatted(COLLECTION_NAME)),
         () -> "expected get-schema hint, got: " + e.getMessage());
     assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
   }
@@ -295,7 +295,7 @@ class SearchServiceIntegrationTest {
                     null,
                     null));
     assertTrue(
-        e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
+        e.getMessage().contains(SearchService.LIST_FIELDS_HINT_FORMAT.formatted(COLLECTION_NAME)),
         () -> "expected get-schema hint, got: " + e.getMessage());
     assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
   }
@@ -312,7 +312,7 @@ class SearchServiceIntegrationTest {
             IllegalArgumentException.class,
             () -> searchService.search(COLLECTION_NAME, "*:*", null, null, sort, null, null));
     assertTrue(
-        e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
+        e.getMessage().contains(SearchService.LIST_FIELDS_HINT_FORMAT.formatted(COLLECTION_NAME)),
         () -> "expected get-schema hint, got: " + e.getMessage());
     assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
   }
@@ -362,7 +362,7 @@ class SearchServiceIntegrationTest {
     assertFalse(e.getMessage().contains("Hint:"), () -> "expected no hint, got: " + e.getMessage());
     assertEquals(SolrException.ErrorCode.BAD_REQUEST.code, e.code());
     assertTrue(e.getMessage().contains("pagination"));
-    assertTrue(e.getMessage().contains("get-schema"));
+    assertTrue(e.getMessage().contains("list-fields"));
     assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
   }
 
