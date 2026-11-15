@@ -128,11 +128,11 @@ public class SchemaService {
       "Failed to list the fields. Hint: call list-collections to check"
           + " the collection name; if it persists, ask the operator to check the server logs.";
 
-  /** Luke response section holding one entry per field present in the index. */
-  private static final String LUKE_FIELDS_KEY = "fields";
-
-  /** Luke response section whose {@code key} entry decodes the field flag letters. */
-  private static final String LUKE_INFO_KEY = "info";
+  /**
+   * The Luke response sections {@code list-fields} passes through: {@code fields}, one entry per
+   * field present in the index, and {@code info}, whose {@code key} decodes the field flag letters.
+   */
+  private static final List<String> LUKE_SECTIONS = List.of("fields", "info");
 
   /** SolrJ client for communicating with Solr server */
   private final SolrClient solrClient;
@@ -341,7 +341,7 @@ public class SchemaService {
     NamedList<Object> response = solrClient.request(lukeRequest, collection);
 
     Map<String, Object> sections = new LinkedHashMap<>();
-    for (String section : List.of(LUKE_FIELDS_KEY, LUKE_INFO_KEY)) {
+    for (String section : LUKE_SECTIONS) {
       // A JSON-parsed tree has no cycles, so asMap's depth guard never applies.
       if (response.get(section) instanceof NamedList<?> list) {
         sections.put(section, list.asMap(Integer.MAX_VALUE));
