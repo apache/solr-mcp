@@ -38,6 +38,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.AutoClose;
@@ -1227,6 +1228,38 @@ public abstract class McpClientIntegrationTestBase {
     assertEquals(Boolean.TRUE, result.isError());
     assertTrue(extractText(result).contains("get-schema"), extractText(result));
     assertFalse(extractText(result).contains("Exception"), extractText(result));
+  }
+
+  @Test
+  @Order(41)
+  void searchWithQueryFieldsAndFieldsThroughMcp() {
+    // Plain words across two text fields, returning only the title.
+    var result =
+        mcpClient.callTool(
+            new CallToolRequest(
+                "search",
+                Map.of(
+                    "collection",
+                    SHOWS_COLLECTION,
+                    "query",
+                    "apocalyptic",
+                    "queryFields",
+                    List.of("title", "description"),
+                    "fields",
+                    List.of("title"),
+                    "rows",
+                    5)));
+    assertNotError(result);
+    Map<String, Object> response =
+        OBJECT_MAPPER.readValue(extractText(result), new TypeReference<>() {});
+    // "Fallout" has "post-apocalyptic" in its description.
+    assertTrue(getNumFound(response) >= 1, "Should find an apocalyptic show: " + response);
+    for (Object document : (List<?>) response.get("documents")) {
+      assertEquals(
+          Set.of("title", "score"),
+          ((Map<?, ?>) document).keySet(),
+          "fields must limit each document to title plus score: " + document);
+    }
   }
 
   @Test
