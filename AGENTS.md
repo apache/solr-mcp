@@ -324,9 +324,10 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
   - **Resources**: `logback-spring.xml` (see Logging Architecture above), and SolrJ's
     `EnvToSyspropMappings.properties` / `DeprecatedSystemPropertyMappings.properties`,
     which `EnvUtils` loads in its static initializer
-- **Wire format:** `SolrConfig` uses `XMLRequestWriter` instead of the default
-  `JavaBinRequestWriter`. The JavaBin binary codec uses deep reflection that would
-  require extensive additional native image hints.
+- **Wire format:** `SolrConfig` reads JSON responses (`JsonResponseParser`) and sends
+  updates with `XMLRequestWriter` instead of the default `JavaBinRequestWriter`. Neither
+  is a native-image requirement: SolrJ's `JavaBinCodec` uses no reflection, and
+  `JavaBinResponseParser` passes `nativeTest -Pnative` with no extra hints.
 - **Docker tags:** Jib JVM = `solr-mcp:<version>` (`solr-mcp:latest`).
   Paketo native = `solr-mcp:<version>-native-stdio` /
   `solr-mcp:<version>-native-http` (with corresponding `:latest-native-*` tags).
