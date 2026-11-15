@@ -30,6 +30,7 @@ import org.apache.solr.client.solrj.response.FacetField;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrException;
+import org.apache.solr.common.params.DisMaxParams;
 import org.apache.solr.common.params.FacetParams;
 import org.apache.solr.mcp.server.util.PromptNames;
 import org.jspecify.annotations.Nullable;
@@ -115,6 +116,14 @@ public class SearchService {
   static final String SORT_FIELD_NOT_FOUND_TOKEN = "field can't be found";
 
   /**
+   * An undefined field in {@code qf}. eDisMax reports it as a {@code SyntaxError}, so it is checked
+   * before {@link #SYNTAX_ERROR_TOKEN}.
+   *
+   * @see #UNDEFINED_FIELD_TOKEN
+   */
+  static final String INVALID_QUERY_FIELD_TOKEN = "is not a valid field name";
+
+  /**
    * @see #UNDEFINED_FIELD_TOKEN
    */
   static final String SYNTAX_ERROR_TOKEN = "syntaxerror";
@@ -137,6 +146,25 @@ public class SearchService {
   /** Remediation hint naming the {@code list-collections} tool. */
   static final String LIST_COLLECTIONS_HINT =
       ". Hint: call list-collections to see available collections.";
+
+  /** Rejection for {@code queryFields} combined with a local-params {@code query}. */
+  static final String QUERY_FIELDS_WITH_LOCAL_PARAMS_ERROR =
+      "Search failed: queryFields cannot be combined with {!...} local params in query:"
+          + " put qf inside the local params, or drop the prefix.";
+
+  /**
+   * Solr's {@code defType} request parameter. SolrJ has no constant for it; it lives in solr-core's
+   * {@code QueryParsing}, which is not on the classpath.
+   */
+  private static final String DEF_TYPE = "defType";
+
+  private static final String EDISMAX = "edismax";
+
+  /**
+   * Opens a local-params block. Under {@code defType=edismax} Solr searches such a prefix as
+   * literal text instead of parsing it.
+   */
+  private static final String LOCAL_PARAMS_PREFIX = "{!";
 
   private static final String CONNECTION_ERROR =
       "Search failed: unable to communicate with Solr. Retry later;"
@@ -187,6 +215,38 @@ public class SearchService {
   }
 
   /**
+   * Searches a Solr collection returning all stored fields and using the default query parser.
+   * Equivalent to {@link #search(String, String, List, List, List, Integer, Integer, List, List)}
+   * with no {@code fields} and no {@code queryFields}. Not an MCP tool; it keeps Java callers on
+   * the original signature.
+   *
+   * @param collection The Solr collection to query
+   * @param query The Solr query string (q parameter). Defaults to "*:*" if not specified
+   * @param filterQueries List of filter queries (fq parameter); blank entries are ignored
+   * @param facetFields List of fields to facet on; blank entries are ignored
+   * @param sortClauses List of sort clauses for ordering results; entries with blank fields are
+   *     ignored
+   * @param start Starting offset for pagination
+   * @param rows Number of rows to return
+   * @return A SearchResponse containing the search results and facets
+   * @throws SolrServerException If there's an error communicating with Solr
+   * @throws IOException If there's an I/O error
+   */
+  @PreAuthorize("isAuthenticated()")
+  public SearchResponse search(
+      String collection,
+      @Nullable String query,
+      @Nullable List<String> filterQueries,
+      @Nullable List<String> facetFields,
+      @Nullable List<SortClause> sortClauses,
+      @Nullable Integer start,
+      @Nullable Integer rows)
+      throws SolrServerException, IOException {
+    return search(
+        collection, query, filterQueries, facetFields, sortClauses, start, rows, null, null);
+  }
+
+  /**
    * Searches a Solr collection with the specified parameters. This method is exposed as a tool for
    * MCP clients to use.
    *
@@ -199,7 +259,13 @@ public class SearchService {
    *     are ignored
    * @param start Starting offset for pagination
    * @param rows Number of rows to return
+   * @param fields Fields to return (fl parameter); {@code score} is always added. Blank entries are
+   *     ignored; all stored fields are returned when none remain
+   * @param queryFields Fields to search the query against, with optional boosts (qf parameter).
+   *     Blank entries are ignored; any remaining entry switches the request to eDisMax
    * @return A SearchResponse containing the search results and facets
+   * @throws IllegalArgumentException if {@code queryFields} is combined with a {@code query} that
+   *     starts with {@literal {!...}} local params
    * @throws SolrServerException If there's an error communicating with Solr
    * @throws IOException If there's an I/O error
    */
@@ -212,9 +278,11 @@ public class SearchService {
       description =
           """
 			Search specified Solr collection with query, optional filters, facets, sorting, and pagination.
-			The q parameter accepts Lucene query syntax. There are no separate defType/qf/mm parameters:
-			to use eDisMax features (multi-field search, minimum-match, boosts), embed Solr local params
-			in q, e.g. {!edismax qf='name author' mm=2}george martin.
+			The q parameter accepts Lucene query syntax. To search several text fields at once, list them in
+			queryFields (e.g. ["name^2", "author"]); this uses eDisMax, where any query term matches and
+			results rank by score. For other eDisMax features (mm, pf, bq, boost), embed Solr local params
+			in q instead and leave queryFields empty, e.g. {!edismax qf='name author' mm=2}george martin.
+			Pass fields to return only the fields you need; by default every stored field comes back.
 			Put filters in fq (filterQueries) instead of q so Solr can cache and reuse them.
 			Call list-fields first to get the field names that hold data and their types, rather than
 			guessing names: dynamic fields such as genre_s exist only once documents use them. Facet
@@ -225,8 +293,9 @@ public class SearchService {
       @McpToolParam(description = "Solr collection to query") String collection,
       @McpToolParam(
               description =
-                  "Solr q parameter. Lucene syntax; supports local params such as"
-                      + " {!edismax qf='name author'}. If none specified defaults to \"*:*\"",
+                  "Solr q parameter. Lucene syntax, or plain terms when queryFields is set."
+                      + " Supports local params such as {!edismax qf='name author'} when"
+                      + " queryFields is not set. If none specified defaults to \"*:*\"",
               required = false)
           @Nullable String query,
       @McpToolParam(
@@ -245,7 +314,21 @@ public class SearchService {
       @McpToolParam(description = "Starting offset for pagination", required = false)
           @Nullable Integer start,
       @McpToolParam(description = "Number of rows to return", required = false)
-          @Nullable Integer rows)
+          @Nullable Integer rows,
+      @McpToolParam(
+              description =
+                  "Solr fl parameter: fields to return, e.g. [\"id\", \"name\"]. score is always"
+                      + " included. If none specified, all stored fields are returned. Blank entries"
+                      + " are ignored",
+              required = false)
+          @Nullable List<String> fields,
+      @McpToolParam(
+              description =
+                  "Solr qf parameter: fields to search the query against, with optional boosts,"
+                      + " e.g. [\"name^2\", \"author\"]. Uses the eDisMax parser; cannot be combined"
+                      + " with a query that starts with {!...} local params. Blank entries are ignored",
+              required = false)
+          @Nullable List<String> queryFields)
       throws SolrServerException, IOException {
 
     // query
@@ -254,7 +337,24 @@ public class SearchService {
       solrQuery.setQuery(query);
     }
 
-    // fl=score,* — Solr only returns maxScore and per-document score when asked
+    // query fields — switch to eDisMax, which ignores local params in q
+    final List<String> nonBlankQueryFields = nonBlank(queryFields);
+    if (!nonBlankQueryFields.isEmpty()) {
+      if (query != null && query.startsWith(LOCAL_PARAMS_PREFIX)) {
+        throw new IllegalArgumentException(QUERY_FIELDS_WITH_LOCAL_PARAMS_ERROR);
+      }
+      solrQuery.set(DisMaxParams.QF, String.join(" ", nonBlankQueryFields));
+      solrQuery.set(DEF_TYPE, EDISMAX);
+    }
+
+    // fields — set before score, which setIncludeScore appends to the current fl
+    final List<String> nonBlankFields = nonBlank(fields);
+    if (!nonBlankFields.isEmpty()) {
+      solrQuery.setFields(nonBlankFields.toArray(String[]::new));
+    }
+
+    // fl=*,score unless fields narrowed it — Solr only returns maxScore and per-document score
+    // when asked
     solrQuery.setIncludeScore(true);
 
     // filter queries
@@ -320,6 +420,19 @@ public class SearchService {
   }
 
   /**
+   * Drops blank entries from an optional list parameter.
+   *
+   * @param values the list as received; may be null
+   * @return the non-blank entries in order, or an empty list
+   */
+  private static List<String> nonBlank(@Nullable List<String> values) {
+    if (values == null) {
+      return List.of();
+    }
+    return values.stream().filter(StringUtils::hasText).toList();
+  }
+
+  /**
    * Wraps common Solr query failures with a next-step hint. MCP unwraps exception causes, so
    * client-facing exceptions must omit the cause to preserve safe guidance; the original failure is
    * logged for server-side diagnostics.
@@ -351,7 +464,9 @@ public class SearchService {
     // except by Solr's message text.
     final String lower = message.toLowerCase(Locale.ROOT);
     if (e.code() == SolrException.ErrorCode.BAD_REQUEST.code) {
-      if (lower.contains(UNDEFINED_FIELD_TOKEN) || lower.contains(SORT_FIELD_NOT_FOUND_TOKEN)) {
+      if (lower.contains(UNDEFINED_FIELD_TOKEN)
+          || lower.contains(SORT_FIELD_NOT_FOUND_TOKEN)
+          || lower.contains(INVALID_QUERY_FIELD_TOKEN)) {
         return new IllegalArgumentException(
             "Search failed: a referenced field is not defined"
                 + LIST_FIELDS_HINT_FORMAT.formatted(collection));
@@ -362,8 +477,8 @@ public class SearchService {
       }
       return new SolrException(
           SolrException.ErrorCode.BAD_REQUEST,
-          "Search failed: Solr rejected the request. Check query syntax, filter queries, facet fields,"
-              + " sort clauses, and pagination; call list-fields to verify the field names, and facet and"
+          "Search failed: Solr rejected the request. Check query syntax, query fields, filter queries,"
+              + " facet fields, sort clauses, and pagination; call list-fields to verify the field names, and facet and"
               + " sort only on single-valued fields with D (docValues) in their schema flags.");
     }
     if (e.code() == SolrException.ErrorCode.UNAUTHORIZED.code
@@ -421,8 +536,9 @@ public class SearchService {
 				2. Translate the question into Solr query parts.
 				   - Pick the most informative tokens from the question. Map them to fields:
 				     * Free-text concepts → `q` against tokenized fields, e.g.
-				       `description:apocalyptic` or `title:Solr` or a multi-field edismax-style
-				       construction `(title:foo OR description:foo)`.
+				       `description:apocalyptic` or `title:Solr`. To search the same words across
+				       several text fields, put the plain words in `q` and the fields in
+				       `queryFields`, e.g. `q=apocalyptic survival`, `queryFields=["title", "description"]`.
 				     * Exact-match attributes → `filterQueries` against `string`/`strings`, e.g.
 				       `platform:Netflix`, `genres:Sci-Fi`. Quote multi-word values:
 				       `platform:"Amazon Prime Video"`.
@@ -433,8 +549,10 @@ public class SearchService {
 
 				3. Run the search.
 				   - Call `search` with `collection=%s` and the chosen `query` plus optional
-				     `filterQueries`, `facetFields`, `sortClauses`, `start`, `rows`. Set `rows=10` for a
-				     focused look or `rows=0` if you only need counts / facets.
+				     `queryFields`, `filterQueries`, `facetFields`, `sortClauses`, `start`, `rows`,
+				     `fields`. Set `rows=10` for a focused look or `rows=0` if you only need counts /
+				     facets. Pass `fields` with the few fields that answer the question so long text
+				     fields do not fill the response.
 
 				4. Interpret and refine.
 				   - Check `numFound` first.
