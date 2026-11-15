@@ -24,6 +24,7 @@ import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.UpdateRequest;
+import org.apache.solr.common.SolrException;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
@@ -92,8 +93,8 @@ class ListFieldsIntegrationTest {
 
     assertNotNull(year, "year_i should be listed");
     assertEquals("pint", year.get("type"));
-    // Luke cannot count a field without terms: older Solr leaves docs out,
-    // distributed Luke (9.11+/10.1+) reports 0.
+    // Luke cannot count a field without terms: before 9.11/10.1 it leaves docs
+    // out, from 9.11/10.1 it reports 0.
     Object docs = year.get("docs");
     assertTrue(docs == null || ((Number) docs).longValue() == 0, "docs: " + docs);
   }
@@ -123,8 +124,10 @@ class ListFieldsIntegrationTest {
   }
 
   @Test
-  void unknownCollectionFails() {
-    assertThrows(Exception.class, () -> schemaService.listFields("no_such_collection_xyz"));
+  void unknownCollectionFailsWithNotFound() {
+    SolrException e =
+        assertThrows(SolrException.class, () -> schemaService.listFields("no_such_collection_xyz"));
+    assertEquals(SolrException.ErrorCode.NOT_FOUND.code, e.code());
   }
 
   private void indexToShard(String shard, SolrInputDocument document) throws Exception {

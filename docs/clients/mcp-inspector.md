@@ -120,7 +120,7 @@ See the [HTTP security model](../security/http.md) for server-side OAuth2 setup 
 
 ## Resources, prompts and completions ##
 
-The **Resources** tab lists `solr://collections` and the `solr://{collection}/schema` template:
+The **Resources** tab lists `solr://collections` and the `solr://{collection}/schema` and `solr://{collection}/fields` templates:
 
 ![MCP Inspector reading the solr://collections resource](../../images/mcp-inspector-list-resources.png)
 
