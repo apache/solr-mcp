@@ -26,10 +26,12 @@ import java.util.List;
 import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.client.solrj.request.LukeRequest;
 import org.apache.solr.client.solrj.request.schema.AnalyzerDefinition;
 import org.apache.solr.client.solrj.request.schema.FieldTypeDefinition;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
+import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.util.PromptNames;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -122,6 +124,16 @@ public class SchemaService {
       "Failed to retrieve the schema. Hint: call list-collections to check"
           + " the collection name; if it persists, ask the operator to check the server logs.";
 
+  static final String FIELDS_RESOURCE_ERROR =
+      "Failed to list the fields. Hint: call list-collections to check"
+          + " the collection name; if it persists, ask the operator to check the server logs.";
+
+  /** Luke response section holding one entry per field present in the index. */
+  private static final String LUKE_FIELDS_KEY = "fields";
+
+  /** Luke response section whose {@code key} entry decodes the field flag letters. */
+  private static final String LUKE_INFO_KEY = "info";
+
   /** SolrJ client for communicating with Solr server */
   private final SolrClient solrClient;
 
@@ -160,7 +172,7 @@ public class SchemaService {
       uri = "solr://{collection}/schema",
       name = "solr-collection-schema",
       description =
-          "Schema definition for a Solr collection including fields, field types, and copy fields",
+          "Full schema definition for a Solr collection: field types, declared fields, dynamic-field patterns and copy fields",
       mimeType = "application/json")
   public String getSchemaResource(String collection) {
     try {
@@ -241,10 +253,97 @@ public class SchemaService {
   @McpTool(
       name = "get-schema",
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
-      description = "Get schema for a Solr collection")
+      description =
+          "Get the full schema definition of a Solr collection: field types with their "
+              + "analyzers, declared fields, dynamic-field patterns (such as *_s) and copy fields. "
+              + "Use this before add-fields or add-field-types to see what is already defined. "
+              + "It does not say which fields hold data or which dynamic fields are in use; to "
+              + "choose fields for search, call list-fields instead.")
   public SchemaRepresentation getSchema(String collection) throws SolrServerException, IOException {
     SchemaRequest schemaRequest = new SchemaRequest();
     return schemaRequest.process(solrClient, collection).getSchemaRepresentation();
+  }
+
+  /**
+   * MCP Resource endpoint that returns the fields holding data in a collection, the same JSON as
+   * {@link #listFields(String)}.
+   *
+   * @param collection the collection to list fields for
+   * @return JSON string containing the field listing
+   * @throws IllegalStateException with {@link #FIELDS_RESOURCE_ERROR} if the fields cannot be
+   *     listed or serialized
+   */
+  @PreAuthorize("isAuthenticated()")
+  @McpResource(
+      uri = "solr://{collection}/fields",
+      name = "solr-collection-fields",
+      description =
+          "The fields that hold data in a Solr collection, with their types, flags and document counts",
+      mimeType = "application/json")
+  public String getFieldsResource(String collection) {
+    try {
+      return objectMapper.writeValueAsString(listFields(collection));
+    } catch (Exception e) {
+      // No cause, for the same reason as getSchemaResource: Solr failure text can
+      // carry internal host names and URLs.
+      logger.error("Failed to list fields for collection: {}", collection, e);
+      throw new IllegalStateException(FIELDS_RESOURCE_ERROR);
+    }
+  }
+
+  /**
+   * Lists the fields that hold data in a collection: the {@code fields} and {@code info} sections
+   * of Solr's Luke response, passed through as Solr reports them.
+   *
+   * <p>Unlike {@link #getSchema(String)}, Luke reports the dynamic-field instances in the index
+   * ({@code genre_s}, not just {@code *_s}) and, per field, how many documents have terms in it.
+   * {@code info.key} decodes the letters of each field's {@code schema} flags. The {@code index}
+   * section is left out: {@code get-collection-stats} reports index statistics, and its {@code
+   * directory} entry names a path on the Solr host.
+   *
+   * <p>One collection-level request is made. Solr 9.11 and 10.1 distribute it across shards in
+   * SolrCloud (SOLR-8127); older versions answer from one core, which the tool description tells
+   * the model about.
+   *
+   * @param collection the collection to list fields for
+   * @return Luke's {@code fields} and {@code info} sections as nested maps
+   * @throws SolrServerException if Solr returns an error; an unknown collection surfaces as an
+   *     unchecked {@code SolrException} (404)
+   * @throws IOException if communication with Solr fails
+   */
+  @PreAuthorize("isAuthenticated()")
+  @McpTool(
+      name = "list-fields",
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true),
+      description =
+          "List the fields that hold data in a collection, from Solr's Luke handler: per field its"
+              + " type, schema flags, dynamicBase for a dynamic-field instance (genre_s, not *_s), and"
+              + " docs, the number of documents with terms in the field (deleted documents count"
+              + " until their segments merge). info.key decodes the flag letters. Use this before"
+              + " search to decide which fields go in q, fq, facets and sorts. Unlike get-schema it"
+              + " shows no analyzers or field-type definitions; use get-schema before changing the"
+              + " schema. Numeric and date point fields and docValues-only fields have no terms, so"
+              + " their docs is missing, or 0 on Solr 9.11+ and 10.1+: that means not counted, not"
+              + " empty. Before Solr 9.11 and 10.1, a collection with more than one shard lists the"
+              + " fields and counts of one shard only.")
+  public Map<String, Object> listFields(
+      @McpToolParam(description = "Solr collection name") String collection)
+      throws SolrServerException, IOException {
+    requireCollection(collection);
+
+    LukeRequest lukeRequest = new LukeRequest();
+    lukeRequest.setNumTerms(0);
+    lukeRequest.setIncludeIndexFieldFlags(false);
+    NamedList<Object> response = lukeRequest.process(solrClient, collection).getResponse();
+
+    Map<String, Object> sections = new LinkedHashMap<>();
+    for (String section : List.of(LUKE_FIELDS_KEY, LUKE_INFO_KEY)) {
+      // A JSON-parsed tree has no cycles, so asMap's depth guard never applies.
+      if (response.get(section) instanceof NamedList<?> list) {
+        sections.put(section, list.asMap(Integer.MAX_VALUE));
+      }
+    }
+    return sections;
   }
 
   /**
@@ -482,6 +581,8 @@ public class SchemaService {
 				3. Summarize dynamic fields and copy fields.
 				   - List dynamic-field patterns (e.g. `*_s`, `*_txt`) and their types — these accept
 				     fields whose names are not predeclared.
+				   - The schema shows only the patterns. To see which dynamic fields are actually in
+				     use (e.g. `genre_s`) and how many documents have each, call `list-fields`.
 				   - List copyField rules (source → destination) — these duplicate content into
 				     aggregator fields, often used for catch-all search fields.
 

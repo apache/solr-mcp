@@ -28,9 +28,12 @@ import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.client.solrj.request.LukeRequest;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest.MultiUpdate;
+import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.util.NamedList;
+import org.apache.solr.common.util.SimpleOrderedMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
@@ -416,5 +419,68 @@ class SchemaServiceTest {
     assertTrue(
         body.contains("design-schema"),
         "View prompt should cross-reference design-schema for follow-up modification");
+  }
+
+  // ===== list-fields =====
+
+  private static final String COLLECTION = "shows";
+
+  @Test
+  void listFields_passesThroughLukeFieldsAndInfoSections() throws Exception {
+    NamedList<Object> genre = new SimpleOrderedMap<>();
+    genre.add("type", "string");
+    genre.add("schema", "I-SD-M---OF-----");
+    genre.add("dynamicBase", "*_s");
+    genre.add("docs", 5);
+    NamedList<Object> fields = new SimpleOrderedMap<>();
+    fields.add("genre_s", genre);
+    NamedList<Object> key = new SimpleOrderedMap<>();
+    key.add("I", "Indexed");
+    NamedList<Object> info = new SimpleOrderedMap<>();
+    info.add("key", key);
+    NamedList<Object> index = new SimpleOrderedMap<>();
+    index.add("directory", "MMapDirectory@/var/solr/data/shows/index");
+    NamedList<Object> response = new NamedList<>();
+    response.add("index", index);
+    response.add("fields", fields);
+    response.add("info", info);
+    when(solrClient.request(any(LukeRequest.class), eq(COLLECTION))).thenReturn(response);
+
+    Map<String, Object> listing = schemaService.listFields(COLLECTION);
+
+    assertEquals(
+        Map.of(
+            "fields",
+            Map.of(
+                "genre_s",
+                Map.of(
+                    "type",
+                    "string",
+                    "schema",
+                    "I-SD-M---OF-----",
+                    "dynamicBase",
+                    "*_s",
+                    "docs",
+                    5)),
+            "info",
+            Map.of("key", Map.of("I", "Indexed"))),
+        listing);
+  }
+
+  @Test
+  void listFields_asksLukeForNoTopTermsAndNoIndexFlags() throws Exception {
+    ArgumentCaptor<LukeRequest> request = ArgumentCaptor.forClass(LukeRequest.class);
+    when(solrClient.request(request.capture(), eq(COLLECTION))).thenReturn(new NamedList<>());
+
+    schemaService.listFields(COLLECTION);
+
+    SolrParams params = request.getValue().getParams();
+    assertEquals("0", params.get("numTerms"));
+    assertEquals("false", params.get("includeIndexFieldFlags"));
+  }
+
+  @Test
+  void listFields_rejectsBlankCollection() {
+    assertThrows(IllegalArgumentException.class, () -> schemaService.listFields(" "));
   }
 }
