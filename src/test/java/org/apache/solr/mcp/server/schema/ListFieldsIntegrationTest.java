@@ -117,8 +117,9 @@ class ListFieldsIntegrationTest {
       assertEquals(1L, ((Number) fields.get("only_a_s").get("docs")).longValue(), "" + fields);
       assertEquals(1L, ((Number) fields.get("only_b_s").get("docs")).longValue(), "" + fields);
     } else {
-      assertTrue(
-          fields.containsKey("only_a_s") != fields.containsKey("only_b_s"),
+      assertNotEquals(
+          fields.containsKey("only_a_s"),
+          fields.containsKey("only_b_s"),
           "a single core holds exactly one of the two shard-only fields: " + fields.keySet());
     }
   }
