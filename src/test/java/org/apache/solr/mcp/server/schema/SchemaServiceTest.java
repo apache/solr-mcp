@@ -72,6 +72,38 @@ class SchemaServiceTest {
   }
 
   @Test
+  void getSchema_keepsPropertiesTheRecordsDoNotDeclare() throws Exception {
+    // A property a later Solr version adds has no record component. It must reach the client
+    // at the same level Solr sent it, not be dropped and not be wrapped in an "other" object.
+    SimpleOrderedMap<Object> field = new SimpleOrderedMap<>();
+    field.add("name", "genre");
+    field.add("type", "string");
+    field.add("futureFlag", true);
+    SimpleOrderedMap<Object> schema = new SimpleOrderedMap<>();
+    schema.add("name", "test");
+    schema.add("uniqueKey", "id");
+    schema.add("fieldTypes", List.of());
+    schema.add("fields", List.of(field));
+    schema.add("dynamicFields", List.of());
+    schema.add("copyFields", List.of());
+    schema.add("futureSection", Map.of("k", "v"));
+    NamedList<Object> response = new NamedList<>();
+    response.add("schema", schema);
+    when(solrClient.request(any(SchemaRequest.class), eq("c"))).thenReturn(response);
+    JsonMapper realMapper = JsonMapper.builder().build();
+
+    CollectionSchema result = new SchemaService(solrClient, realMapper).getSchema("c");
+
+    assertEquals("genre", result.fields().getFirst().name());
+    assertEquals(true, result.fields().getFirst().other().get("futureFlag"));
+    assertEquals(Map.of("k", "v"), result.other().get("futureSection"));
+    String json = realMapper.writeValueAsString(result);
+    assertTrue(json.contains("\"futureFlag\":true"), json);
+    assertTrue(json.contains("\"futureSection\":{\"k\":\"v\"}"), json);
+    assertFalse(json.contains("\"other\""), json);
+  }
+
+  @Test
   void testGetSchema_CollectionNotFound() throws Exception {
     // Given
     final String nonExistentCollection = "non_existent_collection";

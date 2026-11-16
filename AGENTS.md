@@ -318,7 +318,7 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
     generic `Object` dispatch): `AliasResult`, `CollectionCreationResult`,
     `SolrHealthStatus`, `SolrMetrics`, `IndexStats`, `QueryStats`, `CacheStats`,
     `CacheInfo`, `HandlerStats`, `HandlerInfo`, `SearchResponse`, `SortClause`,
-    `SchemaUpdateResult`
+    `SchemaUpdateResult`, `CollectionSchema` and its nested records
   - **Spring AI**: `org.springframework.ai.mcp.annotation.context.DefaultMetaProvider`,
     which `MetaUtils` instantiates reflectively
   - **Resources**: `logback-spring.xml` (see Logging Architecture above), and SolrJ's

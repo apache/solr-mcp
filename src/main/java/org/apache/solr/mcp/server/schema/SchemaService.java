@@ -30,7 +30,6 @@ import org.apache.solr.client.solrj.request.LukeRequest;
 import org.apache.solr.client.solrj.request.schema.AnalyzerDefinition;
 import org.apache.solr.client.solrj.request.schema.FieldTypeDefinition;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
-import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.util.PromptNames;
 import org.jspecify.annotations.Nullable;
@@ -97,20 +96,20 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <pre>{@code
  * // Get complete schema information
- * SchemaRepresentation schema = schemaService.getSchema("products");
+ * CollectionSchema schema = schemaService.getSchema("products");
  *
  * // Analyze field configurations
- * schema.getFields().forEach(field -> {
- * 	System.out.println("Field: " + field.getName() + " Type: " + field.getType());
+ * schema.fields().forEach(field -> {
+ * 	System.out.println("Field: " + field.name() + " Type: " + field.type());
  * });
  *
  * // Examine dynamic field patterns
- * schema.getDynamicFields().forEach(dynField -> {
- * 	System.out.println("Pattern: " + dynField.getName() + " Type: " + dynField.getType());
+ * schema.dynamicFields().forEach(dynField -> {
+ * 	System.out.println("Pattern: " + dynField.name() + " Type: " + dynField.type());
  * });
  * }</pre>
  *
- * @see SchemaRepresentation
+ * @see CollectionSchema
  * @see org.apache.solr.client.solrj.request.schema.SchemaRequest
  * @see org.springframework.ai.tool.annotation.Tool
  */
@@ -119,6 +118,9 @@ import tools.jackson.databind.json.JsonMapper;
 public class SchemaService {
 
   private static final Logger logger = LoggerFactory.getLogger(SchemaService.class);
+
+  /** The section of a Schema API response that holds the schema. */
+  private static final String SCHEMA_SECTION = "schema";
 
   static final String SCHEMA_RESOURCE_ERROR =
       "Failed to retrieve the schema. Hint: call list-collections to check"
@@ -241,13 +243,12 @@ public class SchemaService {
    * caching to reduce network overhead.
    *
    * @param collection the name of the Solr collection to retrieve schema information for
-   * @return complete schema representation containing all field and type definitions
+   * @return the schema as the Schema API reports it, every property Solr sends included
    * @throws SolrServerException if the Solr server returns an error; a missing collection surfaces
    *     as an unchecked {@code SolrException} (404)
-   * @throws IOException if communication with the Solr server fails
-   * @see SchemaRepresentation
+   * @throws IOException if communication with Solr fails
+   * @see CollectionSchema
    * @see SchemaRequest
-   * @see org.apache.solr.client.solrj.response.schema.SchemaResponse
    */
   @PreAuthorize("isAuthenticated()")
   @McpTool(
@@ -259,9 +260,13 @@ public class SchemaService {
               + "Use this before add-fields or add-field-types to see what is already defined. "
               + "It does not say which fields hold data or which dynamic fields are in use; to "
               + "choose fields for search, call list-fields instead.")
-  public SchemaRepresentation getSchema(String collection) throws SolrServerException, IOException {
-    SchemaRequest schemaRequest = new SchemaRequest();
-    return schemaRequest.process(solrClient, collection).getSchemaRepresentation();
+  public CollectionSchema getSchema(String collection) throws SolrServerException, IOException {
+    // request(), not schemaRequest.process(): process() parses into SolrJ's SchemaRepresentation,
+    // whose FieldTypeDefinition nests each type's properties under "attributes" and serializes
+    // every unset analyzer slot as null. The Schema API's own JSON objects arrive as
+    // SimpleOrderedMap, a java.util.Map, so Jackson converts them into the records directly.
+    NamedList<Object> response = solrClient.request(new SchemaRequest(), collection);
+    return objectMapper.convertValue(response.get(SCHEMA_SECTION), CollectionSchema.class);
   }
 
   /**
