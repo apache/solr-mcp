@@ -88,6 +88,11 @@ on:
             - main            # Build + test on main merges
     workflow_dispatch:        # Manual runs for maintainers
 
+# Authenticates build scan publishing to develocity.apache.org (see settings.gradle.kts).
+# Empty on fork PRs, which receive no secrets, so those builds don't publish.
+env:
+    DEVELOCITY_ACCESS_KEY: ${{ secrets.DEVELOCITY_ACCESS_KEY }}
+
 jobs:
     # ============================================================================
     # Job 1: Build JAR

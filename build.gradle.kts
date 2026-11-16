@@ -579,6 +579,13 @@ jib {
     }
 }
 
+// Jib's tasks read Task.project at execution time, which the configuration cache rejects.
+// Opt them out so jibDockerBuild/jib work with org.gradle.configuration-cache=true; every
+// other task keeps using the cache.
+tasks.withType<com.google.cloud.tools.jib.gradle.JibTask>().configureEach {
+    notCompatibleWithConfigurationCache("Jib reads Task.project at execution time")
+}
+
 tasks.bootBuildImage {
     if (nativeBuild) {
         imageName.set("solr-mcp:$version-native-$nativeProfile")
