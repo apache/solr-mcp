@@ -25,7 +25,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.StringUtils;
-import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Spring Configuration class for Apache Solr client setup and connection management.
@@ -158,7 +158,7 @@ public class SolrConfig {
    * @return the JSON response parser
    */
   @Bean
-  JsonResponseParser jsonResponseParser(ObjectMapper objectMapper) {
+  JsonResponseParser jsonResponseParser(JsonMapper objectMapper) {
     return new JsonResponseParser(objectMapper);
   }
 

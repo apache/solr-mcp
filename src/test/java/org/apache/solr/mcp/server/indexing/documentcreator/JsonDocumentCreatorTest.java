@@ -26,7 +26,6 @@ import java.util.Map;
 import java.util.TreeMap;
 import org.apache.solr.common.SolrInputDocument;
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -37,7 +36,7 @@ import tools.jackson.databind.json.JsonMapper;
  */
 class JsonDocumentCreatorTest {
 
-  private final ObjectMapper objectMapper = JsonMapper.builder().build();
+  private final JsonMapper objectMapper = JsonMapper.builder().build();
 
   private final JsonDocumentCreator creator = new JsonDocumentCreator(objectMapper);
 

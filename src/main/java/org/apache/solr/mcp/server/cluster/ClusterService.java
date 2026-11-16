@@ -16,8 +16,6 @@
  */
 package org.apache.solr.mcp.server.cluster;
 
-import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
-
 import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -51,6 +49,10 @@ import tools.jackson.databind.json.JsonMapper;
 public class ClusterService {
 
   private static final Logger logger = LoggerFactory.getLogger(ClusterService.class);
+
+  static final String CLUSTER_STATUS_RESOURCE_ERROR =
+      "Failed to read the Solr cluster status. Retry later; if it persists,"
+          + " ask the operator to check Solr availability and the server logs.";
 
   private final SolrClient solrClient;
 
@@ -137,7 +139,9 @@ public class ClusterService {
    * MCP Resource returning the status of the whole cluster as JSON, the same data as {@code
    * get-cluster-status} with no collection.
    *
-   * @return the cluster status as JSON, or {@code {"error": ...}} on failure
+   * @return the cluster status as JSON
+   * @throws IllegalStateException with {@link #CLUSTER_STATUS_RESOURCE_ERROR} if the status cannot
+   *     be read or serialized
    */
   @PreAuthorize("isAuthenticated()")
   @McpResource(
@@ -147,10 +151,13 @@ public class ClusterService {
       mimeType = "application/json")
   public String getClusterStatusResource() {
     try {
-      return toJson(jsonMapper, getClusterStatus(null));
+      return jsonMapper.writeValueAsString(getClusterStatus(null));
     } catch (Exception e) {
-      logger.error("Failed to get cluster status", e);
-      return toJson(jsonMapper, Map.of("error", String.valueOf(e.getMessage())));
+      // Deliberately no cause: MCP reports the root cause's message to the client,
+      // and Solr and SolrJ failure text can carry internal host names, URLs and
+      // paths. The log is the sole record of the cause.
+      logger.error("Failed to get cluster status for the cluster status resource", e);
+      throw new IllegalStateException(CLUSTER_STATUS_RESOURCE_ERROR);
     }
   }
 }
