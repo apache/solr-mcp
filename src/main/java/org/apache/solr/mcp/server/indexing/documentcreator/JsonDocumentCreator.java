@@ -218,14 +218,14 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
    *     be added
    */
   private void processArrayField(SolrInputDocument doc, JsonNode arrayValue, String fieldName) {
-    List<Object> values = new ArrayList<>();
-    for (JsonNode item : arrayValue) {
-      // Skip objects and nested arrays alike: neither has a scalar
-      // representation, and asString() on a container node throws.
-      if (!item.isObject() && !item.isArray()) {
-        values.add(convertJsonValue(item));
-      }
-    }
+    // Skip objects and nested arrays alike: neither has a scalar
+    // representation, and asString() on a container node throws.
+    List<Object> values =
+        arrayValue
+            .valueStream()
+            .filter(item -> !item.isContainer())
+            .map(this::convertJsonValue)
+            .toList();
     if (!values.isEmpty()) {
       doc.addField(fieldName, values);
     }

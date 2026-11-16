@@ -824,8 +824,8 @@ public class CollectionService {
     Long errors = getLong(coreMetrics, keyPrefix + ERRORS_FIELD);
     Long timeouts = getLong(coreMetrics, keyPrefix + TIMEOUTS_FIELD);
     Long totalTime = getLong(coreMetrics, keyPrefix + TOTAL_TIME_FIELD);
-    // avgTimePerRequest and avgRequestsPerSecond are not available as flat metrics;
-    // compute avgTimePerRequest from totalTime/requests when possible
+    // Solr has no flat metric for the average time per request or for requests per
+    // second, so the average time is derived from the total time and the request count.
     Float avgTimePerRequest =
         (requests > 0 && totalTime != null) ? (float) totalTime / requests : null;
     return new HandlerInfo(requests, errors, timeouts, totalTime, avgTimePerRequest, null);
@@ -1051,7 +1051,7 @@ public class CollectionService {
               required = false)
           @Nullable String purpose) {
     String purposeLine =
-        (purpose == null || purpose.isBlank()) ? "" : "\nPurpose: %s\n".formatted(purpose.strip());
+        (purpose == null || purpose.isBlank()) ? "" : "\nPurpose: " + purpose.strip() + "\n";
     return """
 				You are setting up a new Solr collection named `%s` through MCP tools.%s
 				1. Validate the name.

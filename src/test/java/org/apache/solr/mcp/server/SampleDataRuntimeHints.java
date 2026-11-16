@@ -42,9 +42,6 @@ import org.springframework.test.context.aot.TestRuntimeHintsRegistrar;
  */
 public class SampleDataRuntimeHints implements TestRuntimeHintsRegistrar {
 
-  /** Default constructor used by Spring's AOT services loader. */
-  public SampleDataRuntimeHints() {}
-
   @Override
   public void registerHints(RuntimeHints hints, Class<?> testClass, ClassLoader classLoader) {
     hints

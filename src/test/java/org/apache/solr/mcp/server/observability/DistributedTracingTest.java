@@ -42,7 +42,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * <ul>
  *   <li>Spans are created for @Observed methods
  *   <li>Span attributes are correctly set
- *   <li>Span hierarchy is correct (parent-child relationships)
  *   <li>Span names follow conventions
  * </ul>
  *
@@ -136,64 +135,6 @@ class DistributedTracingTest {
               assertThat(spans)
                   .as("At least one span should have tags/attributes")
                   .anyMatch(span -> !span.getTags().isEmpty());
-            });
-  }
-
-  @Test
-  void shouldCreateSpanHierarchy() {
-    // When: We execute a complex operation that triggers multiple spans
-    try {
-      searchService.search("test_collection", "*:*", null, null, null, null, null);
-    } catch (Exception _) {
-      // Ignore errors
-    }
-
-    // Then: We should see spans created
-    await()
-        .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              var spans = tracer.getSpans();
-              assertThat(spans).as("Should have created spans").isNotEmpty();
-            });
-  }
-
-  @Test
-  void shouldSetCorrectSpanKind() {
-    // When: We execute a service method
-    try {
-      searchService.search("test_collection", "*:*", null, null, null, null, null);
-    } catch (Exception _) {
-      // Ignore errors
-    }
-
-    // Then: Spans should have appropriate span kinds
-    await()
-        .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              var spans = tracer.getSpans();
-              assertThat(spans).as("Should have created spans").isNotEmpty();
-            });
-  }
-
-  @Test
-  void shouldIncludeServiceNameInResource() {
-    // When: We execute any operation
-    try {
-      searchService.search("test_collection", "*:*", null, null, null, null, null);
-    } catch (Exception _) {
-      // Ignore errors
-    }
-
-    // Then: Spans should be created (service name is in resource attributes in
-    // OpenTelemetry)
-    await()
-        .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              var spans = tracer.getSpans();
-              assertThat(spans).as("Should have created spans").isNotEmpty();
             });
   }
 
