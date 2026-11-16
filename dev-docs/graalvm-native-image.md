@@ -129,18 +129,13 @@ registrar (rather than scattering `@RegisterReflection` annotations) keeps the
 whole reflective surface in one reviewable place. The registrar is imported
 unconditionally; on the JVM path it is simply a no-op.
 
-### Wire format choice underpins the small hint surface
+### Wire format
 
-`SolrConfig` deliberately builds the client to **avoid SolrJ's JavaBin codec**,
-which uses deep reflection that would otherwise demand extensive native
-metadata:
-
-- Responses use the **JSON** parser (`JsonResponseParser` on
-  `HttpJdkSolrClient`), not JavaBin.
-- Updates use `XMLRequestWriter`, not the default `JavaBinRequestWriter`.
-
-Because the JavaBin path is never taken, the hints reduce to a narrow set of
-container and value types.
+`SolrConfig` builds the client with JSON responses (`JsonResponseParser` on
+`HttpJdkSolrClient`) and `XMLRequestWriter` for updates, in place of SolrJ's
+JavaBin defaults. The native image does not need either choice. SolrJ's
+`JavaBinCodec` uses no reflection, and with `JavaBinResponseParser` swapped in,
+`./gradlew nativeTest -Pnative` passes without adding a hint.
 
 ### What's registered, and why
 
