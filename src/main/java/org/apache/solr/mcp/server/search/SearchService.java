@@ -31,6 +31,7 @@ import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.FacetParams;
+import org.apache.solr.common.util.JsonTextWriter;
 import org.apache.solr.mcp.server.util.PromptNames;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -270,6 +271,9 @@ public class SearchService {
 
     // query
     final SolrQuery solrQuery = new SolrQuery("*:*");
+    // Facet counts are a NamedList that Solr writes as a flat ["term", 5, ...] array by
+    // default; map style writes it as an object, which JsonResponseParser reads as a NamedList.
+    solrQuery.set(JsonTextWriter.JSON_NL_STYLE, JsonTextWriter.JSON_NL_MAP);
     if (StringUtils.hasText(query)) {
       solrQuery.setQuery(query);
     }

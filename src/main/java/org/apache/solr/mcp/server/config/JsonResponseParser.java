@@ -38,29 +38,26 @@ import tools.jackson.databind.json.JsonMapper;
  * ({@link org.apache.solr.client.solrj.response.QueryResponse}, {@link
  * org.apache.solr.client.solrj.response.LukeResponse}, etc.) expect internally.
  *
- * <p>This allows the application to keep all existing SolrJ response handling unchanged while
- * moving off the JavaBin ({@code wt=javabin}) wire format.
- *
- * <p><strong>Structural conversions:</strong>
+ * <p>JSON carries less type information than JavaBin or XML, so the conversion relies on two things
+ * it can check rather than guess:
  *
  * <ul>
- *   <li>JSON objects → {@link NamedList} (preserving key order)
- *   <li>JSON objects containing {@code numFound} + {@code docs} → {@link SolrDocumentList}
- *   <li>JSON arrays with alternating {@code [String, non-String, ...]} pairs → {@link NamedList}
- *       (Solr's {@code json.nl=flat} facet encoding)
- *   <li>All other JSON arrays → {@link List}
- *   <li>JSON integers → {@link Integer} or {@link Long} (by value size)
- *   <li>JSON decimals → {@link Float}, matching the JavaBin codec; SolrJ response classes cast to
- *       it (e.g. {@code SchemaResponse} reads the schema version as a {@code Float})
- *   <li>JSON booleans → {@link Boolean}
- *   <li>JSON strings → {@link String}
+ *   <li>A request that reads a plain {@link NamedList}, which Solr writes as a flat {@code
+ *       ["term",5,...]} array by default, sends {@code json.nl=map} so it arrives as a JSON object
+ *       instead. The search facet counts are the one such case; {@code SearchService} sets it.
+ *       Objects become {@link SimpleOrderedMap}, which is a {@link NamedList}, and arrays are
+ *       always plain lists.
+ *   <li>Solr writes a result list as an object whose {@code numFound} is a number and {@code docs}
+ *       an array. An object with that shape becomes a {@link SolrDocumentList}. Both types are
+ *       checked, so an object that merely has keys of those names, such as Luke's {@code fields}
+ *       for a collection with fields called {@code numFound} and {@code docs}, stays a {@link
+ *       NamedList}.
  * </ul>
  *
- * <p><strong>Flat NamedList detection:</strong> Solr serializes facet counts as flat arrays using
- * {@code json.nl=flat} (the default). An array is treated as a flat NamedList when every
- * even-indexed element is a {@link String} and every odd-indexed element is a non-{@link String}
- * value. This reliably distinguishes {@code ["term", 5, "term2", 3]} (facet NamedList) from {@code
- * ["col1", "col2"]} (plain string list).
+ * <p>Numbers: integers become {@link Integer} or {@link Long} by size. Decimals in document field
+ * values become {@link Double}, so a stored {@code pdouble} keeps its precision. Decimals elsewhere
+ * become {@link Float}, matching the JavaBin codec, because SolrJ response classes cast to it
+ * ({@code SchemaResponse} reads the schema version as a {@code Float}).
  */
 class JsonResponseParser extends ResponseParser {
 
@@ -83,107 +80,50 @@ class JsonResponseParser extends ResponseParser {
     return List.of(MediaType.APPLICATION_JSON_VALUE, MediaType.TEXT_PLAIN_VALUE);
   }
 
-  /**
-   * Path of the object whose direct children are per-field facet arrays. Arrays found one level
-   * below this path are always NamedLists, regardless of shape.
-   */
-  private static final String FACET_FIELDS_PATH = "facet_counts/facet_fields";
-
   @Override
   public NamedList<@Nullable Object> processResponse(InputStream body, String encoding) {
     try {
-      return toNamedList(mapper.readTree(body), "");
+      return toNamedList(mapper.readTree(body));
     } catch (JacksonException e) {
       throw new SolrException(
           SolrException.ErrorCode.SERVER_ERROR, "Failed to parse Solr JSON response", e);
     }
   }
 
-  private SimpleOrderedMap<@Nullable Object> toNamedList(JsonNode objectNode, String path) {
+  private SimpleOrderedMap<@Nullable Object> toNamedList(JsonNode objectNode) {
     SimpleOrderedMap<@Nullable Object> result = new SimpleOrderedMap<>();
     objectNode
         .properties()
-        .forEach(
-            entry ->
-                result.add(
-                    entry.getKey(), convertValue(entry.getValue(), child(path, entry.getKey()))));
+        .forEach(entry -> result.add(entry.getKey(), convertValue(entry.getValue())));
     return result;
   }
 
-  private static String child(String path, String key) {
-    return path.isEmpty() ? key : path + "/" + key;
-  }
-
-  private @Nullable Object convertValue(JsonNode node, String path) {
+  private @Nullable Object convertValue(JsonNode node) {
     if (node.isNull()) return null;
     if (node.isBoolean()) return node.booleanValue();
     if (node.isTextual()) return node.textValue();
     if (node.isInt()) return node.intValue();
     if (node.isLong()) return node.longValue();
     if (node.isDouble() || node.isFloat()) return node.floatValue();
-    if (node.isObject()) return convertObject(node, path);
-    if (node.isArray()) return convertArray(node, path);
+    if (node.isObject()) return isResultList(node) ? toSolrDocumentList(node) : toNamedList(node);
+    if (node.isArray()) {
+      List<@Nullable Object> list = new ArrayList<>(node.size());
+      node.forEach(element -> list.add(convertValue(element)));
+      return list;
+    }
     return node.asText();
   }
 
-  private Object convertObject(JsonNode node, String path) {
-    // Detect a Solr query result set by the presence of numFound + docs
-    if (node.has("numFound") && node.has("docs")) {
-      return toSolrDocumentList(node);
-    }
-    return toNamedList(node, path);
-  }
-
-  private Object convertArray(JsonNode arrayNode, String path) {
-    // Facet field values are always NamedLists, even when empty. The shape
-    // heuristic below cannot recognise an empty array, and returning a List
-    // for a facet on a zero-hit field would break SolrJ's QueryResponse,
-    // which casts each facet_fields entry to NamedList.
-    if (isFacetFieldValue(path)) {
-      return flatArrayToNamedList(arrayNode);
-    }
-    // Detect Solr's flat NamedList encoding: [String, non-String, String,
-    // non-String, ...]
-    // Used for facet counts (json.nl=flat default). Distinguished from plain string
-    // arrays
-    // by requiring odd-indexed elements to be non-string values.
-    if (isFlatNamedList(arrayNode)) {
-      return flatArrayToNamedList(arrayNode);
-    }
-    List<@Nullable Object> list = new ArrayList<>(arrayNode.size());
-    arrayNode.forEach(element -> list.add(convertValue(element, path)));
-    return list;
-  }
-
-  /** True for {@code facet_counts/facet_fields/<fieldName>}. */
-  private static boolean isFacetFieldValue(String path) {
-    int lastSlash = path.lastIndexOf('/');
-    return lastSlash > 0 && path.substring(0, lastSlash).equals(FACET_FIELDS_PATH);
-  }
-
   /**
-   * Returns true when the array has even length, every even-indexed element is a string (the key),
-   * and every odd-indexed element is NOT a string (the value). This heuristic correctly identifies
-   * Solr facet data like {@code ["fantasy", 10, "scifi", 5]} while rejecting plain string arrays
-   * like {@code ["col1", "col2"]}.
+   * A field value inside a document: as {@link #convertValue}, but decimals keep full precision.
    */
-  private boolean isFlatNamedList(JsonNode arrayNode) {
-    int size = arrayNode.size();
-    if (size == 0 || size % 2 != 0) return false;
-    for (int i = 0; i < size; i += 2) {
-      if (!arrayNode.get(i).isTextual()) return false; // key must be string
-      if (arrayNode.get(i + 1).isTextual()) return false; // value must not be string
-    }
-    return true;
+  private @Nullable Object convertFieldValue(JsonNode node) {
+    return node.isFloatingPointNumber() ? node.doubleValue() : convertValue(node);
   }
 
-  private SimpleOrderedMap<@Nullable Object> flatArrayToNamedList(JsonNode arrayNode) {
-    SimpleOrderedMap<@Nullable Object> result = new SimpleOrderedMap<>();
-    for (int i = 0; i < arrayNode.size(); i += 2) {
-      // Values here are facet counts (scalars), never nested facet arrays.
-      result.add(arrayNode.get(i).textValue(), convertValue(arrayNode.get(i + 1), ""));
-    }
-    return result;
+  /** Solr's result list: {@code {"numFound": <number>, ..., "docs": [ ... ]}}. */
+  private static boolean isResultList(JsonNode node) {
+    return node.path("numFound").isNumber() && node.path("docs").isArray();
   }
 
   private SolrDocumentList toSolrDocumentList(JsonNode node) {
@@ -209,12 +149,12 @@ class JsonResponseParser extends ResponseParser {
             entry -> {
               JsonNode val = entry.getValue();
               if (val.isArray()) {
-                // Multi-valued field — always a plain list, never a flat NamedList
+                // A multi-valued field stays a list, even with one value.
                 List<@Nullable Object> values = new ArrayList<>(val.size());
-                val.forEach(v -> values.add(convertValue(v, "")));
+                val.forEach(v -> values.add(convertFieldValue(v)));
                 doc.setField(entry.getKey(), values);
               } else {
-                doc.setField(entry.getKey(), convertValue(val, ""));
+                doc.setField(entry.getKey(), convertFieldValue(val));
               }
             });
     return doc;
