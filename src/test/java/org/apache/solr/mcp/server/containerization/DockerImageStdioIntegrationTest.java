@@ -90,7 +90,7 @@ class DockerImageStdioIntegrationTest {
   // 3. Stops and cleans up the container after tests complete
   @Container
   private static final SolrContainer solrContainer =
-      new SolrContainer(DockerImageName.parse(SOLR_IMAGE))
+      new org.apache.solr.mcp.server.SolrContainer(DockerImageName.parse(SOLR_IMAGE))
           .withNetwork(network)
           .withNetworkAliases("solr")
           .withLogConsumer(new Slf4jLogConsumer(log).withPrefix("SOLR"));
