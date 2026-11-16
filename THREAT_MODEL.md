@@ -243,8 +243,8 @@ trust table:
 | transport (HTTP) | `Origin` header | **yes** | CORS allowlist (no wildcard+credentials) |
 | transport (STDIO) | stdin JSON-RPC frame | only parent process | OS-user trust; no in-process check |
 | `search` | `collection` | **yes** | used only as a path segment against the fixed `SOLR_URL` base; **cannot redirect to another host**. What a path reaches *within* that Solr is the backend's authorization call. *(maintainer — Q-collection.)* |
-| `search` | `query` (`q`), `filterQueries` (`fq`) | **yes** | passed into `SolrQuery`; Solr query-parser semantics apply — Q-queryinj |
-| `search` | `facetFields`, `sortClauses`, `start`, `rows` | **yes** | forwarded to Solr; `rows` unbounded? — Q-resource |
+| `search` | `query` (`q`), `filterQueries` (`fq`), `queryFields` (`qf`) | **yes** | passed into `SolrQuery`; Solr query-parser semantics apply — Q-queryinj |
+| `search` | `facetFields`, `sortClauses`, `start`, `rows`, `fields` (`fl`) | **yes** | forwarded to Solr; `rows` unbounded? — Q-resource |
 | `index-*` | `collection`, `json`/`csv`/`xml` body | **yes** | JSON parsed then written; CSV and XML forwarded to Solr's own update handlers after a hardened StAX check that the XML is an `<add>` block, so `<delete>`/`<commit>` cannot ride on the indexing tool *(documented)* |
 | `create-collection` | `name`, `configSet`, `numShards`, `replicationFactor` | **yes** | issues `CollectionAdminRequest.createCollection` to backend — Q-adminexposure |
 | `add-fields` / `add-field-types` | `collection`, field/type defs | **yes** | additive schema change (existing fields cannot be modified per README) |
