@@ -31,6 +31,7 @@ import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.FacetParams;
+import org.apache.solr.mcp.server.security.McpAuthorities;
 import org.apache.solr.mcp.server.util.PromptNames;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -203,7 +204,7 @@ public class SearchService {
    * @throws SolrServerException If there's an error communicating with Solr
    * @throws IOException If there's an I/O error
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.READ)
   // @formatter:off — keep this @McpTool wrapped like the others; the text block disguises the real
   // line length.
   @McpTool(
@@ -406,7 +407,7 @@ public class SearchService {
    * @param question the user's natural-language search question or information need
    * @return the prompt text instructing the model how to run the search
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.READ)
   @McpPrompt(
       name = PromptNames.SEARCH_COLLECTION,
       title = "Search a Solr collection from a natural-language question",

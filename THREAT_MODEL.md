@@ -164,9 +164,10 @@ Two boundaries stack, and the server sits between them:
   only the parent client can write to stdin; there is no network listener and no
   in-process auth, by design and per the MCP spec. *(documented —
   docs/security/stdio.md.)* In **HTTP** the boundary is an **OAuth2 access
-  token**: every tool call is gated by `@PreAuthorize("isAuthenticated()")` and
-  every actuator endpoint except `/actuator/health` requires auth. *(documented
-  — docs/security/http.md; `HttpSecurityConfiguration`.)*
+  token**: every tool call is gated by `@PreAuthorize` matching the required functional
+  scope (`solr:read`, `solr:write`, `solr:admin`) and every actuator endpoint except
+  `/actuator/health` requires auth. *(documented — docs/security/http.md;
+  `HttpSecurityConfiguration`.)*
 - **Boundary B (backend).** Once past boundary A, the server issues SolrJ calls
   to the single configured Solr using a **single, static, deployer-supplied
   credential** (or none). The server does **not** carry the AI client's identity
@@ -219,10 +220,10 @@ is streamable HTTP running in **stateless** mode
 (`spring.ai.mcp.server.protocol=stateless`), so there is no sampling, progress
 or elicitation channel and no per-request context feature. `/mcp` is
 `permitAll()` at the filter-chain level; authentication is enforced instead by
-`@PreAuthorize("isAuthenticated()")` on **every** MCP entry point — all 11
-tools, both resources, every prompt and completion handler — following the
-spring-ai-community/mcp-security "secured tools" pattern. A finding that reads
-`permitAll()` on `/mcp` as an authentication bypass without checking the
+`@PreAuthorize(McpAuthorities.READ)` / `WRITE` / `ADMIN` on **every** MCP entry
+point — all 15 tools, both resources, every prompt and completion handler —
+following the spring-ai-community/mcp-security "secured tools" pattern. A finding
+that reads `permitAll()` on `/mcp` as an authentication bypass without checking the
 method-level annotations is a `KNOWN-NON-FINDING` (§11a).
 
 **The insecure-default question is `PROFILES=stdio` vs `http`, and it is
@@ -344,14 +345,14 @@ Two adversaries are in scope; several are explicitly not.
   write. The credential is read once from `SOLR_USERNAME`/`SOLR_PASSWORD` at
   startup, applied only when both are set, and never sourced from a tool
   argument *(maintainer — Q-backendcreds.)*. Whatever the configured Solr
-  credential can do, any authorized MCP caller can do. Scoping the backend
-  Solr's permissions is the operator's job. (Should #66 land, authorization
-  becomes finer-grained *server-side*; the backend Solr credential stays
-  shared.)
+  credential can do, any authorized MCP caller with the corresponding scope can do.
+  Scoping the backend Solr's permissions is the operator's job. While fine-grained
+  server-side scopes (`solr:read`, `solr:write`, `solr:admin`) gate tool access
+  (#66), the backend Solr credential remains shared.
   *(documented — docs/security/stdio.md "Scope the Solr instance"; `SolrConfig`.)*
-  - *False friend:* the HTTP-mode OAuth2 layer authenticates *that a caller may
-    use the server* — it is **not** an authorization model over Solr collections
-    or actions. A caller who passes `isAuthenticated()` can invoke every tool.
+  - *False friend:* the HTTP-mode OAuth2 layer gates tools by functional scope
+    (`solr:read`, `solr:write`, `solr:admin`) — it is **not** an authorization
+    model over Solr collections or tenants.
 - **It does not make Solr query construction injection-proof.** `search`
   arguments (`q`, `fq`) are forwarded into a `SolrQuery` with Solr query-parser
   semantics; a crafted argument can express any query the Solr parser accepts
@@ -362,16 +363,11 @@ Two adversaries are in scope; several are explicitly not.
   maintainer position: PRs #122 and #127, which added server-side query
   escaping/validation, were both closed on the rationale that such hardening
   belongs in Solr/SolrJ. *(maintainer — Q-queryinj.)*
-- **It does not restrict which collections/schemas a caller may create or
-  mutate.** `create-collection`, `add-fields`, `add-field-types` are exposed to
-  any authorized caller with no per-collection gate; the server cannot be
-  configured (as of v0) to present a read-only tool subset. This is the
-  **intended v0 posture**, not an oversight — but fine-grained per-tool
-  authorization is on the roadmap as
-  [#66](https://github.com/apache/solr-mcp/issues/66) ("Have specific security
-  roles"). A report proposing a read-only tool subset or per-tool roles is
-  `VALID-HARDENING` and should be routed to #66. *(maintainer —
-  Q-adminexposure.)*
+- **It does not restrict which collections a caller may mutate.** While scopes
+  restrict who may call `create-collection`, `add-fields`, `add-field-types`,
+  these tools operate against any collection accessible to the backend Solr
+  credential with no per-collection gate. Multi-tenant per-collection
+  authorization is deferred (§12). *(maintainer — Q-adminexposure.)*
 - **It makes no resource guarantee on caller-sized inputs.** `rows`, facet
   cardinality, and indexing-body size are forwarded to Solr; the server does not
   document a cap. A pathological argument is bounded only by Solr. *(maintainer —

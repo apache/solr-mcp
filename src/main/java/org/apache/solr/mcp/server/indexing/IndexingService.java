@@ -35,6 +35,7 @@ import org.apache.solr.common.SolrException;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.util.ContentStreamBase;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
+import org.apache.solr.mcp.server.security.McpAuthorities;
 import org.apache.solr.mcp.server.util.PromptNames;
 import org.apache.solr.mcp.server.util.PromptText;
 import org.jspecify.annotations.Nullable;
@@ -179,7 +180,7 @@ public class IndexingService {
    * @see IndexingDocumentCreator#createSchemalessDocumentsFromJson(List)
    * @see #indexDocuments(String, List)
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.WRITE)
   @McpTool(
       name = "index-json-documents",
       annotations = @McpTool.McpAnnotations(idempotentHint = true),
@@ -218,7 +219,7 @@ public class IndexingService {
    * @throws IOException if communication with Solr fails
    * @throws SolrServerException if Solr rejects the payload
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.WRITE)
   @McpTool(
       name = "index-csv-documents",
       annotations = @McpTool.McpAnnotations(idempotentHint = true),
@@ -249,7 +250,7 @@ public class IndexingService {
    * @throws IOException if communication with Solr fails
    * @throws SolrServerException if Solr rejects the payload
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.WRITE)
   @McpTool(
       name = "index-xml-documents",
       annotations = @McpTool.McpAnnotations(idempotentHint = true),
@@ -340,7 +341,7 @@ public class IndexingService {
    * @see IndexingDocumentCreator#createSchemalessDocumentsFromMarkdown(String)
    * @see #indexDocuments(String, List)
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.WRITE)
   @McpTool(
       name = "index-markdown-documents",
       annotations = @McpTool.McpAnnotations(idempotentHint = true),
@@ -491,7 +492,7 @@ public class IndexingService {
    *     may be {@code null} or blank
    * @return the prompt text instructing the model how to index the documents
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.READ)
   @McpPrompt(
       name = PromptNames.INDEX_DATA,
       title = "Index documents into a Solr collection",
