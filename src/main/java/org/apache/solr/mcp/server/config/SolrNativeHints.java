@@ -66,7 +66,12 @@ class SolrNativeHints implements RuntimeHintsRegistrar {
           "org.apache.solr.mcp.server.collection.HandlerInfo",
           "org.apache.solr.mcp.server.search.SearchResponse",
           "org.apache.solr.mcp.server.search.SortClause",
-          "org.apache.solr.mcp.server.schema.SchemaUpdateResult");
+          "org.apache.solr.mcp.server.schema.SchemaUpdateResult",
+          "org.apache.solr.mcp.server.schema.CollectionSchema",
+          "org.apache.solr.mcp.server.schema.CollectionSchema$Field",
+          "org.apache.solr.mcp.server.schema.CollectionSchema$FieldType",
+          "org.apache.solr.mcp.server.schema.CollectionSchema$Analyzer",
+          "org.apache.solr.mcp.server.schema.CollectionSchema$CopyField");
 
   @Override
   public void registerHints(RuntimeHints hints, @Nullable ClassLoader classLoader) {
@@ -125,16 +130,6 @@ class SolrNativeHints implements RuntimeHintsRegistrar {
         .reflection()
         .registerType(
             org.apache.solr.client.solrj.request.schema.FieldTypeDefinition.class, categories);
-
-    // SolrJ schema response type — returned by the get-schema MCP tool and
-    // serialized to JSON by Spring AI for MCP clients. Without reflection
-    // hints the JSON Spring AI produces in native image is missing the
-    // fields/fieldTypes/dynamicFields/copyFields arrays, which silently
-    // breaks any consumer that introspects the schema.
-    hints
-        .reflection()
-        .registerType(
-            org.apache.solr.client.solrj.response.schema.SchemaRepresentation.class, categories);
 
     // MCP tool request/response records (some package-private, registered by
     // name); request records are deserialized reflectively by Jackson when

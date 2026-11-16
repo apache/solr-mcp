@@ -24,9 +24,10 @@ import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.request.SolrQuery;
+import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.QueryResponse;
-import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
 import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -35,6 +36,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Integration test suite for SchemaService using real Solr containers. Tests actual schema
@@ -49,6 +52,8 @@ class SchemaServiceIntegrationTest {
   @Autowired private SchemaService schemaService;
 
   @Autowired private SolrClient solrClient;
+
+  @Autowired private JsonMapper jsonMapper;
 
   private static final String TEST_COLLECTION = "schema_test_collection";
   private static boolean initialized = false;
@@ -67,26 +72,24 @@ class SchemaServiceIntegrationTest {
   @Test
   void testGetSchema_ValidCollection() throws Exception {
     // When
-    SchemaRepresentation schema = schemaService.getSchema(TEST_COLLECTION);
+    CollectionSchema schema = schemaService.getSchema(TEST_COLLECTION);
 
     // Then
     assertNotNull(schema, "Schema should not be null");
-    assertNotNull(schema.getFields(), "Schema fields should not be null");
-    assertNotNull(schema.getFieldTypes(), "Schema field types should not be null");
+    assertNotNull(schema.fields(), "Schema fields should not be null");
+    assertNotNull(schema.fieldTypes(), "Schema field types should not be null");
 
     // Verify basic schema properties
-    assertFalse(schema.getFields().isEmpty(), "Schema should have at least some fields");
-    assertFalse(schema.getFieldTypes().isEmpty(), "Schema should have at least some field types");
+    assertFalse(schema.fields().isEmpty(), "Schema should have at least some fields");
+    assertFalse(schema.fieldTypes().isEmpty(), "Schema should have at least some field types");
 
     // Check for common default fields in Solr
-    boolean hasIdField =
-        schema.getFields().stream().anyMatch(field -> "id".equals(field.get("name")));
+    boolean hasIdField = schema.fields().stream().anyMatch(field -> "id".equals(field.name()));
     assertTrue(hasIdField, "Schema should have an 'id' field");
 
     // Check for common field types
     boolean hasStringType =
-        schema.getFieldTypes().stream()
-            .anyMatch(fieldType -> "string".equals(fieldType.getAttributes().get("name")));
+        schema.fieldTypes().stream().anyMatch(fieldType -> "string".equals(fieldType.name()));
     assertTrue(hasStringType, "Schema should have a 'string' field type");
   }
 
@@ -115,50 +118,49 @@ class SchemaServiceIntegrationTest {
   @Test
   void testGetSchema_ValidatesSchemaContent() throws Exception {
     // When
-    SchemaRepresentation schema = schemaService.getSchema(TEST_COLLECTION);
+    CollectionSchema schema = schemaService.getSchema(TEST_COLLECTION);
 
     // Then - verify schema has expected structure
-    assertNotNull(schema.getName(), "Schema should have a name");
+    assertNotNull(schema.name(), "Schema should have a name");
 
     // Check that we can access field details
     schema
-        .getFields()
+        .fields()
         .forEach(
             field -> {
-              assertNotNull(field.get("name"), "Field should have a name");
-              assertNotNull(field.get("type"), "Field should have a type");
+              assertNotNull(field.name(), "Field should have a name");
+              assertNotNull(field.type(), "Field should have a type");
               // indexed and stored can be null (defaults to true in many cases)
             });
 
     // Check that we can access field type details
     schema
-        .getFieldTypes()
+        .fieldTypes()
         .forEach(
             fieldType -> {
-              assertNotNull(fieldType.getAttributes().get("name"), "Field type should have a name");
-              assertNotNull(
-                  fieldType.getAttributes().get("class"), "Field type should have a class");
+              assertNotNull(fieldType.name(), "Field type should have a name");
+              assertNotNull(fieldType.className(), "Field type should have a class");
             });
   }
 
   @Test
   void testGetSchema_ChecksDynamicFields() throws Exception {
     // When
-    SchemaRepresentation schema = schemaService.getSchema(TEST_COLLECTION);
+    CollectionSchema schema = schemaService.getSchema(TEST_COLLECTION);
 
     // Then - verify dynamic fields are accessible
-    assertNotNull(schema.getDynamicFields(), "Dynamic fields should not be null");
+    assertNotNull(schema.dynamicFields(), "Dynamic fields should not be null");
 
     // The _default configset defines dynamic fields such as *_s and *_i
-    assertFalse(schema.getDynamicFields().isEmpty(), "Dynamic fields should not be empty");
+    assertFalse(schema.dynamicFields().isEmpty(), "Dynamic fields should not be empty");
 
     // Check for common dynamic field patterns
     boolean hasStringDynamicField =
-        schema.getDynamicFields().stream()
+        schema.dynamicFields().stream()
             .anyMatch(
                 dynField -> {
-                  String name = (String) dynField.get("name");
-                  return name != null && (name.contains("*_s") || name.contains("*_str"));
+                  String name = dynField.name();
+                  return name.contains("*_s") || name.contains("*_str");
                 });
 
     assertTrue(hasStringDynamicField, "Schema should have string dynamic fields");
@@ -167,22 +169,39 @@ class SchemaServiceIntegrationTest {
   @Test
   void testGetSchema_ChecksCopyFields() throws Exception {
     // When
-    SchemaRepresentation schema = schemaService.getSchema(TEST_COLLECTION);
+    CollectionSchema schema = schemaService.getSchema(TEST_COLLECTION);
 
     // Then - verify copy fields are accessible
-    assertNotNull(schema.getCopyFields(), "Copy fields should not be null");
+    assertNotNull(schema.copyFields(), "Copy fields should not be null");
+  }
+
+  @Test
+  void getSchema_serializesToTheSchemaApiResponse() throws Exception {
+    // The records must not add, drop or reshape anything: serialized, they are Solr's own
+    // Schema API JSON. Both sides are written to JSON text and parsed back, so key order and the
+    // parser's Float-versus-Double choice for decimals such as version do not matter.
+    NamedList<Object> raw = solrClient.request(new SchemaRequest(), TEST_COLLECTION);
+    TypeReference<Map<String, Object>> asMap = new TypeReference<>() {};
+    Map<String, Object> fromSolr =
+        jsonMapper.readValue(jsonMapper.writeValueAsString(raw.get("schema")), asMap);
+
+    Map<String, Object> fromTool =
+        jsonMapper.readValue(
+            jsonMapper.writeValueAsString(schemaService.getSchema(TEST_COLLECTION)), asMap);
+
+    assertEquals(fromSolr, fromTool);
   }
 
   @Test
   void testGetSchema_ReturnsUniqueKey() throws Exception {
     // When
-    SchemaRepresentation schema = schemaService.getSchema(TEST_COLLECTION);
+    CollectionSchema schema = schemaService.getSchema(TEST_COLLECTION);
 
     // Then - verify unique key is accessible
     // Unique key can be null in some schemas, but the method should work
     // Most default schemas have 'id' as unique key
-    if (schema.getUniqueKey() != null) {
-      assertNotNull(schema.getUniqueKey(), "Unique key should be accessible");
+    if (schema.uniqueKey() != null) {
+      assertNotNull(schema.uniqueKey(), "Unique key should be accessible");
     }
   }
 
@@ -218,27 +237,27 @@ class SchemaServiceIntegrationTest {
 
     assertEquals(List.of("addf_title", "addf_platform", "addf_year"), result.addedNames());
 
-    SchemaRepresentation schema = schemaService.getSchema(TEST_COLLECTION);
-    Map<String, Object> title =
-        schema.getFields().stream()
-            .filter(f -> "addf_title".equals(f.get("name")))
+    CollectionSchema schema = schemaService.getSchema(TEST_COLLECTION);
+    CollectionSchema.Field title =
+        schema.fields().stream()
+            .filter(f -> "addf_title".equals(f.name()))
             .findFirst()
             .orElseThrow();
-    Map<String, Object> platform =
-        schema.getFields().stream()
-            .filter(f -> "addf_platform".equals(f.get("name")))
+    CollectionSchema.Field platform =
+        schema.fields().stream()
+            .filter(f -> "addf_platform".equals(f.name()))
             .findFirst()
             .orElseThrow();
-    Map<String, Object> year =
-        schema.getFields().stream()
-            .filter(f -> "addf_year".equals(f.get("name")))
+    CollectionSchema.Field year =
+        schema.fields().stream()
+            .filter(f -> "addf_year".equals(f.name()))
             .findFirst()
             .orElseThrow();
 
-    assertEquals("text_general", title.get("type"));
-    assertEquals("string", platform.get("type"));
-    assertEquals(Boolean.TRUE, platform.get("docValues"));
-    assertEquals("pint", year.get("type"));
+    assertEquals("text_general", title.type());
+    assertEquals("string", platform.type());
+    assertEquals(Boolean.TRUE, platform.docValues());
+    assertEquals("pint", year.type());
   }
 
   @Test
@@ -304,22 +323,22 @@ class SchemaServiceIntegrationTest {
                 "similarityFunction",
                 "cosine")));
 
-    SchemaRepresentation schema = schemaService.getSchema(TEST_COLLECTION);
-    Map<String, Object> vt =
-        schema.getFieldTypes().stream()
-            .filter(t -> "aft_test_vector".equals(t.getAttributes().get("name")))
+    CollectionSchema schema = schemaService.getSchema(TEST_COLLECTION);
+    CollectionSchema.FieldType vt =
+        schema.fieldTypes().stream()
+            .filter(t -> "aft_test_vector".equals(t.name()))
             .findFirst()
-            .orElseThrow()
-            .getAttributes();
+            .orElseThrow();
 
-    assertEquals("solr.DenseVectorField", vt.get("class"));
-    Object vectorDimension = vt.get("vectorDimension");
+    assertEquals("solr.DenseVectorField", vt.className());
+    // vectorDimension has no record component, so it is kept in the catch-all
+    Object vectorDimension = vt.other().get("vectorDimension");
     int vectorDimensionInt =
         vectorDimension instanceof Number n
             ? n.intValue()
             : Integer.parseInt(vectorDimension.toString());
     assertEquals(4, vectorDimensionInt);
-    assertEquals("cosine", vt.get("similarityFunction"));
+    assertEquals("cosine", vt.other().get("similarityFunction"));
   }
 
   @Test
