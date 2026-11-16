@@ -33,7 +33,6 @@ import org.commonmark.node.AbstractVisitor;
 import org.commonmark.node.Code;
 import org.commonmark.node.Heading;
 import org.commonmark.node.Node;
-import org.commonmark.node.SourceSpan;
 import org.commonmark.node.Text;
 import org.commonmark.parser.IncludeSourceSpans;
 import org.commonmark.parser.Parser;
@@ -136,7 +135,9 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
             options,
             new Resolver() {
               @Override
-              protected void addImplicitResolvers() {}
+              protected void addImplicitResolvers() {
+                // Registers none, so every scalar stays a string.
+              }
             });
     this.textContentRenderer = TextContentRenderer.builder().build();
   }
@@ -164,11 +165,7 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
       return List.of();
     }
 
-    List<SolrInputDocument> documents = new ArrayList<>();
-    for (String record : splitRecords(markdown)) {
-      documents.add(createOne(record));
-    }
-    return List.copyOf(documents);
+    return splitRecords(markdown).stream().map(this::createOne).toList();
   }
 
   /** Creates the single document described by one record. */
@@ -291,10 +288,10 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
     if (!(firstChild instanceof YamlFrontMatterBlock block)) {
       return;
     }
-    List<String> lines = new ArrayList<>();
-    for (SourceSpan span : block.getSourceSpans()) {
-      lines.add(markdown.substring(span.getInputIndex(), span.getInputIndex() + span.getLength()));
-    }
+    List<String> lines =
+        block.getSourceSpans().stream()
+            .map(s -> markdown.substring(s.getInputIndex(), s.getInputIndex() + s.getLength()))
+            .toList();
     // The first and last spans are the --- delimiters
     String text = String.join("\n", lines.subList(1, Math.max(1, lines.size() - 1)));
     Object data;
@@ -311,7 +308,9 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
 
   private static void addValue(SolrInputDocument doc, String fieldName, @Nullable Object value) {
     switch (value) {
-      case null -> {}
+      case null -> {
+        // A key with no value, such as `tags:`, adds no field.
+      }
       case Map<?, ?> nested ->
           nested.forEach((key, inner) -> addValue(doc, fieldName + "_" + key, inner));
       case Iterable<?> values -> values.forEach(element -> addValue(doc, fieldName, element));

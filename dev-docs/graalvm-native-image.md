@@ -123,10 +123,10 @@ from the `PROFILES` env var; the native image already made it at *build time*.
 
 Spring AOT generates most hints automatically, but a few types are invisible to
 it and must be registered by hand. They live in
-`SolrConfig`'s sibling `SolrNativeHints.java`, a `@Configuration` annotated
-`@ImportRuntimeHints(...)`. Registering hints through a `RuntimeHintsRegistrar`
-(rather than scattering `@RegisterReflection` annotations) keeps the whole
-reflective surface in one reviewable place. The class is registered
+`SolrNativeHints.java`, a `RuntimeHintsRegistrar` that `SolrConfig` imports with
+`@ImportRuntimeHints(SolrNativeHints.class)`. Registering hints through one
+registrar (rather than scattering `@RegisterReflection` annotations) keeps the
+whole reflective surface in one reviewable place. The registrar is imported
 unconditionally; on the JVM path it is simply a no-op.
 
 ### Wire format choice underpins the small hint surface
@@ -175,7 +175,7 @@ container and value types.
 1. Reproduce with `./gradlew nativeTest -Pnative` (or run the native binary and
    trigger the failing path). GraalVM reports the missing reflective/resource
    element.
-2. Add a targeted registration in `SolrNativeHints.Registrar` — a single
+2. Add a targeted registration in `SolrNativeHints` — a single
    `registerType(...)` with `INVOKE_DECLARED_CONSTRUCTORS`,
    `INVOKE_DECLARED_METHODS`, `DECLARED_FIELDS`, or a `registerPattern(...)` for
    a resource. Prefer this over the tracing agent so the rule is explicit and
@@ -257,6 +257,9 @@ never enter its closed world.
 docker run -i --rm \
     -e SOLR_URL=http://host.docker.internal:8983/solr/ solr-mcp:latest-native-stdio
 docker run -p 8080:8080 --rm -e PROFILES=http \
+    -e OTEL_TRACES_URL=http://host.docker.internal:4318/v1/traces \
+    -e OTEL_METRICS_URL=http://host.docker.internal:4318/v1/metrics \
+    -e OTEL_LOGS_URL=http://host.docker.internal:4318/v1/logs \
     -e SOLR_URL=http://host.docker.internal:8983/solr/ solr-mcp:latest-native-http
 ```
 

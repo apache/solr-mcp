@@ -82,6 +82,24 @@ class LicenseNoticeTasksTest {
     }
 
     @Test
+    fun `license reports an SPDX expression as written`() {
+        val task = licenseTask()
+        write("LICENSE", "BASE").let(task.baseLicense::set)
+        write(
+            "sbom.json",
+            """{"components":[{"group":"org.example","name":"dual","version":"1.0",
+               "licenses":[{"expression":"EPL-2.0 OR GPL-2.0-with-classpath-exception"}]}]}""",
+        ).let(task.sbom::set)
+        task.bundledCoordinates.set(listOf("org.example:dual:1.0"))
+        val out = File(tempDir, "out/LICENSE")
+        task.outputFile.set(out)
+
+        task.generate()
+
+        assertTrue(out.readText().contains("License: EPL-2.0 OR GPL-2.0-with-classpath-exception"))
+    }
+
+    @Test
     fun `license gate fails when a bundled dependency is absent from the SBOM`() {
         val task = licenseTask()
         write("LICENSE", "BASE").let(task.baseLicense::set)

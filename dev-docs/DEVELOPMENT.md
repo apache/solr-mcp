@@ -93,6 +93,19 @@ trivy sbom application.cdx.json
 grype sbom:application.cdx.json
 ```
 
+### Build Scans
+
+CI publishes a [Develocity](https://infra.apache.org/gradle.html) build scan of every Gradle run to the ASF's instance at [develocity.apache.org](https://develocity.apache.org), with task timings, the full test report, failures and the build environment. Fork PRs receive no secrets, so their builds run without publishing.
+
+- [Recent solr-mcp build scans](https://develocity.apache.org/scans?search.rootProjectNames=solr-mcp)
+- [Test history over the last 90 days](https://develocity.apache.org/scans/tests?search.relativeStartTime=P90D&search.rootProjectNames=solr-mcp), useful for spotting flaky tests
+
+Local builds publish only when opted in with `-Pscan`, and only with an access key in `DEVELOCITY_ACCESS_KEY` or provisioned with `./gradlew provisionDevelocityAccessKey`:
+
+```bash
+./gradlew build -Pscan
+```
+
 ## Running Locally
 
 ### Run the Server

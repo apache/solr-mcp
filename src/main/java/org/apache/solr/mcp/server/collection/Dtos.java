@@ -23,24 +23,6 @@ import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Data Transfer Objects (DTOs) for the Apache Solr MCP Server.
- *
- * <p>This package contains all the data transfer objects used to serialize and deserialize Solr
- * metrics, search results, and health status information for Model Context Protocol (MCP) clients.
- * All DTOs use Java records for immutability and Jackson annotations for JSON serialization.
- *
- * <p><strong>Key Features:</strong>
- *
- * <ul>
- *   <li>Automatic null value exclusion from JSON output using
- *       {@code @JsonInclude(JsonInclude.Include.NON_NULL)}
- *   <li>Resilient JSON parsing with {@code @JsonIgnoreProperties(ignoreUnknown = true)}
- *   <li>Immutable data structures using Java records
- *   <li>ISO 8601 timestamp formatting for consistent date serialization
- * </ul>
- */
-
-/**
  * Top-level container for comprehensive Solr collection metrics.
  *
  * <p>This class aggregates various types of Solr performance and operational metrics including
@@ -67,6 +49,13 @@ import org.jspecify.annotations.Nullable;
  * }
  * }</pre>
  *
+ * @param indexStats Index-related statistics including document counts and segment information
+ * @param queryStats Query performance metrics from the most recent search operations
+ * @param cacheStats Cache utilization statistics for query result, document, and filter caches (may
+ *     be null)
+ * @param handlerStats Request handler performance metrics for select and update operations (may be
+ *     null)
+ * @param timestamp Timestamp when these metrics were collected, formatted as ISO 8601
  * @see IndexStats
  * @see QueryStats
  * @see CacheStats
@@ -75,19 +64,10 @@ import org.jspecify.annotations.Nullable;
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record SolrMetrics(
-    /** Index-related statistics including document counts and segment information */
     IndexStats indexStats,
-
-    /** Query performance metrics from the most recent search operations */
     QueryStats queryStats,
-
-    /** Cache utilization statistics for query result, document, and filter caches (may be null) */
     @Nullable CacheStats cacheStats,
-
-    /** Request handler performance metrics for select and update operations (may be null) */
     @Nullable HandlerStats handlerStats,
-
-    /** Timestamp when these metrics were collected, formatted as ISO 8601 */
     @JsonFormat(shape = JsonFormat.Shape.STRING) Instant timestamp) {}
 
 /**
@@ -109,18 +89,14 @@ record SolrMetrics(
  * <p>High segment counts may indicate the need for index optimization to improve search
  * performance. The optimal segment count depends on index size and update frequency.
  *
+ * @param numDocs Total number of documents in the index (excluding deleted documents)
+ * @param segmentCount Number of Lucene segments in the index (lower numbers generally indicate
+ *     better performance)
  * @see org.apache.solr.client.solrj.request.LukeRequest
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-record IndexStats(
-    /** Total number of documents in the index (excluding deleted documents) */
-    @Nullable Integer numDocs,
-
-    /**
-     * Number of Lucene segments in the index (lower numbers generally indicate better performance)
-     */
-    @Nullable Integer segmentCount) {}
+record IndexStats(@Nullable Integer numDocs, @Nullable Integer segmentCount) {}
 
 /**
  * Query execution performance metrics from Solr search operations.
@@ -142,22 +118,15 @@ record IndexStats(
  * <p>Query time metrics help identify slow queries that may need optimization, while result counts
  * and scores provide insight into search effectiveness and relevance tuning needs.
  *
+ * @param queryTime Time in milliseconds required to execute the most recent query
+ * @param totalResults Total number of documents matching the query criteria
+ * @param start Starting position for paginated results (0-based offset)
+ * @param maxScore Highest relevance score among the returned documents
  * @see org.apache.solr.client.solrj.response.QueryResponse
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-record QueryStats(
-    /** Time in milliseconds required to execute the most recent query */
-    Integer queryTime,
-
-    /** Total number of documents matching the query criteria */
-    Long totalResults,
-
-    /** Starting position for paginated results (0-based offset) */
-    Long start,
-
-    /** Highest relevance score among the returned documents */
-    @Nullable Float maxScore) {}
+record QueryStats(Integer queryTime, Long totalResults, Long start, @Nullable Float maxScore) {}
 
 /**
  * Solr cache utilization statistics across all cache types.
@@ -179,18 +148,16 @@ record QueryStats(
  * <p>Poor cache hit ratios may indicate undersized caches or query patterns that don't benefit from
  * caching. Cache evictions suggest memory pressure or cache size optimization needs.
  *
+ * @param queryResultCache Performance metrics for the query result cache
+ * @param documentCache Performance metrics for the document cache
+ * @param filterCache Performance metrics for the filter cache
  * @see CacheInfo
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record CacheStats(
-    /** Performance metrics for the query result cache */
     @Nullable CacheInfo queryResultCache,
-
-    /** Performance metrics for the document cache */
     @Nullable CacheInfo documentCache,
-
-    /** Performance metrics for the filter cache */
     @Nullable CacheInfo filterCache) {}
 
 /**
@@ -213,26 +180,22 @@ record CacheStats(
  *
  * <p>Optimal cache performance typically shows high hit ratios (>0.80) with minimal evictions. High
  * eviction rates suggest cache size increases may improve performance.
+ *
+ * @param lookups Total number of cache lookup requests
+ * @param hits Number of successful cache hits
+ * @param hitratio Cache hit ratio (hits/lookups) - higher values indicate better cache performance
+ * @param inserts Number of new entries added to the cache
+ * @param evictions Number of entries removed due to cache size limits (indicates memory pressure)
+ * @param size Current number of entries stored in the cache
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record CacheInfo(
-    /** Total number of cache lookup requests */
     @Nullable Long lookups,
-
-    /** Number of successful cache hits */
     @Nullable Long hits,
-
-    /** Cache hit ratio (hits/lookups) - higher values indicate better cache performance */
     @Nullable Float hitratio,
-
-    /** Number of new entries added to the cache */
     @Nullable Long inserts,
-
-    /** Number of entries removed due to cache size limits (indicates memory pressure) */
     @Nullable Long evictions,
-
-    /** Current number of entries stored in the cache */
     @Nullable Long size) {}
 
 /**
@@ -254,16 +217,13 @@ record CacheInfo(
  * <p>Handler metrics help identify bottlenecks in request processing and guide capacity planning
  * decisions. High error rates or response times indicate potential optimization needs.
  *
+ * @param selectHandler Performance metrics for the search/select request handler
+ * @param updateHandler Performance metrics for the document update request handler
  * @see HandlerInfo
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-record HandlerStats(
-    /** Performance metrics for the search/select request handler */
-    @Nullable HandlerInfo selectHandler,
-
-    /** Performance metrics for the document update request handler */
-    @Nullable HandlerInfo updateHandler) {}
+record HandlerStats(@Nullable HandlerInfo selectHandler, @Nullable HandlerInfo updateHandler) {}
 
 /**
  * Detailed performance metrics for individual Solr request handlers.
@@ -285,26 +245,22 @@ record HandlerStats(
  *
  * <p>High error rates may indicate system stress or configuration issues. Increasing response times
  * suggest capacity limits or optimization needs.
+ *
+ * @param requests Total number of requests processed by this handler
+ * @param errors Number of requests that resulted in errors
+ * @param timeouts Number of requests that exceeded timeout limits
+ * @param totalTime Cumulative time spent processing all requests (milliseconds)
+ * @param avgTimePerRequest Average time per request in milliseconds
+ * @param avgRequestsPerSecond Average throughput in requests per second
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record HandlerInfo(
-    /** Total number of requests processed by this handler */
     @Nullable Long requests,
-
-    /** Number of requests that resulted in errors */
     @Nullable Long errors,
-
-    /** Number of requests that exceeded timeout limits */
     @Nullable Long timeouts,
-
-    /** Cumulative time spent processing all requests (milliseconds) */
     @Nullable Long totalTime,
-
-    /** Average time per request in milliseconds */
     @Nullable Float avgTimePerRequest,
-
-    /** Average throughput in requests per second */
     @Nullable Float avgRequestsPerSecond) {}
 
 /**
@@ -336,26 +292,22 @@ record HandlerInfo(
  * 	logger.error("Collection unhealthy: " + status.getErrorMessage());
  * }
  * }</pre>
+ *
+ * @param isHealthy Overall health status - true if collection is operational and responding
+ * @param errorMessage Detailed error message when isHealthy is false, null when healthy
+ * @param responseTime Response time in milliseconds for the health check ping request
+ * @param totalDocuments Total number of documents currently indexed in the collection
+ * @param lastChecked Timestamp when this health check was performed, formatted as ISO 8601
+ * @param collection Name of the collection that was checked
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record SolrHealthStatus(
-    /** Overall health status - true if collection is operational and responding */
     boolean isHealthy,
-
-    /** Detailed error message when isHealthy is false, null when healthy */
     @Nullable String errorMessage,
-
-    /** Response time in milliseconds for the health check ping request */
     @Nullable Long responseTime,
-
-    /** Total number of documents currently indexed in the collection */
     @Nullable Long totalDocuments,
-
-    /** Timestamp when this health check was performed, formatted as ISO 8601 */
     @JsonFormat(shape = JsonFormat.Shape.STRING) Instant lastChecked,
-
-    /** Name of the collection that was checked */
     String collection) {}
 
 /**
@@ -364,18 +316,16 @@ record SolrHealthStatus(
  * <p>Returned by the {@code create-collection} MCP tool to communicate the outcome of a collection
  * creation request. On success, {@code success} is {@code true} and {@code createdAt} records when
  * the operation completed.
+ *
+ * @param name Name of the collection that was created
+ * @param success Whether the collection was successfully created
+ * @param message Optional message describing the outcome
+ * @param createdAt Timestamp when the collection was created, formatted as ISO 8601
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record CollectionCreationResult(
-    /** Name of the collection that was created */
     String name,
-
-    /** Whether the collection was successfully created */
     boolean success,
-
-    /** Optional message describing the outcome */
     String message,
-
-    /** Timestamp when the collection was created, formatted as ISO 8601 */
     @JsonFormat(shape = JsonFormat.Shape.STRING) Instant createdAt) {}

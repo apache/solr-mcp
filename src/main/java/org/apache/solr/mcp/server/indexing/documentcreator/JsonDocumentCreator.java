@@ -24,7 +24,7 @@ import org.apache.solr.common.SolrInputDocument;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Utility class for processing JSON documents and converting them to SolrInputDocument objects.
@@ -35,14 +35,14 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class JsonDocumentCreator implements SolrDocumentCreator {
 
-  private final ObjectMapper objectMapper;
+  private final JsonMapper objectMapper;
 
   /**
-   * Constructs the creator with the Jackson {@link ObjectMapper} used to parse incoming JSON.
+   * Constructs the creator with the Jackson {@link JsonMapper} used to parse incoming JSON.
    *
    * @param objectMapper the JSON parser injected by Spring
    */
-  public JsonDocumentCreator(ObjectMapper objectMapper) {
+  public JsonDocumentCreator(JsonMapper objectMapper) {
     this.objectMapper = objectMapper;
   }
 
@@ -218,14 +218,14 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
    *     be added
    */
   private void processArrayField(SolrInputDocument doc, JsonNode arrayValue, String fieldName) {
-    List<Object> values = new ArrayList<>();
-    for (JsonNode item : arrayValue) {
-      // Skip objects and nested arrays alike: neither has a scalar
-      // representation, and asString() on a container node throws.
-      if (!item.isObject() && !item.isArray()) {
-        values.add(convertJsonValue(item));
-      }
-    }
+    // Skip objects and nested arrays alike: neither has a scalar
+    // representation, and asString() on a container node throws.
+    List<Object> values =
+        arrayValue
+            .valueStream()
+            .filter(item -> !item.isContainer())
+            .map(this::convertJsonValue)
+            .toList();
     if (!values.isEmpty()) {
       doc.addField(fieldName, values);
     }

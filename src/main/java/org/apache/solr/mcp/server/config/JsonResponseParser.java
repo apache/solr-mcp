@@ -30,7 +30,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.http.MediaType;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * SolrJ {@link ResponseParser} that requests JSON wire format ({@code wt=json}) and converts the
@@ -64,9 +64,9 @@ import tools.jackson.databind.ObjectMapper;
  */
 class JsonResponseParser extends ResponseParser {
 
-  private final ObjectMapper mapper;
+  private final JsonMapper mapper;
 
-  JsonResponseParser(ObjectMapper mapper) {
+  JsonResponseParser(JsonMapper mapper) {
     this.mapper = mapper;
   }
 
