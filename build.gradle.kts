@@ -197,6 +197,7 @@ dependencies {
     errorprone(libs.nullaway)
 
     testImplementation(libs.bundles.test)
+    testImplementation(libs.bundles.eval)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
@@ -252,6 +253,10 @@ tasks.withType<Test> {
         if (name != "dockerIntegrationTest") {
             excludeTags("docker-integration")
         }
+        // LLM evals call a hosted model, so only ./gradlew eval runs them
+        if (name != "eval") {
+            excludeTags("llm-eval")
+        }
     }
     // McpClientStdioIntegrationTest spawns `java -jar build/libs/<bootJar>` as a
     // subprocess. Without an explicit dependency, `:test` runs before `:bootJar`
@@ -263,7 +268,7 @@ tasks.withType<Test> {
     // Forward the Testcontainers image pins (or a per-run -D override) to test JVMs.
     systemProperty("solr.test.image", solrTestImage)
     systemProperty("lgtm.test.image", lgtmTestImage)
-    if (name != "dockerIntegrationTest") {
+    if (name != "dockerIntegrationTest" && name != "eval") {
         finalizedBy(tasks.jacocoTestReport)
     }
 }
@@ -415,6 +420,41 @@ changelog {
     repositoryUrl = "https://github.com/apache/solr-mcp"
     versionPrefix = "releases/solr-mcp/"
     groups = listOf("Added", "Changed", "Fixed", "Security")
+}
+
+// LLM Tool-Selection Evals
+// ========================
+// Opt-in: checks whether a model, given only the server's tool descriptions, picks the
+// right tool and arguments (https://github.com/apache/solr-mcp/issues/256). Needs Docker
+// and OPENAI_API_KEY; ./gradlew build never runs it. The agent uses Spring AI's OpenAI
+// defaults, so nothing is configured here.
+//
+//   ./gradlew eval                  # each scenario 5 times
+//   ./gradlew eval -Peval.runs=10
+tasks.register<Test>("eval") {
+    description = "Runs the LLM tool-selection evals (needs OPENAI_API_KEY)"
+    group = "verification"
+
+    useJUnitPlatform {
+        includeTags("llm-eval")
+    }
+
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+
+    // Model output varies between runs, so never reuse a previous result
+    outputs.upToDateWhen { false }
+    // Runs per scenario: ./gradlew eval -Peval.runs=10
+    systemProperty("eval.runs", providers.gradleProperty("eval.runs").getOrElse("5"))
+
+    // The jar the MCP client starts (application-integration-test.properties)
+    val bootJarFile = tasks.bootJar.flatMap { it.archiveFile }
+    doFirst { systemProperty("solr.mcp.jar", bootJarFile.get().asFile.absolutePath) }
+
+    reports {
+        html.outputLocation.set(layout.buildDirectory.dir("reports/eval"))
+        junitXml.outputLocation.set(layout.buildDirectory.dir("test-results/eval"))
+    }
 }
 
 // Docker Integration Test Task

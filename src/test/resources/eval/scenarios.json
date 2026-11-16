@@ -1,0 +1,11 @@
+[
+  {
+    "id": "workshops-by-type",
+    "prompt": "List the workshops in the devnexus collection.",
+    "tool": "search",
+    "args": {
+      "collection": "devnexus",
+      "filterQueries": ["session_type:Workshop"]
+    }
+  }
+]
