@@ -19,7 +19,6 @@ package org.apache.solr.mcp.server.collection;
 import static org.apache.solr.mcp.server.collection.CollectionUtils.getFloat;
 import static org.apache.solr.mcp.server.collection.CollectionUtils.getInteger;
 import static org.apache.solr.mcp.server.collection.CollectionUtils.getLong;
-import static org.apache.solr.mcp.server.util.JsonUtils.toJson;
 
 import io.micrometer.observation.annotation.Observed;
 import io.modelcontextprotocol.spec.McpSchema.CompleteRequest;
@@ -57,7 +56,7 @@ import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
-import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Spring Service providing comprehensive Solr collection management and monitoring capabilities for
@@ -129,15 +128,16 @@ public class CollectionService {
 
   private static final Logger logger = LoggerFactory.getLogger(CollectionService.class);
 
+  static final String COLLECTIONS_RESOURCE_ERROR =
+      "Failed to list Solr collections. Retry later; if it persists,"
+          + " ask the operator to check Solr availability and the server logs.";
+
   // ========================================
   // Constants for API Parameters and Paths
   // ========================================
 
   /** Universal Solr query pattern to match all documents in a collection */
   private static final String ALL_DOCUMENTS_QUERY = "*:*";
-
-  /** Suffix pattern used to identify shard names in SolrCloud deployments */
-  private static final String SHARD_SUFFIX = "_shard";
 
   /**
    * Matches a SolrCloud shard/replica suffix at the end of a core name, e.g. {@code _shard1} or
@@ -269,7 +269,7 @@ public class CollectionService {
   /** SolrJ client for communicating with Solr server */
   private final SolrClient solrClient;
 
-  private final ObjectMapper objectMapper;
+  private final JsonMapper objectMapper;
 
   /**
    * Constructs a new CollectionService with the required dependencies.
@@ -278,11 +278,11 @@ public class CollectionService {
    * application startup.
    *
    * @param solrClient the SolrJ client instance for communicating with Solr
-   * @param objectMapper the Jackson ObjectMapper for JSON serialization
+   * @param objectMapper the Jackson JsonMapper for JSON serialization
    * @see SolrClient
    * @see SolrConfigurationProperties
    */
-  public CollectionService(SolrClient solrClient, ObjectMapper objectMapper) {
+  public CollectionService(SolrClient solrClient, JsonMapper objectMapper) {
     this.solrClient = solrClient;
     this.objectMapper = objectMapper;
   }
@@ -308,8 +308,8 @@ public class CollectionService {
    * available in the Solr cluster. The returned JSON contains an array of collection names.
    *
    * @return JSON string containing the list of collections
-   * @throws SolrServerException if there are errors communicating with Solr
-   * @throws IOException if there are I/O errors during communication
+   * @throws IllegalStateException with {@link #COLLECTIONS_RESOURCE_ERROR} if the collections
+   *     cannot be listed or serialized
    */
   @PreAuthorize("isAuthenticated()")
   @McpResource(
@@ -317,8 +317,16 @@ public class CollectionService {
       name = "solr-collections",
       description = "List of all Solr collections available in the cluster",
       mimeType = "application/json")
-  public String getCollectionsResource() throws SolrServerException, IOException {
-    return toJson(objectMapper, listCollections());
+  public String getCollectionsResource() {
+    try {
+      return objectMapper.writeValueAsString(listCollections());
+    } catch (Exception e) {
+      // Deliberately no cause: MCP reports the root cause's message to the client,
+      // and Solr and SolrJ failure text can carry internal host names, URLs and
+      // paths. The log is the sole record of the cause.
+      logger.error("Failed to list collections for the collections resource", e);
+      throw new IllegalStateException(COLLECTIONS_RESOURCE_ERROR);
+    }
   }
 
   /** Maximum number of completion suggestions returned per request. */
@@ -339,13 +347,13 @@ public class CollectionService {
   @PreAuthorize("isAuthenticated()")
   @McpComplete(uri = "solr://{collection}/schema")
   public List<String> completeCollection(CompleteRequest.CompleteArgument argument) {
-    if (argument == null || !"collection".equals(argument.name())) {
+    if (!"collection".equals(argument.name())) {
       return List.of();
     }
-    String prefix = argument.value() == null ? "" : argument.value().toLowerCase(Locale.ROOT);
+    String prefix = argument.value().toLowerCase(Locale.ROOT);
     try {
       return listCollections().stream()
-          .filter(c -> c != null && c.toLowerCase(Locale.ROOT).startsWith(prefix))
+          .filter(c -> c.toLowerCase(Locale.ROOT).startsWith(prefix))
           .sorted()
           .limit(MAX_COMPLETION_RESULTS)
           .toList();
@@ -678,7 +686,7 @@ public class CollectionService {
   }
 
   @SuppressWarnings("unchecked")
-  private @Nullable CacheInfo extractSingleCacheInfo(NamedList<Object> coreMetrics, String key) {
+  private @Nullable CacheInfo extractSingleCacheInfo(NamedList<?> coreMetrics, String key) {
     NamedList<Object> cache = (NamedList<Object>) coreMetrics.get(key);
     if (cache == null) {
       return null;
@@ -755,10 +763,10 @@ public class CollectionService {
    * collection is not enabled.
    *
    * @param stats the handler statistics to evaluate
-   * @return true if the stats are null or all handler types are null
+   * @return true if all handler types are null
    */
   private boolean isHandlerStatsEmpty(HandlerStats stats) {
-    return stats == null || (stats.selectHandler() == null && stats.updateHandler() == null);
+    return stats.selectHandler() == null && stats.updateHandler() == null;
   }
 
   /**
@@ -779,14 +787,14 @@ public class CollectionService {
     GenericSolrRequest request =
         new GenericSolrRequest(SolrRequest.METHOD.GET, ADMIN_METRICS_PATH, params);
 
-    NamedList<Object> response;
+    NamedList<?> response;
     try {
       response = solrClient.request(request);
     } catch (SolrServerException | IOException | SolrException e) {
       logger.debug("Cache/handler metrics unavailable for collection: {}", collection, e);
       return null;
     }
-    NamedList<Object> metrics = (NamedList<Object>) response.get(METRICS_KEY);
+    NamedList<?> metrics = (NamedList<?>) response.get(METRICS_KEY);
     if (metrics == null || metrics.size() == 0) {
       return null;
     }
@@ -836,7 +844,7 @@ public class CollectionService {
    * <p><strong>Extraction Logic:</strong>
    *
    * <ul>
-   *   <li>Detects shard patterns containing the {@value #SHARD_SUFFIX} suffix
+   *   <li>Detects a trailing {@code _shard<N>} or {@code _shard<N>_replica...} suffix
    *   <li>Returns the substring before the shard identifier
    *   <li>Returns the original string if no shard pattern is detected
    * </ul>
@@ -853,10 +861,6 @@ public class CollectionService {
    * @return the extracted collection name, or the original string if no shard pattern found
    */
   String extractCollectionName(String collectionOrShard) {
-    if (collectionOrShard == null || collectionOrShard.isEmpty()) {
-      return collectionOrShard;
-    }
-
     // Strip only a real SolrCloud shard/replica suffix. Matching a bare
     // "_shard" anywhere would truncate legitimate collection names such as
     // "orders_shard_archive" down to "orders".
@@ -975,7 +979,7 @@ public class CollectionService {
           @Nullable Integer replicationFactor)
       throws SolrServerException, IOException {
 
-    if (name == null || name.isBlank()) {
+    if (name.isBlank()) {
       throw new IllegalArgumentException(BLANK_COLLECTION_NAME_ERROR);
     }
 
@@ -1055,7 +1059,7 @@ public class CollectionService {
               description =
                   "Optional one-line description of what the collection is for (used only to ground the conversation).",
               required = false)
-          String purpose) {
+          @Nullable String purpose) {
     String purposeLine =
         (purpose == null || purpose.isBlank()) ? "" : "\nPurpose: %s\n".formatted(purpose.strip());
     return """

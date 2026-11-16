@@ -213,14 +213,12 @@ class McpToolRegistrationTest {
 
     // Verify first parameter (collection) is required
     McpToolParam firstParam = parameters[0].getAnnotation(McpToolParam.class);
-    assertTrue(
-        firstParam.required() || !firstParam.required(),
-        "First parameter annotation should specify required status");
+    assertTrue(firstParam.required(), "The collection parameter should be required");
 
     // Verify optional parameters have required=false
     for (int i = 1; i < parameters.length; i++) {
       McpToolParam param = parameters[i].getAnnotation(McpToolParam.class);
-      // Optional parameters should be marked as such in description or required flag
+      assertFalse(param.required(), parameters[i].getName() + " should be optional");
       assertNotNull(
           param.description(), "Parameter should have description indicating if it's optional");
     }

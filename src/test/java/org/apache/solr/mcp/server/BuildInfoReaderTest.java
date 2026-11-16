@@ -18,6 +18,7 @@ package org.apache.solr.mcp.server;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,7 +35,7 @@ class BuildInfoReaderTest {
 
   private static final String SUFFIX_PROPERTY = "solr.mcp.docker.image.tag.suffix";
 
-  private String previousSuffix;
+  private @Nullable String previousSuffix;
 
   @BeforeEach
   void captureSuffixProperty() {

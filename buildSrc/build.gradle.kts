@@ -22,12 +22,6 @@ plugins {
     `kotlin-dsl`
 }
 
-repositories {
-    mavenCentral()
-    // Hosts the Apache RAT plugin marker below — it is not published to Maven Central.
-    gradlePluginPortal()
-}
-
 dependencies {
     // Makes the Apache RAT plugin (id `org.nosphere.apache.rat`) available to the
     // `org.apache.solr.mcp.rat` convention plugin's `plugins {}` block. The version lives

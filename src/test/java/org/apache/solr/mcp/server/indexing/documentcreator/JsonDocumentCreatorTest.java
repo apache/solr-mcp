@@ -26,7 +26,6 @@ import java.util.Map;
 import java.util.TreeMap;
 import org.apache.solr.common.SolrInputDocument;
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -37,12 +36,12 @@ import tools.jackson.databind.json.JsonMapper;
  */
 class JsonDocumentCreatorTest {
 
-  private final ObjectMapper objectMapper = JsonMapper.builder().build();
+  private final JsonMapper objectMapper = JsonMapper.builder().build();
 
   private final JsonDocumentCreator creator = new JsonDocumentCreator(objectMapper);
 
   @Test
-  void objectsAndStringProduceTheSameDocuments() throws Exception {
+  void objectsAndStringProduceTheSameDocuments() {
     List<Map<String, Object>> objects =
         List.of(
             show("netflix-001", "Stranger Things", 8.7, true, "Sci-Fi", "Horror"),
@@ -75,18 +74,6 @@ class JsonDocumentCreatorTest {
   @Test
   void emptyListIsRejected() {
     assertThatThrownBy(() -> creator.create(List.of()))
-        .isInstanceOf(DocumentProcessingException.class)
-        .hasMessage("JSON input cannot be empty");
-  }
-
-  /**
-   * A missing {@code documents} argument arrives as null. The creator owns the "nothing to index"
-   * policy for both entry points, so it reports null the same way it reports empty rather than
-   * letting the service NPE.
-   */
-  @Test
-  void nullListIsRejected() {
-    assertThatThrownBy(() -> creator.create((List<Map<String, Object>>) null))
         .isInstanceOf(DocumentProcessingException.class)
         .hasMessage("JSON input cannot be empty");
   }

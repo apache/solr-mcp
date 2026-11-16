@@ -23,6 +23,7 @@ import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import java.util.List;
 import java.util.function.Predicate;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Helper utilities for asserting on distributed traces in tests.
@@ -165,7 +166,7 @@ public class TraceAssertions {
    * @param spanName the span name to search for
    * @return the first matching span, or null if not found
    */
-  public static SpanData findSpan(List<SpanData> spans, String spanName) {
+  public static @Nullable SpanData findSpan(List<SpanData> spans, String spanName) {
     return spans.stream()
         .filter(span -> span.getName().contains(spanName))
         .findFirst()

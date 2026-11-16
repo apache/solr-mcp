@@ -58,8 +58,6 @@ class SortClauseTest {
   @Test
   void rejectsMissingField() {
     assertThrows(
-        IllegalArgumentException.class, () -> new SortClause(null, "asc").toSolrSortClause());
-    assertThrows(
         IllegalArgumentException.class, () -> new SortClause(" ", "asc").toSolrSortClause());
   }
 }

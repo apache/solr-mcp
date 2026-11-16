@@ -145,6 +145,49 @@ The server implements MCP argument autocompletion, so clients can suggest valid 
 
 Suggestions are matched case-insensitively by prefix and capped per request.
 
+## Screenshots
+
+**Claude Desktop (STDIO)** — answering a question about the `films` collection with the server's tools:
+
+![Claude Desktop calling Solr MCP tools over STDIO](images/claude-stdio.png)
+
+<details>
+<summary><b>MCP Inspector</b> — STDIO, HTTP, OAuth2, resources, prompts and completions</summary>
+
+**STDIO** — the Inspector launches the server with `java -jar`; the protocol log shows the tool, prompt and resource lists coming back:
+
+![MCP Inspector connected to the server over STDIO](images/mcp-inspector-stdio.png)
+
+**HTTP** — connected over Streamable HTTP at `http://localhost:8080/mcp`. Without a token the client connects and lists tools; calling them needs a bearer token:
+
+![MCP Inspector connected to the server over Streamable HTTP](images/mcp-inspector-http.png)
+
+**HTTP with OAuth2** — the bearer token goes in the server's **Settings → Custom Headers**:
+
+![MCP Inspector custom Authorization header](images/mcp-inspector-http-oauth-headers.png)
+
+With a valid token, tool calls succeed — here `check-health` on `films`:
+
+![MCP Inspector check-health succeeding with a bearer token](images/mcp-inspector-http-oauth-success.png)
+
+Without one, every tool call returns `Access Denied`:
+
+![MCP Inspector search denied without a bearer token](images/mcp-inspector-http-oauth-failure.png)
+
+**Resources** — reading `solr://collections`:
+
+![MCP Inspector reading the solr://collections resource](images/mcp-inspector-list-resources.png)
+
+**Completions** — the `{collection}` argument of `solr://{collection}/schema` completes to live collection names:
+
+![MCP Inspector completing the collection argument](images/mcp-inspector-resource-completion.png)
+
+**Prompts** — the `collection` argument of `search-collection` completes the same way:
+
+![MCP Inspector completing a prompt's collection argument](images/mcp-inspector-prompt-completion.png)
+
+</details>
+
 ## Configuration
 
 The server reads configuration from environment variables. The essentials:

@@ -388,15 +388,6 @@ class IndexingServiceTest {
   }
 
   @Test
-  void indexMarkdownDocuments_WithNullDocuments_ThrowsIllegalArgumentException() {
-    IllegalArgumentException ex =
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> indexingService.indexMarkdownDocuments("test_collection", null));
-    assertEquals("documents cannot be null", ex.getMessage());
-  }
-
-  @Test
   void indexDataPrompt_jsonPath_referencesIndexJsonDocuments() {
     String sample =
         """

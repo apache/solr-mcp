@@ -18,6 +18,7 @@ package org.apache.solr.mcp.server.search;
 
 import java.util.Locale;
 import org.apache.solr.client.solrj.request.SolrQuery;
+import org.jspecify.annotations.Nullable;
 import org.springframework.util.StringUtils;
 
 /**
@@ -31,7 +32,7 @@ import org.springframework.util.StringUtils;
  * @param order the sort direction, {@code asc} or {@code desc} (case insensitive); defaults to
  *     {@code asc} when omitted
  */
-public record SortClause(String field, String order) {
+public record SortClause(String field, @Nullable String order) {
 
   /** Default sort order applied when {@code order} is omitted. */
   private static final String DEFAULT_ORDER = "asc";

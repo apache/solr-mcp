@@ -130,10 +130,10 @@ public class AliasService {
           String collections)
       throws SolrServerException, IOException {
 
-    if (aliasName == null || aliasName.isBlank()) {
+    if (aliasName.isBlank()) {
       throw new IllegalArgumentException(BLANK_ALIAS_NAME_ERROR);
     }
-    if (collections == null || collections.isBlank()) {
+    if (collections.isBlank()) {
       throw new IllegalArgumentException(BLANK_COLLECTIONS_ERROR);
     }
 
@@ -176,7 +176,7 @@ public class AliasService {
       @McpToolParam(description = "Name of the alias to delete") String aliasName)
       throws SolrServerException, IOException {
 
-    if (aliasName == null || aliasName.isBlank()) {
+    if (aliasName.isBlank()) {
       throw new IllegalArgumentException(BLANK_ALIAS_NAME_ERROR);
     }
 

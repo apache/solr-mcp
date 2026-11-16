@@ -40,7 +40,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.testcontainers.containers.SolrContainer;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /** Integration tests for IndexingService using a real Solr instance via Testcontainers. */
@@ -52,7 +51,6 @@ class IndexingServiceIntegrationTest {
 
   private static final String COLLECTION_NAME = "indexing_test_" + System.currentTimeMillis();
   private static boolean initialized = false;
-  @Autowired private SolrContainer solrContainer;
   @Autowired private IndexingDocumentCreator indexingDocumentCreator;
   @Autowired private IndexingService indexingService;
   @Autowired private SearchService searchService;
@@ -71,7 +69,7 @@ class IndexingServiceIntegrationTest {
   }
 
   @Test
-  void testCreateSchemalessDocumentsFromJson() throws Exception {
+  void testCreateSchemalessDocumentsFromJson() {
     // Test JSON string
     String json =
         """
@@ -124,9 +122,6 @@ class IndexingServiceIntegrationTest {
       } else {
         assertEquals(true, inStockValue);
       }
-    } else {
-      // If inStock is not present in the document, we'll skip this assertion
-      // Removed debug print statement
     }
 
     Object authorValue = doc.getFieldValue("author");
@@ -642,7 +637,7 @@ class IndexingServiceIntegrationTest {
   }
 
   @Test
-  void testNonArrayJsonInput() throws Exception {
+  void testNonArrayJsonInput() {
     // Test JSON string that is not an array but a single object
     String json =
         """
@@ -667,7 +662,7 @@ class IndexingServiceIntegrationTest {
   }
 
   @Test
-  void testConvertJsonValueTypes() throws Exception {
+  void testConvertJsonValueTypes() {
     // Test JSON with different value types
     String json =
         """
@@ -703,7 +698,7 @@ class IndexingServiceIntegrationTest {
   }
 
   @Test
-  void testDirectFieldNamesAreUsedAsGiven() throws Exception {
+  void testDirectFieldNamesAreUsedAsGiven() {
     String json =
         """
 				[

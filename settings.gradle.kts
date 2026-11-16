@@ -16,3 +16,12 @@
  */
 
 rootProject.name = "solr-mcp"
+
+// Repositories are declared once here (not per project) so every project resolves
+// dependencies from the same place. See
+// https://docs.gradle.org/current/userguide/best_practices_dependencies.html#set_up_repositories_in_settings
+dependencyResolutionManagement {
+    repositories {
+        mavenCentral()
+    }
+}

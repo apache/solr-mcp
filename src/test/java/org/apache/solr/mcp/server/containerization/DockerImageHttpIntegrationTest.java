@@ -131,22 +131,19 @@ class DockerImageHttpIntegrationTest {
                   .forPort(HTTP_PORT)
                   .withStartupTimeout(Duration.ofSeconds(60)));
 
-  private static HttpClient httpClient;
-  private static String baseUrl;
+  private static final HttpClient httpClient =
+      HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 
   @BeforeAll
   static void setup() {
     log.info("Solr container started. Internal URL: http://solr:8983/solr/");
     log.info("MCP Server container started in HTTP mode");
+    log.info("MCP Server HTTP endpoint available at: {}", baseUrl());
+  }
 
-    // Initialize HTTP client
-    httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
-
-    // Get the mapped port for accessing the container from the host
-    Integer mappedPort = mcpServerContainer.getMappedPort(HTTP_PORT);
-    baseUrl = "http://localhost:" + mappedPort;
-
-    log.info("MCP Server HTTP endpoint available at: {}", baseUrl);
+  /** The MCP server's HTTP endpoint, through the port the container is mapped to on the host. */
+  private static String baseUrl() {
+    return "http://localhost:" + mcpServerContainer.getMappedPort(HTTP_PORT);
   }
 
   @Test
@@ -202,7 +199,7 @@ class DockerImageHttpIntegrationTest {
     // Test that the HTTP endpoint is accessible
     HttpRequest request =
         HttpRequest.newBuilder()
-            .uri(URI.create(baseUrl + "/actuator/health"))
+            .uri(URI.create(baseUrl() + "/actuator/health"))
             .timeout(Duration.ofSeconds(10))
             .GET()
             .build();

@@ -16,6 +16,8 @@
  */
 package org.apache.solr.mcp.server.util;
 
+import org.jspecify.annotations.Nullable;
+
 /** Shared text-shaping helpers for {@code @McpPrompt} method bodies. */
 public final class PromptText {
 
@@ -33,7 +35,8 @@ public final class PromptText {
    * @param absentLine the full bullet line for the "no content" case
    * @return a string ready to be interpolated into a Java text block
    */
-  public static String optionalCodeBlock(String content, String presentLead, String absentLine) {
+  public static String optionalCodeBlock(
+      @Nullable String content, String presentLead, String absentLine) {
     if (content == null || content.isBlank()) {
       return "   - " + absentLine;
     }

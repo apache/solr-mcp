@@ -30,8 +30,6 @@ import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest.MultiUpdate;
-import org.apache.solr.client.solrj.response.schema.SchemaRepresentation;
-import org.apache.solr.client.solrj.response.schema.SchemaResponse;
 import org.apache.solr.common.util.NamedList;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,7 +38,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Comprehensive test suite for the SchemaService class. Tests schema retrieval functionality with
@@ -52,11 +50,7 @@ class SchemaServiceTest {
 
   @Mock private SolrClient solrClient;
 
-  @Mock private ObjectMapper objectMapper;
-
-  @Mock private SchemaResponse schemaResponse;
-
-  @Mock private SchemaRepresentation schemaRepresentation;
+  @Mock private JsonMapper objectMapper;
 
   private SchemaService schemaService;
 
@@ -126,15 +120,22 @@ class SchemaServiceTest {
   }
 
   @Test
-  void testGetSchema_WithNullCollection() {
-    // Given a null collection name
-    // Then should throw an exception (NullPointerException or
-    // IllegalArgumentException)
-    assertThrows(
-        Exception.class,
-        () -> {
-          schemaService.getSchema(null);
-        });
+  void testGetSchemaResource_SolrFailure_DoesNotLeakCause() throws Exception {
+    // Given
+    final String collectionName = "test_collection";
+    when(solrClient.request(any(SchemaRequest.class), eq(collectionName)))
+        .thenThrow(
+            new SolrServerException(
+                "Server refused connection at: http://solr-internal.corp:8983/solr"));
+
+    // When
+    IllegalStateException e =
+        assertThrows(
+            IllegalStateException.class, () -> schemaService.getSchemaResource(collectionName));
+
+    // Then the client gets the fixed message, never the Solr failure text
+    assertEquals(SchemaService.SCHEMA_RESOURCE_ERROR, e.getMessage());
+    assertNull(e.getCause());
   }
 
   @Test
@@ -156,19 +157,7 @@ class SchemaServiceTest {
   }
 
   @Test
-  void testConstructor_WithNullClient() {
-    // Test constructor with null client
-    assertDoesNotThrow(
-        () -> {
-          new SchemaService(null, objectMapper);
-        });
-  }
-
-  @Test
   void addFields_blankCollection_throws() {
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> schemaService.addFields(null, List.of(Map.of("name", "x", "type", "string"))));
     assertThrows(
         IllegalArgumentException.class,
         () -> schemaService.addFields("", List.of(Map.of("name", "x", "type", "string"))));
@@ -179,7 +168,6 @@ class SchemaServiceTest {
 
   @Test
   void addFields_emptyList_throws() {
-    assertThrows(IllegalArgumentException.class, () -> schemaService.addFields("col", null));
     assertThrows(IllegalArgumentException.class, () -> schemaService.addFields("col", List.of()));
   }
 
@@ -228,11 +216,6 @@ class SchemaServiceTest {
         IllegalArgumentException.class,
         () ->
             schemaService.addFieldTypes(
-                null, List.of(Map.of("name", "x", "class", "solr.StrField"))));
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            schemaService.addFieldTypes(
                 "", List.of(Map.of("name", "x", "class", "solr.StrField"))));
     assertThrows(
         IllegalArgumentException.class,
@@ -243,15 +226,14 @@ class SchemaServiceTest {
 
   @Test
   void addFieldTypes_emptyList_throws() {
-    assertThrows(IllegalArgumentException.class, () -> schemaService.addFieldTypes("col", null));
     assertThrows(
         IllegalArgumentException.class, () -> schemaService.addFieldTypes("col", List.of()));
   }
 
   @Test
   void addFieldTypes_happyPathWithAnalyzer_buildsCorrectFieldTypeDefinition() throws Exception {
-    // Use a real ObjectMapper so convertValue actually works
-    ObjectMapper realMapper = new ObjectMapper();
+    // Use a real JsonMapper so convertValue actually works
+    JsonMapper realMapper = JsonMapper.builder().build();
     SchemaService service = new SchemaService(solrClient, realMapper);
 
     List<Map<String, Object>> types =
@@ -281,7 +263,7 @@ class SchemaServiceTest {
 
   @Test
   void addFieldTypes_separateAnalyzers_buildsCorrectFieldTypeDefinition() throws Exception {
-    ObjectMapper realMapper = new ObjectMapper();
+    JsonMapper realMapper = JsonMapper.builder().build();
     SchemaService service = new SchemaService(solrClient, realMapper);
 
     List<Map<String, Object>> types =
@@ -321,7 +303,7 @@ class SchemaServiceTest {
 
   @Test
   void addFieldTypes_denseVectorField_noAnalyzer() throws Exception {
-    ObjectMapper realMapper = new ObjectMapper();
+    JsonMapper realMapper = JsonMapper.builder().build();
     SchemaService service = new SchemaService(solrClient, realMapper);
 
     List<Map<String, Object>> types =
@@ -347,7 +329,7 @@ class SchemaServiceTest {
 
   @Test
   void addFieldTypes_solrThrows_propagates() throws Exception {
-    ObjectMapper realMapper = new ObjectMapper();
+    JsonMapper realMapper = JsonMapper.builder().build();
     SchemaService service = new SchemaService(solrClient, realMapper);
 
     when(solrClient.request(any(SolrRequest.class), eq("col")))
@@ -368,7 +350,7 @@ class SchemaServiceTest {
    */
   @Test
   void addFieldTypes_analyzerWithOnlyClassKey_preservesClassInWireFormat() throws Exception {
-    ObjectMapper realMapper = new ObjectMapper();
+    JsonMapper realMapper = JsonMapper.builder().build();
     SchemaService service = new SchemaService(solrClient, realMapper);
 
     List<Map<String, Object>> types =

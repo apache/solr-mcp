@@ -48,7 +48,7 @@ class HttpSecurityConfiguration {
       name = "http.security.enabled",
       havingValue = "true",
       matchIfMissing = true)
-  SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+  SecurityFilterChain securityFilterChain(HttpSecurity http) {
     http.authorizeHttpRequests(
         auth -> {
           // Liveness/readiness probes need anonymous access for load
@@ -104,7 +104,7 @@ class HttpSecurityConfiguration {
 
   @Bean
   @ConditionalOnProperty(name = "http.security.enabled", havingValue = "false")
-  SecurityFilterChain unsecured(HttpSecurity http) throws Exception {
+  SecurityFilterChain unsecured(HttpSecurity http) {
     return http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
         // MCP inspector
         .cors(cors -> cors.configurationSource(corsConfigurationSource()))

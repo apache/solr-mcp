@@ -194,10 +194,9 @@ class SearchServiceIntegrationTest {
    * to one, so a plain list surfaces as {@code ClassCastException: ArrayList cannot be cast to
    * NamedList} instead of an empty result.
    *
-   * <p>{@link org.apache.solr.mcp.server.config.JsonResponseParserTest} pins the same behaviour at
-   * the parser boundary against a hand-written payload. This test is the end-to-end counterpart: it
-   * proves a real Solr actually emits {@code []} for a zero-hit facet, which is the premise the
-   * unit tests assume.
+   * <p>{@code config.JsonResponseParserTest} pins the same behaviour at the parser boundary against
+   * a hand-written payload. This test is the end-to-end counterpart: it proves a real Solr actually
+   * emits {@code []} for a zero-hit facet, which is the premise the unit tests assume.
    */
   @Test
   void facetingAQueryThatMatchesNothingReturnsEmptyFacets()

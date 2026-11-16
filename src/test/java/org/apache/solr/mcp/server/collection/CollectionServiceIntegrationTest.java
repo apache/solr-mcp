@@ -16,6 +16,7 @@
  */
 package org.apache.solr.mcp.server.collection;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -138,9 +139,7 @@ class CollectionServiceIntegrationTest {
     assertNotNull(queryStats);
     assertNotNull(queryStats.queryTime());
     assertEquals(
-        (long) DOC_COUNT,
-        queryStats.totalResults(),
-        "totalResults should match indexed document count");
+        DOC_COUNT, queryStats.totalResults(), "totalResults should match indexed document count");
     assertEquals(0L, queryStats.start());
 
     if (!MBEANS_AVAILABLE) {
@@ -153,29 +152,29 @@ class CollectionServiceIntegrationTest {
     assertNotNull(metrics.cacheStats(), "Cache stats should not be null after queries ran");
     CacheStats cacheStats = metrics.cacheStats();
     assertNotNull(cacheStats.queryResultCache());
-    assertTrue(
-        cacheStats.queryResultCache().lookups() > 0,
-        "Query result cache should have lookups after queries");
+    assertThat(cacheStats.queryResultCache().lookups())
+        .as("Query result cache should have lookups after queries")
+        .isPositive();
     assertNotNull(cacheStats.documentCache());
-    assertTrue(
-        cacheStats.documentCache().lookups() > 0,
-        "Document cache should have lookups after queries");
+    assertThat(cacheStats.documentCache().lookups())
+        .as("Document cache should have lookups after queries")
+        .isPositive();
     assertNotNull(cacheStats.filterCache());
-    assertTrue(
-        cacheStats.filterCache().lookups() > 0,
-        "Filter cache should have lookups after filter queries");
+    assertThat(cacheStats.filterCache().lookups())
+        .as("Filter cache should have lookups after filter queries")
+        .isPositive();
 
     // Handler stats should reflect actual request counts
     assertNotNull(metrics.handlerStats(), "Handler stats should not be null after queries ran");
     HandlerStats handlerStats = metrics.handlerStats();
     assertNotNull(handlerStats.selectHandler());
-    assertTrue(
-        handlerStats.selectHandler().requests() > 0,
-        "Select handler should have processed requests");
+    assertThat(handlerStats.selectHandler().requests())
+        .as("Select handler should have processed requests")
+        .isPositive();
     assertNotNull(handlerStats.updateHandler());
-    assertTrue(
-        handlerStats.updateHandler().requests() > 0,
-        "Update handler should have processed requests from indexing");
+    assertThat(handlerStats.updateHandler().requests())
+        .as("Update handler should have processed requests from indexing")
+        .isPositive();
   }
 
   @Test
@@ -206,9 +205,7 @@ class CollectionServiceIntegrationTest {
     assertTrue(status.responseTime() >= 0);
 
     assertEquals(
-        (long) DOC_COUNT,
-        status.totalDocuments(),
-        "Health check should report indexed document count");
+        DOC_COUNT, status.totalDocuments(), "Health check should report indexed document count");
 
     assertNotNull(status.lastChecked());
     assertTrue(
@@ -235,12 +232,11 @@ class CollectionServiceIntegrationTest {
     assertEquals(TEST_COLLECTION, collectionService.extractCollectionName(TEST_COLLECTION));
     assertEquals("films", collectionService.extractCollectionName("films_shard1_replica_n1"));
     assertEquals("products", collectionService.extractCollectionName("products_shard2_replica_n3"));
-    assertNull(collectionService.extractCollectionName(null));
     assertEquals("", collectionService.extractCollectionName(""));
   }
 
   @Test
-  void testGetCacheMetrics_afterQueries() throws Exception {
+  void testGetCacheMetrics_afterQueries() {
     CacheStats cacheStats = collectionService.getCacheMetrics(TEST_COLLECTION);
 
     if (!MBEANS_AVAILABLE) {
@@ -253,23 +249,29 @@ class CollectionServiceIntegrationTest {
     // Query result cache: warm-up queries should have generated lookups
     CacheInfo qrc = cacheStats.queryResultCache();
     assertNotNull(qrc);
-    assertTrue(qrc.lookups() > 0, "queryResultCache lookups should be positive after queries");
+    assertThat(qrc.lookups())
+        .as("queryResultCache lookups should be positive after queries")
+        .isPositive();
     assertNotNull(qrc.hitratio());
     assertNotNull(qrc.size());
 
     // Document cache: reading documents populates this cache
     CacheInfo dc = cacheStats.documentCache();
     assertNotNull(dc);
-    assertTrue(dc.lookups() > 0, "documentCache lookups should be positive after queries");
+    assertThat(dc.lookups())
+        .as("documentCache lookups should be positive after queries")
+        .isPositive();
 
     // Filter cache: the filter queries we ran should generate lookups
     CacheInfo fc = cacheStats.filterCache();
     assertNotNull(fc);
-    assertTrue(fc.lookups() > 0, "filterCache lookups should be positive after filter queries");
+    assertThat(fc.lookups())
+        .as("filterCache lookups should be positive after filter queries")
+        .isPositive();
   }
 
   @Test
-  void testGetHandlerMetrics_afterQueriesAndIndexing() throws Exception {
+  void testGetHandlerMetrics_afterQueriesAndIndexing() {
     HandlerStats handlerStats = collectionService.getHandlerMetrics(TEST_COLLECTION);
 
     if (!MBEANS_AVAILABLE) {
@@ -282,7 +284,9 @@ class CollectionServiceIntegrationTest {
     // Select handler: warm-up queries should have driven request counts > 0
     HandlerInfo select = handlerStats.selectHandler();
     assertNotNull(select);
-    assertTrue(select.requests() > 0, "Select handler requests should be positive after queries");
+    assertThat(select.requests())
+        .as("Select handler requests should be positive after queries")
+        .isPositive();
     // Solr may omit these counters entirely or report an explicit 0 - both mean
     // "nothing went wrong". Requiring null made the test depend on which.
     assertTrue(
@@ -294,16 +298,18 @@ class CollectionServiceIntegrationTest {
     // Update handler: indexing 50 docs should have driven request counts > 0
     HandlerInfo update = handlerStats.updateHandler();
     assertNotNull(update);
-    assertTrue(update.requests() > 0, "Update handler requests should be positive after indexing");
+    assertThat(update.requests())
+        .as("Update handler requests should be positive after indexing")
+        .isPositive();
   }
 
   @Test
-  void testGetCacheMetrics_nonExistentCollection() throws Exception {
+  void testGetCacheMetrics_nonExistentCollection() {
     assertNull(collectionService.getCacheMetrics("non_existent_collection"));
   }
 
   @Test
-  void testGetHandlerMetrics_nonExistentCollection() throws Exception {
+  void testGetHandlerMetrics_nonExistentCollection() {
     assertNull(collectionService.getHandlerMetrics("non_existent_collection"));
   }
 

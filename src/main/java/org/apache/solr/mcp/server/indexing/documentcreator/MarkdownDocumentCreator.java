@@ -309,7 +309,7 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
     block.unlink();
   }
 
-  private static void addValue(SolrInputDocument doc, String fieldName, Object value) {
+  private static void addValue(SolrInputDocument doc, String fieldName, @Nullable Object value) {
     switch (value) {
       case null -> {}
       case Map<?, ?> nested ->

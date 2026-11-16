@@ -93,7 +93,7 @@ public class CollectionUtils {
    * @see Number#longValue()
    * @see Long#parseLong(String)
    */
-  public static @Nullable Long getLong(NamedList<Object> response, String key) {
+  public static @Nullable Long getLong(NamedList<?> response, String key) {
     Object value = response.get(key);
     if (value == null) return null;
 
@@ -139,7 +139,7 @@ public class CollectionUtils {
    * @return the Float value if found and convertible, {@code null} otherwise
    * @see Number#floatValue()
    */
-  public static @Nullable Float getFloat(NamedList<Object> stats, String key) {
+  public static @Nullable Float getFloat(NamedList<?> stats, String key) {
     Object value = stats.get(key);
     if (value == null) return null;
 
@@ -200,7 +200,7 @@ public class CollectionUtils {
    * @see Integer#parseInt(String)
    * @see #getLong(NamedList, String)
    */
-  public static @Nullable Integer getInteger(NamedList<Object> response, String key) {
+  public static @Nullable Integer getInteger(NamedList<?> response, String key) {
     Object value = response.get(key);
     if (value == null) return null;
 

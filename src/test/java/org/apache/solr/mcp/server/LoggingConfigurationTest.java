@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.Properties;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,7 +64,7 @@ class LoggingConfigurationTest {
 
   private static final String SPRING_VARIANT = "logback-spring.xml";
 
-  private String previousStatusListenerClass;
+  private @Nullable String previousStatusListenerClass;
 
   @BeforeEach
   void rememberStatusListenerProperty() {
