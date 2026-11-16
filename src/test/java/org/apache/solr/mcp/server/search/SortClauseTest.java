@@ -47,17 +47,16 @@ class SortClauseTest {
 
   @Test
   void rejectsInvalidOrderNamingTheValue() {
+    SortClause clause = new SortClause("price", "descending");
     IllegalArgumentException e =
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> new SortClause("price", "descending").toSolrSortClause());
+        assertThrows(IllegalArgumentException.class, clause::toSolrSortClause);
     assertTrue(e.getMessage().contains("descending"));
     assertTrue(e.getMessage().contains("price"));
   }
 
   @Test
   void rejectsMissingField() {
-    assertThrows(
-        IllegalArgumentException.class, () -> new SortClause(" ", "asc").toSolrSortClause());
+    SortClause clause = new SortClause(" ", "asc");
+    assertThrows(IllegalArgumentException.class, clause::toSolrSortClause);
   }
 }

@@ -139,7 +139,7 @@ public record SolrConfigurationProperties(
     URI uri;
     try {
       uri = URI.create(url);
-    } catch (IllegalArgumentException ex) {
+    } catch (IllegalArgumentException _) {
       return false;
     }
     String scheme = uri.getScheme();

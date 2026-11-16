@@ -42,7 +42,7 @@ import org.testcontainers.grafana.LgtmStackContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Integration test verifying that observability signals (traces, metrics, logs) are exported via
@@ -100,7 +100,7 @@ class OtlpExportIntegrationTest {
 
   @Autowired private SolrClient solrClient;
 
-  @Autowired private ObjectMapper objectMapper;
+  @Autowired private JsonMapper objectMapper;
 
   @BeforeAll
   static void setUpCollection(@Autowired SolrClient solrClient) throws Exception {
