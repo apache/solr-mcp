@@ -575,11 +575,10 @@ public abstract class McpClientIntegrationTestBase {
     // string, strings (multi-valued), pint, and pdouble types — the schema the
     // JSON dataset is shaped for.
     //
-    // Practical wrinkle: SolrCloud collections sharing the same configset (here
-    // _default) share the same managed-schema in ZooKeeper. Earlier tests in
-    // this base class indexed docs into mcp-client-test (some via schemaless
-    // add-unknown-fields, some via add-fields), and those modifications persist
-    // to the shared _default configset. So when the freshly-created shows
+    // Practical wrinkle: create-collection gives shows a private copy of
+    // _default, but other test classes in the same JVM create collections
+    // bound to _default itself through SolrJ, and their schemaless guesses
+    // persist there. The copy inherits them, so when the freshly-created shows
     // collection's schema is read, a subset of the desired fields may already
     // exist. The tool description on add-fields tells the LLM to "Call
     // get-schema first to inspect existing field configuration before adding"
