@@ -72,7 +72,7 @@ class AliasServiceIntegrationTest {
   @Test
   @Order(1)
   void listAliases_initiallyEmpty() throws Exception {
-    Map<String, String> aliases = aliasService.listAliases();
+    Map<String, String> aliases = aliasService.listAliases().aliases();
     // No aliases pointing to our test collection initially
     assertThat(aliases).doesNotContainKey(TEST_ALIAS);
   }
@@ -91,7 +91,7 @@ class AliasServiceIntegrationTest {
   @Test
   @Order(3)
   void listAliases_containsCreatedAlias() throws Exception {
-    Map<String, String> aliases = aliasService.listAliases();
+    Map<String, String> aliases = aliasService.listAliases().aliases();
 
     assertThat(aliases).containsEntry(TEST_ALIAS, TEST_COLLECTION);
   }
@@ -106,7 +106,7 @@ class AliasServiceIntegrationTest {
     assertThat(result.collections()).isEqualTo(TEST_COLLECTION_2);
 
     // Verify the alias now points to the second collection
-    Map<String, String> aliases = aliasService.listAliases();
+    Map<String, String> aliases = aliasService.listAliases().aliases();
     assertThat(aliases).containsEntry(TEST_ALIAS, TEST_COLLECTION_2);
   }
 
@@ -121,7 +121,7 @@ class AliasServiceIntegrationTest {
     assertThat(first.success()).isTrue();
     assertThat(second.success()).isTrue();
 
-    Map<String, String> aliases = aliasService.listAliases();
+    Map<String, String> aliases = aliasService.listAliases().aliases();
     assertThat(aliases)
         .containsEntry(TEST_ALIAS_2, TEST_COLLECTION)
         .containsEntry(TEST_ALIAS_3, TEST_COLLECTION);
@@ -141,7 +141,7 @@ class AliasServiceIntegrationTest {
     assertThat(result.success()).isTrue();
 
     // Verify it's gone
-    Map<String, String> aliases = aliasService.listAliases();
+    Map<String, String> aliases = aliasService.listAliases().aliases();
     assertThat(aliases).doesNotContainKey(TEST_ALIAS);
     // But the other alias still exists
     assertThat(aliases).containsEntry(TEST_ALIAS_2, TEST_COLLECTION);
@@ -153,7 +153,7 @@ class AliasServiceIntegrationTest {
     AliasResult result = aliasService.deleteAlias(TEST_ALIAS_2);
     assertThat(result.success()).isTrue();
 
-    Map<String, String> aliases = aliasService.listAliases();
+    Map<String, String> aliases = aliasService.listAliases().aliases();
     assertThat(aliases).doesNotContainKey(TEST_ALIAS_2);
   }
 }

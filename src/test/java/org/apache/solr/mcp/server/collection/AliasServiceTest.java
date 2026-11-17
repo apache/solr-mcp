@@ -31,6 +31,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
+import tools.jackson.databind.json.JsonMapper;
 
 /** Unit tests for {@link AliasService}. */
 @DisabledInNativeImage
@@ -42,7 +43,7 @@ class AliasServiceTest {
   @BeforeEach
   void setUp() {
     solrClient = mock(SolrClient.class);
-    aliasService = new AliasService(solrClient);
+    aliasService = new AliasService(solrClient, JsonMapper.builder().build());
   }
 
   @Nested
@@ -58,13 +59,37 @@ class AliasServiceTest {
       when(solrClient.request(any(), nullable(String.class))).thenReturn(responseData);
 
       // When
-      Map<String, String> result = aliasService.listAliases();
+      Map<String, String> result = aliasService.listAliases().aliases();
 
       // Then
       assertThat(result)
           .containsEntry("ORDERS", "ORDERS_V2")
           .containsEntry("PRODUCTS", "PRODUCTS_V1")
           .hasSize(2);
+    }
+
+    @Test
+    @DisplayName("keeps alias properties and unknown sections, drops the response header")
+    void keepsPropertiesAndUnknownSections() throws Exception {
+      // Given: SolrJ's getAliases() returned only the alias map, dropping properties
+      NamedList<Object> responseData = new NamedList<>();
+      responseData.add("responseHeader", new NamedList<>(Map.of("status", 0)));
+      responseData.add("aliases", Map.of("tv", "shows,shows_typed"));
+      responseData.add("properties", Map.of("tv", Map.of("owner", "search-team")));
+      responseData.add("futureSection", "x");
+      when(solrClient.request(any(), nullable(String.class))).thenReturn(responseData);
+      JsonMapper mapper = JsonMapper.builder().build();
+
+      // When
+      AliasList result = aliasService.listAliases();
+
+      // Then
+      assertThat(result.properties()).containsEntry("tv", Map.of("owner", "search-team"));
+      assertThat(mapper.writeValueAsString(result))
+          .isEqualTo(
+              "{\"aliases\":{\"tv\":\"shows,shows_typed\"},"
+                  + "\"properties\":{\"tv\":{\"owner\":\"search-team\"}},"
+                  + "\"futureSection\":\"x\"}");
     }
 
     @Test
@@ -75,10 +100,11 @@ class AliasServiceTest {
       when(solrClient.request(any(), nullable(String.class))).thenReturn(responseData);
 
       // When
-      Map<String, String> result = aliasService.listAliases();
+      AliasList result = aliasService.listAliases();
 
       // Then
-      assertThat(result).isEmpty();
+      assertThat(result.aliases()).isEmpty();
+      assertThat(result.properties()).isEmpty();
     }
   }
 
