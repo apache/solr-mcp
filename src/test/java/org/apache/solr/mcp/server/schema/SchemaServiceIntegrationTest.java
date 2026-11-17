@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
@@ -27,6 +28,7 @@ import org.apache.solr.client.solrj.request.SolrQuery;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.common.luke.FieldFlag;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.junit.jupiter.api.BeforeEach;
@@ -176,20 +178,60 @@ class SchemaServiceIntegrationTest {
   }
 
   @Test
-  void getSchema_serializesToTheSchemaApiResponse() throws Exception {
-    // The records must not add, drop or reshape anything: serialized, they are Solr's own
-    // Schema API JSON. Both sides are written to JSON text and parsed back, so key order and the
-    // parser's Float-versus-Double choice for decimals such as version do not matter.
+  void getSchema_isTheSchemaApiResponseWithFlagPropertiesAsFlags() throws Exception {
+    // The records may change one thing about the Schema API's JSON: on every field, dynamic
+    // field and field type, the boolean flag properties become a "flags" list of the ones set to
+    // true. Everything else must come through unchanged. Both sides are written to JSON text and
+    // parsed back, so key order and Float-versus-Double for decimals such as version do not matter.
     NamedList<Object> raw = solrClient.request(new SchemaRequest(), TEST_COLLECTION);
     TypeReference<Map<String, Object>> asMap = new TypeReference<>() {};
-    Map<String, Object> fromSolr =
+    Map<String, Object> expected =
         jsonMapper.readValue(jsonMapper.writeValueAsString(raw.get("schema")), asMap);
+    for (String section : List.of("fields", "dynamicFields", "fieldTypes")) {
+      for (Object entry : (List<?>) expected.get(section)) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> properties = (Map<String, Object>) entry;
+        List<String> flags =
+            FieldFlags.SCHEMA_PROPERTIES.entrySet().stream()
+                .filter(property -> Boolean.TRUE.equals(properties.remove(property.getKey())))
+                .map(Map.Entry::getValue)
+                .sorted()
+                .map(Enum::name)
+                .toList();
+        properties.put("flags", flags);
+      }
+    }
 
     Map<String, Object> fromTool =
         jsonMapper.readValue(
             jsonMapper.writeValueAsString(schemaService.getSchema(TEST_COLLECTION)), asMap);
 
-    assertEquals(fromSolr, fromTool);
+    assertEquals(expected, fromTool);
+  }
+
+  @Test
+  void getSchema_reportsFieldFlags() throws Exception {
+    CollectionSchema schema = schemaService.getSchema(TEST_COLLECTION);
+
+    CollectionSchema.Field id =
+        schema.fields().stream().filter(f -> "id".equals(f.name())).findFirst().orElseThrow();
+    CollectionSchema.Field root =
+        schema.fields().stream().filter(f -> "_root_".equals(f.name())).findFirst().orElseThrow();
+    CollectionSchema.FieldType strings =
+        schema.fieldTypes().stream()
+            .filter(t -> "strings".equals(t.name()))
+            .findFirst()
+            .orElseThrow();
+
+    // _default declares id indexed and stored, _root_ indexed but stored=false
+    assertTrue(id.flags().containsAll(Set.of(FieldFlag.INDEXED, FieldFlag.STORED)), id::toString);
+    assertTrue(root.flags().contains(FieldFlag.INDEXED), root::toString);
+    assertFalse(root.flags().contains(FieldFlag.STORED), root::toString);
+    assertFalse(root.other().containsKey("stored"), root::toString);
+    // a type's flags are defaults for its fields
+    assertTrue(
+        strings.flags().containsAll(Set.of(FieldFlag.MULTI_VALUED, FieldFlag.SORT_MISSING_LAST)),
+        strings::toString);
   }
 
   @Test
@@ -256,7 +298,7 @@ class SchemaServiceIntegrationTest {
 
     assertEquals("text_general", title.type());
     assertEquals("string", platform.type());
-    assertEquals(Boolean.TRUE, platform.docValues());
+    assertTrue(platform.flags().contains(FieldFlag.DOC_VALUES), platform::toString);
     assertEquals("pint", year.type());
   }
 

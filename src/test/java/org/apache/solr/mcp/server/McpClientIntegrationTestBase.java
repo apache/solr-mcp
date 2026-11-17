@@ -342,7 +342,15 @@ public abstract class McpClientIntegrationTestBase {
     Map<String, Object> schema = OBJECT_MAPPER.readValue(text, new TypeReference<>() {});
     assertFalse(schema.containsKey("other"), text);
     List<?> fields = (List<?>) schema.get("fields");
-    assertTrue(fields.stream().anyMatch(f -> "id".equals(((Map<?, ?>) f).get("name"))), text);
+    Map<?, ?> id =
+        fields.stream()
+            .map(Map.class::cast)
+            .filter(f -> "id".equals(f.get("name")))
+            .findFirst()
+            .orElseThrow();
+    // flags are SolrJ FieldFlag constant names, not Luke legend text ("I - Indexed")
+    assertTrue(((List<?>) id.get("flags")).containsAll(List.of("INDEXED", "STORED")), text);
+    assertFalse(id.containsKey("indexed"), text);
     Map<?, ?> textGeneral =
         ((List<?>) schema.get("fieldTypes"))
             .stream()
