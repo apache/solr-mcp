@@ -19,6 +19,7 @@ package org.apache.solr.mcp.server.schema;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.Map;
+import java.util.Set;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
@@ -26,6 +27,7 @@ import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.UpdateRequest;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.common.luke.FieldFlag;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.junit.jupiter.api.BeforeAll;
@@ -77,45 +79,52 @@ class ListFieldsIntegrationTest {
 
   @Test
   void listsDynamicFieldInstancesWithTheirBase() throws Exception {
-    Map<String, Map<String, Object>> fields = fields(ONE_SHARD);
+    Map<String, FieldListing.IndexedField> fields = fields(ONE_SHARD);
 
-    Map<String, Object> genre = fields.get("genre_s");
+    FieldListing.IndexedField genre = fields.get("genre_s");
     assertNotNull(genre, "genre_s should be listed: " + fields.keySet());
-    assertEquals("*_s", genre.get("dynamicBase"));
-    assertEquals("string", genre.get("type"));
-    assertEquals(2L, ((Number) genre.get("docs")).longValue());
-    assertFalse(fields.get("id").containsKey("dynamicBase"), "id is an explicit field");
+    assertEquals("*_s", genre.dynamicBase());
+    assertEquals("string", genre.type());
+    assertEquals(2L, genre.docs());
+    assertNull(fields.get("id").dynamicBase(), "id is an explicit field");
   }
 
   @Test
   void pointFieldsHaveNoDocCount() throws Exception {
-    Map<String, Object> year = fields(ONE_SHARD).get("year_i");
+    FieldListing.IndexedField year = fields(ONE_SHARD).get("year_i");
 
     assertNotNull(year, "year_i should be listed");
-    assertEquals("pint", year.get("type"));
+    assertEquals("pint", year.type());
     // Luke cannot count a field without terms: before 9.11/10.1 it leaves docs
     // out, from 9.11/10.1 it reports 0.
-    Object docs = year.get("docs");
-    assertTrue(docs == null || ((Number) docs).longValue() == 0, "docs: " + docs);
+    Long docs = year.docs();
+    assertTrue(docs == null || docs == 0, "docs: " + docs);
   }
 
   @Test
-  void passesThroughTheFlagLegendAndNotTheIndexSection() throws Exception {
-    Map<String, Object> listing = schemaService.listFields(ONE_SHARD);
+  void decodesLukeFlagLettersIntoFieldFlags() throws Exception {
+    Map<String, FieldListing.IndexedField> fields = fields(ONE_SHARD);
 
-    assertEquals(java.util.Set.of("fields", "info"), listing.keySet());
-    Map<?, ?> key = (Map<?, ?>) ((Map<?, ?>) listing.get("info")).get("key");
-    assertEquals("Indexed", key.get("I"), "info.key decodes the schema flag letters: " + key);
+    // _default: *_s is string (indexed, stored, docValues), *_i is pint (no multiValued)
+    FieldListing.IndexedField genre = fields.get("genre_s");
+    assertTrue(
+        genre
+            .flags()
+            .containsAll(Set.of(FieldFlag.INDEXED, FieldFlag.STORED, FieldFlag.DOC_VALUES)),
+        genre::toString);
+    assertFalse(genre.other().containsKey("schema"), "letters are decoded, not kept: " + genre);
+    assertFalse(fields.get("year_i").flags().contains(FieldFlag.MULTI_VALUED), "" + fields);
+    assertTrue(fields.get("year_i").flags().contains(FieldFlag.DOC_VALUES), "" + fields);
   }
 
   @Test
   void twoShardListingCoversBothShardsOnlyWhereSolrDistributesLuke() throws Exception {
-    Map<String, Map<String, Object>> fields = fields(TWO_SHARDS);
+    Map<String, FieldListing.IndexedField> fields = fields(TWO_SHARDS);
 
     // Worked out from the server's version, not from the tool's answer.
     if (solrDistributesLuke()) {
-      assertEquals(1L, ((Number) fields.get("only_a_s").get("docs")).longValue(), "" + fields);
-      assertEquals(1L, ((Number) fields.get("only_b_s").get("docs")).longValue(), "" + fields);
+      assertEquals(1L, fields.get("only_a_s").docs(), "" + fields);
+      assertEquals(1L, fields.get("only_b_s").docs(), "" + fields);
     } else {
       assertNotEquals(
           fields.containsKey("only_a_s"),
@@ -145,9 +154,8 @@ class ListFieldsIntegrationTest {
     return document;
   }
 
-  @SuppressWarnings("unchecked")
-  private Map<String, Map<String, Object>> fields(String collection) throws Exception {
-    return (Map<String, Map<String, Object>>) schemaService.listFields(collection).get("fields");
+  private Map<String, FieldListing.IndexedField> fields(String collection) throws Exception {
+    return schemaService.listFields(collection).fields();
   }
 
   /** SOLR-8127 shipped in 9.11 and 10.1; 10.0 does not have it. */

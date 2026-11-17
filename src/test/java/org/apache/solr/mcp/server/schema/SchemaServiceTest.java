@@ -467,10 +467,10 @@ class SchemaServiceTest {
   private static final String COLLECTION = "shows";
 
   @Test
-  void listFields_passesThroughLukeFieldsAndInfoSections() throws Exception {
+  void listFields_decodesFlagsAndLeavesOutTheInfoAndIndexSections() throws Exception {
     NamedList<Object> genre = new SimpleOrderedMap<>();
     genre.add("type", "string");
-    genre.add("schema", "I-SD-M---OF-----");
+    genre.add("schema", "I-SD-M----OF-----l");
     genre.add("dynamicBase", "*_s");
     genre.add("docs", 5);
     NamedList<Object> fields = new SimpleOrderedMap<>();
@@ -486,26 +486,72 @@ class SchemaServiceTest {
     response.add("fields", fields);
     response.add("info", info);
     when(solrClient.request(any(LukeRequest.class), eq(COLLECTION))).thenReturn(response);
+    JsonMapper realMapper = JsonMapper.builder().build();
 
-    Map<String, Object> listing = schemaService.listFields(COLLECTION);
+    FieldListing listing = new SchemaService(solrClient, realMapper).listFields(COLLECTION);
 
+    FieldListing.IndexedField field = listing.fields().get("genre_s");
+    assertEquals("string", field.type());
     assertEquals(
-        Map.of(
-            "fields",
-            Map.of(
-                "genre_s",
-                Map.of(
-                    "type",
-                    "string",
-                    "schema",
-                    "I-SD-M---OF-----",
-                    "dynamicBase",
-                    "*_s",
-                    "docs",
-                    5)),
-            "info",
-            Map.of("key", Map.of("I", "Indexed"))),
-        listing);
+        Set.of(
+            FieldFlag.INDEXED,
+            FieldFlag.STORED,
+            FieldFlag.DOC_VALUES,
+            FieldFlag.MULTI_VALUED,
+            FieldFlag.OMIT_NORMS,
+            FieldFlag.OMIT_TF,
+            FieldFlag.SORT_MISSING_LAST),
+        field.flags());
+    assertEquals("*_s", field.dynamicBase());
+    assertEquals(5L, field.docs());
+    assertEquals(Map.of(), field.other(), "the schema letters are decoded, not kept");
+    String json = realMapper.writeValueAsString(listing);
+    assertEquals(
+        "{\"fields\":{\"genre_s\":{\"type\":\"string\",\"flags\":[\"INDEXED\",\"STORED\","
+            + "\"DOC_VALUES\",\"MULTI_VALUED\",\"OMIT_NORMS\",\"OMIT_TF\",\"SORT_MISSING_LAST\"],"
+            + "\"dynamicBase\":\"*_s\",\"docs\":5}}}",
+        json);
+  }
+
+  @Test
+  void listFields_keepsADistributedDocCountPastIntegerMax() throws Exception {
+    // SolrJ's LukeResponse casts docs to Integer; a sum across shards can exceed it.
+    NamedList<Object> title = new SimpleOrderedMap<>();
+    title.add("type", "text_general");
+    title.add("schema", "ITS---------------");
+    title.add("docs", 3_000_000_000L);
+    NamedList<Object> fields = new SimpleOrderedMap<>();
+    fields.add("title", title);
+    NamedList<Object> response = new NamedList<>();
+    response.add("fields", fields);
+    when(solrClient.request(any(LukeRequest.class), eq(COLLECTION))).thenReturn(response);
+
+    FieldListing listing =
+        new SchemaService(solrClient, JsonMapper.builder().build()).listFields(COLLECTION);
+
+    assertEquals(3_000_000_000L, listing.fields().get("title").docs());
+  }
+
+  @Test
+  void listFields_keepsTheLettersWhenOneIsNotAKnownFlag() throws Exception {
+    // A letter a later Solr version adds must not throw or yield a partial flag set.
+    NamedList<Object> future = new SimpleOrderedMap<>();
+    future.add("type", "string");
+    future.add("schema", "I-S-----------Z");
+    NamedList<Object> fields = new SimpleOrderedMap<>();
+    fields.add("future_s", future);
+    NamedList<Object> response = new NamedList<>();
+    response.add("fields", fields);
+    when(solrClient.request(any(LukeRequest.class), eq(COLLECTION))).thenReturn(response);
+
+    FieldListing.IndexedField field =
+        new SchemaService(solrClient, JsonMapper.builder().build())
+            .listFields(COLLECTION)
+            .fields()
+            .get("future_s");
+
+    assertEquals(Set.of(), field.flags());
+    assertEquals("I-S-----------Z", field.other().get("schema"));
   }
 
   @Test

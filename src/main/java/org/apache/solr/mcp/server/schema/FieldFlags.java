@@ -19,6 +19,7 @@ package org.apache.solr.mcp.server.schema;
 import java.util.EnumSet;
 import java.util.Map;
 import org.apache.solr.common.luke.FieldFlag;
+import org.jspecify.annotations.Nullable;
 import tools.jackson.core.JsonGenerator;
 import tools.jackson.databind.SerializationContext;
 import tools.jackson.databind.ValueSerializer;
@@ -69,6 +70,32 @@ public final class FieldFlags {
       if (Boolean.TRUE.equals(properties.remove(property.getKey()))) {
         flags.add(property.getValue());
       }
+    }
+    return flags;
+  }
+
+  /**
+   * Decodes Luke's flag string ({@code "I-SD------OF-----l"}) with SolrJ's {@link
+   * FieldFlag#getFlag(char)}.
+   *
+   * <p>Not {@code LukeResponse.FieldInfo.parseFlags}: it adds {@code getFlag}'s result without a
+   * null check, so a letter a later Solr version adds would throw.
+   *
+   * @param letters Luke's flag string
+   * @return the decoded flags, or {@code null} if a letter is not a known flag, so the caller can
+   *     keep the string rather than report a partial set
+   */
+  static @Nullable EnumSet<FieldFlag> fromLukeLetters(String letters) {
+    EnumSet<FieldFlag> flags = EnumSet.noneOf(FieldFlag.class);
+    for (char letter : letters.toCharArray()) {
+      if (letter == '-') {
+        continue;
+      }
+      FieldFlag flag = FieldFlag.getFlag(letter);
+      if (flag == null) {
+        return null;
+      }
+      flags.add(flag);
     }
     return flags;
   }

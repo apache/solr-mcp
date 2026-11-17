@@ -74,7 +74,9 @@ class SolrNativeHints implements RuntimeHintsRegistrar {
           "org.apache.solr.mcp.server.schema.CollectionSchema$Analyzer",
           "org.apache.solr.mcp.server.schema.CollectionSchema$CopyField",
           // Jackson instantiates this @JsonSerialize(contentUsing = ...) serializer reflectively
-          "org.apache.solr.mcp.server.schema.FieldFlags$NameSerializer");
+          "org.apache.solr.mcp.server.schema.FieldFlags$NameSerializer",
+          "org.apache.solr.mcp.server.schema.FieldListing",
+          "org.apache.solr.mcp.server.schema.FieldListing$IndexedField");
 
   @Override
   public void registerHints(RuntimeHints hints, @Nullable ClassLoader classLoader) {

@@ -97,6 +97,8 @@ class SolrNativeHintsTest {
             "org.apache.solr.mcp.server.schema.CollectionSchema$Analyzer",
             "org.apache.solr.mcp.server.schema.CollectionSchema$CopyField",
             "org.apache.solr.mcp.server.schema.FieldFlags$NameSerializer",
+            "org.apache.solr.mcp.server.schema.FieldListing",
+            "org.apache.solr.mcp.server.schema.FieldListing$IndexedField",
             "org.apache.solr.common.luke.FieldFlag")) {
       assertTrue(
           RuntimeHintsPredicates.reflection()

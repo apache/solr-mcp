@@ -1276,6 +1276,13 @@ public abstract class McpClientIntegrationTestBase {
     assertTrue(
         names.containsAll(List.of("id", "title", "platform", "genres", "release_year")),
         "list-fields should list the indexed shows fields: " + names);
+
+    // Through Spring AI's serialization: Luke's flag letters arrive decoded as FieldFlag
+    // constant names, with neither the letters nor Luke's info legend left over.
+    assertFalse(listing.containsKey("info"), "" + listing.keySet());
+    Map<?, ?> id = (Map<?, ?>) ((Map<?, ?>) listing.get("fields")).get("id");
+    assertTrue(((List<?>) id.get("flags")).containsAll(List.of("INDEXED", "STORED")), "" + id);
+    assertFalse(id.containsKey("schema"), "" + id);
   }
 
   @Test

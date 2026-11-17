@@ -42,6 +42,7 @@ import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -130,11 +131,12 @@ public class SchemaService {
       "Failed to list the fields. Hint: call list-collections to check"
           + " the collection name; if it persists, ask the operator to check the server logs.";
 
-  /**
-   * The Luke response sections {@code list-fields} passes through: {@code fields}, one entry per
-   * field present in the index, and {@code info}, whose {@code key} decodes the field flag letters.
-   */
-  private static final List<String> LUKE_SECTIONS = List.of("fields", "info");
+  /** The section of a Luke response that lists the fields, one entry per field in the index. */
+  private static final String LUKE_FIELDS_SECTION = "fields";
+
+  /** Keeps Luke's field order, which is alphabetical. */
+  private static final TypeReference<LinkedHashMap<String, FieldListing.IndexedField>>
+      INDEXED_FIELDS = new TypeReference<>() {};
 
   /** SolrJ client for communicating with Solr server */
   private final SolrClient solrClient;
@@ -297,21 +299,22 @@ public class SchemaService {
   }
 
   /**
-   * Lists the fields that hold data in a collection: the {@code fields} and {@code info} sections
-   * of Solr's Luke response, passed through as Solr reports them.
+   * Lists the fields that hold data in a collection, from the {@code fields} section of Solr's Luke
+   * response.
    *
    * <p>Unlike {@link #getSchema(String)}, Luke reports the dynamic-field instances in the index
    * ({@code genre_s}, not just {@code *_s}) and, per field, how many documents have terms in it.
-   * {@code info.key} decodes the letters of each field's {@code schema} flags. The {@code index}
-   * section is left out: {@code get-collection-stats} reports index statistics, and its {@code
-   * directory} entry names a path on the Solr host.
+   * Each field's {@code schema} flag letters are decoded into {@link
+   * org.apache.solr.common.luke.FieldFlag}s, so Luke's {@code info} legend is not needed and is
+   * left out. The {@code index} section is left out too: {@code get-collection-stats} reports index
+   * statistics, and its {@code directory} entry names a path on the Solr host.
    *
    * <p>One collection-level request is made. Solr 9.11 and 10.1 distribute it across shards in
    * SolrCloud (SOLR-8127); older versions answer from one core, which the tool description tells
    * the model about.
    *
    * @param collection the collection to list fields for
-   * @return Luke's {@code fields} and {@code info} sections as nested maps
+   * @return the fields Luke reports, with their flags decoded
    * @throws SolrServerException if the request cannot be sent or its response read; an error Solr
    *     returns, an unknown collection's 404 included, surfaces as an unchecked {@code
    *     SolrException}
@@ -323,16 +326,18 @@ public class SchemaService {
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
       description =
           "List the fields that hold data in a collection, from Solr's Luke handler: per field its"
-              + " type, schema flags, dynamicBase for a dynamic-field instance (genre_s, not *_s), and"
-              + " docs, the number of documents with terms in the field (deleted documents count"
-              + " until their segments merge). info.key decodes the flag letters. Use this before"
+              + " type, flags (INDEXED, STORED, DOC_VALUES, MULTI_VALUED, ...), dynamicBase for a"
+              + " dynamic-field instance (genre_s, not *_s), and docs, the number of documents with"
+              + " terms in the field (deleted documents count until their segments merge). Facet"
+              + " only on fields with DOC_VALUES, and sort only on ones without MULTI_VALUED. Use"
+              + " this before"
               + " search to decide which fields go in q, fq, facets and sorts. Unlike get-schema it"
               + " shows no analyzers or field-type definitions; use get-schema before changing the"
               + " schema. Numeric and date point fields and docValues-only fields have no terms, so"
               + " their docs is missing, or 0 on Solr 9.11+ and 10.1+: that means not counted, not"
               + " empty. Before Solr 9.11 and 10.1, a collection with more than one shard lists the"
               + " fields and counts of one shard only.")
-  public Map<String, Object> listFields(
+  public FieldListing listFields(
       @McpToolParam(description = "Solr collection name") String collection)
       throws SolrServerException, IOException {
     requireCollection(collection);
@@ -341,18 +346,13 @@ public class SchemaService {
     lukeRequest.setNumTerms(0);
     lukeRequest.setIncludeIndexFieldFlags(false);
     // request(), not lukeRequest.process(): process() also builds SolrJ's typed LukeResponse,
-    // which casts each field's docs to Integer and fails on a distributed sum past 2^31 (a Long).
-    // The tool returns the raw sections, so that parse is never needed.
+    // which casts each field's docs to Integer and fails on a distributed sum past 2^31 (a Long),
+    // and drops dynamicBase. Luke's JSON objects arrive as SimpleOrderedMap, a java.util.Map, so
+    // Jackson converts the fields section into the records directly.
     NamedList<Object> response = solrClient.request(lukeRequest, collection);
-
-    Map<String, Object> sections = new LinkedHashMap<>();
-    for (String section : LUKE_SECTIONS) {
-      // A JSON-parsed tree has no cycles, so asMap's depth guard never applies.
-      if (response.get(section) instanceof NamedList<?> list) {
-        sections.put(section, list.asMap(Integer.MAX_VALUE));
-      }
-    }
-    return sections;
+    Object fields = response.get(LUKE_FIELDS_SECTION);
+    return new FieldListing(
+        fields == null ? Map.of() : objectMapper.convertValue(fields, INDEXED_FIELDS));
   }
 
   /**
