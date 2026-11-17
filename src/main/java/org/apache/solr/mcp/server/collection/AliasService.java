@@ -19,7 +19,6 @@ package org.apache.solr.mcp.server.collection;
 import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
 import java.util.Date;
-import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
@@ -28,6 +27,7 @@ import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Spring Service providing Solr alias management capabilities for MCP clients.
@@ -60,13 +60,18 @@ public class AliasService {
   /** SolrJ client for communicating with Solr server */
   private final SolrClient solrClient;
 
+  /** Converts Solr's {@code LISTALIASES} response into {@link AliasList} */
+  private final JsonMapper objectMapper;
+
   /**
    * Constructs a new AliasService with the required dependencies.
    *
    * @param solrClient the SolrJ client instance for communicating with Solr
+   * @param objectMapper the Jackson JsonMapper that converts Solr responses into records
    */
-  public AliasService(SolrClient solrClient) {
+  public AliasService(SolrClient solrClient, JsonMapper objectMapper) {
     this.solrClient = solrClient;
+    this.objectMapper = objectMapper;
   }
 
   /**
@@ -80,8 +85,8 @@ public class AliasService {
    * <p>Invoked by AI clients with natural language requests like "list all aliases", "what aliases
    * exist?", or "show me alias mappings".
    *
-   * @return a map of alias names to their target collection(s); never null (returns an empty map
-   *     when no aliases are defined)
+   * @return the aliases and their properties, as the {@code LISTALIASES} action reports them; both
+   *     maps are empty when no aliases are defined
    * @throws SolrServerException if there are errors communicating with Solr
    * @throws IOException if there are I/O errors during communication
    */
@@ -90,11 +95,12 @@ public class AliasService {
       name = "list-aliases",
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
       description = "List all Solr aliases and the collections they point to")
-  public Map<String, String> listAliases() throws SolrServerException, IOException {
+  public AliasList listAliases() throws SolrServerException, IOException {
     CollectionAdminRequest.ListAliases request = new CollectionAdminRequest.ListAliases();
     CollectionAdminResponse response = request.process(solrClient);
-    Map<String, String> aliases = response.getAliases();
-    return aliases != null ? aliases : Map.of();
+    // A JSON-parsed tree has no cycles, so asMap's depth guard never applies.
+    return objectMapper.convertValue(
+        response.getResponse().asMap(Integer.MAX_VALUE), AliasList.class);
   }
 
   /**

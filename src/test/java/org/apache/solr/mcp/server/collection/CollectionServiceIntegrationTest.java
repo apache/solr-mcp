@@ -100,7 +100,7 @@ class CollectionServiceIntegrationTest {
 
   @Test
   void testListCollections() throws Exception {
-    List<String> collections = collectionService.listCollections();
+    List<String> collections = collectionService.listCollections().collections();
 
     log.debug("Collections: {}", collections);
 
@@ -323,7 +323,7 @@ class CollectionServiceIntegrationTest {
     assertEquals(name, result.name());
     assertNotNull(result.createdAt());
 
-    List<String> collections = collectionService.listCollections();
+    List<String> collections = collectionService.listCollections().collections();
     boolean exists =
         collections.contains(name)
             || collections.stream().anyMatch(col -> col.startsWith(name + "_shard"));

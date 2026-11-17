@@ -187,7 +187,11 @@ public abstract class McpClientIntegrationTestBase {
     assertNotNull(result);
     assertNotError(result);
     String text = extractText(result);
-    assertTrue(text.contains(COLLECTION), "Created collection should appear in list: " + text);
+    // Solr's LIST shape: an object holding the names, not a bare array
+    Map<String, Object> listing = OBJECT_MAPPER.readValue(text, new TypeReference<>() {});
+    assertTrue(
+        ((List<?>) listing.get("collections")).contains(COLLECTION),
+        "Created collection should appear in list: " + text);
   }
 
   @Test

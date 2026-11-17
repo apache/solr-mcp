@@ -24,7 +24,6 @@ import io.micrometer.observation.annotation.Observed;
 import io.modelcontextprotocol.spec.McpSchema.CompleteRequest;
 import java.io.IOException;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import org.apache.solr.client.solrj.SolrClient;
@@ -108,7 +107,7 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <pre>{@code
  * // List all available collections
- * List<String> collections = collectionService.listCollections();
+ * List<String> collections = collectionService.listCollections().collections();
  *
  * // Get comprehensive metrics for a collection
  * SolrMetrics metrics = collectionService.getCollectionStats("my_collection");
@@ -187,9 +186,6 @@ public class CollectionService {
   // ========================================
   // Constants for Response Parsing
   // ========================================
-
-  /** Key name for collections list in Collections API responses */
-  private static final String COLLECTIONS_KEY = "collections";
 
   /** Key name for segment count information in Luke response */
   private static final String SEGMENT_COUNT_KEY = "segmentCount";
@@ -351,7 +347,7 @@ public class CollectionService {
     }
     String prefix = argument.value().toLowerCase(Locale.ROOT);
     try {
-      return listCollections().stream()
+      return listCollections().collections().stream()
           .filter(c -> c.toLowerCase(Locale.ROOT).startsWith(prefix))
           .sorted()
           .limit(MAX_COMPLETION_RESULTS)
@@ -429,8 +425,8 @@ public class CollectionService {
    * <p>This method is exposed as an MCP tool and can be invoked by AI clients with natural language
    * requests like "list all collections" or "show me available databases".
    *
-   * @return a list of collection names; never null (returns an empty list when Solr reports no
-   *     collections)
+   * @return the collection names, as the {@code LIST} action reports them; the list is empty when
+   *     Solr reports no collections
    * @throws SolrServerException if there are errors communicating with Solr
    * @throws IOException if there are I/O errors during communication
    * @see CollectionAdminRequest.List
@@ -440,13 +436,12 @@ public class CollectionService {
       name = "list-collections",
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
       description = "List solr collections")
-  public List<String> listCollections() throws SolrServerException, IOException {
+  public CollectionList listCollections() throws SolrServerException, IOException {
     CollectionAdminRequest.List request = new CollectionAdminRequest.List();
     CollectionAdminResponse response = request.process(solrClient);
-
-    @SuppressWarnings("unchecked")
-    List<String> collections = (List<String>) response.getResponse().get(COLLECTIONS_KEY);
-    return collections != null ? collections : new ArrayList<>();
+    // A JSON-parsed tree has no cycles, so asMap's depth guard never applies.
+    return objectMapper.convertValue(
+        response.getResponse().asMap(Integer.MAX_VALUE), CollectionList.class);
   }
 
   /**

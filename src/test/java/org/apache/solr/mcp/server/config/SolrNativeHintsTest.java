@@ -18,6 +18,7 @@ package org.apache.solr.mcp.server.config;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -82,6 +83,23 @@ class SolrNativeHintsTest {
             .onType(TypeReference.of("org.apache.solr.mcp.server.search.SearchResponse"))
             .withMemberCategory(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS)
             .test(hints));
+  }
+
+  @Test
+  void registersListingRecordHints() {
+    for (String record :
+        List.of(
+            "org.apache.solr.mcp.server.collection.AliasList",
+            "org.apache.solr.mcp.server.collection.CollectionList")) {
+      assertTrue(
+          RuntimeHintsPredicates.reflection()
+              .onType(TypeReference.of(record))
+              .withMemberCategories(
+                  MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
+                  MemberCategory.INVOKE_DECLARED_METHODS)
+              .test(hints),
+          record);
+    }
   }
 
   @Test

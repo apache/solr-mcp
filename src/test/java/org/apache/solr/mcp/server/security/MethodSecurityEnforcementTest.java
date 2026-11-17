@@ -20,8 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.List;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
+import org.apache.solr.mcp.server.collection.CollectionList;
 import org.apache.solr.mcp.server.collection.CollectionService;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -92,7 +92,7 @@ class MethodSecurityEnforcementTest {
   @Test
   @WithMockUser
   void authenticatedCallToSecuredToolSucceeds() {
-    List<String> collections =
+    CollectionList collections =
         assertDoesNotThrow(
             () -> collectionService.listCollections(),
             "list-collections is gated by @PreAuthorize(\"isAuthenticated()\") and was called with an "
