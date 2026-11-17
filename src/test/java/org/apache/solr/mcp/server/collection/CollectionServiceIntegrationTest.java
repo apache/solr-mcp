@@ -134,19 +134,13 @@ class CollectionServiceIntegrationTest {
     assertNotNull(indexStats.segmentCount());
     assertTrue(indexStats.segmentCount() >= 1, "Should have at least one segment after indexing");
 
-    // Query stats come from the *:* probe query inside getCollectionStats
-    QueryStats queryStats = metrics.queryStats();
-    assertNotNull(queryStats);
-    assertNotNull(queryStats.queryTime());
-    assertEquals(
-        DOC_COUNT, queryStats.totalResults(), "totalResults should match indexed document count");
-    assertEquals(0L, queryStats.start());
-
     if (!MBEANS_AVAILABLE) {
       assertNull(metrics.cacheStats(), "Cache stats should be null without /admin/mbeans");
       assertNull(metrics.handlerStats(), "Handler stats should be null without /admin/mbeans");
       return;
     }
+
+    assertThat(metrics.metricsCore()).startsWith("solr.core." + TEST_COLLECTION + ".");
 
     // Cache stats should be present after warm-up queries
     assertNotNull(metrics.cacheStats(), "Cache stats should not be null after queries ran");
@@ -233,6 +227,30 @@ class CollectionServiceIntegrationTest {
     assertEquals("films", collectionService.extractCollectionName("films_shard1_replica_n1"));
     assertEquals("products", collectionService.extractCollectionName("products_shard2_replica_n3"));
     assertEquals("", collectionService.extractCollectionName(""));
+  }
+
+  @Test
+  void getCollectionStats_doesNotCountItselfInTheHandlerStats() throws Exception {
+    if (!MBEANS_AVAILABLE) {
+      return;
+    }
+    // The handler counters are cumulative. Two calls with no traffic in between must report the
+    // same /select request count; a probe query inside the tool would add one each time.
+    searchService.search(TEST_COLLECTION, "*:*", null, null, null, 0, 1); // /select has a counter
+    Long first =
+        collectionService
+            .getCollectionStats(TEST_COLLECTION)
+            .handlerStats()
+            .selectHandler()
+            .requests();
+    Long second =
+        collectionService
+            .getCollectionStats(TEST_COLLECTION)
+            .handlerStats()
+            .selectHandler()
+            .requests();
+
+    assertEquals(first, second);
   }
 
   @Test
