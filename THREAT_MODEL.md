@@ -61,9 +61,10 @@ it speaks MCP (JSON-RPC) to an AI client over one of two transports — **STDIO*
 (streamable-HTTP; a network listener). On the other side it speaks SolrJ HTTP to
 **one** backend Solr instance whose location and credentials the operator fixes
 at startup via environment (`SOLR_URL`, optional `SOLR_USERNAME`/`SOLR_PASSWORD`).
-It exposes eleven tools (search, three indexing formats, collection create/list/
-stats/health, schema get/add-fields/add-field-types), two resources
-(`solr://collections`, `solr://{collection}/schema`), and prompt/completion
+It exposes sixteen tools (search, four indexing formats, collection create/list/
+stats/health, alias list/create/delete, schema get/list-fields/add-fields/
+add-field-types), three resources (`solr://collections`,
+`solr://{collection}/schema`, `solr://{collection}/fields`), and prompt/completion
 helpers. It translates natural-language requests — as structured by the calling
 LLM into tool arguments — into Solr API calls, and returns Solr results back to
 the model. *(documented — README; AGENTS.md; `src/main/java/.../server/`.)*
@@ -108,7 +109,7 @@ deferred to a later version (see §12). This is a deliberate scoping choice for
 | --- | --- | --- | --- |
 | STDIO transport | stdin/stdout JSON-RPC | child process of the client only | **Yes** |
 | HTTP transport | servlet on `:8080/mcp` + OAuth2 filter chain | **network listener** | **Yes (highest network exposure)** |
-| Read tools | `search`, `list-collections`, `get-collection-stats`, `check-health`, `get-schema` | reads backend Solr | **Yes** |
+| Read tools | `search`, `list-collections`, `get-collection-stats`, `check-health`, `get-schema`, `list-fields` | reads backend Solr | **Yes** |
 | Write/index tools | `index-json/csv/xml-documents` | writes backend Solr index | **Yes** |
 | Admin/schema tools | `create-collection`, `add-fields`, `add-field-types` | mutates backend Solr collections/schema | **Yes (privileged)** |
 | Backend SolrJ client | `SolrConfig` → `HttpJdkSolrClient` | outbound HTTP to `SOLR_URL` | **Yes (auth passthrough)** |

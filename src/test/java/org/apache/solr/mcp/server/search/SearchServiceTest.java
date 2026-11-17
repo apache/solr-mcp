@@ -172,7 +172,7 @@ class SearchServiceTest {
       }
       assertTrue(e.getMessage().contains("Search failed"), e::getMessage);
       assertTrue(
-          e.getMessage().contains("operator") || e.getMessage().contains("get-schema"),
+          e.getMessage().contains("operator") || e.getMessage().contains("list-fields"),
           e::getMessage);
       assertNull(e.getCause(), "MCP must not unwrap a raw backend failure");
       if (failure instanceof SolrException solrFailure) {
@@ -229,7 +229,8 @@ class SearchServiceTest {
     assertFalse(
         e.getMessage().contains("undefined field bogus"), "raw Solr message must not be exposed");
     assertTrue(
-        e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted("test_collection")));
+        e.getMessage()
+            .contains(SearchService.LIST_FIELDS_HINT_FORMAT.formatted("test_collection")));
     assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
   }
 
@@ -245,7 +246,8 @@ class SearchServiceTest {
             IllegalArgumentException.class,
             () -> localService.search("test_collection", "*:*", null, null, sort, null, null));
     assertTrue(
-        e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted("test_collection")));
+        e.getMessage()
+            .contains(SearchService.LIST_FIELDS_HINT_FORMAT.formatted("test_collection")));
     assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
   }
 
@@ -675,7 +677,7 @@ class SearchServiceTest {
     assertTrue(
         body.contains("What sci-fi shows are on Netflix?"),
         "Prompt should embed the user question");
-    assertTrue(body.contains("get-schema"), "Prompt should reference get-schema tool");
+    assertTrue(body.contains("list-fields"), "Prompt should reference list-fields tool");
     assertTrue(body.contains("search"), "Prompt should reference search tool");
     assertTrue(body.contains("filterQueries"), "Prompt should explain filterQueries");
     assertTrue(body.contains("numFound"), "Prompt should mention numFound interpretation");

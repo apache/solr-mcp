@@ -24,6 +24,7 @@ import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.SolrInputField;
+import org.apache.solr.common.luke.FieldFlag;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
 import org.jspecify.annotations.Nullable;
@@ -66,7 +67,16 @@ class SolrNativeHints implements RuntimeHintsRegistrar {
           "org.apache.solr.mcp.server.collection.HandlerInfo",
           "org.apache.solr.mcp.server.search.SearchResponse",
           "org.apache.solr.mcp.server.search.SortClause",
-          "org.apache.solr.mcp.server.schema.SchemaUpdateResult");
+          "org.apache.solr.mcp.server.schema.SchemaUpdateResult",
+          "org.apache.solr.mcp.server.schema.CollectionSchema",
+          "org.apache.solr.mcp.server.schema.CollectionSchema$Field",
+          "org.apache.solr.mcp.server.schema.CollectionSchema$FieldType",
+          "org.apache.solr.mcp.server.schema.CollectionSchema$Analyzer",
+          "org.apache.solr.mcp.server.schema.CollectionSchema$CopyField",
+          // Jackson instantiates this @JsonSerialize(contentUsing = ...) serializer reflectively
+          "org.apache.solr.mcp.server.schema.FieldFlags$NameSerializer",
+          "org.apache.solr.mcp.server.schema.FieldListing",
+          "org.apache.solr.mcp.server.schema.FieldListing$IndexedField");
 
   @Override
   public void registerHints(RuntimeHints hints, @Nullable ClassLoader classLoader) {
@@ -91,6 +101,9 @@ class SolrNativeHints implements RuntimeHintsRegistrar {
     // SolrJ facet types
     hints.reflection().registerType(FacetField.class, categories);
     hints.reflection().registerType(FacetField.Count.class, categories);
+
+    // SolrJ's Luke flag enum, serialized in get-schema and list-fields responses
+    hints.reflection().registerType(FieldFlag.class, categories);
 
     // SolrJ / Solr API model types used by CoreAdminResponse.getCoreStatus()
     // which deserializes via Jackson reflection.
@@ -125,16 +138,6 @@ class SolrNativeHints implements RuntimeHintsRegistrar {
         .reflection()
         .registerType(
             org.apache.solr.client.solrj.request.schema.FieldTypeDefinition.class, categories);
-
-    // SolrJ schema response type — returned by the get-schema MCP tool and
-    // serialized to JSON by Spring AI for MCP clients. Without reflection
-    // hints the JSON Spring AI produces in native image is missing the
-    // fields/fieldTypes/dynamicFields/copyFields arrays, which silently
-    // breaks any consumer that introspects the schema.
-    hints
-        .reflection()
-        .registerType(
-            org.apache.solr.client.solrj.response.schema.SchemaRepresentation.class, categories);
 
     // MCP tool request/response records (some package-private, registered by
     // name); request records are deserialized reflectively by Jackson when
