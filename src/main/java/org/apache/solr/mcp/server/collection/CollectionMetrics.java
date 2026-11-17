@@ -20,19 +20,21 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The result of {@code get-collection-stats}: index, query, cache and handler statistics.
+ * The result of {@code get-collection-stats}: index, cache and handler statistics.
  *
  * @param index document and segment counts
- * @param query statistics of a match-all probe query
  * @param caches cache statistics, when this Solr version reports them (Solr 10 does not)
  * @param handlers request-handler statistics, when this Solr version reports them
+ * @param metricsCore the core registry the cache and handler statistics were read from, such as
+ *     {@code solr.core.films.shard1.replica_n1}; they describe that one core, not the whole
+ *     collection (absent when Solr reported no metrics for the collection)
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record CollectionMetrics(
     IndexStats index,
-    QueryStats query,
     @Nullable CacheStats caches,
-    @Nullable HandlerStats handlers) {
+    @Nullable HandlerStats handlers,
+    @Nullable String metricsCore) {
 
   /**
    * Document and segment counts from Luke.
@@ -42,18 +44,6 @@ public record CollectionMetrics(
    */
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record IndexStats(@Nullable Integer numDocs, @Nullable Integer segmentCount) {}
-
-  /**
-   * Statistics of the match-all probe query.
-   *
-   * @param queryTime how long Solr took, in milliseconds
-   * @param totalResults the number of matching documents
-   * @param start the offset of the first returned document
-   * @param maxScore the highest score, when scores were computed
-   */
-  @JsonInclude(JsonInclude.Include.NON_NULL)
-  public record QueryStats(
-      int queryTime, long totalResults, long start, @Nullable Float maxScore) {}
 
   /**
    * Statistics of the three standard searcher caches.
@@ -73,7 +63,7 @@ public record CollectionMetrics(
    *
    * @param lookups the number of lookups
    * @param hits the number of lookups that hit
-   * @param hitRatio hits divided by lookups
+   * @param hitRatio hits divided by lookups; 1.0 for a cache that has had no lookups
    * @param inserts the number of inserts
    * @param evictions the number of evictions
    * @param size the number of entries
@@ -103,8 +93,8 @@ public record CollectionMetrics(
    * @param requests the number of requests
    * @param errors the number of requests that failed
    * @param timeouts the number of requests that timed out
-   * @param totalTime the total time spent, in milliseconds
-   * @param avgTimePerRequest the mean time per request, in milliseconds
+   * @param totalTime the total time spent, in nanoseconds
+   * @param avgTimePerRequest the mean time per request, in nanoseconds
    */
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record HandlerInfo(

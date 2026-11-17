@@ -50,7 +50,6 @@ import org.apache.solr.mcp.server.collection.CollectionMetrics.CacheStats;
 import org.apache.solr.mcp.server.collection.CollectionMetrics.HandlerInfo;
 import org.apache.solr.mcp.server.collection.CollectionMetrics.HandlerStats;
 import org.apache.solr.mcp.server.collection.CollectionMetrics.IndexStats;
-import org.apache.solr.mcp.server.collection.CollectionMetrics.QueryStats;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
 import org.apache.solr.mcp.server.util.McpResults;
 import org.apache.solr.mcp.server.util.PromptNames;
@@ -564,11 +563,15 @@ public class CollectionService {
       name = "get-collection-stats",
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
       description =
-          "Get index size and performance metrics for a Solr collection: document and segment "
-              + "counts, and query, cache and handler stats. It does not describe fields; use "
-              + "list-fields for the fields that hold data. caches and handlers are omitted"
-              + " when Solr's /admin/metrics API does not provide them for the collection;"
-              + " this is expected and not an error.",
+          "Get index size and performance metrics for a Solr collection: document and segment"
+              + " counts from the index, and cache and request handler statistics. It does not"
+              + " describe fields; use list-fields for the fields that hold data. Before Solr 9.11"
+              + " and 10.1, numDocs and segmentCount of a collection with more than one shard are"
+              + " one shard's. caches and handlers are those of the one core named in"
+              + " metricsCore, not the whole collection, and are omitted when Solr's"
+              + " /admin/metrics API does not provide them; this is expected and not an error. A"
+              + " cache's hitRatio is 1.0 when it has had no lookups. handlers times (totalTime,"
+              + " avgTimePerRequest) are in nanoseconds.",
       generateOutputSchema = true)
   public CollectionMetrics getCollectionStats(
       @McpToolParam(description = "Solr collection to get stats/metrics for") String collection) {
@@ -583,21 +586,15 @@ public class CollectionService {
             notFound,
             () -> new IndexOnlyLukeRequest().process(solrClient, actualCollection));
 
-    // Query performance metrics
-    QueryResponse statsResponse =
-        SolrCalls.call(
-            COLLECTION_STATS_FAILED,
-            notFound,
-            () ->
-                solrClient.query(actualCollection, new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0)));
-
-    // One /admin/metrics call feeds both the cache and handler stats
-    NamedList<Object> coreMetrics = fetchMetrics(actualCollection);
+    // One /admin/metrics call feeds both the cache and handler stats. No query is sent: the
+    // handler and cache counters are cumulative, so a probe query would show up in this and every
+    // later call's numbers.
+    CoreMetrics coreMetrics = fetchMetrics(actualCollection);
     return new CollectionMetrics(
         buildIndexStats(lukeResponse),
-        buildQueryStats(statsResponse),
-        cacheStats(coreMetrics),
-        handlerStats(coreMetrics));
+        cacheStats(metricsOf(coreMetrics)),
+        handlerStats(metricsOf(coreMetrics)),
+        coreMetrics == null ? null : coreMetrics.core());
   }
 
   /**
@@ -631,41 +628,6 @@ public class CollectionService {
     Integer segmentCount = getInteger(indexInfo, SEGMENT_COUNT_KEY);
 
     return new IndexStats(lukeResponse.getNumDocs(), segmentCount);
-  }
-
-  /**
-   * Builds a QueryStats object from a Solr query response containing performance metrics.
-   *
-   * <p>Extracts key performance indicators from a query execution including timing, result
-   * characteristics, and relevance scoring information. These metrics help identify query
-   * performance patterns and optimization opportunities.
-   *
-   * <p><strong>Extracted Metrics:</strong>
-   *
-   * <ul>
-   *   <li><strong>queryTime</strong>: Execution time in milliseconds
-   *   <li><strong>totalResults</strong>: Total matching documents found
-   *   <li><strong>start</strong>: Pagination offset (0-based)
-   *   <li><strong>maxScore</strong>: Highest relevance score in results
-   * </ul>
-   *
-   * <p><strong>Performance Analysis:</strong>
-   *
-   * <p>Query time metrics help identify slow queries that may need optimization, while result
-   * counts and scores provide insight into search effectiveness.
-   *
-   * @param response the query response containing performance and result metadata
-   * @return QueryStats object with extracted performance metrics
-   * @see QueryStats
-   * @see QueryResponse
-   */
-  QueryStats buildQueryStats(QueryResponse response) {
-
-    return new QueryStats(
-        response.getQTime(),
-        response.getResults().getNumFound(),
-        response.getResults().getStart(),
-        response.getResults().getMaxScore());
   }
 
   /**
@@ -705,7 +667,7 @@ public class CollectionService {
    */
   @Nullable CacheStats getCacheMetrics(String collection) {
     // An unknown collection has no core in the metrics response, so this is null
-    return cacheStats(fetchMetrics(extractCollectionName(collection)));
+    return cacheStats(metricsOf(fetchMetrics(extractCollectionName(collection))));
   }
 
   /** Extracts {@link CacheStats} from fetched core metrics, or {@code null} if there are none. */
@@ -798,7 +760,7 @@ public class CollectionService {
    */
   @Nullable HandlerStats getHandlerMetrics(String collection) {
     // An unknown collection has no core in the metrics response, so this is null
-    return handlerStats(fetchMetrics(extractCollectionName(collection)));
+    return handlerStats(metricsOf(fetchMetrics(extractCollectionName(collection))));
   }
 
   /**
@@ -835,10 +797,10 @@ public class CollectionService {
    * request.
    *
    * @param collection the collection name
-   * @return the core-level metrics NamedList, or null if unavailable
+   * @return the first matching core's registry name and metrics, or null if unavailable
    */
   @SuppressWarnings("unchecked")
-  private @Nullable NamedList<Object> fetchMetrics(String collection) {
+  private @Nullable CoreMetrics fetchMetrics(String collection) {
     ModifiableSolrParams params = new ModifiableSolrParams();
     params.set(GROUP_PARAM, CORE_GROUP);
     params.set(PREFIX_PARAM, STATS_METRIC_PREFIXES);
@@ -866,10 +828,22 @@ public class CollectionService {
     for (int i = 0; i < metrics.size(); i++) {
       String key = metrics.getName(i);
       if (key != null && key.startsWith(corePrefix)) {
-        return (NamedList<Object>) metrics.getVal(i);
+        return new CoreMetrics(key, (NamedList<Object>) metrics.getVal(i));
       }
     }
     return null;
+  }
+
+  /**
+   * One core's metrics, keyed in the Metrics API by its registry name.
+   *
+   * @param core the registry name, such as {@code solr.core.films.shard1.replica_n1}
+   * @param metrics the core's metrics
+   */
+  private record CoreMetrics(String core, NamedList<Object> metrics) {}
+
+  private static @Nullable NamedList<Object> metricsOf(@Nullable CoreMetrics coreMetrics) {
+    return coreMetrics == null ? null : coreMetrics.metrics();
   }
 
   /**

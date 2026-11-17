@@ -61,7 +61,6 @@ class SolrNativeHints implements RuntimeHintsRegistrar {
           "org.apache.solr.mcp.server.collection.HealthStatus$Reason",
           "org.apache.solr.mcp.server.collection.CollectionMetrics",
           "org.apache.solr.mcp.server.collection.CollectionMetrics$IndexStats",
-          "org.apache.solr.mcp.server.collection.CollectionMetrics$QueryStats",
           "org.apache.solr.mcp.server.collection.CollectionMetrics$CacheStats",
           "org.apache.solr.mcp.server.collection.CollectionMetrics$CacheInfo",
           "org.apache.solr.mcp.server.collection.CollectionMetrics$HandlerStats",
