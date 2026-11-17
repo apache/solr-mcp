@@ -25,12 +25,14 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.LukeRequest;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest.MultiUpdate;
+import org.apache.solr.common.luke.FieldFlag;
 import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
@@ -78,6 +80,8 @@ class SchemaServiceTest {
     SimpleOrderedMap<Object> field = new SimpleOrderedMap<>();
     field.add("name", "genre");
     field.add("type", "string");
+    field.add("indexed", true);
+    field.add("stored", false);
     field.add("futureFlag", true);
     SimpleOrderedMap<Object> schema = new SimpleOrderedMap<>();
     schema.add("name", "test");
@@ -96,11 +100,16 @@ class SchemaServiceTest {
 
     assertEquals("genre", result.fields().getFirst().name());
     assertEquals(true, result.fields().getFirst().other().get("futureFlag"));
+    // flag properties become FieldFlags (true only) and leave the catch-all
+    assertEquals(Set.of(FieldFlag.INDEXED), result.fields().getFirst().flags());
+    assertFalse(result.fields().getFirst().other().containsKey("indexed"));
+    assertFalse(result.fields().getFirst().other().containsKey("stored"));
     assertEquals(Map.of("k", "v"), result.other().get("futureSection"));
     String json = realMapper.writeValueAsString(result);
     assertTrue(json.contains("\"futureFlag\":true"), json);
     assertTrue(json.contains("\"futureSection\":{\"k\":\"v\"}"), json);
     assertFalse(json.contains("\"other\""), json);
+    assertTrue(json.contains("\"flags\":[\"INDEXED\"]"), json);
   }
 
   @Test
