@@ -38,6 +38,7 @@ import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrException;
+import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -303,51 +304,6 @@ class CollectionServiceTest {
     assertNull(result.responseTime());
   }
 
-  // Query stats tests
-  @Test
-  void buildQueryStats_WithValidResponse_ShouldExtractStats() {
-    // Given
-    SolrDocumentList docList = new SolrDocumentList();
-    docList.setNumFound(250);
-    docList.setStart(0);
-    docList.setMaxScore(1.5f);
-
-    when(queryResponse.getQTime()).thenReturn(25);
-    when(queryResponse.getResults()).thenReturn(docList);
-
-    // When
-    QueryStats result = collectionService.buildQueryStats(queryResponse);
-
-    // Then
-    assertNotNull(result);
-    assertEquals(25, result.queryTime());
-    assertEquals(250, result.totalResults());
-    assertEquals(0, result.start());
-    assertEquals(1.5f, result.maxScore());
-  }
-
-  @Test
-  void buildQueryStats_WithNullMaxScore_ShouldHandleGracefully() {
-    // Given
-    SolrDocumentList docList = new SolrDocumentList();
-    docList.setNumFound(100);
-    docList.setStart(10);
-    docList.setMaxScore(null);
-
-    when(queryResponse.getQTime()).thenReturn(15);
-    when(queryResponse.getResults()).thenReturn(docList);
-
-    // When
-    QueryStats result = collectionService.buildQueryStats(queryResponse);
-
-    // Then
-    assertNotNull(result);
-    assertEquals(15, result.queryTime());
-    assertEquals(100, result.totalResults());
-    assertEquals(10, result.start());
-    assertNull(result.maxScore());
-  }
-
   // Index stats tests
   @Test
   void buildIndexStats_ShouldExtractStats() {
@@ -403,7 +359,7 @@ class CollectionServiceTest {
   }
 
   @Test
-  void getCollectionStats_MakesExactlyOneMetricsRequestAndNoListCall() throws Exception {
+  void getCollectionStats_MakesExactlyOneMetricsRequestAndNoQuery() throws Exception {
     // Luke response: only the "index" section is needed for buildIndexStats.
     NamedList<Object> lukeIndexSection = new NamedList<>();
     lukeIndexSection.add("numDocs", 42);
@@ -411,11 +367,6 @@ class CollectionServiceTest {
     NamedList<Object> lukeRaw = new NamedList<>();
     lukeRaw.add("index", lukeIndexSection);
     when(solrClient.request(any(LukeRequest.class), eq("test_collection"))).thenReturn(lukeRaw);
-
-    SolrDocumentList docList = new SolrDocumentList();
-    docList.setNumFound(7);
-    when(solrClient.query(eq("test_collection"), any())).thenReturn(queryResponse);
-    when(queryResponse.getResults()).thenReturn(docList);
 
     NamedList<Object> metricsResponse =
         wrapInMetricsResponse(createCacheCoreMetrics(), "test_collection");
@@ -428,7 +379,12 @@ class CollectionServiceTest {
     assertEquals(42, result.indexStats().numDocs());
     assertEquals(3, result.indexStats().segmentCount());
     assertNotNull(result.cacheStats());
+    // the core the cache and handler stats were read from is named
+    assertTrue(result.metricsCore().startsWith("solr.core.test_collection."), result.metricsCore());
 
+    // No query: the handler and cache counters are cumulative, so a probe query would show up in
+    // this and every later call's numbers.
+    verify(solrClient, never()).query(any(String.class), any(SolrParams.class));
     // Exactly one metrics call (combined cache+handler prefixes), no
     // list-collections pre-flight, and exactly one Luke request.
     verify(solrClient, never()).request(any(CollectionAdminRequest.List.class), any());

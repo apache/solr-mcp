@@ -25,9 +25,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * Top-level container for comprehensive Solr collection metrics.
  *
- * <p>This class aggregates various types of Solr performance and operational metrics including
- * index statistics, query performance, cache utilization, and request handler metrics. It serves as
- * the primary response object for collection monitoring and analysis tools.
+ * <p>This class aggregates Solr's operational metrics for a collection: index statistics, cache
+ * utilization and request handler metrics. It serves as the primary response object for collection
+ * monitoring and analysis tools.
  *
  * <p>The metrics are collected from multiple Solr admin endpoints and MBeans to provide a
  * comprehensive view of collection health and performance characteristics.
@@ -50,14 +50,15 @@ import org.jspecify.annotations.Nullable;
  * }</pre>
  *
  * @param indexStats Index-related statistics including document counts and segment information
- * @param queryStats Query performance metrics from the most recent search operations
  * @param cacheStats Cache utilization statistics for query result, document, and filter caches (may
  *     be null)
  * @param handlerStats Request handler performance metrics for select and update operations (may be
  *     null)
+ * @param metricsCore the core registry the cache and handler statistics were read from, such as
+ *     {@code solr.core.films.shard1.replica_n1}; they describe that one core, not the whole
+ *     collection (null when Solr reported no metrics for the collection)
  * @param timestamp Timestamp when these metrics were collected, formatted as ISO 8601
  * @see IndexStats
- * @see QueryStats
  * @see CacheStats
  * @see HandlerStats
  */
@@ -65,9 +66,9 @@ import org.jspecify.annotations.Nullable;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record SolrMetrics(
     IndexStats indexStats,
-    QueryStats queryStats,
     @Nullable CacheStats cacheStats,
     @Nullable HandlerStats handlerStats,
+    @Nullable String metricsCore,
     @JsonFormat(shape = JsonFormat.Shape.STRING) Instant timestamp) {}
 
 /**
@@ -97,36 +98,6 @@ record SolrMetrics(
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record IndexStats(@Nullable Integer numDocs, @Nullable Integer segmentCount) {}
-
-/**
- * Query execution performance metrics from Solr search operations.
- *
- * <p>Captures performance characteristics and result metadata from the most recent query execution.
- * These metrics help identify query performance patterns and potential optimization opportunities.
- *
- * <p><strong>Available Metrics:</strong>
- *
- * <ul>
- *   <li><strong>queryTime</strong>: Time in milliseconds to execute the query
- *   <li><strong>totalResults</strong>: Total number of matching documents found
- *   <li><strong>start</strong>: Starting offset for pagination
- *   <li><strong>maxScore</strong>: Highest relevance score in the result set
- * </ul>
- *
- * <p><strong>Performance Analysis:</strong>
- *
- * <p>Query time metrics help identify slow queries that may need optimization, while result counts
- * and scores provide insight into search effectiveness and relevance tuning needs.
- *
- * @param queryTime Time in milliseconds required to execute the most recent query
- * @param totalResults Total number of documents matching the query criteria
- * @param start Starting position for paginated results (0-based offset)
- * @param maxScore Highest relevance score among the returned documents
- * @see org.apache.solr.client.solrj.response.QueryResponse
- */
-@JsonIgnoreProperties(ignoreUnknown = true)
-@JsonInclude(JsonInclude.Include.NON_NULL)
-record QueryStats(Integer queryTime, Long totalResults, Long start, @Nullable Float maxScore) {}
 
 /**
  * Solr cache utilization statistics across all cache types.
