@@ -18,10 +18,6 @@ package org.apache.solr.mcp.server.cluster;
 
 import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
@@ -62,7 +58,8 @@ public class ClusterService {
    * Constructs a new ClusterService with the required dependencies.
    *
    * @param solrClient the SolrJ client instance for communicating with Solr
-   * @param jsonMapper the Jackson JsonMapper for the resource's JSON
+   * @param jsonMapper the Jackson JsonMapper that converts Solr responses into records and writes
+   *     the resource's JSON
    */
   public ClusterService(SolrClient solrClient, JsonMapper jsonMapper) {
     this.solrClient = solrClient;
@@ -73,16 +70,17 @@ public class ClusterService {
    * Returns the {@code cluster} section of Solr's CLUSTERSTATUS response as Solr reports it: {@code
    * live_nodes}, then each collection's shards and replicas.
    *
-   * <p>The response shape is the same on every supported Solr version, so it is passed through
-   * rather than mapped to records. Solr already marks a replica on a node missing from {@code
-   * live_nodes} as {@code down}; before Solr 10.1 it computed {@code health} ahead of that
-   * correction (SOLR-17820), which the tool description tells the model about.
+   * <p>The section is converted into {@link ClusterStatus} records that carry Solr's own values and
+   * compute nothing; properties the records do not type are kept and written back as Solr sent
+   * them. Solr already marks a replica on a node missing from {@code live_nodes} as {@code down};
+   * before Solr 10.1 it computed {@code health} ahead of that correction (SOLR-17820), which the
+   * tool description tells the model about.
    *
    * <p>An unknown collection fails in Solr with {@code Collection: <name> not found}, and a Solr
    * not running in SolrCloud mode rejects CLUSTERSTATUS. Both propagate unchanged.
    *
    * @param collection a collection or alias to report on, or null for all collections
-   * @return the {@code cluster} section as nested maps and lists
+   * @return the {@code cluster} section
    * @throws SolrServerException if Solr returns an error
    * @throws IOException if there are I/O errors during communication
    */
@@ -97,8 +95,7 @@ public class ClusterService {
               + " replica with `leader` true; `leader` can stay true on a replica that is down. Before Solr"
               + " 10.1, `health` can read GREEN while a replica in the same response is down (SOLR-17820),"
               + " so judge by replica `state`, not `health`.")
-  @SuppressWarnings("unchecked")
-  public Map<String, Object> getClusterStatus(
+  public ClusterStatus getClusterStatus(
       @McpToolParam(
               description = "Collection or alias to report on. Omit for all collections.",
               required = false)
@@ -110,13 +107,13 @@ public class ClusterService {
     }
     NamedList<?> cluster = (NamedList<?>) request.process(solrClient).getResponse().get("cluster");
     // A JSON-parsed tree has no cycles, so asMap's depth guard never applies.
-    return cluster.asMap(Integer.MAX_VALUE);
+    return jsonMapper.convertValue(cluster.asMap(Integer.MAX_VALUE), ClusterStatus.class);
   }
 
   /**
    * Lists the configsets in the cluster, sorted by name.
    *
-   * @return the configset names; never null
+   * @return the configset names, sorted
    * @throws SolrServerException if Solr returns an error
    * @throws IOException if there are I/O errors during communication
    */
@@ -128,11 +125,10 @@ public class ClusterService {
           "List the configsets in the cluster. Names ending in `.AUTOCREATED` are private copies,"
               + " each owned by one collection. Pass any other name as `configSet` to `create-collection`"
               + " to share it.")
-  public List<String> listConfigSets() throws SolrServerException, IOException {
-    List<String> configSets =
-        new ArrayList<>(new ConfigSetAdminRequest.List().process(solrClient).getConfigSets());
-    configSets.sort(Comparator.naturalOrder());
-    return configSets;
+  public ConfigSetList listConfigSets() throws SolrServerException, IOException {
+    NamedList<Object> response = new ConfigSetAdminRequest.List().process(solrClient).getResponse();
+    // A JSON-parsed tree has no cycles, so asMap's depth guard never applies.
+    return jsonMapper.convertValue(response.asMap(Integer.MAX_VALUE), ConfigSetList.class);
   }
 
   /**

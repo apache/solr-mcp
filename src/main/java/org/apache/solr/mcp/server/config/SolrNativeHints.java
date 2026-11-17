@@ -55,6 +55,11 @@ class SolrNativeHints implements RuntimeHintsRegistrar {
   private static final List<String> MCP_TOOL_RECORDS =
       List.of(
           "org.apache.solr.mcp.server.collection.AliasResult",
+          "org.apache.solr.mcp.server.cluster.ClusterStatus",
+          "org.apache.solr.mcp.server.cluster.ClusterStatus$Collection",
+          "org.apache.solr.mcp.server.cluster.ClusterStatus$Shard",
+          "org.apache.solr.mcp.server.cluster.ClusterStatus$Replica",
+          "org.apache.solr.mcp.server.cluster.ConfigSetList",
           "org.apache.solr.mcp.server.collection.CollectionCreationResult",
           "org.apache.solr.mcp.server.collection.SolrHealthStatus",
           "org.apache.solr.mcp.server.collection.SolrMetrics",

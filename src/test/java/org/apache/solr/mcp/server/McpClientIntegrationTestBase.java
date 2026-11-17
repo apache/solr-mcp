@@ -350,6 +350,29 @@ public abstract class McpClientIntegrationTestBase {
 
   @Test
   @Order(12)
+  void getClusterStatusWritesTheRecordsAsSolrsShape() throws Exception {
+    CallToolResult result =
+        mcpClient.callTool(
+            new CallToolRequest("get-cluster-status", Map.of("collection", COLLECTION)));
+
+    assertNotError(result);
+    String text = extractText(result);
+    Map<String, Object> status = OBJECT_MAPPER.readValue(text, new TypeReference<>() {});
+    // Through Spring AI's serialization: Solr's keys, the catch-all merged in rather than
+    // emitted as "other", and leader as a boolean rather than Solr's "true" string.
+    assertFalse(status.containsKey("other"), text);
+    Map<?, ?> shards =
+        (Map<?, ?>)
+            ((Map<?, ?>) ((Map<?, ?>) status.get("collections")).get(COLLECTION)).get("shards");
+    Map<?, ?> replicas =
+        (Map<?, ?>) ((Map<?, ?>) shards.values().iterator().next()).get("replicas");
+    Map<?, ?> replica = (Map<?, ?>) replicas.values().iterator().next();
+    assertEquals(Boolean.TRUE, replica.get("leader"), text);
+    assertTrue(replica.containsKey("node_name") && replica.containsKey("base_url"), text);
+  }
+
+  @Test
+  @Order(12)
   void getSchema() {
     CallToolResult result =
         mcpClient.callTool(new CallToolRequest("get-schema", Map.of("collection", COLLECTION)));

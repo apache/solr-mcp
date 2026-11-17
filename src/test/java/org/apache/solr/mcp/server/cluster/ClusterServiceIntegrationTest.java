@@ -20,7 +20,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Collection;
-import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
@@ -68,7 +67,7 @@ class ClusterServiceIntegrationTest {
 
   @Test
   void listConfigSetsContainsDefault() throws Exception {
-    assertThat(clusterService.listConfigSets()).contains("_default").isSorted();
+    assertThat(clusterService.listConfigSets().configSets()).contains("_default").isSorted();
   }
 
   @Test
@@ -88,11 +87,29 @@ class ClusterServiceIntegrationTest {
         .satisfies(
             replica -> {
               assertThat(replica.get("state").asString()).isEqualTo("active");
-              assertThat(replica.get("leader").asString()).isEqualTo("true");
+              // Solr sends "leader": "true", a string; the record writes it as a boolean
+              assertThat(replica.get("leader").isBoolean()).isTrue();
+              assertThat(replica.get("leader").asBoolean()).isTrue();
               assertThat(replica.get("node_name").asString()).isEqualTo(liveNode);
               assertThat(replica.get("core").asString()).startsWith(TEST_COLLECTION);
               assertThat(replica.get("base_url").asString()).endsWith("/solr");
             });
+  }
+
+  @Test
+  void recordsTypeWhatTheToolDescriptionTellsTheModelToRead() throws Exception {
+    ClusterStatus status = clusterService.getClusterStatus(TEST_COLLECTION);
+
+    ClusterStatus.Collection collection = status.collections().get(TEST_COLLECTION);
+    ClusterStatus.Shard shard = collection.shards().get("shard1");
+    ClusterStatus.Replica replica = shard.replicas().values().iterator().next();
+    assertThat(replica.state()).isEqualTo("active");
+    assertThat(replica.leader()).isTrue();
+    assertThat(replica.nodeName()).isEqualTo(status.liveNodes().getFirst());
+    assertThat(replica.type()).isEqualTo("NRT");
+    // properties without a component are kept, not dropped
+    assertThat(replica.other()).containsKey("base_url");
+    assertThat(collection.other()).containsKey("router");
   }
 
   @Test
@@ -121,7 +138,7 @@ class ClusterServiceIntegrationTest {
     assertThat(json.at("/collections/" + TEST_COLLECTION + "/shards/shard1/replicas")).isNotEmpty();
   }
 
-  private Collection<String> collectionNames(Map<String, Object> status) {
-    return jsonMapper.valueToTree(status).get("collections").propertyNames();
+  private Collection<String> collectionNames(ClusterStatus status) {
+    return status.collections().keySet();
   }
 }
