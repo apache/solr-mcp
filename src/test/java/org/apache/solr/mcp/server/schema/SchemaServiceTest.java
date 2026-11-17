@@ -25,12 +25,15 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest.MultiUpdate;
+import org.apache.solr.common.luke.FieldFlag;
 import org.apache.solr.common.util.NamedList;
+import org.apache.solr.common.util.SimpleOrderedMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
@@ -66,6 +69,45 @@ class SchemaServiceTest {
 
     // Then
     assertNotNull(service, "SchemaService should be instantiated correctly");
+  }
+
+  @Test
+  void getSchema_keepsPropertiesTheRecordsDoNotDeclare() throws Exception {
+    // A property a later Solr version adds has no record component. It must reach the client
+    // at the same level Solr sent it, not be dropped and not be wrapped in an "other" object.
+    SimpleOrderedMap<Object> field = new SimpleOrderedMap<>();
+    field.add("name", "genre");
+    field.add("type", "string");
+    field.add("indexed", true);
+    field.add("stored", false);
+    field.add("futureFlag", true);
+    SimpleOrderedMap<Object> schema = new SimpleOrderedMap<>();
+    schema.add("name", "test");
+    schema.add("uniqueKey", "id");
+    schema.add("fieldTypes", List.of());
+    schema.add("fields", List.of(field));
+    schema.add("dynamicFields", List.of());
+    schema.add("copyFields", List.of());
+    schema.add("futureSection", Map.of("k", "v"));
+    NamedList<Object> response = new NamedList<>();
+    response.add("schema", schema);
+    when(solrClient.request(any(SchemaRequest.class), eq("c"))).thenReturn(response);
+    JsonMapper realMapper = JsonMapper.builder().build();
+
+    CollectionSchema result = new SchemaService(solrClient, realMapper).getSchema("c");
+
+    assertEquals("genre", result.fields().getFirst().name());
+    assertEquals(true, result.fields().getFirst().other().get("futureFlag"));
+    // flag properties become FieldFlags (true only) and leave the catch-all
+    assertEquals(Set.of(FieldFlag.INDEXED), result.fields().getFirst().flags());
+    assertFalse(result.fields().getFirst().other().containsKey("indexed"));
+    assertFalse(result.fields().getFirst().other().containsKey("stored"));
+    assertEquals(Map.of("k", "v"), result.other().get("futureSection"));
+    String json = realMapper.writeValueAsString(result);
+    assertTrue(json.contains("\"futureFlag\":true"), json);
+    assertTrue(json.contains("\"futureSection\":{\"k\":\"v\"}"), json);
+    assertFalse(json.contains("\"other\""), json);
+    assertTrue(json.contains("\"flags\":[\"INDEXED\"]"), json);
   }
 
   @Test

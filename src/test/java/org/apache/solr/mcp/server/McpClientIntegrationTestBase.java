@@ -334,6 +334,33 @@ public abstract class McpClientIntegrationTestBase {
     assertNotError(result);
     String text = extractText(result);
     assertFalse(text.isEmpty(), "Schema response should not be empty");
+
+    // Spring AI serializes the CollectionSchema record. In Solr's own shape a field type's
+    // properties sit at the top level (no SolrJ "attributes" wrapper), the catch-all is merged
+    // in rather than emitted as "other", and the arrays are present (they go missing in a
+    // native image when the records lack reflection hints).
+    Map<String, Object> schema = OBJECT_MAPPER.readValue(text, new TypeReference<>() {});
+    assertFalse(schema.containsKey("other"), text);
+    List<?> fields = (List<?>) schema.get("fields");
+    Map<?, ?> id =
+        fields.stream()
+            .map(Map.class::cast)
+            .filter(f -> "id".equals(f.get("name")))
+            .findFirst()
+            .orElseThrow();
+    // flags are SolrJ FieldFlag constant names, not Luke legend text ("I - Indexed")
+    assertTrue(((List<?>) id.get("flags")).containsAll(List.of("INDEXED", "STORED")), text);
+    assertFalse(id.containsKey("indexed"), text);
+    Map<?, ?> textGeneral =
+        ((List<?>) schema.get("fieldTypes"))
+            .stream()
+                .map(Map.class::cast)
+                .filter(t -> "text_general".equals(t.get("name")))
+                .findFirst()
+                .orElseThrow();
+    assertEquals("solr.TextField", textGeneral.get("class"), text);
+    assertEquals("100", textGeneral.get("positionIncrementGap"), text);
+    assertFalse(textGeneral.containsKey("attributes"), text);
   }
 
   @Test
