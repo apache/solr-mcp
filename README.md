@@ -1,4 +1,13 @@
 [![Project Status: Incubating](https://img.shields.io/badge/status-incubating-yellow.svg)](https://github.com/apache/solr-mcp)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=apache_solr-mcp&metric=alert_status)](https://sonarcloud.io/project/overview?id=apache_solr-mcp)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=apache_solr-mcp&metric=security_rating)](https://sonarcloud.io/project/overview?id=apache_solr-mcp)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=apache_solr-mcp&metric=reliability_rating)](https://sonarcloud.io/project/overview?id=apache_solr-mcp)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=apache_solr-mcp&metric=sqale_rating)](https://sonarcloud.io/project/overview?id=apache_solr-mcp)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=apache_solr-mcp&metric=bugs)](https://sonarcloud.io/project/overview?id=apache_solr-mcp)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=apache_solr-mcp&metric=vulnerabilities)](https://sonarcloud.io/project/overview?id=apache_solr-mcp)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=apache_solr-mcp&metric=code_smells)](https://sonarcloud.io/project/overview?id=apache_solr-mcp)
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=apache_solr-mcp&metric=ncloc)](https://sonarcloud.io/project/overview?id=apache_solr-mcp)
+[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=apache_solr-mcp&metric=duplicated_lines_density)](https://sonarcloud.io/project/overview?id=apache_solr-mcp)
 
 # Solr MCP Server
 

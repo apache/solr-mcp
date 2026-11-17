@@ -261,18 +261,13 @@ class SearchServiceIntegrationTest {
 
   @Test
   void searchWithUndefinedFieldInFilterQueryReturnsGetSchemaHint() {
+    List<String> filterQueries = List.of("definitely_not_a_field:value");
     IllegalArgumentException e =
         assertThrows(
             IllegalArgumentException.class,
             () ->
                 searchService.search(
-                    COLLECTION_NAME,
-                    "*:*",
-                    List.of("definitely_not_a_field:value"),
-                    null,
-                    null,
-                    null,
-                    null));
+                    COLLECTION_NAME, "*:*", filterQueries, null, null, null, null));
     assertTrue(
         e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
         () -> "expected get-schema hint, got: " + e.getMessage());
@@ -282,18 +277,12 @@ class SearchServiceIntegrationTest {
   /** Faceting words it differently: {@code undefined field: "name"}. */
   @Test
   void searchWithUndefinedFacetFieldReturnsGetSchemaHint() {
+    List<String> facetFields = List.of("definitely_not_a_field");
     IllegalArgumentException e =
         assertThrows(
             IllegalArgumentException.class,
             () ->
-                searchService.search(
-                    COLLECTION_NAME,
-                    "*:*",
-                    null,
-                    List.of("definitely_not_a_field"),
-                    null,
-                    null,
-                    null));
+                searchService.search(COLLECTION_NAME, "*:*", null, facetFields, null, null, null));
     assertTrue(
         e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
         () -> "expected get-schema hint, got: " + e.getMessage());
