@@ -8,7 +8,7 @@ Solr MCP Server is a Spring AI Model Context Protocol (MCP) server that enables 
 
 - **Status:** Apache incubating project (v1.0.0-SNAPSHOT)
 - **Java:** 25+ (centralized in build.gradle.kts)
-- **Framework:** Spring Boot 4.1.1, Spring AI 2.0.1
+- **Framework:** Spring Boot 4.2.0, Spring AI 2.1.0
 - **License:** Apache 2.0
 
 ## Common Commands
@@ -146,7 +146,7 @@ Configuration files: `application-stdio.properties`, `application-http.propertie
 ### SBOM Architecture
 
 CycloneDX SBOM generation is wired by applying the `org.cyclonedx.bom` plugin,
-version **3.4.1**. Spring Boot 4.1.1's `CyclonedxPluginAction` recognises 3.x and
+version **3.4.1**. Spring Boot 4's `CyclonedxPluginAction` recognises 3.x and
 auto-configures the `cyclonedxBom` task (type `org.cyclonedx.gradle.CyclonedxAggregateTask`):
 it writes `build/reports/cyclonedx/application.cdx.json`, embeds that in the bootJar at
 `META-INF/sbom/application.cdx.json`, and sets the `Sbom-Format` / `Sbom-Location`
@@ -335,8 +335,8 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
 
 ### Spring Boot 4 Notes
 
-The move from Spring Boot 3.5 / Spring AI 1.1 to Spring Boot 4.1.1 / Spring AI 2.0.1
-([release announcement](https://spring.io/blog/2026/06/12/spring-ai-2-0-0-GA-available-now))
+The move from Spring Boot 3.5 / Spring AI 1.1 to Spring Boot 4 / Spring AI 2
+([Spring AI 2.0 announcement](https://spring.io/blog/2026/06/12/spring-ai-2-0-0-GA-available-now))
 changed these things; keep them in mind when reading older docs or PRs:
 
 - **Jackson 3:** `tools.jackson.databind` replaces `com.fasterxml.jackson.databind`. Annotations
@@ -351,8 +351,9 @@ changed these things; keep them in mind when reading older docs or PRs:
 - **Observability:** Uses `spring-boot-starter-opentelemetry` for traces, metrics, and log
   export via OTLP. The `micrometer-tracing-bridge-otel` + manual OTel BOM approach and the
   Prometheus registry (`/actuator/prometheus`) are gone.
-- **MCP SDK:** `io.modelcontextprotocol.sdk:mcp` 2.0.1 via `mcp-bom`, with the Jackson 3
-  module (`mcp-json-jackson3`).
+- **MCP SDK:** `io.modelcontextprotocol.sdk:mcp`, with the Jackson 3 module
+  (`mcp-json-jackson3`), at the version Spring AI depends on (2.2.0 under Spring AI
+  2.1.0). There is no separate SDK pin; Spring AI 2.0.1 needed one via `mcp-bom`.
 - **Span naming:** `@Observed` spans use `ClassName#methodName` (PascalCase) instead of
   the earlier `class-name#method-name` (kebab-case).
 
