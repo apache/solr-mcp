@@ -130,6 +130,31 @@ class McpInspectorCorsTest {
     }
   }
 
+  /**
+   * The 2026-07-28 revision ({@code MCP_PROTOCOL=modern}) requires {@code Mcp-Method} on every
+   * request and {@code Mcp-Name} on tools/call, prompts/get and resources/read. A browser client
+   * cannot send either unless preflight allows it, so leaving them out of the allowlist would make
+   * modern mode unusable from the Inspector while server-side tests stay green.
+   */
+  @Test
+  void modernProtocolHeadersAreAllowed() throws Exception {
+    HttpResponse<String> response =
+        preflight(INSPECTOR_ORIGIN, HttpMethod.POST, "Mcp-Method,Mcp-Name,MCP-Protocol-Version");
+
+    assertEquals(HttpStatus.OK.value(), response.statusCode());
+    String allowed =
+        response
+            .headers()
+            .firstValue(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS)
+            .orElse("")
+            .toLowerCase(java.util.Locale.ROOT);
+    for (String header : List.of("mcp-method", "mcp-name", "mcp-protocol-version")) {
+      assertTrue(
+          allowed.contains(header),
+          () -> "preflight must allow " + header + "; Allow-Headers was: " + allowed);
+    }
+  }
+
   @Test
   void unknownOriginIsRejected() throws Exception {
     assertEquals(

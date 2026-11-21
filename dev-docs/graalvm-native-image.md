@@ -103,6 +103,13 @@ This is also why the JVM Jib image can be dual-mode while the native images
 cannot: the JVM image makes the `web-application-type` decision at *runtime*
 from the `PROFILES` env var; the native image already made it at *build time*.
 
+The MCP protocol revision is frozen the same way. Spring AI chooses between the
+2025-revision servers and the 2026-07-28 ("modern") server with
+`@ConditionalOnProperty` on `spring.ai.mcp.server.protocol`, which `MCP_PROTOCOL`
+sets, so a native image serves whichever revision was in effect when `processAot`
+ran (the 2025 revisions by default) and ignores `MCP_PROTOCOL` at `docker run`
+time. See [docs/modern-protocol.md](../docs/modern-protocol.md#native-images).
+
 ## Why Jib for JVM, Paketo for native
 
 - **Jib (JVM image).** Plain `java -jar` entrypoint, no launcher script, so
@@ -204,10 +211,13 @@ four `--initialize-at-build-time` entries in `nativeImageBuildArgs`:
 proxy classes that cannot be build-time initialized; including it breaks the
 build.
 
-**OTel dependency alignment.** Spring Boot 4.1 manages the OpenTelemetry SDK
-(`opentelemetry-api:1.62.0`) through the starter, so the logback appender is
-held at `2.28.1-alpha` — the newest release built against `1.62.0`, whose
-transitive `opentelemetry-api-incubator:1.62.0-alpha` matches. A newer appender
+**OTel dependency alignment.** Spring Boot 4.2 manages the OpenTelemetry SDK
+(`opentelemetry-api:1.68.0`) through the starter, so the logback appender is
+held at `2.34.0-alpha` — the newest release built against `1.68.0`, whose
+transitive `opentelemetry-api-incubator:1.68.0-alpha` matches. Boot does not
+manage the incubator, so a stale appender leaves it behind while the SDK moves
+on: on Boot 4.2 the 1.62 incubator fails `OpenTelemetrySdk` creation with
+`NoClassDefFoundError: io/opentelemetry/api/internal/ConfigUtil`. A newer appender
 is built against a newer API that the Boot BOM would downgrade, risking a
 `NoSuchMethodError` (an older one pulls an incubator lacking
 `DeclarativeConfigProperties.get(String)`, which SB4's `OpenTelemetrySdk`

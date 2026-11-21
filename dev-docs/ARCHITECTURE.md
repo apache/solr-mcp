@@ -108,6 +108,13 @@ Additional Jib benefits:
 - Requires additional security measures for production
 - Useful for testing and remote deployments
 
+#### MCP protocol revision
+
+Both transports speak the 2025 MCP revisions by default. `MCP_PROTOCOL=modern` serves the
+2026-07-28 revision instead (no `initialize` handshake or session, `server/discover`), using
+the modern server in MCP Java SDK 2.2.0 that Spring AI 2.1.0 auto-configures. The tools,
+resources and prompts are the same in both. See [modern-protocol.md](../docs/modern-protocol.md).
+
 ### Document Processing
 
 The document creator pattern allows for:

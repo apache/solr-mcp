@@ -123,15 +123,19 @@ class HttpSecurityConfiguration {
     configuration.setAllowedOrigins(allowedOrigins);
     // Only the HTTP methods used by the MCP Streamable HTTP transport.
     configuration.setAllowedMethods(List.of("GET", "POST", "DELETE", "OPTIONS"));
-    // Only the headers the MCP specification requires for the Streamable HTTP
-    // transport.
+    // Only the headers the MCP specification requires: Mcp-Session-Id and
+    // Last-Event-ID for the Streamable HTTP transport, Mcp-Method and Mcp-Name for
+    // the 2026-07-28 revision (MCP_PROTOCOL=modern), which a browser client such as
+    // the MCP Inspector must send on every request.
     configuration.setAllowedHeaders(
         List.of(
             "Authorization",
             "Content-Type",
             "Mcp-Session-Id",
             "MCP-Protocol-Version",
-            "Last-Event-ID"));
+            "Last-Event-ID",
+            "Mcp-Method",
+            "Mcp-Name"));
     configuration.setAllowCredentials(true);
 
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
