@@ -209,6 +209,11 @@ dependencyManagement {
         // rather than pinning mcp-core and leaving mcp-json-jackson3 behind.
         mavenBom("io.modelcontextprotocol.sdk:mcp-bom:${libs.versions.mcp.sdk.get()}")
         mavenBom("org.springframework.ai:spring-ai-bom:${libs.versions.spring.ai.get()}")
+        // Spring Modulith is only on the test classpath (spring-modulith-starter-test in
+        // the `test` bundle, used by ModularityTests). Spring Boot does not manage it, so
+        // the BOM supplies the versions. Nothing from it reaches productionRuntimeClasspath,
+        // so the bootJar, SBOM, binary LICENSE/NOTICE and native image are unchanged.
+        mavenBom("org.springframework.modulith:spring-modulith-bom:${libs.versions.spring.modulith.get()}")
     }
 }
 

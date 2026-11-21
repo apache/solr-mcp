@@ -418,6 +418,26 @@ See [infra.apache.org/licensing-howto](https://infra.apache.org/licensing-howto.
   run via `./gradlew dockerIntegrationTest`. They drive a built Docker image as a
   black-box subject under test.
 
+### Module boundaries (`ModularityTests`)
+
+`ModularityTests` runs Spring Modulith's `ApplicationModules.of(Main.class).verify()`.
+Each direct sub-package of `org.apache.solr.mcp.server` (e.g. `search`, `indexing`,
+`config`, `util`) is a module, so a new top-level package becomes a module
+automatically; a module's own sub-packages (e.g. `indexing.documentcreator`) are
+internal to it. The test fails on dependency
+cycles between modules and on any use of another module's internal types.
+
+- **If it fails, fix the design, not the test.** Move the type, invert the dependency,
+  or call the owning module's top-level API. Do not delete, `@Disabled`, or loosen the
+  test, and do not add `allowedDependencies`/`@NamedInterface` just to make it pass.
+- **A new cross-module dependency must be explicit.** If a module genuinely needs to
+  expose an internal package, declare it in that module's `package-info.java`
+  (`@NamedInterface`, or `@ApplicationModule` metadata) so the dependency is visible
+  in review.
+- Spring Modulith is a **test-only** dependency (`spring-modulith-starter-test` in the
+  `test` bundle); never add a runtime Modulith artifact. The test also writes PlantUML
+  diagrams to `build/spring-modulith-docs/` (build output, not committed).
+
 ### MCP-protocol vs container smoke tests
 
 Two different layers verify stdio behavior — easy to confuse:
