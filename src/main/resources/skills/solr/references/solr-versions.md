@@ -2,7 +2,14 @@
 
 The server supports Solr 9.4 to 10. No tool reports the Solr version, so ask the user or the operator
 if it matters. The tools, parameters and response shapes are the same across the range, except for
-the metrics figures below.
+the `list-fields` counts and the metrics figures below.
+
+## `list-fields`: `docs` and multi-shard collections
+
+- Numeric and date point fields and docValues-only fields have no terms, so their `docs` is missing,
+  or `0` on Solr 9.11+ and 10.1+. Either means "not counted", not "empty".
+- Before Solr 9.11 and 10.1, a collection with more than one shard lists the fields and counts of
+  one shard only. A field that appears in only some shards may be missing from the listing.
 
 ## `get-collection-stats`: `cacheStats` and `handlerStats`
 

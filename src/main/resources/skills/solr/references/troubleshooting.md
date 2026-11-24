@@ -16,11 +16,12 @@ written for this case but may not reach you.
 | Message starts with | Meaning | Next call |
 |---|---|---|
 | `Search failed: the collection was not found` | The `collection` does not exist | `list-collections`, then retry with a listed name |
-| `Search failed: a referenced field is not defined` | `query`, `filterQueries`, `facetFields` or `sortClauses` names a field the schema lacks | `get-schema`; fields Solr created while indexing may carry suffixes such as `name_s` |
+| `Search failed: a referenced field is not defined` | `query`, `queryFields`, `filterQueries`, `facetFields` or `sortClauses` names a field the collection lacks | `list-fields`; fields Solr created while indexing may carry suffixes such as `name_s` |
 | `Search failed: Solr could not parse the query or filters` | Lucene syntax error, or a bad `{!...}` local param | Quote or escape special characters; check local params |
-| `Search failed: Solr rejected the request` | Another 400 | Re-check syntax, filters, facets, sort, pagination; `get-schema` to verify fields |
+| `Search failed: queryFields cannot be combined with {!...} local params` | `queryFields` was set and `query` starts with `{!...}` | Put `qf` inside the local params, or drop the prefix |
+| `Search failed: Solr rejected the request` | Another 400 | Re-check syntax, query fields, filters, facets, sort, pagination; `list-fields` to verify fields |
 | `Search failed: Solr denied access` | Solr returned 401 or 403 | Not fixable from the tool; the operator must check Solr credentials and permissions |
-| `Search failed: unable to process the Solr response` | Any unexpected failure reading the response | If `facetFields` were set, `get-schema` to check them or retry without; else tell the user the operator must check server logs |
+| `Search failed: unable to process the Solr response` | Any unexpected failure reading the response | If `facetFields` were set, `list-fields` to check them or retry without; else tell the user the operator must check server logs |
 | `Search failed: Solr could not complete the request` | Any other Solr error | Retry later; if it persists, the operator must check Solr health and logs |
 
 ## `get-collection-stats`, `check-health`
@@ -39,12 +40,13 @@ written for this case but may not reach you.
 - `XML input must be a Solr <add> block containing <doc> elements ...`: the payload is not a Solr
   `<add>` block. Send documents only.
 - `Failed to parse XML document`: the XML is malformed, or carries a DOCTYPE, which is refused.
-- `Markdown input cannot be null or empty`: one of the array elements is blank.
+- `Markdown input cannot be empty`: one of the array elements is blank.
 - A CSV or XML payload that Solr rejects returns Solr's error text. Fix the payload and re-send.
 
 ## Schema and collections
 
 - `add-fields` fails with an "already exists" message when the field is already in the schema,
-  including when it was added or guessed through another collection on the same configset.
+  including when it was added or guessed through another collection that shares a named configset.
+  Collections created without a `configSet` have their own copy and do not affect each other.
 - `Each field definition requires a non-empty string 'name'`: a field map has no `name`.
 - `Collection name must not be blank`, `Alias name must not be blank`: an argument was empty.

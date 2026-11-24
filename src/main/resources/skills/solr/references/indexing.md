@@ -37,7 +37,7 @@ Forwarded to Solr's own update handlers; the server does not parse the content.
 - A single string that begins with `---` and contains several front-matter blocks, each preceded by a
   blank line, is split into several documents. The `M` in the response counts documents after
   splitting, not array elements.
-- An empty or blank element fails the whole call with `Markdown input cannot be null or empty`.
+- An empty or blank element fails the whole call with `Markdown input cannot be empty`.
 - Front matter values are indexed as text, whatever YAML would infer: `2024` and `true` arrive as
   strings. Sequences become multi-valued fields and nested mappings are flattened with underscores.
 - Extracted fields: `title` (front matter `title`, else the first level-1 heading), `headings`
@@ -63,6 +63,7 @@ authorisation, Solr unreachable) are not retried and are returned as errors.
 
 On the `_default` configset, Solr creates a field the first time it sees it and picks the type from
 that first value. Fields created this way hold arrays when read back. A wrong guess cannot be
-changed with this server, which cannot alter existing fields, and because collections created with
-defaults share one schema (see `SKILL.md`), it affects every collection on that configset. When a
-field's type matters, call `add-fields` first, then index.
+changed with this server, which cannot alter existing fields. A collection created without a
+`configSet` has its own copy of `_default`, so a guess stays in that collection; one created with a
+named `configSet` shares it (see `SKILL.md`), so a guess there affects every collection on that
+configset. When a field's type matters, call `add-fields` first, then index.

@@ -150,7 +150,7 @@ Slash-command-style workflow templates that walk the assistant through a canonic
 ### Skill
 
 `src/main/resources/skills/solr/` is an [Agent Skill](https://agentskills.io/specification) for this
-server's tools: what to know before writing data (shared `_default` configset, document ids, how field
+server's tools: what to know before writing data (which configsets are shared, document ids, how field
 names and values are stored), how the indexing tools respond, how to read the server's errors, and
 what differs across Solr versions. It does not teach Solr itself; the Solr Reference Guide covers that.
 

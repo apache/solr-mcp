@@ -1,6 +1,6 @@
 ---
 name: solr
-description: Use when searching, indexing, or managing Apache Solr collections through the Solr MCP server (tools such as search, index-json-documents, get-schema, add-fields, create-collection, list-collections), or when the user asks about their Solr data, collections, or schema. Explains how the server's tools behave, what to know before writing data, how their results and errors read, and where results depend on the Solr version. It does not teach Solr itself; for query syntax, analysis, and schema design use the Solr Reference Guide.
+description: Use when searching, indexing, or managing Apache Solr collections through the Solr MCP server (tools such as search, index-json-documents, list-fields, get-schema, add-fields, create-collection, list-collections), or when the user asks about their Solr data, collections, or schema. Explains how the server's tools behave, what to know before writing data, how their results and errors read, and where results depend on the Solr version. It does not teach Solr itself; for query syntax, analysis, and schema design use the Solr Reference Guide.
 license: Apache-2.0
 metadata:
   version: "1.0"
@@ -18,7 +18,8 @@ web search, or a documentation-lookup tool, and match the guide version to the S
 | Task | Tool |
 |---|---|
 | See what collections exist | `list-collections` (also the `solr://collections` resource) |
-| See fields and types | `get-schema` (also the `solr://{collection}/schema` resource) |
+| See the fields that hold data, to query, facet or sort on | `list-fields` (also the `solr://{collection}/fields` resource) |
+| See the schema: field types, analyzers, dynamic-field rules | `get-schema` (also the `solr://{collection}/schema` resource) |
 | Search, filter, facet, sort, page | `search` |
 | Index JSON / CSV / Solr update XML / Markdown | `index-json-documents`, `index-csv-documents`, `index-xml-documents`, `index-markdown-documents` |
 | Add fields or field types | `add-fields`, `add-field-types` |
@@ -31,19 +32,20 @@ Pick the index tool by input format; do not convert JSON or CSV to Markdown to i
 
 ## Before you write data
 
-1. **Collections share a schema by default.** `create-collection` uses the `_default` configset
-   unless told otherwise, and collections created that way share one schema. A field added with
-   `add-fields`, or created by Solr while indexing, on one collection shows up on the others, and a
-   later `add-fields` for the same name fails because the field already exists. Run `get-schema`
-   on a collection before assuming it is empty, and choose field names and types with the whole
-   cluster in mind.
+1. **A named configset is shared.** Without `configSet`, or with `_default`, `create-collection`
+   gives the collection its own copy of `_default`, named `<name>.AUTOCREATED`, so its schema is
+   independent. Any other `configSet` is shared by reference: a field added with `add-fields`, or
+   created by Solr while indexing, on one collection shows up on every collection that uses it, and
+   a later `add-fields` for the same name fails because the field already exists. The
+   `create-collection` result names the configset in use. Before `add-fields` on a collection you
+   did not create, run `get-schema` and choose names and types with the other collections in mind.
 2. **Give every document a stable `id`.** Without one, Solr's default update chain generates a random
    id for JSON, CSV and XML documents, so sending the same payload twice creates duplicates.
    Markdown documents without an `id` get one derived from their text: identical text replaces
    itself, edited text becomes a new document.
 3. **Field names and values are not always stored as sent.** Nested JSON objects are flattened with
    underscores, and objects or arrays nested inside a JSON array are dropped. Fields that Solr
-   creates while indexing hold arrays when read back. Run `get-schema` before querying fields you
+   creates while indexing hold arrays when read back. Run `list-fields` before querying fields you
    did not create. Details are in `references/indexing.md`.
 4. **Each index call commits.** The documents are searchable when the call returns; there is no
    commit tool and none is needed.
