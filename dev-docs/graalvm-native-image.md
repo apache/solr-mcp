@@ -140,9 +140,10 @@ unconditionally; on the JVM path it is simply a no-op.
 
 `SolrConfig` builds the client with JSON responses (`JsonResponseParser` on
 `HttpJdkSolrClient`) and `XMLRequestWriter` for updates, in place of SolrJ's
-JavaBin defaults. The native image does not need either choice. SolrJ's
+JavaBin defaults. The native image does not need the JSON parser: SolrJ's
 `JavaBinCodec` uses no reflection, and with `JavaBinResponseParser` swapped in,
 `./gradlew nativeTest -Pnative` passes without adding a hint.
+`JavaBinRequestWriter` has not been run in the native image.
 
 ### What's registered, and why
 

@@ -334,9 +334,10 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
     `EnvToSyspropMappings.properties` / `DeprecatedSystemPropertyMappings.properties`,
     which `EnvUtils` loads in its static initializer
 - **Wire format:** `SolrConfig` reads JSON responses (`JsonResponseParser`) and sends
-  updates with `XMLRequestWriter` instead of the default `JavaBinRequestWriter`. Neither
-  is a native-image requirement: SolrJ's `JavaBinCodec` uses no reflection, and
+  updates with `XMLRequestWriter` instead of the default `JavaBinRequestWriter`. The JSON
+  parser is not a native-image requirement: SolrJ's `JavaBinCodec` uses no reflection, and
   `JavaBinResponseParser` passes `nativeTest -Pnative` with no extra hints.
+  `JavaBinRequestWriter` has not been run under `nativeTest`.
 - **Docker tags:** Jib JVM = `solr-mcp:<version>` (`solr-mcp:latest`).
   Paketo native = `solr-mcp:<version>-native-stdio` /
   `solr-mcp:<version>-native-http` (with corresponding `:latest-native-*` tags).

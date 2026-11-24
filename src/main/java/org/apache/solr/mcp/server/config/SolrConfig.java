@@ -184,8 +184,8 @@ public class SolrConfig {
 
     // JSON wire format for responses; XML wire format for update requests.
     // XMLRequestWriter replaced the JavaBin default when native-image support
-    // was added, but the native image does not need it: JavaBinCodec uses no
-    // reflection.
+    // was added. JavaBinCodec uses no reflection, but JavaBinRequestWriter has
+    // not been run in a native image.
     // Force HTTP/1.1: the JDK HttpClient's HTTP/2 transport intermittently
     // closes reused connections with an EOFException against Solr/Jetty.
     HttpJdkSolrClient.Builder builder =
