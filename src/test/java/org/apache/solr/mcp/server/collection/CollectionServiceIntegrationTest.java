@@ -34,6 +34,7 @@ import org.apache.solr.client.solrj.request.ConfigSetAdminRequest;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.indexing.IndexingService;
+import org.apache.solr.mcp.server.schema.CollectionSchema;
 import org.apache.solr.mcp.server.schema.SchemaService;
 import org.apache.solr.mcp.server.search.SearchResponse;
 import org.apache.solr.mcp.server.search.SearchService;
@@ -364,8 +365,8 @@ class CollectionServiceIntegrationTest {
     assertEquals(second + ".AUTOCREATED", secondResult.configSet());
 
     List<String> secondFields = new ArrayList<>();
-    for (Map<String, Object> field : schemaService.getSchema(second).getFields()) {
-      secondFields.add(String.valueOf(field.get("name")));
+    for (CollectionSchema.Field field : schemaService.getSchema(second).fields()) {
+      secondFields.add(field.name());
     }
     assertFalse(secondFields.contains("leak183_platform"), "Guessed field leaked: " + secondFields);
     assertFalse(secondFields.contains("leak183_rating"), "Guessed field leaked: " + secondFields);
