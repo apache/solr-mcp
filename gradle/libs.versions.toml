@@ -40,6 +40,9 @@ errorprone-core = "2.50.0"
 nullaway = "0.14.2"
 
 # Test dependencies
+# Spring Modulith (test scope only: ModularityTests verifies package boundaries).
+# The 2.1.x line is the one built against Spring Boot 4.1.
+spring-modulith = "2.1.3"
 testcontainers = "2.0.5"
 # Docker images started by Testcontainers. Exact tags only (never "latest" or a
 # moving minor tag). Forwarded to tests as the solr.test.image / lgtm.test.image
@@ -94,6 +97,8 @@ nullaway = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }
 # Micrometer Tracing
 
 # Test dependencies
+# Spring Modulith (managed by spring-modulith-bom; test scope only)
+spring-modulith-starter-test = { module = "org.springframework.modulith:spring-modulith-starter-test" }
 testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter", version.ref = "testcontainers" }
 testcontainers-solr = { module = "org.testcontainers:testcontainers-solr", version.ref = "testcontainers" }
 testcontainers-grafana = { module = "org.testcontainers:testcontainers-grafana", version.ref = "testcontainers" }
@@ -125,6 +130,7 @@ test = [
     "spring-security-test",
     "spring-boot-testcontainers",
     "spring-ai-spring-boot-testcontainers",
+    "spring-modulith-starter-test",
     "testcontainers-junit-jupiter",
     "testcontainers-solr",
     "testcontainers-grafana",
