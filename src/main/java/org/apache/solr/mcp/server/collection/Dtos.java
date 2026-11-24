@@ -320,6 +320,8 @@ record SolrHealthStatus(
  * @param name Name of the collection that was created
  * @param success Whether the collection was successfully created
  * @param message Optional message describing the outcome
+ * @param configSet The configset the collection uses: {@code <name>.AUTOCREATED} for a private copy
+ *     of _default, otherwise the shared configset that was named
  * @param createdAt Timestamp when the collection was created, formatted as ISO 8601
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -328,4 +330,5 @@ record CollectionCreationResult(
     String name,
     boolean success,
     String message,
+    String configSet,
     @JsonFormat(shape = JsonFormat.Shape.STRING) Instant createdAt) {}
