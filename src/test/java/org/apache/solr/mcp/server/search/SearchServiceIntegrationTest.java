@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
+import java.util.Set;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
@@ -304,6 +305,58 @@ class SearchServiceIntegrationTest {
         e.getMessage().contains(SearchService.LIST_FIELDS_HINT_FORMAT.formatted(COLLECTION_NAME)),
         () -> "expected get-schema hint, got: " + e.getMessage());
     assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+  }
+
+  /**
+   * eDisMax words an undefined {@code qf} field as a {@code SyntaxError}, so without its own token
+   * it would get the Lucene-syntax hint and send the caller to fix the query instead of the field.
+   */
+  @Test
+  void searchWithUndefinedQueryFieldReturnsGetSchemaHint() {
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                searchService.search(
+                    COLLECTION_NAME,
+                    "kings",
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    List.of("definitely_not_a_field")));
+    assertTrue(
+        e.getMessage().contains(SearchService.LIST_FIELDS_HINT_FORMAT.formatted(COLLECTION_NAME)),
+        () -> "expected get-schema hint, got: " + e.getMessage());
+    assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+  }
+
+  @Test
+  void searchWithQueryFieldsSearchesOnlyThoseFields() throws Exception {
+    SearchResponse byName =
+        searchService.search(
+            COLLECTION_NAME, "kings", null, null, null, null, null, null, List.of("name"));
+    assertEquals(List.of("book002"), getDocumentIds(byName.documents()));
+
+    SearchResponse byAuthor =
+        searchService.search(
+            COLLECTION_NAME, "kings", null, null, null, null, null, null, List.of("author_ss"));
+    assertEquals(0, byAuthor.numFound(), "qf must replace the default field, not add to it");
+  }
+
+  @Test
+  void searchWithFieldsReturnsOnlyThoseFieldsAndScore() throws Exception {
+    SearchResponse result =
+        searchService.search(
+            COLLECTION_NAME, "name:kings", null, null, null, null, null, List.of("id"), null);
+    assertEquals(1, result.numFound());
+    assertEquals(
+        Set.of("id", "score"),
+        result.documents().getFirst().keySet(),
+        "fl must narrow the document to the requested fields plus score");
+    assertNotNull(result.maxScore(), "score must stay in fl so maxScore is still returned");
   }
 
   @Test

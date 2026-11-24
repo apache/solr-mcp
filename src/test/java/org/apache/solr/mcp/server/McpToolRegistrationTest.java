@@ -55,7 +55,9 @@ class McpToolRegistrationTest {
             List.class,
             List.class,
             Integer.class,
-            Integer.class);
+            Integer.class,
+            List.class,
+            List.class);
 
     // Verify it has the @McpTool annotation
     assertTrue(
@@ -81,7 +83,9 @@ class McpToolRegistrationTest {
             List.class,
             List.class,
             Integer.class,
-            Integer.class);
+            Integer.class,
+            List.class,
+            List.class);
 
     // Verify all parameters have @McpToolParam annotations
     Parameter[] parameters = searchMethod.getParameters();
@@ -207,7 +211,9 @@ class McpToolRegistrationTest {
             List.class,
             List.class,
             Integer.class,
-            Integer.class);
+            Integer.class,
+            List.class,
+            List.class);
 
     Parameter[] parameters = searchMethod.getParameters();
 

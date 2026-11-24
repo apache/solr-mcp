@@ -205,6 +205,8 @@ is noted so you can connect the natural-language request to what actually runs.
 |--------------------|-----------|
 | *"Which shows have 'dragon' in the title?"* | `q` — full-text search on an analyzed field |
 | *"Find shows whose description contains the exact phrase 'a group of'."* | `q` — phrase query |
+| *"Find shows about dragons, searching both the title and the description."* | `queryFields` — the same words across several fields |
+| *"List just the titles and ratings of the Netflix shows."* | `fields` — return only the fields you need |
 | *"Show me everything on Netflix."* | `fq` — exact filter on a string field |
 | *"Which shows were released in 2020 or later?"* | `fq` — numeric range, `release_year:[2020 TO *]` |
 | *"Find all the comedies."* | `fq` — membership in a multi-valued field |

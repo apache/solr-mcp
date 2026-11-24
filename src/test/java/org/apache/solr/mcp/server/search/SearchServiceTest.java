@@ -27,6 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
@@ -41,6 +43,7 @@ import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
+import org.mockito.ArgumentCaptor;
 
 /** Unit tests for SearchService with mocked SolrClient. */
 @DisabledInNativeImage
@@ -675,6 +678,84 @@ class SearchServiceTest {
     return documents;
   }
 
+  /** Runs a search with the given fields/queryFields and returns the request sent to Solr. */
+  private SolrQuery searchAndCapture(String query, List<String> fields, List<String> queryFields)
+      throws Exception {
+    SolrClient mockClient = mock(SolrClient.class);
+    QueryResponse mockResponse = mock(QueryResponse.class);
+    when(mockResponse.getResults()).thenReturn(createMockDocumentList());
+    when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenReturn(mockResponse);
+    new SearchService(mockClient)
+        .search("test_collection", query, null, null, null, null, null, fields, queryFields);
+    ArgumentCaptor<SolrQuery> captor = ArgumentCaptor.forClass(SolrQuery.class);
+    verify(mockClient).query(eq("test_collection"), captor.capture());
+    return captor.getValue();
+  }
+
+  @Test
+  void search_WithoutFieldsOrQueryFields_ShouldSendDefaultParams() throws Exception {
+    SolrQuery q = searchAndCapture("george", null, null);
+    assertEquals("*,score", q.getFields());
+    assertNull(q.get("qf"));
+    assertNull(q.get("defType"));
+  }
+
+  @Test
+  void search_WithFields_ShouldLimitFlAndKeepScore() throws Exception {
+    SolrQuery q = searchAndCapture(null, List.of("id", " \t", "name"), null);
+    assertEquals("id,name,score", q.getFields());
+  }
+
+  @Test
+  void search_WithOnlyBlankFields_ShouldReturnAllFields() throws Exception {
+    SolrQuery q = searchAndCapture(null, List.of("", " \n"), null);
+    assertEquals("*,score", q.getFields());
+  }
+
+  @Test
+  void search_WithQueryFields_ShouldSendQfAndEdismax() throws Exception {
+    SolrQuery q = searchAndCapture("george martin", null, List.of("name^2", "", "author_ss"));
+    assertEquals("george martin", q.getQuery());
+    assertEquals("name^2 author_ss", q.get("qf"));
+    assertEquals("edismax", q.get("defType"));
+  }
+
+  @Test
+  void search_WithOnlyBlankQueryFields_ShouldNotSwitchParser() throws Exception {
+    SolrQuery q = searchAndCapture("george", null, List.of(" \t", ""));
+    assertNull(q.get("qf"));
+    assertNull(q.get("defType"));
+  }
+
+  @Test
+  void search_WithLocalParamsAndNoQueryFields_ShouldSendQueryUnchanged() throws Exception {
+    SolrQuery q = searchAndCapture("{!edismax qf=name}george", null, null);
+    assertEquals("{!edismax qf=name}george", q.getQuery());
+    assertNull(q.get("defType"));
+  }
+
+  @Test
+  void search_WithQueryFieldsAndLocalParams_ShouldRejectBeforeQuerying() throws Exception {
+    SolrClient mockClient = mock(SolrClient.class);
+    SearchService localService = new SearchService(mockClient);
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                localService.search(
+                    "test_collection",
+                    "{!edismax qf=name}george",
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    List.of("author_ss")));
+    assertEquals(SearchService.QUERY_FIELDS_WITH_LOCAL_PARAMS_ERROR, e.getMessage());
+    verify(mockClient, never()).query(any(), any(SolrQuery.class));
+  }
+
   private List<FacetField> createMockFacetFields() {
     FacetField genreFacet = new FacetField("genre_s");
     genreFacet.add("technology", 5);
@@ -698,6 +779,8 @@ class SearchServiceTest {
     assertTrue(body.contains("list-fields"), "Prompt should reference list-fields tool");
     assertTrue(body.contains("search"), "Prompt should reference search tool");
     assertTrue(body.contains("filterQueries"), "Prompt should explain filterQueries");
+    assertTrue(body.contains("queryFields"), "Prompt should explain queryFields");
+    assertTrue(body.contains("`fields`"), "Prompt should explain fields");
     assertTrue(body.contains("numFound"), "Prompt should mention numFound interpretation");
   }
 }
