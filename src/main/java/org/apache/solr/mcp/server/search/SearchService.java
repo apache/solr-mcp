@@ -537,8 +537,8 @@ public class SearchService {
 				   - Pick the most informative tokens from the question. Map them to fields:
 				     * Free-text concepts → `q` against tokenized fields, e.g.
 				       `description:apocalyptic` or `title:Solr`. To search the same words across
-				       several text fields, put the plain words in `q` and the fields in
-				       `queryFields`, e.g. `q=apocalyptic survival`, `queryFields=["title", "description"]`.
+				       several text fields, put the plain words in `query` and the fields in
+				       `queryFields`, e.g. `query=apocalyptic survival`, `queryFields=["title", "description"]`.
 				     * Exact-match attributes → `filterQueries` against `string`/`strings`, e.g.
 				       `platform:Netflix`, `genres:Sci-Fi`. Quote multi-word values:
 				       `platform:"Amazon Prime Video"`.
