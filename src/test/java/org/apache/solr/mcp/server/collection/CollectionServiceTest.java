@@ -45,6 +45,7 @@ import org.apache.solr.client.solrj.request.LukeRequest;
 import org.apache.solr.client.solrj.response.LukeResponse;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
+import org.apache.solr.client.solrj.util.SolrIdentifierValidator;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.CollectionAdminParams;
@@ -1096,6 +1097,19 @@ class CollectionServiceTest {
 
     assertFalse(
         body.contains("Purpose:"), "Purpose line should be omitted when no purpose is provided");
+  }
+
+  @Test
+  void setupCollectionPrompt_statesTheNameRuleSolrEnforces() {
+    String body = promptText(collectionService.setupCollectionPrompt("widgets", null));
+
+    // Solr accepts mixed case and periods, so the prompt must not tell the model to reject them.
+    assertEquals("Widgets.v2", SolrIdentifierValidator.validateCollectionName("Widgets.v2"));
+    assertThrows(
+        SolrException.class, () -> SolrIdentifierValidator.validateCollectionName("-widgets"));
+    assertFalse(body.contains("uppercase"), body);
+    assertTrue(body.contains("periods"), body);
+    assertTrue(body.contains("must not start with a hyphen"), body);
   }
 
   // completeCollection tests

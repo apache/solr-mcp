@@ -1043,8 +1043,8 @@ public class CollectionService {
    * MCP prompt that guides the client through creating a new Solr collection: validate the name,
    * pick configset / shards / replication factor, create the collection, and verify it.
    *
-   * @param name desired collection name (lowercase letters, digits, underscores, hyphens — no
-   *     spaces)
+   * @param name desired collection name (letters, digits, periods, underscores and hyphens, not
+   *     starting with a hyphen)
    * @param purpose optional one-line description of what the collection is for; may be {@code null}
    *     or blank
    * @return the prompt text instructing the model how to set up the collection
@@ -1058,7 +1058,7 @@ public class CollectionService {
       @McpArg(
               name = "name",
               description =
-                  "Desired collection name. Lowercase letters, digits, underscores, hyphens — no spaces.",
+                  "Desired collection name. Letters, digits, periods, underscores and hyphens, not starting with a hyphen.",
               required = true)
           String name,
       @McpArg(
@@ -1075,7 +1075,8 @@ public class CollectionService {
         """
 				You are setting up a new Solr collection named `%s` through MCP tools.%s
 				1. Validate the name.
-				   - Lowercase letters, digits, underscores, hyphens only — no spaces or uppercase.
+				   - Solr accepts letters (either case), digits, periods, underscores and hyphens, and
+				     the name must not start with a hyphen. Spaces and other characters are rejected.
 				   - Call `list-collections` and confirm `%s` does not already exist. If it does, stop
 				     and tell the user.
 
