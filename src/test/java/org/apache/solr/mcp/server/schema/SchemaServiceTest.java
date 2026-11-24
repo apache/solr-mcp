@@ -559,6 +559,13 @@ class SchemaServiceTest {
         "View prompt should cross-reference design-schema for follow-up modification");
   }
 
+  @Test
+  void viewSchemaPrompt_saysUncountedFieldsAreNotEmpty() {
+    String body = promptText(schemaService.viewSchemaPrompt("products"));
+
+    assertTrue(body.contains("cannot count them, not because they are empty"), body);
+  }
+
   // ===== list-fields =====
 
   private static final String COLLECTION = "shows";

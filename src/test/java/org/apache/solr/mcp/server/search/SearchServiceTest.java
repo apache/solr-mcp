@@ -52,6 +52,7 @@ import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.util.NamedList;
+import org.apache.solr.mcp.server.schema.FieldProperty;
 import org.apache.solr.mcp.server.util.SolrCalls;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
@@ -1194,6 +1195,22 @@ class SearchServiceTest {
     for (String line : body.lines().toList()) {
       int indent = line.length() - line.stripLeading().length();
       assertTrue(indent <= 7, () -> "Over-indented prompt line: [" + line + "]");
+    }
+  }
+
+  @Test
+  void searchGuidance_namesTheFlagsListFieldsReturns() {
+    // list-fields writes FieldProperty names; Luke's raw schema letters and info.key never reach
+    // it.
+    String prompt =
+        promptText(
+            new SearchService(mock(SolrClient.class)).searchCollectionPrompt("shows", "question"));
+
+    for (String text : List.of(prompt, SearchService.BAD_REQUEST_HINT)) {
+      assertTrue(text.contains(FieldProperty.docValues.name()), text);
+      assertTrue(text.contains(FieldProperty.multiValued.name()), text);
+      assertFalse(text.contains("info.key"), text);
+      assertFalse(text.contains("schema flags"), text);
     }
   }
 }

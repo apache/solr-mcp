@@ -173,8 +173,8 @@ public class SearchService {
   /** Follows Solr's reason for a 400 that names no field and no syntax error. */
   static final String BAD_REQUEST_HINT =
       ". Check query syntax, query fields, filter queries, facet fields, sort clauses, and"
-          + " pagination; call list-fields to verify the field names, and facet and sort only on"
-          + " single-valued fields with D (docValues) in their schema flags.";
+          + " pagination; call list-fields to verify the field names. Facet only on fields whose"
+          + " flags include docValues, and sort only on those that are also not multiValued.";
 
   private static final String RESPONSE_ERROR =
       "Search failed: unable to process the Solr response."
@@ -663,10 +663,11 @@ public class SearchService {
 				   - Call `list-fields` on `%s`. It lists the fields that hold data, dynamic-field
 				     instances included. From each field's `type` identify which are searchable text
 				     (`text_general` or similar tokenized types), which are filterable exact-match
-				     (`string`/`strings`), and which are numeric/date ranges. A `D` in a field's
-				     `schema` flags (decoded by `info.key`) means docValues: those are the fields you
-				     can facet on, and sort on when they are single-valued (no `M`). `dynamicBase`
-				     shows which pattern a field came from (e.g. `*_s`).
+				     (`string`/`strings`), and which are numeric/date ranges. Fields whose `flags`
+				     include `docValues` are the ones you can facet on; you can sort on them when
+				     `flags` does not also include `multiValued`. `dynamicBase` shows which pattern a
+				     field came from (e.g. `*_s`). A missing or 0 `docs` on a numeric, date or
+				     docValues-only field means Solr could not count it, not that it is empty.
 
 				2. Translate the question into Solr query parts.
 				   - Pick the most informative tokens from the question. Map them to fields:

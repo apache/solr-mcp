@@ -595,7 +595,9 @@ public class SchemaService {
 				   - List dynamic-field patterns (e.g. `*_s`, `*_txt`) and their types — these accept
 				     fields whose names are not predeclared.
 				   - The schema shows only the patterns. To see which dynamic fields are actually in
-				     use (e.g. `genre_s`) and how many documents have each, call `list-fields`.
+				     use (e.g. `genre_s`) and how many documents have each, call `list-fields`. Its
+				     `docs` count is missing or 0 for numeric, date and docValues-only fields because
+				     Solr cannot count them, not because they are empty.
 				   - List copyField rules (source → destination) — these duplicate content into
 				     aggregator fields, often used for catch-all search fields.
 
