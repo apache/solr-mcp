@@ -118,7 +118,8 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 | `check-health` | Check the health status of a collection |
 | `add-fields` | Add fields to a collection schema (additive only; existing fields cannot be modified) |
 | `add-field-types` | Add field types — custom analyzers, `DenseVectorField` for semantic search, etc. |
-| `get-schema` | Retrieve schema information for a collection |
+| `get-schema` | Retrieve the full schema: field types, analyzers, dynamic-field patterns, copy fields |
+| `list-fields` | List the fields that hold data in a collection, with types, flags and document counts |
 | `list-aliases` | List all Solr aliases and the collections they point to |
 | `create-alias` | Create or update a Solr alias pointing to one or more collections |
 | `delete-alias` | Delete a Solr alias (underlying collections are not affected) |
@@ -131,6 +132,7 @@ Every tool advertises MCP behavior hints (`readOnlyHint`, `destructiveHint`, `id
 |--------------|-------------|
 | `solr://collections` | List of all Solr collections in the cluster |
 | `solr://{collection}/schema` | Schema definition for a collection (supports autocompletion) |
+| `solr://{collection}/fields` | Fields that hold data in a collection, as `list-fields` returns them (supports autocompletion) |
 
 ### Prompts
 
@@ -149,7 +151,7 @@ Slash-command-style workflow templates that walk the assistant through a canonic
 
 The server implements MCP argument autocompletion, so clients can suggest valid values as you type:
 
-- **Resource argument** — the `{collection}` segment of `solr://{collection}/schema` completes to live collection names.
+- **Resource arguments** — the `{collection}` segment of `solr://{collection}/schema` and `solr://{collection}/fields` completes to live collection names.
 - **Prompt arguments** — the `collection` argument of the `search-collection`, `index-data`, `view-schema`, and `design-schema` prompts completes to live collection names.
 
 Suggestions are matched case-insensitively by prefix and capped per request.

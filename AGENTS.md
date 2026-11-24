@@ -327,7 +327,7 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
     generic `Object` dispatch): `AliasResult`, `CollectionCreationResult`,
     `SolrHealthStatus`, `SolrMetrics`, `IndexStats`, `QueryStats`, `CacheStats`,
     `CacheInfo`, `HandlerStats`, `HandlerInfo`, `SearchResponse`, `SortClause`,
-    `SchemaUpdateResult`
+    `SchemaUpdateResult`, `CollectionSchema` and `FieldListing` and their nested records
   - **Spring AI**: `org.springframework.ai.mcp.annotation.context.DefaultMetaProvider`,
     which `MetaUtils` instantiates reflectively
   - **Resources**: `logback-spring.xml` (see Logging Architecture above), and SolrJ's
@@ -363,8 +363,6 @@ changed these things; keep them in mind when reading older docs or PRs:
 - **MCP SDK:** `io.modelcontextprotocol.sdk:mcp`, with the Jackson 3 module
   (`mcp-json-jackson3`), at the version Spring AI depends on (2.2.0 under Spring AI
   2.1.0). There is no separate SDK pin; Spring AI 2.0.1 needed one via `mcp-bom`.
-  SDK 2.2.0 is the first GA release with the 2026-07-28 ("modern") server, behind
-  `MCP_PROTOCOL=modern`.
 - **Span naming:** `@Observed` spans use `ClassName#methodName` (PascalCase) instead of
   the earlier `class-name#method-name` (kebab-case).
 
@@ -477,10 +475,11 @@ The Solr Docker image used in tests is pinned as `test-image-solr` in `gradle/li
 ./gradlew test -Dsolr.test.image=solr:9.4-slim     # Solr 9.4
 ./gradlew test -Dsolr.test.image=solr:9.9.0-slim     # Solr 9.9 (the pinned default)
 ./gradlew test -Dsolr.test.image=solr:9.10-slim    # Solr 9.10
+./gradlew test -Dsolr.test.image=solr:9.11-slim    # Solr 9.11
 ./gradlew test -Dsolr.test.image=solr:10-slim      # Solr 10
 ```
 
-**Tested compatible versions:** 9.4, 9.9, 9.10, 10
+**Tested compatible versions:** 9.4, 9.9, 9.10, 9.11, 10
 
 ### Solr 10 Compatibility
 

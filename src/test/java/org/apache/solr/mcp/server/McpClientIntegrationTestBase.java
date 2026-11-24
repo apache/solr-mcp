@@ -30,8 +30,10 @@ import io.modelcontextprotocol.spec.McpSchema.GetPromptResult;
 import io.modelcontextprotocol.spec.McpSchema.PromptMessage;
 import io.modelcontextprotocol.spec.McpSchema.PromptReference;
 import io.modelcontextprotocol.spec.McpSchema.ReadResourceRequest;
+import io.modelcontextprotocol.spec.McpSchema.ReadResourceResult;
 import io.modelcontextprotocol.spec.McpSchema.ResourceReference;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
+import io.modelcontextprotocol.spec.McpSchema.TextResourceContents;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -107,6 +109,7 @@ public abstract class McpClientIntegrationTestBase {
     assertTrue(toolNames.contains("check-health"), "Should have check-health tool");
     assertTrue(toolNames.contains("get-collection-stats"), "Should have get-collection-stats tool");
     assertTrue(toolNames.contains("get-schema"), "Should have get-schema tool");
+    assertTrue(toolNames.contains("list-fields"), "Should have list-fields tool");
     assertTrue(toolNames.contains("add-fields"), "Should have add-fields tool");
     assertTrue(toolNames.contains("add-field-types"), "Should have add-field-types tool");
   }
@@ -124,6 +127,7 @@ public abstract class McpClientIntegrationTestBase {
     assertReadOnly(tools, "get-collection-stats");
     assertReadOnly(tools, "check-health");
     assertReadOnly(tools, "get-schema");
+    assertReadOnly(tools, "list-fields");
 
     // create-collection: additive write (provisions a new collection, not
     // idempotent because a second call with the same name errors).
@@ -334,6 +338,33 @@ public abstract class McpClientIntegrationTestBase {
     assertNotError(result);
     String text = extractText(result);
     assertFalse(text.isEmpty(), "Schema response should not be empty");
+
+    // Spring AI serializes the CollectionSchema record. In Solr's own shape a field type's
+    // properties sit at the top level (no SolrJ "attributes" wrapper), the catch-all is merged
+    // in rather than emitted as "other", and the arrays are present (they go missing in a
+    // native image when the records lack reflection hints).
+    Map<String, Object> schema = OBJECT_MAPPER.readValue(text, new TypeReference<>() {});
+    assertFalse(schema.containsKey("other"), text);
+    List<?> fields = (List<?>) schema.get("fields");
+    Map<?, ?> id =
+        fields.stream()
+            .map(Map.class::cast)
+            .filter(f -> "id".equals(f.get("name")))
+            .findFirst()
+            .orElseThrow();
+    // flags are SolrJ FieldFlag constant names, not Luke legend text ("I - Indexed")
+    assertTrue(((List<?>) id.get("flags")).containsAll(List.of("INDEXED", "STORED")), text);
+    assertFalse(id.containsKey("indexed"), text);
+    Map<?, ?> textGeneral =
+        ((List<?>) schema.get("fieldTypes"))
+            .stream()
+                .map(Map.class::cast)
+                .filter(t -> "text_general".equals(t.get("name")))
+                .findFirst()
+                .orElseThrow();
+    assertEquals("solr.TextField", textGeneral.get("class"), text);
+    assertEquals("100", textGeneral.get("positionIncrementGap"), text);
+    assertFalse(textGeneral.containsKey("attributes"), text);
   }
 
   @Test
@@ -1225,8 +1256,69 @@ public abstract class McpClientIntegrationTestBase {
                     "facetFields",
                     List.of("nonexistent_field_xyz"))));
     assertEquals(Boolean.TRUE, result.isError());
-    assertTrue(extractText(result).contains("get-schema"), extractText(result));
+    assertTrue(extractText(result).contains("list-fields"), extractText(result));
     assertFalse(extractText(result).contains("Exception"), extractText(result));
+  }
+
+  // ===== list-fields (orders 41–43) =====
+
+  @Test
+  @Order(41)
+  void listShowsFieldsReturnsIndexedFields() {
+    CallToolResult result =
+        mcpClient.callTool(
+            new CallToolRequest("list-fields", Map.of("collection", SHOWS_COLLECTION)));
+
+    assertNotError(result);
+    Map<String, Object> listing =
+        OBJECT_MAPPER.readValue(extractText(result), new TypeReference<>() {});
+    java.util.Set<String> names = fieldNames(listing);
+    assertTrue(
+        names.containsAll(List.of("id", "title", "platform", "genres", "release_year")),
+        "list-fields should list the indexed shows fields: " + names);
+
+    // Through Spring AI's serialization: Luke's flag letters arrive decoded as FieldFlag
+    // constant names, with neither the letters nor Luke's info legend left over.
+    assertFalse(listing.containsKey("info"), "" + listing.keySet());
+    Map<?, ?> id = (Map<?, ?>) ((Map<?, ?>) listing.get("fields")).get("id");
+    assertTrue(((List<?>) id.get("flags")).containsAll(List.of("INDEXED", "STORED")), "" + id);
+    assertFalse(id.containsKey("schema"), "" + id);
+  }
+
+  @Test
+  @Order(42)
+  void fieldsResourceMatchesListFieldsTool() {
+    CallToolResult tool =
+        mcpClient.callTool(
+            new CallToolRequest("list-fields", Map.of("collection", SHOWS_COLLECTION)));
+    ReadResourceResult resource =
+        mcpClient.readResource(new ReadResourceRequest("solr://" + SHOWS_COLLECTION + "/fields"));
+
+    assertInstanceOf(TextResourceContents.class, resource.contents().getFirst());
+    String resourceText = ((TextResourceContents) resource.contents().getFirst()).text();
+    assertEquals(
+        fieldNames(OBJECT_MAPPER.readValue(extractText(tool), new TypeReference<>() {})),
+        fieldNames(OBJECT_MAPPER.readValue(resourceText, new TypeReference<>() {})));
+  }
+
+  @Test
+  @Order(43)
+  void completeFieldsResourceCollection_ReturnsCreatedCollection() {
+    ResourceReference ref = new ResourceReference("solr://{collection}/fields");
+    CompleteRequest request =
+        new CompleteRequest(
+            ref, new CompleteRequest.CompleteArgument("collection", COLLECTION.substring(0, 3)));
+
+    List<String> values = mcpClient.completeCompletion(request).completion().values();
+
+    assertTrue(
+        values.contains(COLLECTION),
+        "Fields-resource completion should include the created collection: " + values);
+  }
+
+  @SuppressWarnings("unchecked")
+  private static java.util.Set<String> fieldNames(Map<String, Object> listing) {
+    return ((Map<String, Object>) listing.get("fields")).keySet();
   }
 
   @Test
