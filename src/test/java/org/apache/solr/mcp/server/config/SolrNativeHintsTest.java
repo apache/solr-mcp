@@ -18,6 +18,7 @@ package org.apache.solr.mcp.server.config;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -82,6 +83,32 @@ class SolrNativeHintsTest {
             .onType(TypeReference.of("org.apache.solr.mcp.server.search.SearchResponse"))
             .withMemberCategory(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS)
             .test(hints));
+  }
+
+  @Test
+  void registersCollectionSchemaRecordHints() {
+    // Jackson builds these from Solr's response (constructors) and writes the catch-all
+    // back out through its @JsonAnyGetter accessor (methods), so both are needed.
+    for (String record :
+        List.of(
+            "org.apache.solr.mcp.server.schema.CollectionSchema",
+            "org.apache.solr.mcp.server.schema.CollectionSchema$Field",
+            "org.apache.solr.mcp.server.schema.CollectionSchema$FieldType",
+            "org.apache.solr.mcp.server.schema.CollectionSchema$Analyzer",
+            "org.apache.solr.mcp.server.schema.CollectionSchema$CopyField",
+            "org.apache.solr.mcp.server.schema.FieldFlags$NameSerializer",
+            "org.apache.solr.mcp.server.schema.FieldListing",
+            "org.apache.solr.mcp.server.schema.FieldListing$IndexedField",
+            "org.apache.solr.common.luke.FieldFlag")) {
+      assertTrue(
+          RuntimeHintsPredicates.reflection()
+              .onType(TypeReference.of(record))
+              .withMemberCategories(
+                  MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
+                  MemberCategory.INVOKE_DECLARED_METHODS)
+              .test(hints),
+          record);
+    }
   }
 
   @Test

@@ -318,7 +318,7 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
     generic `Object` dispatch): `AliasResult`, `CollectionCreationResult`,
     `SolrHealthStatus`, `SolrMetrics`, `IndexStats`, `QueryStats`, `CacheStats`,
     `CacheInfo`, `HandlerStats`, `HandlerInfo`, `SearchResponse`, `SortClause`,
-    `SchemaUpdateResult`
+    `SchemaUpdateResult`, `CollectionSchema` and `FieldListing` and their nested records
   - **Spring AI**: `org.springframework.ai.mcp.annotation.context.DefaultMetaProvider`,
     which `MetaUtils` instantiates reflectively
   - **Resources**: `logback-spring.xml` (see Logging Architecture above), and SolrJ's
@@ -465,10 +465,11 @@ The Solr Docker image used in tests is pinned as `test-image-solr` in `gradle/li
 ./gradlew test -Dsolr.test.image=solr:9.4-slim     # Solr 9.4
 ./gradlew test -Dsolr.test.image=solr:9.9.0-slim     # Solr 9.9 (the pinned default)
 ./gradlew test -Dsolr.test.image=solr:9.10-slim    # Solr 9.10
+./gradlew test -Dsolr.test.image=solr:9.11-slim    # Solr 9.11
 ./gradlew test -Dsolr.test.image=solr:10-slim      # Solr 10
 ```
 
-**Tested compatible versions:** 9.4, 9.9, 9.10, 10
+**Tested compatible versions:** 9.4, 9.9, 9.10, 9.11, 10
 
 ### Solr 10 Compatibility
 

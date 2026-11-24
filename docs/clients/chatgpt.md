@@ -46,7 +46,7 @@ Use the `https://…` address it prints, with `/mcp` appended.
 1. **Settings → Security and login**: turn on **Developer mode**.
 2. Open **ChatGPT Plugins**, select the **+** button and create a developer-mode app.
 3. Enter a name and description, and under **Connection** give the public endpoint, ending in `/mcp`, for example `https://<your-tunnel>/mcp`. For a private server, choose **Tunnel** instead and select an available Secure MCP Tunnel.
-4. Choose **No authentication**, create the connection and review the discovered tools. There should be twelve.
+4. Choose **No authentication**, create the connection and review the discovered tools. There should be sixteen.
 5. Start a chat, enable the app, and ask *"What Solr collections are available?"*.
 
 ChatGPT asks for confirmation before tool calls it treats as writes. Tools without a `readOnlyHint` annotation are treated as writes, so expect prompts for most Solr MCP tools. After restarting the server, use **Refresh** on the app so ChatGPT re-reads its tools.

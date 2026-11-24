@@ -25,12 +25,17 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.client.solrj.request.LukeRequest;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest.MultiUpdate;
+import org.apache.solr.common.luke.FieldFlag;
+import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.util.NamedList;
+import org.apache.solr.common.util.SimpleOrderedMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
@@ -66,6 +71,45 @@ class SchemaServiceTest {
 
     // Then
     assertNotNull(service, "SchemaService should be instantiated correctly");
+  }
+
+  @Test
+  void getSchema_keepsPropertiesTheRecordsDoNotDeclare() throws Exception {
+    // A property a later Solr version adds has no record component. It must reach the client
+    // at the same level Solr sent it, not be dropped and not be wrapped in an "other" object.
+    SimpleOrderedMap<Object> field = new SimpleOrderedMap<>();
+    field.add("name", "genre");
+    field.add("type", "string");
+    field.add("indexed", true);
+    field.add("stored", false);
+    field.add("futureFlag", true);
+    SimpleOrderedMap<Object> schema = new SimpleOrderedMap<>();
+    schema.add("name", "test");
+    schema.add("uniqueKey", "id");
+    schema.add("fieldTypes", List.of());
+    schema.add("fields", List.of(field));
+    schema.add("dynamicFields", List.of());
+    schema.add("copyFields", List.of());
+    schema.add("futureSection", Map.of("k", "v"));
+    NamedList<Object> response = new NamedList<>();
+    response.add("schema", schema);
+    when(solrClient.request(any(SchemaRequest.class), eq("c"))).thenReturn(response);
+    JsonMapper realMapper = JsonMapper.builder().build();
+
+    CollectionSchema result = new SchemaService(solrClient, realMapper).getSchema("c");
+
+    assertEquals("genre", result.fields().getFirst().name());
+    assertEquals(true, result.fields().getFirst().other().get("futureFlag"));
+    // flag properties become FieldFlags (true only) and leave the catch-all
+    assertEquals(Set.of(FieldFlag.INDEXED), result.fields().getFirst().flags());
+    assertFalse(result.fields().getFirst().other().containsKey("indexed"));
+    assertFalse(result.fields().getFirst().other().containsKey("stored"));
+    assertEquals(Map.of("k", "v"), result.other().get("futureSection"));
+    String json = realMapper.writeValueAsString(result);
+    assertTrue(json.contains("\"futureFlag\":true"), json);
+    assertTrue(json.contains("\"futureSection\":{\"k\":\"v\"}"), json);
+    assertFalse(json.contains("\"other\""), json);
+    assertTrue(json.contains("\"flags\":[\"INDEXED\"]"), json);
   }
 
   @Test
@@ -416,5 +460,114 @@ class SchemaServiceTest {
     assertTrue(
         body.contains("design-schema"),
         "View prompt should cross-reference design-schema for follow-up modification");
+  }
+
+  // ===== list-fields =====
+
+  private static final String COLLECTION = "shows";
+
+  @Test
+  void listFields_decodesFlagsAndLeavesOutTheInfoAndIndexSections() throws Exception {
+    NamedList<Object> genre = new SimpleOrderedMap<>();
+    genre.add("type", "string");
+    genre.add("schema", "I-SD-M----OF-----l");
+    genre.add("dynamicBase", "*_s");
+    genre.add("docs", 5);
+    NamedList<Object> fields = new SimpleOrderedMap<>();
+    fields.add("genre_s", genre);
+    NamedList<Object> key = new SimpleOrderedMap<>();
+    key.add("I", "Indexed");
+    NamedList<Object> info = new SimpleOrderedMap<>();
+    info.add("key", key);
+    NamedList<Object> index = new SimpleOrderedMap<>();
+    index.add("directory", "MMapDirectory@/var/solr/data/shows/index");
+    NamedList<Object> response = new NamedList<>();
+    response.add("index", index);
+    response.add("fields", fields);
+    response.add("info", info);
+    when(solrClient.request(any(LukeRequest.class), eq(COLLECTION))).thenReturn(response);
+    JsonMapper realMapper = JsonMapper.builder().build();
+
+    FieldListing listing = new SchemaService(solrClient, realMapper).listFields(COLLECTION);
+
+    FieldListing.IndexedField field = listing.fields().get("genre_s");
+    assertEquals("string", field.type());
+    assertEquals(
+        Set.of(
+            FieldFlag.INDEXED,
+            FieldFlag.STORED,
+            FieldFlag.DOC_VALUES,
+            FieldFlag.MULTI_VALUED,
+            FieldFlag.OMIT_NORMS,
+            FieldFlag.OMIT_TF,
+            FieldFlag.SORT_MISSING_LAST),
+        field.flags());
+    assertEquals("*_s", field.dynamicBase());
+    assertEquals(5L, field.docs());
+    assertEquals(Map.of(), field.other(), "the schema letters are decoded, not kept");
+    String json = realMapper.writeValueAsString(listing);
+    assertEquals(
+        "{\"fields\":{\"genre_s\":{\"type\":\"string\",\"flags\":[\"INDEXED\",\"STORED\","
+            + "\"DOC_VALUES\",\"MULTI_VALUED\",\"OMIT_NORMS\",\"OMIT_TF\",\"SORT_MISSING_LAST\"],"
+            + "\"dynamicBase\":\"*_s\",\"docs\":5}}}",
+        json);
+  }
+
+  @Test
+  void listFields_keepsADistributedDocCountPastIntegerMax() throws Exception {
+    // SolrJ's LukeResponse casts docs to Integer; a sum across shards can exceed it.
+    NamedList<Object> title = new SimpleOrderedMap<>();
+    title.add("type", "text_general");
+    title.add("schema", "ITS---------------");
+    title.add("docs", 3_000_000_000L);
+    NamedList<Object> fields = new SimpleOrderedMap<>();
+    fields.add("title", title);
+    NamedList<Object> response = new NamedList<>();
+    response.add("fields", fields);
+    when(solrClient.request(any(LukeRequest.class), eq(COLLECTION))).thenReturn(response);
+
+    FieldListing listing =
+        new SchemaService(solrClient, JsonMapper.builder().build()).listFields(COLLECTION);
+
+    assertEquals(3_000_000_000L, listing.fields().get("title").docs());
+  }
+
+  @Test
+  void listFields_keepsTheLettersWhenOneIsNotAKnownFlag() throws Exception {
+    // A letter a later Solr version adds must not throw or yield a partial flag set.
+    NamedList<Object> future = new SimpleOrderedMap<>();
+    future.add("type", "string");
+    future.add("schema", "I-S-----------Z");
+    NamedList<Object> fields = new SimpleOrderedMap<>();
+    fields.add("future_s", future);
+    NamedList<Object> response = new NamedList<>();
+    response.add("fields", fields);
+    when(solrClient.request(any(LukeRequest.class), eq(COLLECTION))).thenReturn(response);
+
+    FieldListing.IndexedField field =
+        new SchemaService(solrClient, JsonMapper.builder().build())
+            .listFields(COLLECTION)
+            .fields()
+            .get("future_s");
+
+    assertEquals(Set.of(), field.flags());
+    assertEquals("I-S-----------Z", field.other().get("schema"));
+  }
+
+  @Test
+  void listFields_asksLukeForNoTopTermsAndNoIndexFlags() throws Exception {
+    ArgumentCaptor<LukeRequest> request = ArgumentCaptor.forClass(LukeRequest.class);
+    when(solrClient.request(request.capture(), eq(COLLECTION))).thenReturn(new NamedList<>());
+
+    schemaService.listFields(COLLECTION);
+
+    SolrParams params = request.getValue().getParams();
+    assertEquals("0", params.get("numTerms"));
+    assertEquals("false", params.get("includeIndexFieldFlags"));
+  }
+
+  @Test
+  void listFields_rejectsBlankCollection() {
+    assertThrows(IllegalArgumentException.class, () -> schemaService.listFields(" "));
   }
 }
