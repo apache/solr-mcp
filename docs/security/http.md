@@ -111,7 +111,9 @@ The CORS allowlist is intentionally narrow:
   credentials is the [classic CWE-942 misconfiguration](https://cwe.mitre.org/data/definitions/942.html).
 - **Methods**: `GET, POST, DELETE, OPTIONS` — the methods used by the MCP
   Streamable HTTP transport.
-- **Headers**: `Authorization, Content-Type, Mcp-Session-Id, MCP-Protocol-Version, Last-Event-ID`.
+- **Headers**: `Authorization, Content-Type, Mcp-Session-Id, MCP-Protocol-Version, Last-Event-ID`,
+  plus `Mcp-Method, Mcp-Name`, the routing headers of the
+  [2026-07-28 revision](../modern-protocol.md) (`MCP_PROTOCOL=modern`).
 - **Credentials**: allowed (Bearer-token flows).
 
 Add origins via `MCP_CORS_ALLOWED_ORIGINS` (comma-separated). Real production

@@ -103,6 +103,13 @@ This is also why the JVM Jib image can be dual-mode while the native images
 cannot: the JVM image makes the `web-application-type` decision at *runtime*
 from the `PROFILES` env var; the native image already made it at *build time*.
 
+The MCP protocol revision is frozen the same way. Spring AI chooses between the
+2025-revision servers and the 2026-07-28 ("modern") server with
+`@ConditionalOnProperty` on `spring.ai.mcp.server.protocol`, which `MCP_PROTOCOL`
+sets, so a native image serves whichever revision was in effect when `processAot`
+ran (the 2025 revisions by default) and ignores `MCP_PROTOCOL` at `docker run`
+time. See [docs/modern-protocol.md](../docs/modern-protocol.md#native-images).
+
 ## Why Jib for JVM, Paketo for native
 
 - **Jib (JVM image).** Plain `java -jar` entrypoint, no launcher script, so

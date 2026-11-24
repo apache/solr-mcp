@@ -212,11 +212,12 @@ reaching the backend Solr directly, bypassing this server, is out of model (§3)
 | `PROFILES` | `stdio` | Selects transport. `stdio` = no network listener, OS-user trust. `http` = network listener, OAuth2. The two are **different threat models**; this document covers both. | Q-transport |
 | `HTTP_SECURITY_ENABLED` | `true` | HTTP mode is **secured by default**. `false` activates an unsecured filter chain — every MCP/actuator endpoint anonymous. Documented as "local development only… unsafe on any network-reachable deployment." | Q-httpsec |
 | `OAUTH2_ISSUER_URI` | empty (placeholder) | With HTTP security on and no issuer, the chain still returns 401/403 on every non-permitted endpoint (locked down, no token validator). A real issuer enables JWT signature/issuer/exp/**audience** validation. | Q-httpsec |
+| `MCP_PROTOCOL` | unset (`stateless` HTTP, `streamable` STDIO; 2025 revisions) | `modern` serves the MCP 2026-07-28 revision (MCP Java SDK 2.2.0's modern server): no `initialize`/session, `server/discover`, `Mcp-Method`/`Mcp-Name` headers (added to the CORS header allowlist). The same `@PreAuthorize` checks guard every entry point. Multi-round-trip requests return a sealed `requestState`, keyed per instance unless `spring.ai.mcp.server.modern.request-state-secret` is set. Fixed at build time in native images. | *(documented — [docs/modern-protocol.md](docs/modern-protocol.md))* |
 | `MCP_CORS_ALLOWED_ORIGINS` | MCP Inspector localhost proxy | Explicit CORS allowlist; wildcard-with-credentials is rejected by construction (`setAllowedOrigins`, not patterns). | *(documented)* |
 | `SOLR_USERNAME` / `SOLR_PASSWORD` | unset | When both set, static HTTP Basic Auth to backend Solr on every request; when unset, unauthenticated backend calls. | Q-backendcreds |
 
-**How HTTP mode enforces auth** *(maintainer — Q-transport.)*: the transport
-is streamable HTTP running in **stateless** mode
+**How HTTP mode enforces auth** *(maintainer — Q-transport.)*: by default the
+transport is streamable HTTP running in **stateless** mode
 (`spring.ai.mcp.server.protocol=stateless`), so there is no sampling, progress
 or elicitation channel and no per-request context feature. `/mcp` is
 `permitAll()` at the filter-chain level; authentication is enforced instead by
