@@ -74,6 +74,24 @@ class SearchServiceTest {
   }
 
   @Test
+  void search_AsksForNamedListsAsJsonObjects() throws Exception {
+    // JsonResponseParser reads facet counts only in json.nl=map style.
+    SolrClient mockClient = mock(SolrClient.class);
+    QueryResponse mockResponse = mock(QueryResponse.class);
+    when(mockResponse.getResults()).thenReturn(createMockDocumentList());
+    when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
+        .thenAnswer(
+            invocation -> {
+              SolrQuery q = invocation.getArgument(1);
+              assertEquals("map", q.get("json.nl"));
+              return mockResponse;
+            });
+    SearchService localService = new SearchService(mockClient);
+    assertNotNull(
+        localService.search("test_collection", null, null, List.of("genre_s"), null, null, null));
+  }
+
+  @Test
   void search_WithBlankSortFields_ShouldOmitSorting() throws Exception {
     SolrClient mockClient = mock(SolrClient.class);
     QueryResponse mockResponse = mock(QueryResponse.class);
