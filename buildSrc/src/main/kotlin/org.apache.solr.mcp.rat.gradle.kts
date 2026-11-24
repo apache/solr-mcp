@@ -70,9 +70,12 @@ tasks.withType<RatTask>().configureEach {
             // ASF infra metadata and tool config (no header by convention)
             ".asf.yaml",
             "config/**",
-            // Local developer tooling not tracked by git — Claude Code worktrees/settings
-            // and the Kotlin compiler cache (analogous to the gitignored .idea/.gradle).
-            // Present only on some local checkouts, never in CI.
+            // OpenSpec's marker naming which agent owns .agents/skills/; the CLI reads
+            // it as a bare value, so it cannot carry a comment header
+            ".agents/skills/.openspec-target",
+            // Claude Code's directory — local worktrees/settings, plus the tracked
+            // skills/ symlinks into .agents/skills/ — and the Kotlin compiler cache
+            // (analogous to the gitignored .idea/.gradle).
             ".claude/**",
             "**/.kotlin/**",
             // Tabular data — no comment syntax to hold a header

@@ -538,6 +538,20 @@ Uses [Conventional Commits](https://www.conventionalcommits.org/): `feat`, `fix`
 
 Example: `feat(search): add fuzzy search support`
 
+## Spec-Driven Changes (OpenSpec)
+
+Behaviour changes can be specified with [OpenSpec](https://github.com/Fission-AI/OpenSpec)
+before they are implemented. `openspec/specs/` holds the current behaviour, one capability per
+directory; `openspec/changes/<name>/` holds a proposed change (`proposal.md`, `design.md`,
+`tasks.md`, and spec deltas), moved to `openspec/changes/archive/` once it ships.
+`openspec/config.yaml` selects the `spec-driven` schema.
+
+The workflow skills live in `.agents/skills/openspec-*` (linked into `.claude/skills/` for
+Claude Code): propose → apply → archive, plus explore, update and sync. The CLI is
+`npm install -g @fission-ai/openspec`; `openspec list` shows active changes and
+`openspec validate <change>` checks one. Re-run `openspec update` after upgrading the CLI to
+refresh the generated skills.
+
 ## Security
 
 Security model: [SECURITY.md](./SECURITY.md)
