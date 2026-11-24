@@ -328,7 +328,7 @@ class SearchServiceIntegrationTest {
                     null,
                     List.of("definitely_not_a_field")));
     assertTrue(
-        e.getMessage().contains(SearchService.GET_SCHEMA_HINT_FORMAT.formatted(COLLECTION_NAME)),
+        e.getMessage().contains(SearchService.LIST_FIELDS_HINT_FORMAT.formatted(COLLECTION_NAME)),
         () -> "expected get-schema hint, got: " + e.getMessage());
     assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
   }
