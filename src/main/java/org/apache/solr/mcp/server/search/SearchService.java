@@ -670,7 +670,7 @@ public class SearchService {
 
 				2. Translate the question into Solr query parts.
 				   - Pick the most informative tokens from the question. Map them to fields:
-				     * Free-text concepts → `q` against tokenized fields, e.g.
+				     * Free-text concepts → `query` against tokenized fields, e.g.
 				       `description:apocalyptic` or `title:Solr`. To search the same words across
 				       several text fields, put the plain words in `query` and the fields in
 				       `queryFields`, e.g. `query=apocalyptic survival`, `queryFields=["title", "description"]`.
@@ -679,7 +679,7 @@ public class SearchService {
 				       `platform:"Amazon Prime Video"`.
 				     * Numeric/date constraints → range syntax in `filterQueries`, e.g.
 				       `release_year:[2010 TO 2020]`.
-				   - Start with `*:*` as `q` if the question is purely filter-driven; let
+				   - Start with `*:*` as `query` if the question is purely filter-driven; let
 				     `filterQueries` do the work.
 
 				3. Run the search.
@@ -691,12 +691,12 @@ public class SearchService {
 
 				4. Interpret and refine.
 				   - Check `numFound` first.
-				                 * Zero results: relax filters one at a time, broaden the query (try a more
-				                   general term), or fall back to `q=*:*` with the strongest filter to confirm the
-				                   collection contains relevant data.
-				                 * Many results: add a `filterQueries` constraint to narrow, or pass
-				                   `facetFields` on a relevant `string`/`strings` field to surface the distribution
-				                   and pick a sharper filter.
+				     * Zero results: relax filters one at a time, broaden the query (try a more
+				       general term), or fall back to `query=*:*` with the strongest filter to
+				       confirm the collection contains relevant data.
+				     * Many results: add a `filterQueries` constraint to narrow, or pass
+				       `facetFields` on a relevant `string`/`strings` field to surface the
+				       distribution and pick a sharper filter.
 				   - Inspect `documents` for the actual content. Each hit has `id` (the collection's
 				     uniqueKey value), a relevance `score`, and its other values under `fields`. The
 				     response's `maxScore` is the top score; scores are most meaningful as a relative

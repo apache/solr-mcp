@@ -35,7 +35,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.net.http.HttpTimeoutException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.apache.solr.client.solrj.RemoteSolrException;
@@ -53,6 +56,7 @@ import org.apache.solr.mcp.server.util.SolrCalls;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
 import org.mockito.ArgumentCaptor;
+import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.json.JsonTest;
 import org.springframework.test.json.JsonContent;
@@ -1158,5 +1162,38 @@ class SearchServiceTest {
     assertTrue(body.contains("queryFields"), "Prompt should explain queryFields");
     assertTrue(body.contains("`fields`"), "Prompt should explain fields");
     assertTrue(body.contains("numFound"), "Prompt should mention numFound interpretation");
+  }
+
+  @Test
+  void searchCollectionPrompt_namesTheSearchToolsQueryParameter() {
+    List<String> parameterNames = new ArrayList<>();
+    for (Method method : SearchService.class.getMethods()) {
+      McpTool tool = method.getAnnotation(McpTool.class);
+      if (tool != null && tool.name().equals("search")) {
+        for (Parameter parameter : method.getParameters()) {
+          parameterNames.add(parameter.getName());
+        }
+      }
+    }
+    String body =
+        promptText(new SearchService(mock(SolrClient.class)).searchCollectionPrompt("shows", "q?"));
+
+    // The tool ignores arguments it does not declare, so `q` would silently become *:*.
+    assertTrue(parameterNames.contains("query"), parameterNames::toString);
+    assertFalse(parameterNames.contains("q"), parameterNames::toString);
+    assertFalse(body.contains("`q`"), body);
+    assertFalse(body.contains("`q="), body);
+  }
+
+  @Test
+  void searchCollectionPrompt_nestsBulletsNoDeeperThanSevenSpaces() {
+    String body =
+        promptText(
+            new SearchService(mock(SolrClient.class)).searchCollectionPrompt("shows", "question"));
+
+    for (String line : body.lines().toList()) {
+      int indent = line.length() - line.stripLeading().length();
+      assertTrue(indent <= 7, () -> "Over-indented prompt line: [" + line + "]");
+    }
   }
 }
