@@ -115,19 +115,18 @@ class SolrNativeHintsTest {
 
   @Test
   void registersCollectionSchemaRecordHints() {
-    // Jackson builds these from Solr's response (constructors) and writes the catch-all
-    // back out through its @JsonAnyGetter accessor (methods), so both are needed.
+    // Jackson builds the input records for add-fields and add-field-types (constructors) and
+    // writes every record out through its accessors (methods), so both are needed.
     for (String record :
         List.of(
             "org.apache.solr.mcp.server.schema.CollectionSchema",
             "org.apache.solr.mcp.server.schema.CollectionSchema$Field",
             "org.apache.solr.mcp.server.schema.CollectionSchema$FieldType",
             "org.apache.solr.mcp.server.schema.CollectionSchema$Analyzer",
+            "org.apache.solr.mcp.server.schema.CollectionSchema$AnalyzerComponent",
             "org.apache.solr.mcp.server.schema.CollectionSchema$CopyField",
-            "org.apache.solr.mcp.server.schema.FieldFlags$NameSerializer",
-            "org.apache.solr.mcp.server.schema.FieldListing",
-            "org.apache.solr.mcp.server.schema.FieldListing$IndexedField",
-            "org.apache.solr.common.luke.FieldFlag")) {
+            "org.apache.solr.mcp.server.schema.FieldProperty",
+            "org.apache.solr.mcp.server.schema.IndexedField")) {
       assertTrue(
           RuntimeHintsPredicates.reflection()
               .onType(TypeReference.of(record))

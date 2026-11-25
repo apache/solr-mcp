@@ -24,7 +24,6 @@ import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.SolrInputField;
-import org.apache.solr.common.luke.FieldFlag;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
 import org.jspecify.annotations.Nullable;
@@ -74,11 +73,10 @@ class SolrNativeHints implements RuntimeHintsRegistrar {
           "org.apache.solr.mcp.server.schema.CollectionSchema$Field",
           "org.apache.solr.mcp.server.schema.CollectionSchema$FieldType",
           "org.apache.solr.mcp.server.schema.CollectionSchema$Analyzer",
+          "org.apache.solr.mcp.server.schema.CollectionSchema$AnalyzerComponent",
           "org.apache.solr.mcp.server.schema.CollectionSchema$CopyField",
-          // Jackson instantiates this @JsonSerialize(contentUsing = ...) serializer reflectively
-          "org.apache.solr.mcp.server.schema.FieldFlags$NameSerializer",
-          "org.apache.solr.mcp.server.schema.FieldListing",
-          "org.apache.solr.mcp.server.schema.FieldListing$IndexedField");
+          "org.apache.solr.mcp.server.schema.FieldProperty",
+          "org.apache.solr.mcp.server.schema.IndexedField");
 
   @Override
   public void registerHints(RuntimeHints hints, @Nullable ClassLoader classLoader) {
@@ -103,9 +101,6 @@ class SolrNativeHints implements RuntimeHintsRegistrar {
     // SolrJ facet types
     hints.reflection().registerType(FacetField.class, categories);
     hints.reflection().registerType(FacetField.Count.class, categories);
-
-    // SolrJ's Luke flag enum, serialized in get-schema and list-fields responses
-    hints.reflection().registerType(FieldFlag.class, categories);
 
     // SolrJ / Solr API model types used by CoreAdminResponse.getCoreStatus()
     // which deserializes via Jackson reflection.

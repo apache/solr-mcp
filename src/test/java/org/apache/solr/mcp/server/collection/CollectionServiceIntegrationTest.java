@@ -54,6 +54,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import tools.jackson.databind.json.JsonMapper;
 
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
@@ -371,7 +372,13 @@ class CollectionServiceIntegrationTest {
     assertEquals(
         List.of("leak183_platform"),
         schemaService
-            .addFields(second, List.of(Map.of("name", "leak183_platform", "type", "string")))
+            .addFields(
+                second,
+                List.of(
+                    JsonMapper.shared()
+                        .convertValue(
+                            Map.of("name", "leak183_platform", "type", "string"),
+                            CollectionSchema.Field.class)))
             .addedNames());
 
     assertEquals(first + ".AUTOCREATED", configNameOf(first));
