@@ -36,16 +36,16 @@ Each numbered group is one PR off `main` (design D8). Merge order is 2, 4, 1, th
 
 ## 4. Schema contract
 
-- [ ] 4.1 Add the server-owned `FieldProperty` enum with camelCase JSON values. Make `FieldFlags` decode Luke letters into it. Verify: `FieldFlagsTest` covers every Luke letter Solr 9.4 and 10 emit.
-- [ ] 4.2 Rework `CollectionSchema`:
+- [x] 4.1 Add the server-owned `FieldProperty` enum with camelCase JSON values. Make `FieldFlags` decode Luke letters into it. Verify: `FieldFlagsTest` covers every Luke letter Solr 9.4 and 10 emit.
+- [x] 4.2 Rework `CollectionSchema`:
   - `Field`/`FieldType` declare the spec's properties as nullable booleans;
   - field types get `parameters: Map<String, String>`;
   - `Analyzer` holds `AnalyzerComponent(name?, className?, parameters)`;
   - all `other` maps are removed.
 
   Verify: tests cover an explicit `stored: false`, a dropped unknown field attribute, `positionIncrementGap` in `parameters`, and the `standard`/`lowercase` chain.
-- [ ] 4.3 Rework `FieldListing` to a name-sorted `List<ListedField>` with `flags: Set<FieldProperty>`, and no `other` map. Verify: `list-fields` tests cover a dynamic-field-derived field, and the absence of Luke letters.
-- [ ] 4.4 Change `add-fields` to take `List<CollectionSchema.Field>` and `add-field-types` to take `List<CollectionSchema.FieldType>`, mapping to SolrJ's `SchemaRequest` builders. Required properties and types are enforced by the SDK's input validation; like other tool arguments, properties the contract does not name are not checked by the server. Verify: integration tests cover adding `year`/`pint`/`docValues` and a round trip of a field and of a text field type through `get-schema`.
+- [x] 4.3 Rework `FieldListing` to a name-sorted `List<ListedField>` with `flags: Set<FieldProperty>`, and no `other` map. Verify: `list-fields` tests cover a dynamic-field-derived field, and the absence of Luke letters.
+- [x] 4.4 Change `add-fields` to take `List<CollectionSchema.Field>` and `add-field-types` to take `List<CollectionSchema.FieldType>`, mapping to SolrJ's `SchemaRequest` builders. Required properties and types are enforced by the SDK's input validation; like other tool arguments, properties the contract does not name are not checked by the server. Verify: integration tests cover adding `year`/`pint`/`docValues` and a round trip of a field and of a text field type through `get-schema`.
 - [ ] 4.5 Confirm every optional component is `@Nullable` (design D2), update `SolrNativeHints`, and update the README, the docs-site schema pages and the `view-schema`/`design-schema` prompt text that shows field JSON. Verify: `nativeTest -Pnative` is green, and the group-1 conformance test passes for the four schema tools when group 1 is rebased onto this group.
 
 ## 5. Indexing contract
