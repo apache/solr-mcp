@@ -11,7 +11,7 @@ Each numbered group is one PR off `main` (design D8). Every group ends green on 
   - asserts the first text block parses to the same JSON.
 
   Verify: the test runs on both protocols (it starts with zero flagged tools).
-- [ ] 1.2 Flag `list-collections` alone with `generateOutputSchema = true` as a probe. Record in the PR description whether the modern path adds the text copy and validates like the legacy handler. Verify: the 1.1 test passes on legacy. Its result on modern decides whether step 6 is held for modern (design Risks).
+- [ ] 1.2 Flag `check-health` alone with `generateOutputSchema = true` as a probe (`list-collections` still returns a bare array until group 2, and an `outputSchema` must be an object). Record in the PR description whether the modern path adds the text copy and validates like the legacy handler. Verify: the 1.1 test passes on legacy. Its result on modern decides whether step 6 is held for modern (design Risks).
 - [ ] 1.3 Return `GetPromptResult` from all six prompts: the annotation's description, plus one `USER` message with today's `PromptText` text. Verify: the prompt unit tests and the `prompts/get` cases in `McpClientIntegrationTestBase` assert the description, role and text.
 - [ ] 1.4 Return `ReadResourceResult` with one `application/json` `TextResourceContents` from `solr://collections`, `solr://{collection}/schema` and `solr://{collection}/fields`, keeping the fixed error messages. Verify: the resource tests assert the `uri`, the `mimeType`, and text equal to the matching tool's JSON.
 - [ ] 1.5 Return `CompleteResult` with `total` and `hasMore` from all six completion handlers, counting every match before the 100 cap. Verify: unit tests cover 0, 99, 100 and 150 matching collections.
@@ -25,14 +25,14 @@ Each numbered group is one PR off `main` (design D8). Every group ends green on 
 - [ ] 2.4 Add `CollectionList`, and return it from `list-collections` and the collections resource. Verify: `CollectionServiceTest` and `McpClientIntegrationTestBase.listCollectionsContainsCreatedCollection` parse `{"collections": [...]}`.
 - [ ] 2.5 Replace `Dtos.java` with `CollectionMetrics` (nested `IndexStats`, `QueryStats`, `CacheStats`, `CacheInfo` with `hitRatio`, `HandlerStats`, `HandlerInfo`; no timestamp) and `HealthStatus`, whose `reason` is the server enum from design D5. Verify: tests cover the Solr 9 and Solr 10 (no `caches`/`handlers`) stats, and an unhealthy check whose `reason` holds no exception text.
 - [ ] 2.6 Reduce `CollectionCreationResult` to `name`, `configSet`, `numShards` and `replicationFactor`, reporting the applied defaults. Verify: the "Defaults applied" scenario passes in `CollectionServiceIntegrationTest`.
-- [ ] 2.7 Annotate the optional components (design D2), set `generateOutputSchema = true` on the seven alias and collection tools, and update `SolrNativeHints` and `SolrNativeHintsTest`. Verify: the 1.1 test passes for these tools, and `nativeTest -Pnative` is green.
+- [ ] 2.7 Confirm every optional component is `@Nullable` (design D2), set `generateOutputSchema = true` on the seven alias and collection tools, and update `SolrNativeHints` and `SolrNativeHintsTest`. Verify: the 1.1 test passes for these tools, and `nativeTest -Pnative` is green.
 - [ ] 2.8 Update the README tool table and the docs-site collection and alias tool pages with the new outputs and the `create-alias` input. Verify: `./gradlew build` (RAT and site checks) is green.
 
 ## 3. Search contract
 
 - [ ] 3.1 Add the uniqueKey lookup with a per-collection cache (design D4). Add the uniqueKey to `fl` when the client's `fields` leaves it out. Verify: a unit test shows one Schema API call across repeated searches on the same collection.
 - [ ] 3.2 Replace `SearchResponse.documents` with `List<SearchHit(id, score?, fields)>` and `facets` with `List<FacetField(field, List<FacetValue(value, count)>)>`. Verify: `SearchServiceTest` and `SearchServiceIntegrationTest` cover a non-`id` uniqueKey, a request with `score`, a `fields` list without the uniqueKey, facet order, and no facets.
-- [ ] 3.3 Annotate the optional components, set `generateOutputSchema = true` on `search`, update `SolrNativeHints`, and update the README and docs-site search pages and the `search-collection` prompt text where it describes the output. Verify: the 1.1 test passes for `search`, and `nativeTest -Pnative` is green.
+- [ ] 3.3 Confirm every optional component is `@Nullable` (design D2), set `generateOutputSchema = true` on `search`, update `SolrNativeHints`, and update the README and docs-site search pages and the `search-collection` prompt text where it describes the output. Verify: the 1.1 test passes for `search`, and `nativeTest -Pnative` is green.
 
 ## 4. Schema contract
 
@@ -46,12 +46,12 @@ Each numbered group is one PR off `main` (design D8). Every group ends green on 
   Verify: tests cover an explicit `stored: false`, a dropped unknown field attribute, `positionIncrementGap` in `parameters`, and the `standard`/`lowercase` chain.
 - [ ] 4.3 Rework `FieldListing` to a name-sorted `List<ListedField>` with `flags: Set<FieldProperty>`, and no `other` map. Verify: `list-fields` tests cover a dynamic-field-derived field, and the absence of Luke letters.
 - [ ] 4.4 Change `add-fields` to take `List<CollectionSchema.Field>` and `add-field-types` to take `List<CollectionSchema.FieldType>`, mapping to SolrJ's `SchemaRequest` builders. Unknown properties are rejected by input validation. Verify: integration tests cover adding `year`/`pint`/`docValues`, the unknown-property `isError`, and a cross-collection round trip of a field and of a text field type.
-- [ ] 4.5 Annotate the optional components, set `generateOutputSchema = true` on the four schema tools, update `SolrNativeHints`, and update the README, the docs-site schema pages and the `view-schema`/`design-schema` prompt text that shows field JSON. Verify: the 1.1 test passes for these tools, and `nativeTest -Pnative` is green.
+- [ ] 4.5 Confirm every optional component is `@Nullable` (design D2), set `generateOutputSchema = true` on the four schema tools, update `SolrNativeHints`, and update the README, the docs-site schema pages and the `view-schema`/`design-schema` prompt text that shows field JSON. Verify: the 1.1 test passes for these tools, and `nativeTest -Pnative` is green.
 
 ## 5. Indexing contract
 
 - [ ] 5.1 Add `IndexingResult(collection, format, documentsSubmitted?, documentsIndexed?, fieldNames?)`. Return it from all four indexing tools, with counts and field names only for JSON and Markdown. Verify: `IndexingServiceTest` covers all-accepted, partially-rejected (5 submitted, 3 indexed), Markdown sections, and CSV/XML without counts.
-- [ ] 5.2 Annotate the optional components, set `generateOutputSchema = true` on the four indexing tools, update `SolrNativeHints`, and update the README, the docs-site indexing pages and the `index-data` prompt text that quotes the old sentence. Verify: the 1.1 test passes for these tools, and `nativeTest -Pnative` is green.
+- [ ] 5.2 Confirm every optional component is `@Nullable` (design D2), set `generateOutputSchema = true` on the four indexing tools, update `SolrNativeHints`, and update the README, the docs-site indexing pages and the `index-data` prompt text that quotes the old sentence. Verify: the 1.1 test passes for these tools, and `nativeTest -Pnative` is green.
 
 ## 6. Whole-surface checks
 

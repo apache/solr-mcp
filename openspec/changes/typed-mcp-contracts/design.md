@@ -11,7 +11,7 @@ How the stack treats tool results today (verified in the 2.1.0 jars):
   1. adds the JSON as a `TextContent` block when `content` is empty;
   2. **validates `structuredContent` against `outputSchema`**, failing the call on a mismatch.
   The modern server path (`io.modelcontextprotocol.modern`) has not been checked.
-- `McpJsonSchemaGenerator.generateFromType` calls Spring AI's `JsonSchemaGenerator` with `ALLOW_ADDITIONAL_PROPERTIES_BY_DEFAULT`. `AbstractSpringAiSchemaModule.checkRequired` decides `required` from `@ToolParam`, `@JsonProperty` and swagger `@Schema`. Every other property is required by default, and **JSpecify `@Nullable` is not consulted**.
+- `McpJsonSchemaGenerator.generateFromType` calls Spring AI's `JsonSchemaGenerator` with `ALLOW_ADDITIONAL_PROPERTIES_BY_DEFAULT`. `AbstractSpringAiSchemaModule.checkRequired` decides `required` from `@ToolParam`, `@JsonProperty` and swagger `@Schema`, then from Spring's `Nullness.forField`, which reads JSpecify `@Nullable`. A `@Nullable` component is not required, and every other property is.
 - Prompt, resource and completion callbacks already accept `GetPromptResult`, `ReadResourceResult` and `CompleteResult`. String returns are wrapped by the framework.
 
 The code already has server-owned records that this change reshapes or replaces:
@@ -49,13 +49,13 @@ This test enforces the `mcp-contracts` spec: the published schema is only part o
 - Return `CallToolResult` by hand: loses schema generation from the return type.
 - A global post-processor that rewrites schemas: more code than an annotation per tool, and it hides the contract from the signature.
 
-### D2. Mark optional components so the generator does not require them
+### D2. `@Nullable` marks the optional components
 
-Every `@Nullable` record component that may be omitted also carries `@JsonProperty(required = false)`. Records use `@JsonInclude(NON_NULL)`, so an absent value is omitted rather than sent as `null`. The D1 test fails if a component is missing the annotation, because the SDK's validator rejects an omitted required property.
+A record component that may be absent is `@Nullable`, and only those are. Spring AI's schema generator reads that through Spring's `Nullness`, so the component is left out of `required`. Records use `@JsonInclude(NON_NULL)`, so an absent value is omitted rather than sent as `null`. No extra annotation is needed. The D1 test confirms this for every tool: the SDK's validator rejects a result that omits a required property.
 
 *Alternatives:*
-- Send `null`s and type the properties as nullable unions: noisier JSON for LLM clients, and the generator does not emit unions for `@Nullable`.
-- Swagger `@Schema(requiredMode = NOT_REQUIRED)`: works, but adds a swagger-annotations dependency for one attribute.
+- `@JsonProperty(required = false)` on each optional component: redundant with `@Nullable`, and it would also take precedence over it, so the two could drift apart.
+- Send `null`s and type the properties as nullable unions: noisier JSON for LLM clients.
 
 ### D3. One record type per contract object; map from SolrJ's typed accessors
 
@@ -129,7 +129,7 @@ Each area is its own PR off `main`, ordered so the shared rules land first:
 ## Risks / Trade-offs
 
 - **[Risk]** The modern protocol path may not add the text copy or validate as the legacy handler does. → The D1 test runs on both protocols in step 1, before any tool turns the flag on. If the modern path lacks the text copy, step 6 is held for modern and the gap is filed upstream with Spring AI / the java-sdk.
-- **[Risk]** The SDK's output validation turns a contract slip into a failed call in production. → The D1 conformance test covers every tool in CI. The D2 annotation rule is checked by that same test, not by review.
+- **[Risk]** The SDK's output validation turns a contract slip into a failed call in production. → The D1 conformance test covers every tool in CI, including the D2 rule that optional components are `@Nullable`.
 - **[Trade-off]** Dropping unknown Solr attributes hides settings a later Solr adds, for example a new field property. → The contract adds them on purpose. `parameters` keeps class-specific field-type settings, which are the most common case.
 - **[Risk]** The uniqueKey lookup adds a Schema API request to the first search on each collection. → Cached per collection (D4). The request is a cheap admin call.
 - **[Trade-off]** Every client-visible output changes at once before 1.0.0. → This is deliberate. Doing it after 1.0.0 would need a breaking release.
