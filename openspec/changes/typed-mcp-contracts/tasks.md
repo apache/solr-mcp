@@ -20,14 +20,14 @@ Each numbered group is one PR off `main` (design D8). Merge order is 2, 4, 1, th
 
 ## 2. Alias and collection contracts (reworks #294)
 
-- [ ] 2.1 Move `AliasService` to `alias/`. Add `Alias`, `AliasList` and `AliasDeletion`, built from `getAliasesAsLists()` and `getAliasProperties()` and sorted by name. Delete `AliasResult`. Verify: `AliasServiceTest` covers two targets plus a property, and the no-aliases case.
-- [ ] 2.2 Change the `create-alias` input `collections` to `List<String>` (non-empty), and return the alias read back from `LISTALIASES`. Verify: the `alias-management` "Re-pointing an alias that has properties" scenario passes in `AliasServiceIntegrationTest`.
-- [ ] 2.3 Check whether Solr's `DELETEALIAS` fails for an unknown alias on 9.4 and 10. If it is a no-op, look the alias up first and throw. Verify: an integration test deleting `nope` gets `isError: true` on both versions (`-Dsolr.test.image`).
-- [ ] 2.4 Add `CollectionList`, and return it from `list-collections` and the collections resource. Verify: `CollectionServiceTest` and `McpClientIntegrationTestBase.listCollectionsContainsCreatedCollection` parse `{"collections": [...]}`.
-- [ ] 2.5 Replace `Dtos.java` with `CollectionMetrics` (nested `IndexStats`, `QueryStats`, `CacheStats`, `CacheInfo` with `hitRatio`, `HandlerStats`, `HandlerInfo`; no timestamp) and `HealthStatus`, whose `reason` is the server enum from design D5. Verify: tests cover the Solr 9 and Solr 10 (no `caches`/`handlers`) stats, and an unhealthy check whose `reason` holds no exception text.
-- [ ] 2.6 Reduce `CollectionCreationResult` to `name`, `configSet`, `numShards` and `replicationFactor`, reporting the applied defaults. Verify: the "Defaults applied" scenario passes in `CollectionServiceIntegrationTest`.
-- [ ] 2.7 Confirm every optional component is `@Nullable` (design D2), and update `SolrNativeHints` and `SolrNativeHintsTest`. Verify: `nativeTest -Pnative` is green, and the group-1 conformance test passes for the seven alias and collection tools when group 1 is rebased onto this group.
-- [ ] 2.8 Update the README tool table and the docs-site collection and alias tool pages with the new outputs and the `create-alias` input. Verify: `./gradlew build` (RAT and site checks) is green.
+- [x] 2.1 Move `AliasService` to `alias/`. Add `Alias`, `AliasList` and `AliasDeletion`, built from `getAliasesAsLists()` and `getAliasProperties()` and sorted by name. Delete `AliasResult`. Verify: `AliasServiceTest` covers two targets plus a property, and the no-aliases case.
+- [x] 2.2 Change the `create-alias` input `collections` to `List<String>` (non-empty), and return the alias read back from `LISTALIASES`. Verify: the `alias-management` "Re-pointing an alias that has properties" scenario passes in `AliasServiceIntegrationTest`.
+- [x] 2.3 Check whether Solr's `DELETEALIAS` fails for an unknown alias on 9.4 and 10. If it is a no-op, look the alias up first and throw. Verify: an integration test deleting `nope` gets `isError: true` on both versions (`-Dsolr.test.image`).
+- [x] 2.4 Add `CollectionList`, and return it from `list-collections` and the collections resource. Verify: `CollectionServiceTest` and `McpClientIntegrationTestBase.listCollectionsContainsCreatedCollection` parse `{"collections": [...]}`.
+- [x] 2.5 Replace `Dtos.java` with `CollectionMetrics` (nested `IndexStats`, `QueryStats`, `CacheStats`, `CacheInfo` with `hitRatio`, `HandlerStats`, `HandlerInfo`; no timestamp) and `HealthStatus`, whose `reason` is the server enum from design D5. Verify: tests cover the Solr 9 and Solr 10 (no `caches`/`handlers`) stats, and an unhealthy check whose `reason` holds no exception text.
+- [x] 2.6 Reduce `CollectionCreationResult` to `name`, `configSet`, `numShards` and `replicationFactor`, reporting the applied defaults. Verify: the "Defaults applied" scenario passes in `CollectionServiceIntegrationTest`.
+- [x] 2.7 Confirm every optional component is `@Nullable` (design D2), and update `SolrNativeHints` and `SolrNativeHintsTest`. Verify: `nativeTest -Pnative` is green, and the group-1 conformance test passes for the seven alias and collection tools when group 1 is rebased onto this group.
+- [x] 2.8 Update the README tool table and the docs-site collection and alias tool pages with the new outputs and the `create-alias` input. Verify: `./gradlew build` (RAT and site checks) is green.
 
 ## 3. Search contract
 
