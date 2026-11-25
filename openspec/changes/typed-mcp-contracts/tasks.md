@@ -4,13 +4,12 @@ Each numbered group is one PR off `main` (design D8). Merge order is 2, 4, 1, th
 
 ## 1. Contract test scaffolding and MCP result types
 
-- [ ] 1.1 Add `McpContractConformanceIntegrationTest`, run for the legacy and the modern protocol. For every tool flagged with `generateOutputSchema = true`, it:
-  - asserts an object `outputSchema` is published;
-  - calls the tool against Testcontainers Solr;
-  - validates `structuredContent` against the schema with `additionalProperties` forced to `false`, except the `fields` and `parameters` paths;
-  - asserts the first text block parses to the same JSON.
+- [ ] 1.1 Add `McpContractConformanceIntegrationTest` (legacy) and `McpModernContractConformanceIntegrationTest` (modern). For every tool that publishes an `outputSchema`, they:
+  - assert the schema describes an object;
+  - call the tool against Testcontainers Solr and assert the call succeeds, which means the SDK's schema validation passed;
+  - assert the first text block parses to the same JSON as `structuredContent`.
 
-  Verify: the test runs on both protocols (it starts with zero flagged tools).
+  Verify: both tests run on both protocols, and every flagged tool has sample arguments.
 - [x] 1.2 Flag `check-health` alone with `generateOutputSchema = true` as a probe (`list-collections` still returns a bare array until group 2, and an `outputSchema` must be an object). Record in the PR description whether the modern path adds the text copy and validates like the legacy handler. Verify: the 1.1 test passes on legacy. Its result on modern decides whether step 6 is held for modern (design Risks).
 - [x] 1.3 Return `GetPromptResult` from all six prompts: the annotation's description, plus one `USER` message with today's `PromptText` text. Verify: the prompt unit tests and the `prompts/get` cases in `McpClientIntegrationTestBase` assert the description, role and text.
 - [x] 1.4 Return `ReadResourceResult` with one `application/json` `TextResourceContents` from `solr://collections`, `solr://{collection}/schema` and `solr://{collection}/fields`, keeping the fixed error messages. Verify: the resource tests assert the `uri`, the `mimeType`, and text equal to the matching tool's JSON.

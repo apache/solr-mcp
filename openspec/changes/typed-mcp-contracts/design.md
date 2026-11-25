@@ -37,17 +37,16 @@ The code already has server-owned records that this change reshapes or replaces:
 
 ### D1. Turn on structured output per tool, behind a conformance test
 
-Every `@McpTool` sets `generateOutputSchema = true`. A new integration test runs once per protocol (legacy, modern):
-1. Lists the tools and asserts each has an object `outputSchema`.
-2. Calls every tool against Testcontainers Solr with valid arguments.
-3. Validates `structuredContent` against the published schema with all `additionalProperties` forced to `false`. Only the paths for `fields` and `parameters` are allowed open.
-4. Asserts the first text block parses to the same JSON.
+Every `@McpTool` that returns a non-`String` sets `generateOutputSchema = true`. A new integration test runs once per protocol (legacy, modern):
+1. Lists the tools and asserts each published `outputSchema` describes an object. The MCP spec requires this, and the SDK does not check it.
+2. Calls every tool against Testcontainers Solr with valid arguments. A successful call is the schema check: the SDK validates `structuredContent` against the published schema on every call and turns a mismatch into an error.
+3. Asserts the first text block parses to the same JSON.
 
-This test enforces the `mcp-contracts` spec: the published schema is only part of the guarantee, and the test is what covers the rest.
+The test leaves the schemas as Spring AI publishes them, open to additional properties. Spring AI's own generator can close schemas (`forbidAdditionalProperties`), but its MCP output path opts out with `ALLOW_ADDITIONAL_PROPERTIES_BY_DEFAULT`, and its docs and examples only set the flag. Undeclared properties are ruled out by the records instead: Jackson writes a record's components and nothing else, so an extra key can only come from a `@JsonAnyGetter` or a `Map` component, and the contract records have the former nowhere and the latter only where the spec keeps a map open.
 
 *Alternatives:*
+- Close every record schema in the test before validating: repeats the SDK's validation, and guards what the record types already guarantee.
 - Return `CallToolResult` by hand: loses schema generation from the return type.
-- A global post-processor that rewrites schemas: more code than an annotation per tool, and it hides the contract from the signature.
 
 ### D2. `@Nullable` marks the optional components
 
