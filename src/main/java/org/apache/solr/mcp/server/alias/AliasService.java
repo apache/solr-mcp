@@ -39,9 +39,9 @@ import org.springframework.stereotype.Service;
  * enable zero-downtime reindexing, blue-green deployments, and read/write separation by allowing
  * applications to reference a stable name while the underlying collection is swapped transparently.
  *
- * <p>Every tool returns the server's own records ({@link AliasList}, {@link Alias}, {@link
- * AliasDeletion}), built from SolrJ's typed accessors: an alias's targets are a list, not Solr's
- * comma-joined string, and failures are thrown rather than reported in the result.
+ * <p>Every tool returns the server's own records ({@link Alias}, {@link AliasDeletion}), built from
+ * SolrJ's typed accessors: an alias's targets are a list, not Solr's comma-joined string, and
+ * failures are thrown rather than reported in the result.
  *
  * @see CollectionAdminRequest
  */
@@ -83,7 +83,7 @@ public class AliasService {
       name = "list-aliases",
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
       description = "List all Solr aliases, the collections they point to, and their properties")
-  public AliasList listAliases() throws SolrServerException, IOException {
+  public List<Alias> listAliases() throws SolrServerException, IOException {
     CollectionAdminResponse response = new CollectionAdminRequest.ListAliases().process(solrClient);
     Map<String, Map<String, String>> properties = response.getAliasProperties();
     List<Alias> aliases = new ArrayList<>();
@@ -93,7 +93,7 @@ public class AliasService {
           new Alias(
               alias.getKey(), alias.getValue(), properties.getOrDefault(alias.getKey(), Map.of())));
     }
-    return new AliasList(aliases);
+    return List.copyOf(aliases);
   }
 
   /**
@@ -176,6 +176,6 @@ public class AliasService {
   }
 
   private Optional<Alias> findAlias(String name) throws SolrServerException, IOException {
-    return listAliases().aliases().stream().filter(a -> a.name().equals(name)).findFirst();
+    return listAliases().stream().filter(a -> a.name().equals(name)).findFirst();
   }
 }

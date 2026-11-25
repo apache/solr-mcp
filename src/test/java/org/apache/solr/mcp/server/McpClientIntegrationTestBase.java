@@ -201,7 +201,7 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    assertThat(json(result)).extractingPath("$.collections").asArray().contains(COLLECTION);
+    assertThat(json(result)).extractingPath("$[*].name").asArray().contains(COLLECTION);
   }
 
   @Test

@@ -103,8 +103,8 @@ class SolrNativeHintsTest {
   void registersAliasAndCollectionRecordHints() {
     for (String className :
         List.of(
-            "org.apache.solr.mcp.server.alias.AliasList",
-            "org.apache.solr.mcp.server.collection.CollectionList",
+            "org.apache.solr.mcp.server.alias.Alias",
+            "org.apache.solr.mcp.server.collection.Collection",
             "org.apache.solr.mcp.server.collection.HealthStatus",
             "org.apache.solr.mcp.server.collection.CollectionMetrics$CacheInfo")) {
       assertTrue(

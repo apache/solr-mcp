@@ -70,9 +70,9 @@ class AliasServiceTest {
                   Map.of("tv", "shows,shows_typed", "orders", "orders_v2"),
                   Map.of("tv", Map.of("owner", "search-team"))));
 
-      AliasList result = aliasService.listAliases();
+      List<Alias> result = aliasService.listAliases();
 
-      assertThat(result.aliases())
+      assertThat(result)
           .containsExactly(
               new Alias("orders", List.of("orders_v2"), Map.of()),
               new Alias("tv", List.of("shows", "shows_typed"), Map.of("owner", "search-team")));
@@ -83,7 +83,7 @@ class AliasServiceTest {
     void returnsEmptyListWhenNoAliases() throws Exception {
       when(solrClient.request(any(), nullable(String.class))).thenReturn(new NamedList<>());
 
-      assertThat(aliasService.listAliases().aliases()).isEmpty();
+      assertThat(aliasService.listAliases()).isEmpty();
     }
   }
 

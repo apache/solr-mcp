@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
+import org.apache.solr.mcp.server.collection.Collection;
 import org.apache.solr.mcp.server.collection.CollectionService;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -69,7 +70,7 @@ class MethodSecurityEnforcementTest {
   void unauthenticatedCallToSecuredToolIsRejected() {
     assertThrows(
         AuthenticationCredentialsNotFoundException.class,
-        () -> collectionService.listCollections().collections(),
+        () -> collectionService.listCollections(),
         "list-collections carries @PreAuthorize(\"isAuthenticated()\") and was called with no "
             + "authentication, so method security must reject it. Succeeding means the annotation "
             + "is decorative: @EnableMethodSecurity is not in effect for this context.");
@@ -92,9 +93,9 @@ class MethodSecurityEnforcementTest {
   @Test
   @WithMockUser
   void authenticatedCallToSecuredToolSucceeds() {
-    List<String> collections =
+    List<Collection> collections =
         assertDoesNotThrow(
-            () -> collectionService.listCollections().collections(),
+            () -> collectionService.listCollections(),
             "list-collections is gated by @PreAuthorize(\"isAuthenticated()\") and was called with an "
                 + "authenticated principal, so method security must permit it. An AccessDeniedException "
                 + "here means the gate rejects everyone, not just anonymous callers — the annotation "

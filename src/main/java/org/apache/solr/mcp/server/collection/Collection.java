@@ -16,18 +16,10 @@
  */
 package org.apache.solr.mcp.server.collection;
 
-import java.util.List;
-
 /**
- * The collections in the cluster, as returned by {@code list-collections} and the {@code
+ * A collection in the cluster, as listed by {@code list-collections} and the {@code
  * solr://collections} resource.
  *
- * @param collections the collection names, in Solr's order; empty when there are none
+ * @param name the collection name
  */
-public record CollectionList(List<String> collections) {
-
-  /** Copies the list so the record cannot change after it is built. */
-  public CollectionList {
-    collections = List.copyOf(collections);
-  }
-}
+public record Collection(String name) {}

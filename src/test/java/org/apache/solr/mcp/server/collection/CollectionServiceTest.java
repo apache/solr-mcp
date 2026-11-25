@@ -93,8 +93,7 @@ class CollectionServiceTest {
 
     // When / Then - exception propagates to caller
     SolrServerException exception =
-        assertThrows(
-            SolrServerException.class, () -> collectionService.listCollections().collections());
+        assertThrows(SolrServerException.class, () -> collectionService.listCollections());
     assertTrue(exception.getMessage().contains("Connection error"));
   }
 
@@ -742,7 +741,8 @@ class CollectionServiceTest {
 
     when(solrClient.request(any(), any())).thenReturn(response);
 
-    List<String> result = collectionService.listCollections().collections();
+    List<String> result =
+        collectionService.listCollections().stream().map(Collection::name).toList();
 
     assertNotNull(result);
     assertEquals(2, result.size());
@@ -757,7 +757,8 @@ class CollectionServiceTest {
 
     when(solrClient.request(any(), any())).thenReturn(response);
 
-    List<String> result = collectionService.listCollections().collections();
+    List<String> result =
+        collectionService.listCollections().stream().map(Collection::name).toList();
 
     assertNotNull(result);
     assertTrue(result.isEmpty());
@@ -767,15 +768,14 @@ class CollectionServiceTest {
   void listCollections_SolrServerException_Propagates() throws Exception {
     when(solrClient.request(any(), any())).thenThrow(new SolrServerException("Connection error"));
 
-    assertThrows(
-        SolrServerException.class, () -> collectionService.listCollections().collections());
+    assertThrows(SolrServerException.class, () -> collectionService.listCollections());
   }
 
   @Test
   void listCollections_IOException_Propagates() throws Exception {
     when(solrClient.request(any(), any())).thenThrow(new IOException("IO error"));
 
-    assertThrows(IOException.class, () -> collectionService.listCollections().collections());
+    assertThrows(IOException.class, () -> collectionService.listCollections());
   }
 
   @Test
@@ -785,7 +785,7 @@ class CollectionServiceTest {
     when(solrClient.request(any(), any())).thenReturn(response);
 
     assertEquals(
-        "{\"collections\":[\"collection1\",\"collection2\"]}",
+        "[{\"name\":\"collection1\"},{\"name\":\"collection2\"}]",
         collectionService.getCollectionsResource());
   }
 
@@ -1057,7 +1057,7 @@ class CollectionServiceTest {
   @Test
   void completeCollection_WithMatchingPrefix_ReturnsMatches() throws Exception {
     CollectionService spyService = spy(collectionService);
-    doReturn(new CollectionList(Arrays.asList("products", "prod-logs", "users")))
+    doReturn(named(Arrays.asList("products", "prod-logs", "users")))
         .when(spyService)
         .listCollections();
 
@@ -1070,9 +1070,7 @@ class CollectionServiceTest {
   @Test
   void completeCollection_WithEmptyPrefix_ReturnsAllSorted() throws Exception {
     CollectionService spyService = spy(collectionService);
-    doReturn(new CollectionList(Arrays.asList("zeta", "alpha", "mu")))
-        .when(spyService)
-        .listCollections();
+    doReturn(named(Arrays.asList("zeta", "alpha", "mu"))).when(spyService).listCollections();
 
     List<String> result =
         spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", ""));
@@ -1094,7 +1092,7 @@ class CollectionServiceTest {
   @Test
   void completeCollection_IsCaseInsensitive() throws Exception {
     CollectionService spyService = spy(collectionService);
-    doReturn(new CollectionList(Arrays.asList("Products", "PROD_LOGS", "users")))
+    doReturn(named(Arrays.asList("Products", "PROD_LOGS", "users")))
         .when(spyService)
         .listCollections();
 
@@ -1107,7 +1105,7 @@ class CollectionServiceTest {
   @Test
   void completeCollection_WithNoMatches_ReturnsEmpty() throws Exception {
     CollectionService spyService = spy(collectionService);
-    doReturn(new CollectionList(Arrays.asList("alpha", "beta"))).when(spyService).listCollections();
+    doReturn(named(Arrays.asList("alpha", "beta"))).when(spyService).listCollections();
 
     List<String> result =
         spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "zzz"));
@@ -1134,7 +1132,7 @@ class CollectionServiceTest {
         IntStream.range(0, CollectionService.MAX_COMPLETION_RESULTS + 25)
             .mapToObj(i -> String.format("c%04d", i))
             .toList();
-    doReturn(new CollectionList(many)).when(spyService).listCollections();
+    doReturn(named(many)).when(spyService).listCollections();
 
     List<String> result =
         spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "c"));
@@ -1152,5 +1150,10 @@ class CollectionServiceTest {
             new CompleteRequest.CompleteArgument("collection", "prod"));
 
     assertTrue(result.isEmpty());
+  }
+
+  /** Collections with these names, as {@code listCollections} returns them. */
+  private static List<Collection> named(List<String> names) {
+    return names.stream().map(Collection::new).toList();
   }
 }

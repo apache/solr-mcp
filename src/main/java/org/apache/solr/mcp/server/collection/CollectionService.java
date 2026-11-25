@@ -112,7 +112,7 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <pre>{@code
  * // List all available collections
- * List<String> collections = collectionService.listCollections().collections();
+ * List<Collection> collections = collectionService.listCollections();
  *
  * // Get comprehensive metrics for a collection
  * CollectionMetrics metrics = collectionService.getCollectionStats("my_collection");
@@ -363,7 +363,8 @@ public class CollectionService {
     }
     String prefix = argument.value().toLowerCase(Locale.ROOT);
     try {
-      return listCollections().collections().stream()
+      return listCollections().stream()
+          .map(Collection::name)
           .filter(c -> c.toLowerCase(Locale.ROOT).startsWith(prefix))
           .sorted()
           .limit(MAX_COMPLETION_RESULTS)
@@ -465,13 +466,13 @@ public class CollectionService {
       name = "list-collections",
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
       description = "List solr collections")
-  public CollectionList listCollections() throws SolrServerException, IOException {
+  public List<Collection> listCollections() throws SolrServerException, IOException {
     CollectionAdminRequest.List request = new CollectionAdminRequest.List();
     CollectionAdminResponse response = request.process(solrClient);
 
     @SuppressWarnings("unchecked")
     List<String> collections = (List<String>) response.getResponse().get(COLLECTIONS_KEY);
-    return new CollectionList(collections != null ? collections : List.of());
+    return collections != null ? collections.stream().map(Collection::new).toList() : List.of();
   }
 
   /**

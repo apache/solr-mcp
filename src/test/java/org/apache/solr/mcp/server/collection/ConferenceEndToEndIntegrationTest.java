@@ -74,7 +74,8 @@ class ConferenceEndToEndIntegrationTest {
   @Test
   @Order(1)
   void collectionAppearsInList() throws Exception {
-    List<String> collections = collectionService.listCollections().collections();
+    List<String> collections =
+        collectionService.listCollections().stream().map(Collection::name).toList();
     boolean found =
         collections.contains(COLLECTION)
             || collections.stream().anyMatch(c -> c.startsWith(COLLECTION + "_shard"));

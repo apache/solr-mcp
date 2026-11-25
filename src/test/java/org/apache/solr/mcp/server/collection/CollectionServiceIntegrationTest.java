@@ -116,7 +116,8 @@ class CollectionServiceIntegrationTest {
 
   @Test
   void testListCollections() throws Exception {
-    List<String> collections = collectionService.listCollections().collections();
+    List<String> collections =
+        collectionService.listCollections().stream().map(Collection::name).toList();
 
     log.debug("Collections: {}", collections);
 
@@ -330,7 +331,8 @@ class CollectionServiceIntegrationTest {
 
     assertEquals(new CollectionCreationResult(name, name + ".AUTOCREATED", 1, 1), result);
 
-    List<String> collections = collectionService.listCollections().collections();
+    List<String> collections =
+        collectionService.listCollections().stream().map(Collection::name).toList();
     boolean exists =
         collections.contains(name)
             || collections.stream().anyMatch(col -> col.startsWith(name + "_shard"));

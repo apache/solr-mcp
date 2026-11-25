@@ -72,9 +72,7 @@ class AliasServiceIntegrationTest {
   }
 
   private Optional<Alias> alias(String name) throws Exception {
-    return aliasService.listAliases().aliases().stream()
-        .filter(a -> a.name().equals(name))
-        .findFirst();
+    return aliasService.listAliases().stream().filter(a -> a.name().equals(name)).findFirst();
   }
 
   @Test
@@ -131,7 +129,7 @@ class AliasServiceIntegrationTest {
   void listAliases_isOrderedByName() throws Exception {
     aliasService.createAlias(TEST_ALIAS_2, List.of(TEST_COLLECTION));
 
-    List<String> names = aliasService.listAliases().aliases().stream().map(Alias::name).toList();
+    List<String> names = aliasService.listAliases().stream().map(Alias::name).toList();
 
     assertThat(names).isSorted().contains(TEST_ALIAS, TEST_ALIAS_2);
   }
