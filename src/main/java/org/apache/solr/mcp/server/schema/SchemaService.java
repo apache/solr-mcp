@@ -19,6 +19,9 @@ package org.apache.solr.mcp.server.schema;
 import static org.apache.solr.mcp.server.util.PromptText.optionalCodeBlock;
 
 import io.micrometer.observation.annotation.Observed;
+import io.modelcontextprotocol.spec.McpSchema.GetPromptResult;
+import io.modelcontextprotocol.spec.McpSchema.ReadResourceResult;
+import io.modelcontextprotocol.spec.McpSchema.Role;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +33,7 @@ import org.apache.solr.client.solrj.request.schema.AnalyzerDefinition;
 import org.apache.solr.client.solrj.request.schema.FieldTypeDefinition;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.common.util.NamedList;
+import org.apache.solr.mcp.server.util.McpResults;
 import org.apache.solr.mcp.server.util.PromptNames;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -161,7 +165,7 @@ public class SchemaService {
    * schema definition including fields, field types, dynamic fields, and copy fields.
    *
    * @param collection the name of the collection to retrieve schema for
-   * @return JSON string containing the schema representation
+   * @return the schema as one {@code application/json} resource content
    * @throws IllegalStateException with {@link #SCHEMA_RESOURCE_ERROR} if the schema cannot be
    *     retrieved or serialized
    */
@@ -172,9 +176,11 @@ public class SchemaService {
       description =
           "Full schema definition for a Solr collection: field types, declared fields, dynamic-field patterns and copy fields",
       mimeType = "application/json")
-  public String getSchemaResource(String collection) {
+  public ReadResourceResult getSchemaResource(String collection) {
     try {
-      return jsonMapper.writeValueAsString(getSchema(collection));
+      return McpResults.jsonResource(
+          "solr://" + collection + "/schema",
+          jsonMapper.writeValueAsString(getSchema(collection)));
     } catch (Exception e) {
       // Deliberately no cause: MCP reports the root cause's message to the client,
       // and Solr and SolrJ failure text can carry internal host names, URLs and
@@ -257,7 +263,8 @@ public class SchemaService {
               + "type in fieldTypes. "
               + "Use this before add-fields or add-field-types to see what is already defined. "
               + "It does not say which fields hold data or which dynamic fields are in use; to "
-              + "choose fields for search, call list-fields instead.")
+              + "choose fields for search, call list-fields instead.",
+      generateOutputSchema = true)
   public CollectionSchema getSchema(String collection) throws SolrServerException, IOException {
     // request(), not schemaRequest.process(): process() parses into SolrJ's SchemaRepresentation,
     // whose FieldTypeDefinition nests each type's properties under "attributes" and serializes
@@ -274,7 +281,7 @@ public class SchemaService {
    * {@link #listFields(String)}.
    *
    * @param collection the collection to list fields for
-   * @return JSON string containing the field listing
+   * @return the field listing as one {@code application/json} resource content
    * @throws IllegalStateException with {@link #FIELDS_RESOURCE_ERROR} if the fields cannot be
    *     listed or serialized
    */
@@ -285,9 +292,11 @@ public class SchemaService {
       description =
           "The fields that hold data in a Solr collection, with their types, flags and document counts",
       mimeType = "application/json")
-  public String getFieldsResource(String collection) {
+  public ReadResourceResult getFieldsResource(String collection) {
     try {
-      return jsonMapper.writeValueAsString(listFields(collection));
+      return McpResults.jsonResource(
+          "solr://" + collection + "/fields",
+          jsonMapper.writeValueAsString(listFields(collection)));
     } catch (Exception e) {
       // No cause, for the same reason as getSchemaResource: Solr failure text can
       // carry internal host names and URLs.
@@ -377,7 +386,8 @@ public class SchemaService {
               + "Use 'strings' (not 'string') for multi-valued string fields. "
               + "Note: this only adds new fields; existing fields cannot be modified. "
               + "Solr's Schema API is transactional — if any command in the batch fails, "
-              + "none are applied. On failure, fix the invalid field(s) and retry the whole batch.")
+              + "none are applied. On failure, fix the invalid field(s) and retry the whole batch.",
+      generateOutputSchema = true)
   public SchemaUpdateResult addFields(
       @McpToolParam(description = "Solr collection name") String collection,
       @McpToolParam(description = "The fields to add, in the shape get-schema reports")
@@ -428,7 +438,8 @@ public class SchemaService {
               + "(3) autocomplete: className=solr.TextField with separate indexAnalyzer using EdgeNGramFilterFactory "
               + "and queryAnalyzer without it. "
               + "After adding a type, use add-fields to create fields of that type. "
-              + "Solr's Schema API is transactional — if any command in the batch fails, none are applied.")
+              + "Solr's Schema API is transactional — if any command in the batch fails, none are applied.",
+      generateOutputSchema = true)
   public SchemaUpdateResult addFieldTypes(
       @McpToolParam(description = "Solr collection name") String collection,
       @McpToolParam(description = "The field types to add, in the shape get-schema reports")
@@ -521,12 +532,14 @@ public class SchemaService {
   @McpPrompt(
       name = PromptNames.VIEW_SCHEMA,
       title = "View a Solr collection schema",
-      description =
-          "Read-only walkthrough: fetch the schema and summarize fields, types, dynamic fields, copy fields, and the unique key.")
-  public String viewSchemaPrompt(
+      description = PromptNames.VIEW_SCHEMA_DESCRIPTION)
+  public GetPromptResult viewSchemaPrompt(
       @McpArg(name = "collection", description = "Target Solr collection name", required = true)
           String collection) {
-    return """
+    return McpResults.prompt(
+        PromptNames.VIEW_SCHEMA_DESCRIPTION,
+        Role.USER,
+        """
 				You are inspecting the schema of Solr collection `%s`. This prompt is read-only; do not
 				add or modify any fields.
 
@@ -562,7 +575,7 @@ public class SchemaService {
 				Next step suggestion: if the schema is missing fields the user needs, the
 				`design-schema` prompt drives the additive workflow.
 				"""
-        .formatted(collection, collection);
+            .formatted(collection, collection));
   }
 
   /**
@@ -580,9 +593,8 @@ public class SchemaService {
   @McpPrompt(
       name = PromptNames.DESIGN_SCHEMA,
       title = "Design a Solr schema for a dataset",
-      description =
-          "Guides the assistant through inspecting an existing Solr schema, choosing appropriate field types, and applying additive schema changes via the Schema API.")
-  public String designSchemaPrompt(
+      description = PromptNames.DESIGN_SCHEMA_DESCRIPTION)
+  public GetPromptResult designSchemaPrompt(
       @McpArg(name = "collection", description = "Target Solr collection name", required = true)
           String collection,
       @McpArg(
@@ -601,7 +613,10 @@ public class SchemaService {
             sampleDocument,
             "A sample document was provided. Use it as ground truth for field names and value\n     shapes:",
             "No sample document was provided; ask the user for one if the dataset description leaves field types ambiguous.");
-    return """
+    return McpResults.prompt(
+        PromptNames.DESIGN_SCHEMA_DESCRIPTION,
+        Role.USER,
+        """
 				You are designing a Solr schema for collection `%s`. Dataset:
 
 				    %s
@@ -651,6 +666,6 @@ public class SchemaService {
 				Next step suggestion: once the schema is in place, the `index-data` prompt drives
 				indexing documents into the collection.
 				"""
-        .formatted(collection, datasetDescription, collection, sampleSection);
+            .formatted(collection, datasetDescription, collection, sampleSection));
   }
 }

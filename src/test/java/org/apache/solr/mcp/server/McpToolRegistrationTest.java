@@ -24,6 +24,7 @@ import java.lang.reflect.Parameter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
+import org.apache.solr.mcp.server.alias.AliasService;
 import org.apache.solr.mcp.server.collection.CollectionService;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.apache.solr.mcp.server.schema.SchemaService;
@@ -323,6 +324,38 @@ class McpToolRegistrationTest {
     assertTrue(toolDescription(SearchService.class, "search").contains("list-fields"));
     assertTrue(
         toolDescription(CollectionService.class, "get-collection-stats").contains("list-fields"));
+  }
+
+  /**
+   * A tool that returns anything but a {@code String} publishes an output schema, so clients see
+   * the type of its result instead of a JSON string they have to guess at.
+   */
+  @Test
+  void everyToolReturningANonStringPublishesAnOutputSchema() {
+    for (Class<?> service :
+        List.of(
+            SearchService.class,
+            IndexingService.class,
+            CollectionService.class,
+            SchemaService.class,
+            AliasService.class)) {
+      for (Method method : service.getDeclaredMethods()) {
+        McpTool tool = method.getAnnotation(McpTool.class);
+        if (tool == null) {
+          continue;
+        }
+        boolean returnsString = method.getReturnType() == String.class;
+        assertEquals(
+            !returnsString,
+            tool.generateOutputSchema(),
+            () ->
+                tool.name()
+                    + " returns "
+                    + method.getReturnType().getSimpleName()
+                    + ": generateOutputSchema must be "
+                    + !returnsString);
+      }
+    }
   }
 
   private static String toolDescription(Class<?> serviceClass, String toolName) {

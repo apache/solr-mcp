@@ -17,6 +17,7 @@
 package org.apache.solr.mcp.server.schema;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.apache.solr.mcp.server.McpResultAssertions.promptText;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -477,8 +478,9 @@ class SchemaServiceTest {
   @Test
   void designSchemaPrompt_includesKeyWorkflowSteps() {
     String body =
-        schemaService.designSchemaPrompt(
-            "products", "A catalog of products with title and price", null);
+        promptText(
+            schemaService.designSchemaPrompt(
+                "products", "A catalog of products with title and price", null));
 
     assertNotNull(body);
     assertTrue(body.contains("products"), "Prompt should mention the target collection name");
@@ -495,14 +497,14 @@ class SchemaServiceTest {
         """
 				{"id":"sku-1","title":"Widget","price":9.99}""";
 
-    String body = schemaService.designSchemaPrompt("products", "Catalog", sample);
+    String body = promptText(schemaService.designSchemaPrompt("products", "Catalog", sample));
 
     assertTrue(body.contains(sample), "Prompt should include the sample document body");
   }
 
   @Test
   void viewSchemaPrompt_isReadOnlyAndReferencesGetSchema() {
-    String body = schemaService.viewSchemaPrompt("products");
+    String body = promptText(schemaService.viewSchemaPrompt("products"));
 
     assertNotNull(body);
     assertTrue(body.contains("products"), "Prompt should mention the target collection name");

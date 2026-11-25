@@ -119,6 +119,20 @@ Five service classes expose MCP tools via `@McpTool` annotations:
 - **AliasService** (`alias/`) - List, create and delete collection aliases
 - **SchemaService** (`schema/`) - Schema introspection and additive modification (add-fields, add-field-types)
 
+### MCP contracts
+
+Every tool, resource, prompt and completion accepts and returns types the server owns. Solr's response shapes are an implementation detail the server maps away. The rules, from the `mcp-contracts` spec of the `typed-mcp-contracts` OpenSpec change (#306):
+
+- **Tools** return records and set `@McpTool(generateOutputSchema = true)`. The client then gets an `outputSchema` and `structuredContent`, and the SDK adds the same JSON as a text block. The SDK also validates each result against the schema, so a mismatch fails the call.
+- **Optional record components** are `@Nullable`, with `@JsonInclude(NON_NULL)` on the record. Spring AI reads `@Nullable` through Spring's `Nullness` and leaves the component out of `required`.
+- **Shapes** use only property names the server defines. Leave out Solr's response header, flag encodings, comma-joined lists and `@JsonAnySetter` catch-alls. User content is the one open map: document fields, and the class-specific `parameters` of field types.
+- **Failures** are exceptions, which reach the client as `isError: true`. A result reports what happened, with no `success`/`message` flags and no timestamps from the server's clock. Text that describes a failure is the server's own fixed wording; Solr's exception text goes only to the log.
+- **Prompts** return `GetPromptResult` through `McpResults.prompt(description, role, text)`. Pick the role by speaker: `Role.USER` for instructions or a request to the model, which is every current prompt; `Role.ASSISTANT` only for text the model should treat as its own earlier reply. The description is the `*_DESCRIPTION` constant in `PromptNames`, shared with the annotation.
+- **Resources** return `McpResults.jsonResource(uri, json)`, with the same JSON as the matching tool.
+- **Completions** return `McpResults.completion(matches, limit)`, which reports `total` and `hasMore`.
+
+`McpContractConformanceIntegrationTest` (legacy protocol) and `McpModernContractConformanceIntegrationTest` (modern) call every tool that publishes an `outputSchema` and validate it against these rules. A tool that publishes one needs an entry in `McpContractConformanceTestBase.SAMPLE_ARGUMENTS`.
+
 ### Document Creators and pass-throughs
 
 Only the formats Solr cannot parse itself go through server-side document creators

@@ -29,13 +29,11 @@ import io.modelcontextprotocol.spec.McpSchema.CompleteResult;
 import io.modelcontextprotocol.spec.McpSchema.Content;
 import io.modelcontextprotocol.spec.McpSchema.GetPromptRequest;
 import io.modelcontextprotocol.spec.McpSchema.GetPromptResult;
-import io.modelcontextprotocol.spec.McpSchema.PromptMessage;
 import io.modelcontextprotocol.spec.McpSchema.PromptReference;
 import io.modelcontextprotocol.spec.McpSchema.ReadResourceRequest;
 import io.modelcontextprotocol.spec.McpSchema.ReadResourceResult;
 import io.modelcontextprotocol.spec.McpSchema.ResourceReference;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
-import io.modelcontextprotocol.spec.McpSchema.TextResourceContents;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -1068,6 +1066,8 @@ public abstract class McpClientIntegrationTestBase {
     assertTrue(
         values.contains(COLLECTION),
         "Completion should include the previously created collection: " + values);
+    assertEquals(values.size(), result.completion().total(), "Every match fits under the cap");
+    assertEquals(Boolean.FALSE, result.completion().hasMore());
   }
 
   @Test
@@ -1206,11 +1206,22 @@ public abstract class McpClientIntegrationTestBase {
     ReadResourceResult resource =
         mcpClient.readResource(new ReadResourceRequest("solr://" + SHOWS_COLLECTION + "/fields"));
 
-    assertInstanceOf(TextResourceContents.class, resource.contents().getFirst());
-    String resourceText = ((TextResourceContents) resource.contents().getFirst()).text();
+    String resourceText =
+        McpResultAssertions.resourceJson(resource, "solr://" + SHOWS_COLLECTION + "/fields");
     List<String> toolFields = read(tool, "$[*].name");
     List<String> resourceFields = JsonPath.read(resourceText, "$[*].name");
     assertThat(toolFields).containsExactlyInAnyOrderElementsOf(resourceFields);
+  }
+
+  @Test
+  @Order(42)
+  void collectionsResourceMatchesListCollectionsTool() {
+    CallToolResult tool = mcpClient.callTool(new CallToolRequest("list-collections", Map.of()));
+    ReadResourceResult resource =
+        mcpClient.readResource(new ReadResourceRequest("solr://collections"));
+
+    assertThat(new JsonContent(McpResultAssertions.resourceJson(resource, "solr://collections")))
+        .isStrictlyEqualTo(extractText(tool));
   }
 
   @Test
@@ -1274,12 +1285,7 @@ public abstract class McpClientIntegrationTestBase {
   }
 
   private static String extractFirstMessageText(GetPromptResult result) {
-    List<PromptMessage> messages = result.messages();
-    assertFalse(messages.isEmpty(), "messages must not be empty");
-    Content content = messages.getFirst().content();
-    assertInstanceOf(
-        TextContent.class, content, "first prompt message content should be TextContent");
-    String text = ((TextContent) content).text();
+    String text = McpResultAssertions.promptText(result);
     assertFalse(text.isBlank(), "prompt message text should not be blank");
     return text;
   }

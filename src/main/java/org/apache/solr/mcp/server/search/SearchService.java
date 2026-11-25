@@ -17,6 +17,8 @@
 package org.apache.solr.mcp.server.search;
 
 import io.micrometer.observation.annotation.Observed;
+import io.modelcontextprotocol.spec.McpSchema.GetPromptResult;
+import io.modelcontextprotocol.spec.McpSchema.Role;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -33,6 +35,7 @@ import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.DisMaxParams;
 import org.apache.solr.common.params.FacetParams;
 import org.apache.solr.common.util.JsonTextWriter;
+import org.apache.solr.mcp.server.util.McpResults;
 import org.apache.solr.mcp.server.util.PromptNames;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -288,7 +291,8 @@ public class SearchService {
 			Call list-fields first to get the field names that hold data and their types, rather than
 			guessing names: dynamic fields such as genre_s exist only once documents use them. Facet
 			only on fields that list-fields reports with docValues, and sort only on single-valued ones.
-			""")
+			""",
+      generateOutputSchema = true)
   // @formatter:on
   public SearchResponse search(
       @McpToolParam(description = "Solr collection to query") String collection,
@@ -513,9 +517,8 @@ public class SearchService {
   @McpPrompt(
       name = PromptNames.SEARCH_COLLECTION,
       title = "Search a Solr collection from a natural-language question",
-      description =
-          "Guides the assistant through inspecting the schema, translating a user question into a Solr query, running the search, and refining the result.")
-  public String searchCollectionPrompt(
+      description = PromptNames.SEARCH_COLLECTION_DESCRIPTION)
+  public GetPromptResult searchCollectionPrompt(
       @McpArg(name = "collection", description = "Target Solr collection name", required = true)
           String collection,
       @McpArg(
@@ -523,7 +526,10 @@ public class SearchService {
               description = "The user's natural-language search question or information need",
               required = true)
           String question) {
-    return """
+    return McpResults.prompt(
+        PromptNames.SEARCH_COLLECTION_DESCRIPTION,
+        Role.USER,
+        """
 				You are searching collection `%s` to answer:
 
 				    %s
@@ -578,6 +584,6 @@ public class SearchService {
 				     values (title, id, etc.). If the search did not produce a clear answer, surface
 				     that explicitly rather than guessing.
 				"""
-        .formatted(collection, question, collection, collection);
+            .formatted(collection, question, collection, collection));
   }
 }

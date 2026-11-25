@@ -82,7 +82,8 @@ public class AliasService {
   @McpTool(
       name = "list-aliases",
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
-      description = "List all Solr aliases, the collections they point to, and their properties")
+      description = "List all Solr aliases, the collections they point to, and their properties",
+      generateOutputSchema = true)
   public List<Alias> listAliases() throws SolrServerException, IOException {
     CollectionAdminResponse response = new CollectionAdminRequest.ListAliases().process(solrClient);
     Map<String, Map<String, String>> properties = response.getAliasProperties();
@@ -120,7 +121,8 @@ public class AliasService {
       annotations = @McpTool.McpAnnotations(idempotentHint = true),
       description =
           "Create or update a Solr alias pointing to one or more collections. "
-              + "If the alias already exists, it is updated to point to the new collection(s).")
+              + "If the alias already exists, it is updated to point to the new collection(s).",
+      generateOutputSchema = true)
   public Alias createAlias(
       @McpToolParam(description = "Name of the alias to create or update") String name,
       @McpToolParam(description = "Names of the collections the alias should point to")
@@ -159,7 +161,8 @@ public class AliasService {
   @McpTool(
       name = "delete-alias",
       annotations = @McpTool.McpAnnotations(destructiveHint = true),
-      description = "Delete a Solr alias. The underlying collection(s) are not affected.")
+      description = "Delete a Solr alias. The underlying collection(s) are not affected.",
+      generateOutputSchema = true)
   public AliasDeletion deleteAlias(
       @McpToolParam(description = "Name of the alias to delete") String name)
       throws SolrServerException, IOException {

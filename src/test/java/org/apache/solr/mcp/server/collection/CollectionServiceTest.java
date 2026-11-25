@@ -16,14 +16,19 @@
  */
 package org.apache.solr.mcp.server.collection;
 
+import static org.apache.solr.mcp.server.McpResultAssertions.completionValues;
+import static org.apache.solr.mcp.server.McpResultAssertions.promptText;
+import static org.apache.solr.mcp.server.McpResultAssertions.resourceJson;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import io.modelcontextprotocol.spec.McpSchema.CompleteRequest;
+import io.modelcontextprotocol.spec.McpSchema.CompleteResult;
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.IntStream;
@@ -51,6 +56,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -786,7 +793,7 @@ class CollectionServiceTest {
 
     assertEquals(
         "[{\"name\":\"collection1\"},{\"name\":\"collection2\"}]",
-        collectionService.getCollectionsResource());
+        resourceJson(collectionService.getCollectionsResource(), "solr://collections"));
   }
 
   @Test
@@ -1057,7 +1064,7 @@ class CollectionServiceTest {
 
   @Test
   void exploreCollectionsPrompt_isReadOnlyAndReferencesKeyTools() {
-    String body = collectionService.exploreCollectionsPrompt();
+    String body = promptText(collectionService.exploreCollectionsPrompt());
 
     assertNotNull(body);
     assertTrue(body.contains("list-collections"), "Prompt should reference list-collections tool");
@@ -1074,7 +1081,8 @@ class CollectionServiceTest {
 
   @Test
   void setupCollectionPrompt_includesNameAndInterpolatedDefaults() {
-    String body = collectionService.setupCollectionPrompt("widgets", "Catalog of widgets");
+    String body =
+        promptText(collectionService.setupCollectionPrompt("widgets", "Catalog of widgets"));
 
     assertNotNull(body);
     assertTrue(body.contains("widgets"), "Prompt should embed the chosen collection name");
@@ -1090,7 +1098,7 @@ class CollectionServiceTest {
 
   @Test
   void setupCollectionPrompt_omitsPurposeLineWhenBlank() {
-    String body = collectionService.setupCollectionPrompt("widgets", null);
+    String body = promptText(collectionService.setupCollectionPrompt("widgets", null));
 
     assertFalse(
         body.contains("Purpose:"), "Purpose line should be omitted when no purpose is provided");
@@ -1105,7 +1113,9 @@ class CollectionServiceTest {
         .listCollections();
 
     List<String> result =
-        spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "prod"));
+        completionValues(
+            spyService.completeCollection(
+                new CompleteRequest.CompleteArgument("collection", "prod")));
 
     assertEquals(List.of("prod-logs", "products"), result);
   }
@@ -1116,7 +1126,8 @@ class CollectionServiceTest {
     doReturn(named(Arrays.asList("zeta", "alpha", "mu"))).when(spyService).listCollections();
 
     List<String> result =
-        spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", ""));
+        completionValues(
+            spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "")));
 
     assertEquals(List.of("alpha", "mu", "zeta"), result);
   }
@@ -1140,7 +1151,9 @@ class CollectionServiceTest {
         .listCollections();
 
     List<String> result =
-        spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "prod"));
+        completionValues(
+            spyService.completeCollection(
+                new CompleteRequest.CompleteArgument("collection", "prod")));
 
     assertEquals(List.of("PROD_LOGS", "Products"), result);
   }
@@ -1151,7 +1164,9 @@ class CollectionServiceTest {
     doReturn(named(Arrays.asList("alpha", "beta"))).when(spyService).listCollections();
 
     List<String> result =
-        spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "zzz"));
+        completionValues(
+            spyService.completeCollection(
+                new CompleteRequest.CompleteArgument("collection", "zzz")));
 
     assertTrue(result.isEmpty());
   }
@@ -1162,10 +1177,29 @@ class CollectionServiceTest {
     // Should not even attempt to list collections when the argument name does not
     // match the template variable.
     List<String> result =
-        spyService.completeCollection(new CompleteRequest.CompleteArgument("field", "prod"));
+        completionValues(
+            spyService.completeCollection(new CompleteRequest.CompleteArgument("field", "prod")));
 
     assertTrue(result.isEmpty());
     verify(spyService, never()).listCollections();
+  }
+
+  @ParameterizedTest(name = "{0} matches")
+  @ValueSource(ints = {0, 99, 100, 150})
+  void completeCollection_ReportsTotalAndWhetherMoreMatched(int matching) throws Exception {
+    CollectionService spyService = spy(collectionService);
+    List<String> collections = new ArrayList<>();
+    IntStream.range(0, matching).mapToObj(i -> String.format("c%04d", i)).forEach(collections::add);
+    collections.add("other");
+    doReturn(named(collections)).when(spyService).listCollections();
+
+    CompleteResult result =
+        spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "c"));
+
+    int max = CollectionService.MAX_COMPLETION_RESULTS;
+    assertEquals(Math.min(matching, max), result.completion().values().size());
+    assertEquals(matching, result.completion().total());
+    assertEquals(matching > max, result.completion().hasMore());
   }
 
   @Test
@@ -1178,7 +1212,8 @@ class CollectionServiceTest {
     doReturn(named(many)).when(spyService).listCollections();
 
     List<String> result =
-        spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "c"));
+        completionValues(
+            spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "c")));
 
     assertEquals(CollectionService.MAX_COMPLETION_RESULTS, result.size());
     assertEquals("c0000", result.get(0));
@@ -1189,8 +1224,9 @@ class CollectionServiceTest {
     when(solrClient.request(any(), any())).thenThrow(new SolrServerException("connection refused"));
 
     List<String> result =
-        collectionService.completeCollection(
-            new CompleteRequest.CompleteArgument("collection", "prod"));
+        completionValues(
+            collectionService.completeCollection(
+                new CompleteRequest.CompleteArgument("collection", "prod")));
 
     assertTrue(result.isEmpty());
   }
