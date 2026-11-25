@@ -75,10 +75,6 @@ Reading `solr://{collection}/schema` SHALL return the JSON `get-schema` returns 
 - **WHEN** a client calls `add-fields` on `books` with `[{"name":"year","type":"pint","docValues":true}]`
 - **THEN** the field is added with only `docValues` declared, and the result is `{"collection":"books","addedNames":["year"]}`
 
-#### Scenario: Unknown property
-- **WHEN** a field definition contains a property outside the field contract
-- **THEN** the call fails with `isError: true` and no field is added
-
 #### Scenario: Round trip
 - **WHEN** a client passes a field object taken from one collection's `get-schema` result to `add-fields` on another collection
 - **THEN** the other collection gains a field with the same declared properties
