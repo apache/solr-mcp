@@ -82,8 +82,7 @@ public class AliasService {
   @McpTool(
       name = "list-aliases",
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
-      description = "List all Solr aliases, the collections they point to, and their properties",
-      generateOutputSchema = true)
+      description = "List all Solr aliases, the collections they point to, and their properties")
   public List<Alias> listAliases() throws SolrServerException, IOException {
     CollectionAdminResponse response = new CollectionAdminRequest.ListAliases().process(solrClient);
     Map<String, Map<String, String>> properties = response.getAliasProperties();

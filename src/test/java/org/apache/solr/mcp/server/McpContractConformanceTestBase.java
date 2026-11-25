@@ -17,6 +17,7 @@
 package org.apache.solr.mcp.server;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -93,8 +94,6 @@ public abstract class McpContractConformanceTestBase {
           Map.entry("delete-alias", Map.of("name", "contract-alias")),
           Map.entry("get-collection-stats", Map.of("collection", COLLECTION)),
           Map.entry("get-schema", Map.of("collection", COLLECTION)),
-          Map.entry("list-aliases", Map.of()),
-          Map.entry("list-collections", Map.of()),
           Map.entry("list-fields", Map.of("collection", COLLECTION)),
           Map.entry("search", Map.of("collection", COLLECTION, "query", "*:*")));
 
@@ -115,6 +114,11 @@ public abstract class McpContractConformanceTestBase {
   void everyOutputSchemaDescribesAnObject() throws Exception {
     Map<String, Map<String, Object>> schemas = outputSchemas();
     assertTrue(schemas.containsKey("check-health"), "check-health must publish an outputSchema");
+    for (String listTool : List.of("list-aliases", "list-collections")) {
+      assertFalse(
+          schemas.containsKey(listTool),
+          () -> listTool + " returns a list, so it must not publish an object-only outputSchema");
+    }
     for (Map.Entry<String, Map<String, Object>> schema : schemas.entrySet()) {
       assertEquals(
           "object",

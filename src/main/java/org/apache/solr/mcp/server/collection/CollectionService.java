@@ -474,8 +474,7 @@ public class CollectionService {
   @McpTool(
       name = "list-collections",
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
-      description = "List solr collections",
-      generateOutputSchema = true)
+      description = "List solr collections")
   public List<Collection> listCollections() throws SolrServerException, IOException {
     CollectionAdminRequest.List request = new CollectionAdminRequest.List();
     CollectionAdminResponse response = request.process(solrClient);
