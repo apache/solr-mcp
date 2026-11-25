@@ -25,6 +25,7 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.mcp.annotation.McpTool;
@@ -54,6 +55,11 @@ import org.springframework.stereotype.Component;
  * Solr's reason, which tells the model what to fix, and dropping the URL, which can carry
  * credentials. See {@link SolrErrorText}.
  *
+ * <p>Any other runtime exception that has a {@code SolrException} among its causes would leak the
+ * same way, through the root-cause message Spring AI appends. The aspect replaces it with a
+ * cause-less {@link IllegalStateException} whose message mirrors what Spring AI would have shown,
+ * the wrapper's message and then Solr's, with both redacted.
+ *
  * <p>Other runtime exceptions and errors pass through unchanged. They already become tool errors,
  * and they include method security's {@code AccessDeniedException}.
  */
@@ -76,7 +82,19 @@ public class McpToolExceptionAspect {
       }
       logger.warn("MCP tool {} failed", toolName(joinPoint), e);
       throw new SolrException(SolrException.ErrorCode.getErrorCode(e.code()), redacted);
-    } catch (RuntimeException | Error e) {
+    } catch (RuntimeException e) {
+      SolrException solrCause = solrCause(e);
+      if (solrCause == null) {
+        throw e;
+      }
+      String tool = toolName(joinPoint);
+      logger.warn("MCP tool {} failed", tool, e);
+      throw new IllegalStateException(
+          SolrErrorText.redact(requireNonNullElse(e.getMessage(), tool + " failed"))
+              + System.lineSeparator()
+              + SolrErrorText.redact(
+                  requireNonNullElse(solrCause.getMessage(), "Solr rejected the request")));
+    } catch (Error e) {
       throw e;
     } catch (Exception e) {
       String tool = toolName(joinPoint);
@@ -86,6 +104,19 @@ public class McpToolExceptionAspect {
               + " failed: unable to communicate with Solr. Retry later;"
               + " if it persists, ask the operator to check Solr availability and connection settings.");
     }
+  }
+
+  /** The first {@code SolrException} among {@code e}'s causes, if any. */
+  private static @Nullable SolrException solrCause(Throwable e) {
+    Throwable cause = e.getCause();
+    // Bounded, so a cause cycle cannot loop forever.
+    for (int depth = 0; cause != null && depth < 16; depth++) {
+      if (cause instanceof SolrException solr) {
+        return solr;
+      }
+      cause = cause.getCause();
+    }
+    return null;
   }
 
   private static String toolName(ProceedingJoinPoint joinPoint) {

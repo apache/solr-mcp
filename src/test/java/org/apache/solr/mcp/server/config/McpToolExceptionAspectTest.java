@@ -86,6 +86,14 @@ class McpToolExceptionAspectTest {
       throw SAFE_SOLR_FAILURE;
     }
 
+    @McpTool(name = "wrapping-tool", description = "Wraps SolrJ's remote error")
+    public String wrappingTool() {
+      throw new IllegalArgumentException(
+          "Index failed. Hint: call get-schema",
+          new RemoteSolrException(
+              "http://user:pw@internal-solr:8983/solr/books", 400, "unknown field 'foo'", null));
+    }
+
     @McpTool(name = "runtime-tool", description = "Throws a runtime exception")
     public String runtimeTool() {
       throw RUNTIME_FAILURE;
@@ -132,6 +140,16 @@ class McpToolExceptionAspectTest {
     SolrException e = assertThrows(SolrException.class, tools::safeSolrTool);
 
     assertSame(FixtureTools.SAFE_SOLR_FAILURE, e);
+  }
+
+  @Test
+  void wrappedSolrExceptionKeepsBothMessagesButNotTheUrl() {
+    IllegalStateException e = assertThrows(IllegalStateException.class, tools::wrappingTool);
+
+    assertEquals(
+        "Index failed. Hint: call get-schema" + System.lineSeparator() + "unknown field 'foo'",
+        e.getMessage());
+    assertNull(e.getCause(), "the client error must not carry SolrJ's text");
   }
 
   @Test
