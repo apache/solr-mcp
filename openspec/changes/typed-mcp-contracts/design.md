@@ -37,7 +37,7 @@ The code already has server-owned records that this change reshapes or replaces:
 
 ### D1. Turn on structured output per tool, behind a conformance test
 
-Every `@McpTool` that returns a record sets `generateOutputSchema = true`. Tools that return a `List` (`list-aliases`, `list-collections`) do not: Spring AI would publish an array schema, which MCP 2025-11-25, the default protocol, does not allow (its `outputSchema` is "restricted to `type: \"object\"` at the root level"; 2026-07-28 lifts that). They return the JSON array as text instead, and can publish a schema once legacy MCP is dropped. `McpToolRegistrationTest` enforces both halves of the rule. A new integration test runs once per protocol (legacy, modern):
+Every `@McpTool` that returns a record sets `generateOutputSchema = true`. Tools that return a `List` (`list-aliases`, `list-collections`) do not: Spring AI would publish an array schema, which MCP 2025-11-25, the default protocol, does not allow (its `outputSchema` is "restricted to `type: \"object\"` at the root level"; 2026-07-28 lifts that). They return the JSON array as text instead, and can publish a schema once legacy MCP is dropped. The conformance test checks the harmful half of the rule over the wire: every published schema is an object, and the list tools publish none. A record tool that leaves the flag off only loses its schema, so no test guards that. A new integration test runs once per protocol (legacy, modern):
 1. Lists the tools and asserts each published `outputSchema` describes an object. The MCP spec requires this, and the SDK does not check it.
 2. Calls every tool against Testcontainers Solr with valid arguments. A successful call is the schema check: the SDK validates `structuredContent` against the published schema on every call and turns a mismatch into an error.
 3. Asserts the first text block parses to the same JSON.
@@ -120,7 +120,7 @@ Each domain package holds its service and its contract records:
 Each area is its own PR off `main`. They merge in this order, because group 1 turns on `generateOutputSchema` for every tool that returns a non-`String`, and the SDK rejects any result that does not match its schema:
 1. Alias and collection (D3, D5, D7). This reworks #294.
 2. Schema (D3).
-3. Group 1: D1 test scaffolding, prompts/resources/completions (D6), and the output-schema flag on every non-`String` tool, enforced by `McpToolRegistrationTest`.
+3. Group 1: D1 test scaffolding, prompts/resources/completions (D6), and the output-schema flag on every tool that returns a record.
 4. Search (D3, D4), whose current record already validates.
 5. Indexing (D3). Returning `IndexingResult` makes the flag mandatory for these four tools.
 6. Whole-surface checks.

@@ -15,7 +15,7 @@ Each numbered group is one PR off `main` (design D8). Merge order is 2, 4, 1, th
 - [x] 1.4 Return `ReadResourceResult` with one `application/json` `TextResourceContents` from `solr://collections`, `solr://{collection}/schema` and `solr://{collection}/fields`, keeping the fixed error messages. Verify: the resource tests assert the `uri`, the `mimeType`, and text equal to the matching tool's JSON.
 - [x] 1.5 Return `CompleteResult` with `total` and `hasMore` from all six completion handlers, counting every match before the 100 cap. Verify: unit tests cover 0, 99, 100 and 150 matching collections.
 - [x] 1.6 Document the contract rules from the `mcp-contracts` spec in `AGENTS.md`, under an "MCP contracts" section beside "Architecture". Verify: the section names each rule the spec states.
-- [ ] 1.7 Set `generateOutputSchema = true` on every tool whose method returns a record (not a `String` or a `List`), enforced by `McpToolRegistrationTest`, with sample arguments for each in the conformance test. Verify: the conformance tests pass for every flagged tool on both protocols once groups 2 and 4 are merged.
+- [ ] 1.7 Set `generateOutputSchema = true` on every tool whose method returns a record (not a `String` or a `List`), with sample arguments for each in the conformance test. Verify: the conformance tests pass for every flagged tool on both protocols once groups 2 and 4 are merged.
 
 ## 2. Alias and collection contracts (reworks #294)
 
