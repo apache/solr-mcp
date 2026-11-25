@@ -22,6 +22,7 @@ import io.modelcontextprotocol.spec.McpSchema.Role;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -212,7 +213,7 @@ public class IndexingService {
    */
   @PreAuthorize("isAuthenticated()")
   @McpTool(
-      name = "index-json-documents",
+      name = INDEX_JSON_TOOL,
       annotations = @McpTool.McpAnnotations(idempotentHint = true),
       description =
           "Index documents passed as a JSON array of objects into Solr collection; one object"
@@ -245,7 +246,7 @@ public class IndexingService {
    */
   @PreAuthorize("isAuthenticated()")
   @McpTool(
-      name = "index-csv-documents",
+      name = INDEX_CSV_TOOL,
       annotations = @McpTool.McpAnnotations(idempotentHint = true),
       description =
           "Index documents from CSV string into Solr collection via Solr's CSV handler. The first row"
@@ -279,7 +280,7 @@ public class IndexingService {
    */
   @PreAuthorize("isAuthenticated()")
   @McpTool(
-      name = "index-xml-documents",
+      name = INDEX_XML_TOOL,
       annotations = @McpTool.McpAnnotations(idempotentHint = true),
       description =
           "Index documents from Solr update XML into Solr collection: <add><doc><field name=\"id\">1</field>"
@@ -368,7 +369,7 @@ public class IndexingService {
    */
   @PreAuthorize("isAuthenticated()")
   @McpTool(
-      name = "index-markdown-documents",
+      name = INDEX_MARKDOWN_TOOL,
       annotations = @McpTool.McpAnnotations(idempotentHint = true),
       description =
           "Index markdown documents into Solr collection, one array element per document, extracting front matter, title, headings, and body text from each. "
@@ -487,39 +488,91 @@ public class IndexingService {
     }
   }
 
-  /**
-   * Maps an input-format keyword to the canonical format name, the MCP tool, and the payload
-   * parameter for that format.
-   *
-   * @param format canonical format name, so the prompt reads "markdown" even when the caller passed
-   *     the {@code md} alias
-   * @param name the MCP tool that indexes this format
-   * @param paramName the tool's payload parameter name
-   * @param payload prose describing what to pass for {@code paramName}
-   */
-  private record IndexTool(String format, String name, String paramName, String payload) {}
+  /** MCP tool name of {@link #indexJsonDocuments}. */
+  private static final String INDEX_JSON_TOOL = "index-json-documents";
 
-  private static IndexTool resolveIndexTool(String format) {
-    String normalized = format.trim().toLowerCase();
-    return switch (normalized) {
-      case "json" ->
-          new IndexTool(
-              "json",
-              "index-json-documents",
-              "documents",
-              "the documents as a JSON array of objects, not as a string");
-      case "csv" -> new IndexTool("csv", "index-csv-documents", "csv", "the CSV text");
-      case "xml" -> new IndexTool("xml", "index-xml-documents", "xml", "the XML text");
-      case "markdown", "md" ->
-          new IndexTool(
-              "markdown",
-              "index-markdown-documents",
-              "documents",
-              "the markdown documents, one string per document, each optionally starting with YAML front matter");
-      default ->
-          throw new IllegalArgumentException(
-              "format must be one of json/csv/xml/markdown, got: " + format);
-    };
+  /** MCP tool name of {@link #indexCsvDocuments}. */
+  private static final String INDEX_CSV_TOOL = "index-csv-documents";
+
+  /** MCP tool name of {@link #indexXmlDocuments}. */
+  private static final String INDEX_XML_TOOL = "index-xml-documents";
+
+  /** MCP tool name of {@link #indexMarkdownDocuments}. */
+  private static final String INDEX_MARKDOWN_TOOL = "index-markdown-documents";
+
+  /**
+   * The input formats the {@code index-data} prompt accepts, each mapped to the MCP tool that
+   * indexes it and that tool's payload parameter. The tool names are the same constants the
+   * {@code @McpTool} annotations use, so renaming a tool cannot leave the prompt pointing at a tool
+   * that no longer exists.
+   */
+  private enum IndexFormat {
+    JSON(INDEX_JSON_TOOL, "documents", "the documents as a JSON array of objects, not as a string"),
+    CSV(INDEX_CSV_TOOL, "csv", "the CSV text"),
+    XML(INDEX_XML_TOOL, "xml", "the XML text"),
+    MARKDOWN(
+        INDEX_MARKDOWN_TOOL,
+        "documents",
+        "the markdown documents, one string per document, each optionally starting with YAML front matter");
+
+    /** Alias accepted for {@link #MARKDOWN}. */
+    private static final String MARKDOWN_ALIAS = "md";
+
+    private final String toolName;
+    private final String paramName;
+    private final String payload;
+
+    /**
+     * @param toolName the MCP tool that indexes this format
+     * @param paramName the tool's payload parameter name, which is the Java parameter name the MCP
+     *     input schema is generated from
+     * @param payload prose describing what to pass for {@code paramName}
+     */
+    IndexFormat(String toolName, String paramName, String payload) {
+      this.toolName = toolName;
+      this.paramName = paramName;
+      this.payload = payload;
+    }
+
+    /** The canonical keyword, so the prompt reads "markdown" even for the {@code md} alias. */
+    String keyword() {
+      return name().toLowerCase(Locale.ROOT);
+    }
+
+    String toolName() {
+      return toolName;
+    }
+
+    String paramName() {
+      return paramName;
+    }
+
+    String payload() {
+      return payload;
+    }
+
+    /**
+     * Resolves a format keyword, ignoring case and surrounding whitespace.
+     *
+     * @throws IllegalArgumentException if {@code format} names no supported format
+     */
+    static IndexFormat parse(String format) {
+      String normalized = format.trim().toLowerCase(Locale.ROOT);
+      if (normalized.equals(MARKDOWN_ALIAS)) {
+        return MARKDOWN;
+      }
+      for (IndexFormat candidate : values()) {
+        if (candidate.keyword().equals(normalized)) {
+          return candidate;
+        }
+      }
+      List<String> keywords = new ArrayList<>();
+      for (IndexFormat candidate : values()) {
+        keywords.add(candidate.keyword());
+      }
+      throw new IllegalArgumentException(
+          "format must be one of " + String.join("/", keywords) + ", got: " + format);
+    }
   }
 
   /**
@@ -527,7 +580,8 @@ public class IndexingService {
    * the right indexing tool for the input format, and confirm the result.
    *
    * @param collection target Solr collection name
-   * @param format document format; one of {@code json}, {@code csv}, or {@code xml}
+   * @param format document format; one of {@code json}, {@code csv}, {@code xml}, or {@code
+   *     markdown} (alias {@code md})
    * @param sample optional small sample of the input document(s) to ground field-shape decisions;
    *     may be {@code null} or blank
    * @return the prompt text instructing the model how to index the documents
@@ -551,7 +605,7 @@ public class IndexingService {
                   "Optional small sample of the input document(s) to ground field-shape decisions",
               required = false)
           @Nullable String sample) {
-    IndexTool indexTool = resolveIndexTool(format);
+    IndexFormat indexFormat = IndexFormat.parse(format);
     String sampleSection =
         PromptText.optionalCodeBlock(
             sample,
@@ -595,14 +649,14 @@ public class IndexingService {
 				searching it.
 				"""
             .formatted(
-                indexTool.format(),
+                indexFormat.keyword(),
                 collection,
                 collection,
                 sampleSection,
-                indexTool.name(),
+                indexFormat.toolName(),
                 collection,
-                indexTool.paramName(),
-                indexTool.payload(),
+                indexFormat.paramName(),
+                indexFormat.payload(),
                 collection));
   }
 }
