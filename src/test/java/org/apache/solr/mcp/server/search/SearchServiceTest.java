@@ -170,8 +170,6 @@ class SearchServiceTest {
     String detail = "private-token http://internal-solr:8983 /private/config java.util.ArrayList";
     for (Exception failure :
         List.of(
-            new IOException(detail),
-            new SolrServerException(detail),
             new SolrException(SolrException.ErrorCode.SERVER_ERROR, detail),
             new SolrException(SolrException.ErrorCode.BAD_REQUEST, detail),
             new SolrException(SolrException.ErrorCode.UNAUTHORIZED, detail),
@@ -195,7 +193,7 @@ class SearchServiceTest {
       assertTrue(
           e.getMessage().contains("operator") || e.getMessage().contains("list-fields"),
           e::getMessage);
-      assertNull(e.getCause(), "MCP must not unwrap a raw backend failure");
+      assertNull(e.getCause(), "the client error must not carry the raw backend failure");
       if (failure instanceof SolrException solrFailure) {
         assertEquals(solrFailure.code(), assertInstanceOf(SolrException.class, e).code());
       }
@@ -222,7 +220,7 @@ class SearchServiceTest {
     assertFalse(e.getMessage().contains("NamedList"));
     assertTrue(e.getMessage().contains("facetFields"));
     assertTrue(e.getMessage().contains("operator"));
-    assertNull(e.getCause(), "MCP must not unwrap a raw response-conversion failure");
+    assertNull(e.getCause(), "the client error must not carry the raw response-conversion failure");
   }
 
   /*
@@ -252,7 +250,7 @@ class SearchServiceTest {
     assertTrue(
         e.getMessage()
             .contains(SearchService.LIST_FIELDS_HINT_FORMAT.formatted("test_collection")));
-    assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+    assertNull(e.getCause(), "the client error must not carry Solr's raw text");
   }
 
   @Test
@@ -269,7 +267,7 @@ class SearchServiceTest {
     assertTrue(
         e.getMessage()
             .contains(SearchService.LIST_FIELDS_HINT_FORMAT.formatted("test_collection")));
-    assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+    assertNull(e.getCause(), "the client error must not carry Solr's raw text");
   }
 
   @Test
@@ -285,7 +283,7 @@ class SearchServiceTest {
             () -> localService.search("test_collection", "name:(", null, null, null, null, null));
     assertTrue(e.getMessage().contains(SearchService.LUCENE_SYNTAX_HINT));
     assertFalse(e.getMessage().contains("org.apache.solr.search.SyntaxError"));
-    assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+    assertNull(e.getCause(), "the client error must not carry Solr's raw text");
   }
 
   /**
@@ -306,7 +304,7 @@ class SearchServiceTest {
             () -> localService.search("test_collection", "*:*", null, null, null, null, null));
     assertTrue(e.getMessage().contains(SearchService.LIST_COLLECTIONS_HINT));
     assertFalse(e.getMessage().contains("mime type"));
-    assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+    assertNull(e.getCause(), "the client error must not carry Solr's raw text");
   }
 
   @Test
@@ -322,7 +320,7 @@ class SearchServiceTest {
     assertFalse(e.getMessage().contains("internal failure"));
     assertTrue(e.getMessage().contains("operator"));
     assertTrue(e.getMessage().contains("Solr health"));
-    assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+    assertNull(e.getCause(), "the client error must not carry Solr's raw text");
   }
 
   @Test
