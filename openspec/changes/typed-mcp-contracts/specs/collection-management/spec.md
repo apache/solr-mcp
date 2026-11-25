@@ -6,16 +6,16 @@ Defines the contracts for listing collections (`list-collections` and the `solr:
 
 ## ADDED Requirements
 
-### Requirement: Collections are listed as an object with a name list
-`list-collections` SHALL return an object whose `collections` property is the list of collection names. A cluster with no collections gives an empty list.
+### Requirement: Collections are listed as collection objects
+`list-collections` SHALL return a JSON array with one `{name}` object per collection, in Solr's order. A cluster with no collections gives an empty array.
 
 #### Scenario: Two collections
 - **WHEN** the cluster has collections `books` and `films`
-- **THEN** the result is `{"collections":["books","films"]}`
+- **THEN** the result is `[{"name":"books"},{"name":"films"}]`
 
 #### Scenario: Empty cluster
 - **WHEN** the cluster has no collections
-- **THEN** the result is `{"collections":[]}`
+- **THEN** the result is `[]`
 
 ### Requirement: Collection metrics report index, query, cache and handler statistics
 `get-collection-stats` SHALL return:

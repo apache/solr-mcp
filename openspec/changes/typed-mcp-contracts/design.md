@@ -37,7 +37,7 @@ The code already has server-owned records that this change reshapes or replaces:
 
 ### D1. Turn on structured output per tool, behind a conformance test
 
-Every `@McpTool` that returns a non-`String` sets `generateOutputSchema = true`. A new integration test runs once per protocol (legacy, modern):
+Every `@McpTool` that returns a record sets `generateOutputSchema = true`. Tools that return a `List` (`list-aliases`, `list-collections`) do not: Spring AI would publish an array schema, which MCP 2025-11-25, the default protocol, does not allow (its `outputSchema` is "restricted to `type: \"object\"` at the root level"; 2026-07-28 lifts that). They return the JSON array as text instead, and can publish a schema once legacy MCP is dropped. `McpToolRegistrationTest` enforces both halves of the rule. A new integration test runs once per protocol (legacy, modern):
 1. Lists the tools and asserts each published `outputSchema` describes an object. The MCP spec requires this, and the SDK does not check it.
 2. Calls every tool against Testcontainers Solr with valid arguments. A successful call is the schema check: the SDK validates `structuredContent` against the published schema on every call and turns a mismatch into an error.
 3. Asserts the first text block parses to the same JSON.
@@ -71,12 +71,12 @@ Each domain maps Solr responses into its records in the service or a static `fro
   - `FieldListing(List<ListedField>)` sorted by name, with `flags: Set<FieldProperty>`.
   - `FieldProperty` is a server-owned enum whose JSON values are the camelCase schema-attribute names (`indexed`, `docValues`, …). It replaces SolrJ's `FieldFlag` in the contract. `FieldFlags` keeps decoding Luke's flag letters into it.
 - **collection**:
-  - `CollectionList(collections)`.
+  - `list-collections` returns `List<Collection>`, with `Collection(name)`. A wrapper record would only exist to satisfy the legacy object-root rule, and these tools publish no schema.
   - `CollectionMetrics(index, query, caches?, handlers?)` with nested `IndexStats`, `QueryStats`, `CacheStats`, `CacheInfo` (`hitRatio`), `HandlerStats` and `HandlerInfo`.
   - `HealthStatus(collection, healthy, pingMillis?, numDocs?, reason?)`.
   - `CollectionCreationResult(name, configSet, numShards, replicationFactor)`.
 - **alias**:
-  - `AliasList(aliases)` and `Alias(name, collections, properties)`, built from `CollectionAdminResponse.getAliasesAsLists()` and `getAliasProperties()`, sorted by name.
+  - `list-aliases` returns `List<Alias>`, with `Alias(name, collections, properties)` built from `CollectionAdminResponse.getAliasesAsLists()` and `getAliasProperties()`, sorted by name.
   - `AliasDeletion(name)`.
 
 Collection-typed components are copied with `List.copyOf`/`Map.copyOf` in compact constructors; `fields` and `parameters` maps use unmodifiable `LinkedHashMap` copies to keep order. A component is `@Nullable` only where the spec says it can be absent.
@@ -105,8 +105,8 @@ Each domain package holds its service and its contract records:
 
 | Package | Holds |
 |---|---|
-| `alias/` | `AliasService`, `Alias`, `AliasList`, `AliasDeletion` |
-| `collection/` | `CollectionService`, `CollectionList`, `CollectionMetrics`, `HealthStatus`, `CollectionCreationResult` |
+| `alias/` | `AliasService`, `Alias`, `AliasDeletion` |
+| `collection/` | `CollectionService`, `Collection`, `CollectionMetrics`, `HealthStatus`, `CollectionCreationResult` |
 | `indexing/` | `IndexingService`, `IndexingResult` |
 | `schema/` | `SchemaService`, `CollectionSchema`, `FieldListing`, `FieldProperty`, `SchemaUpdateResult` |
 | `search/` | `SearchService`, `SearchResponse`, `SortClause` |

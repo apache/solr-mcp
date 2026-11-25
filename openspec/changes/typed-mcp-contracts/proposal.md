@@ -19,7 +19,7 @@ Solr's response formats are implementation details that change between versions.
   - No SolrJ, solr-api or `NamedList` types; no `Map<String, Object>` results; no `@JsonAnySetter`/`@JsonAnyGetter` catch-all components.
   - The one exception is the user's own document fields.
 - **Structured output.**
-  - Every tool sets `generateOutputSchema = true`, so `tools/list` publishes an `outputSchema` and each call returns `structuredContent`.
+  - Every tool that returns a record sets `generateOutputSchema = true`, so `tools/list` publishes an `outputSchema` and each call returns `structuredContent`. Tools that return a list publish none, because MCP 2025-11-25 allows only object-rooted output schemas.
   - The MCP SDK keeps adding the serialized-JSON text copy.
 - **One failure channel.** Failures are exceptions, which reach the client as `isError` results. Results no longer carry `success`/`message` flags or timestamps taken from the server's clock.
 - **BREAKING `search`:**
@@ -32,12 +32,12 @@ Solr's response formats are implementation details that change between versions.
   - `add-fields` takes `List<FieldDefinition>` instead of `List<Map<String, Object>>`.
   - `add-field-types` takes `List<FieldTypeDefinition>`.
 - **BREAKING collection tools:**
-  - `list-collections` returns `CollectionList` instead of a bare array.
+  - `list-collections` returns a list of `Collection(name)` objects instead of bare names.
   - `create-collection` reports the configset, shard count and replication factor it used, without `success`/`message`/`createdAt`.
   - `check-health` returns `HealthStatus`, whose `reason` is a fixed server-owned string rather than Solr's exception text.
   - `get-collection-stats` returns `CollectionMetrics` with no server timestamp.
 - **BREAKING alias tools:**
-  - `list-aliases` returns `AliasList(List<Alias(name, collections, properties)>)`, with targets as a list.
+  - `list-aliases` returns `List<Alias(name, collections, properties)>`, with targets as a list.
   - `create-alias` takes its target `collections` as a list instead of a comma-joined string, and returns the `Alias` as Solr holds it after the call.
   - `delete-alias` returns `AliasDeletion`.
 - **Prompts, resources, completions:**

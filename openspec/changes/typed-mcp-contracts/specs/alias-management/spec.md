@@ -7,18 +7,18 @@ Defines the contracts for listing, creating and deleting collection aliases: wha
 ## ADDED Requirements
 
 ### Requirement: Aliases are listed as typed alias objects
-`list-aliases` SHALL return an object whose `aliases` property is a list ordered by alias name. Each element has:
+`list-aliases` SHALL return a JSON array of aliases ordered by alias name. Each element has:
 - `name`.
 - `collections`, the alias's target collections as a list in Solr's order.
 - `properties`, a string-to-string map that is empty when the alias has none.
 
 #### Scenario: Alias with two targets and a property
 - **WHEN** alias `tv` points to `shows,shows_typed` and has property `owner` = `search-team`
-- **THEN** `aliases` contains `{"name":"tv","collections":["shows","shows_typed"],"properties":{"owner":"search-team"}}`
+- **THEN** the array contains `{"name":"tv","collections":["shows","shows_typed"],"properties":{"owner":"search-team"}}`
 
 #### Scenario: No aliases
 - **WHEN** the cluster defines no aliases
-- **THEN** the result is `{"aliases":[]}`
+- **THEN** the result is `[]`
 
 ### Requirement: create-alias takes target collections as a list
 `create-alias` SHALL accept `name` and `collections`, a non-empty list of collection names. It SHALL NOT accept a comma-joined string.
