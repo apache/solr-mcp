@@ -118,13 +118,13 @@ Each domain package holds its service and its contract records:
 
 ### D8. Delivery order
 
-Each area is its own PR off `main`, ordered so the shared rules land first:
-1. D1 + D2 test scaffolding, prompts/resources/completions (D6), plus `SolrNativeHints`.
-2. Alias and collection (D3, D5, D7). This reworks #294.
-3. Search (D3, D4).
-4. Schema (D3).
-5. Indexing (D3).
-6. Turning on `generateOutputSchema` for every tool, once each area's records meet D2. The conformance test must be green on both protocols in this PR.
+Each area is its own PR off `main`. They merge in this order, because group 1 turns on `generateOutputSchema` for every tool that returns a non-`String`, and the SDK rejects any result that does not match its schema:
+1. Alias and collection (D3, D5, D7). This reworks #294.
+2. Schema (D3).
+3. Group 1: D1 test scaffolding, prompts/resources/completions (D6), and the output-schema flag on every non-`String` tool, enforced by `McpToolRegistrationTest`.
+4. Search (D3, D4), whose current record already validates.
+5. Indexing (D3). Returning `IndexingResult` makes the flag mandatory for these four tools.
+6. Whole-surface checks.
 
 ## Risks / Trade-offs
 
