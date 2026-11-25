@@ -18,6 +18,7 @@ package org.apache.solr.mcp.server.modern;
 
 import static org.apache.solr.mcp.server.modern.ModernMcpRequests.PROTOCOL_VERSION;
 import static org.apache.solr.mcp.server.modern.ModernMcpRequests.firstText;
+import static org.apache.solr.mcp.server.modern.ModernMcpRequests.parse;
 import static org.apache.solr.mcp.server.modern.ModernMcpRequests.request;
 import static org.apache.solr.mcp.server.modern.ModernMcpRequests.result;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -128,7 +129,9 @@ class McpModernProtocolStdioIntegrationTest {
             Map.of("name", "list-collections", "arguments", Map.of())); // no Mcp-Name over STDIO
     assertEquals(
         Boolean.FALSE, collections.get("isError"), () -> "list-collections failed: " + collections);
-    assertTrue(firstText(collections).startsWith("["), "list-collections returns a JSON array");
+    assertTrue(
+        parse(firstText(collections)).get("collections") instanceof List<?>,
+        "list-collections returns an object holding the collection names");
 
     Map<String, Object> discover = send("server/discover", Map.of());
     assertEquals(List.of(PROTOCOL_VERSION), discover.get("supportedVersions"));

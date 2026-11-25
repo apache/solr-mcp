@@ -16,26 +16,18 @@
  */
 package org.apache.solr.mcp.server.collection;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
-import java.util.Date;
-import org.jspecify.annotations.Nullable;
+import java.util.List;
 
 /**
- * Result record for alias management operations.
+ * The collections in the cluster, as returned by {@code list-collections} and the {@code
+ * solr://collections} resource.
  *
- * <p>Returned by {@link AliasService} methods to communicate the outcome of create, update, and
- * delete operations on Solr aliases.
- *
- * @param aliasName the alias that was operated on
- * @param collections the target collection(s) (null for delete operations)
- * @param success whether the operation completed successfully
- * @param message human-readable description of the outcome
- * @param timestamp when the operation was performed
+ * @param collections the collection names, in Solr's order; empty when there are none
  */
-public record AliasResult(
-    String aliasName,
-    @Nullable String collections,
-    boolean success,
-    String message,
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-        Date timestamp) {}
+public record CollectionList(List<String> collections) {
+
+  /** Copies the list so the record cannot change after it is built. */
+  public CollectionList {
+    collections = List.copyOf(collections);
+  }
+}

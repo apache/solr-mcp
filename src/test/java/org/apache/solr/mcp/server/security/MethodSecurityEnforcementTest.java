@@ -69,7 +69,7 @@ class MethodSecurityEnforcementTest {
   void unauthenticatedCallToSecuredToolIsRejected() {
     assertThrows(
         AuthenticationCredentialsNotFoundException.class,
-        () -> collectionService.listCollections(),
+        () -> collectionService.listCollections().collections(),
         "list-collections carries @PreAuthorize(\"isAuthenticated()\") and was called with no "
             + "authentication, so method security must reject it. Succeeding means the annotation "
             + "is decorative: @EnableMethodSecurity is not in effect for this context.");
@@ -94,7 +94,7 @@ class MethodSecurityEnforcementTest {
   void authenticatedCallToSecuredToolSucceeds() {
     List<String> collections =
         assertDoesNotThrow(
-            () -> collectionService.listCollections(),
+            () -> collectionService.listCollections().collections(),
             "list-collections is gated by @PreAuthorize(\"isAuthenticated()\") and was called with an "
                 + "authenticated principal, so method security must permit it. An AccessDeniedException "
                 + "here means the gate rejects everyone, not just anonymous callers — the annotation "

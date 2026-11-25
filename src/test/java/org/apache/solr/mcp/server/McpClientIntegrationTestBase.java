@@ -190,7 +190,8 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    assertThat(json(result)).extractingPath("$.success").isEqualTo(true);
+    assertThat(json(result)).extractingPath("$.name").isEqualTo(COLLECTION);
+    assertThat(json(result)).extractingPath("$.configSet").isEqualTo(COLLECTION + ".AUTOCREATED");
   }
 
   @Test
@@ -200,7 +201,7 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    assertThat(json(result)).extractingPath("$").asArray().contains(COLLECTION);
+    assertThat(json(result)).extractingPath("$.collections").asArray().contains(COLLECTION);
   }
 
   @Test
@@ -235,8 +236,8 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    assertThat(json(result)).extractingPath("$.isHealthy").isEqualTo(true);
-    assertThat(json(result)).extractingPath("$.totalDocuments").isEqualTo(5);
+    assertThat(json(result)).extractingPath("$.healthy").isEqualTo(true);
+    assertThat(json(result)).extractingPath("$.numDocs").isEqualTo(5);
   }
 
   @Test
@@ -313,7 +314,7 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    assertThat(json(result)).extractingPath("$.indexStats.numDocs").isEqualTo(5);
+    assertThat(json(result)).extractingPath("$.index.numDocs").isEqualTo(5);
   }
 
   @Test
@@ -561,7 +562,10 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    assertThat(json(result)).extractingPath("$.success").isEqualTo(true);
+    assertThat(json(result)).extractingPath("$.name").isEqualTo(SHOWS_COLLECTION);
+    assertThat(json(result))
+        .extractingPath("$.configSet")
+        .isEqualTo(SHOWS_COLLECTION + ".AUTOCREATED");
   }
 
   @Test
@@ -895,7 +899,7 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    assertThat(json(result)).extractingPath("$.indexStats.numDocs").isEqualTo(SHOWS_DOC_COUNT);
+    assertThat(json(result)).extractingPath("$.index.numDocs").isEqualTo(SHOWS_DOC_COUNT);
   }
 
   // ===== Prompt workflow (orders 28–34) =====

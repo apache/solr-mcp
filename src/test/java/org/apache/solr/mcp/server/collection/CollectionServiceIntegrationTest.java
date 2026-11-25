@@ -33,6 +33,12 @@ import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.request.ConfigSetAdminRequest;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
+import org.apache.solr.mcp.server.collection.CollectionMetrics.CacheInfo;
+import org.apache.solr.mcp.server.collection.CollectionMetrics.CacheStats;
+import org.apache.solr.mcp.server.collection.CollectionMetrics.HandlerInfo;
+import org.apache.solr.mcp.server.collection.CollectionMetrics.HandlerStats;
+import org.apache.solr.mcp.server.collection.CollectionMetrics.IndexStats;
+import org.apache.solr.mcp.server.collection.CollectionMetrics.QueryStats;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.apache.solr.mcp.server.schema.CollectionSchema;
 import org.apache.solr.mcp.server.schema.SchemaService;
@@ -82,7 +88,7 @@ class CollectionServiceIntegrationTest {
     // 1. Create collection via CollectionService MCP tool
     CollectionCreationResult created =
         collectionService.createCollection(TEST_COLLECTION, null, null, null);
-    assertTrue(created.success(), "Collection creation should succeed: " + created.message());
+    assertEquals(TEST_COLLECTION, created.name());
     log.debug("Test collection created: {}", TEST_COLLECTION);
 
     // 2. Index documents via IndexingService MCP tool
@@ -110,7 +116,7 @@ class CollectionServiceIntegrationTest {
 
   @Test
   void testListCollections() throws Exception {
-    List<String> collections = collectionService.listCollections();
+    List<String> collections = collectionService.listCollections().collections();
 
     log.debug("Collections: {}", collections);
 
@@ -132,20 +138,19 @@ class CollectionServiceIntegrationTest {
 
   @Test
   void testGetCollectionStats_reflectsIndexedData() throws Exception {
-    SolrMetrics metrics = collectionService.getCollectionStats(TEST_COLLECTION);
+    CollectionMetrics metrics = collectionService.getCollectionStats(TEST_COLLECTION);
 
     assertNotNull(metrics);
-    assertNotNull(metrics.timestamp());
 
     // Index stats should reflect the documents we indexed
-    IndexStats indexStats = metrics.indexStats();
+    IndexStats indexStats = metrics.index();
     assertNotNull(indexStats);
     assertEquals(DOC_COUNT, indexStats.numDocs(), "numDocs should match indexed document count");
     assertNotNull(indexStats.segmentCount());
     assertTrue(indexStats.segmentCount() >= 1, "Should have at least one segment after indexing");
 
     // Query stats come from the *:* probe query inside getCollectionStats
-    QueryStats queryStats = metrics.queryStats();
+    QueryStats queryStats = metrics.query();
     assertNotNull(queryStats);
     assertNotNull(queryStats.queryTime());
     assertEquals(
@@ -153,14 +158,14 @@ class CollectionServiceIntegrationTest {
     assertEquals(0L, queryStats.start());
 
     if (!MBEANS_AVAILABLE) {
-      assertNull(metrics.cacheStats(), "Cache stats should be null without /admin/mbeans");
-      assertNull(metrics.handlerStats(), "Handler stats should be null without /admin/mbeans");
+      assertNull(metrics.caches(), "Cache stats should be null without /admin/mbeans");
+      assertNull(metrics.handlers(), "Handler stats should be null without /admin/mbeans");
       return;
     }
 
     // Cache stats should be present after warm-up queries
-    assertNotNull(metrics.cacheStats(), "Cache stats should not be null after queries ran");
-    CacheStats cacheStats = metrics.cacheStats();
+    assertNotNull(metrics.caches(), "Cache stats should not be null after queries ran");
+    CacheStats cacheStats = metrics.caches();
     assertNotNull(cacheStats.queryResultCache());
     assertThat(cacheStats.queryResultCache().lookups())
         .as("Query result cache should have lookups after queries")
@@ -175,8 +180,8 @@ class CollectionServiceIntegrationTest {
         .isPositive();
 
     // Handler stats should reflect actual request counts
-    assertNotNull(metrics.handlerStats(), "Handler stats should not be null after queries ran");
-    HandlerStats handlerStats = metrics.handlerStats();
+    assertNotNull(metrics.handlers(), "Handler stats should not be null after queries ran");
+    HandlerStats handlerStats = metrics.handlers();
     assertNotNull(handlerStats.selectHandler());
     assertThat(handlerStats.selectHandler().requests())
         .as("Select handler should have processed requests")
@@ -202,39 +207,33 @@ class CollectionServiceIntegrationTest {
 
   @Test
   void testCheckHealth_healthy() {
-    SolrHealthStatus status = collectionService.checkHealth(TEST_COLLECTION);
+    HealthStatus status = collectionService.checkHealth(TEST_COLLECTION);
 
     log.debug("Health status: {}", status);
 
     assertNotNull(status);
-    assertTrue(status.isHealthy());
-    assertNull(status.errorMessage());
+    assertTrue(status.healthy());
+    assertNull(status.reason());
     assertEquals(TEST_COLLECTION, status.collection());
 
-    assertNotNull(status.responseTime());
-    assertTrue(status.responseTime() >= 0);
+    assertNotNull(status.pingMillis());
+    assertTrue(status.pingMillis() >= 0);
 
-    assertEquals(
-        DOC_COUNT, status.totalDocuments(), "Health check should report indexed document count");
-
-    assertNotNull(status.lastChecked());
-    assertTrue(
-        java.time.Duration.between(status.lastChecked(), java.time.Instant.now()).toMillis()
-            < 5000);
+    assertEquals(DOC_COUNT, status.numDocs(), "Health check should report indexed document count");
+    assertNull(status.reason(), "A healthy collection has no reason");
   }
 
   @Test
   void testCheckHealth_nonExistentCollection() {
     String missing = "non_existent_collection";
-    SolrHealthStatus status = collectionService.checkHealth(missing);
+    HealthStatus status = collectionService.checkHealth(missing);
 
     assertNotNull(status);
-    assertFalse(status.isHealthy());
-    assertNotNull(status.errorMessage());
-    assertFalse(status.errorMessage().isBlank());
+    assertFalse(status.healthy());
+    assertEquals(HealthStatus.Reason.COLLECTION_NOT_FOUND, status.reason());
     assertEquals(missing, status.collection());
-    assertNull(status.responseTime());
-    assertNull(status.totalDocuments());
+    assertNull(status.pingMillis());
+    assertNull(status.numDocs());
   }
 
   @Test
@@ -262,7 +261,7 @@ class CollectionServiceIntegrationTest {
     assertThat(qrc.lookups())
         .as("queryResultCache lookups should be positive after queries")
         .isPositive();
-    assertNotNull(qrc.hitratio());
+    assertNotNull(qrc.hitRatio());
     assertNotNull(qrc.size());
 
     // Document cache: reading documents populates this cache
@@ -329,11 +328,9 @@ class CollectionServiceIntegrationTest {
 
     CollectionCreationResult result = collectionService.createCollection(name, null, null, null);
 
-    assertTrue(result.success());
-    assertEquals(name, result.name());
-    assertNotNull(result.createdAt());
+    assertEquals(new CollectionCreationResult(name, name + ".AUTOCREATED", 1, 1), result);
 
-    List<String> collections = collectionService.listCollections();
+    List<String> collections = collectionService.listCollections().collections();
     boolean exists =
         collections.contains(name)
             || collections.stream().anyMatch(col -> col.startsWith(name + "_shard"));

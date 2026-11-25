@@ -65,7 +65,7 @@ class ConferenceEndToEndIntegrationTest {
   void createAndIndexConferences() throws Exception {
     CollectionCreationResult result =
         collectionService.createCollection(COLLECTION, null, null, null);
-    assertTrue(result.success(), "Collection creation should succeed: " + result.message());
+    assertNotNull(result.configSet(), "Collection creation should report its configset");
 
     String json = Files.readString(Path.of("mydata/devnexus-2026.json"));
     indexingService.indexJsonDocuments(COLLECTION, TestDocuments.json(json));
@@ -74,7 +74,7 @@ class ConferenceEndToEndIntegrationTest {
   @Test
   @Order(1)
   void collectionAppearsInList() throws Exception {
-    List<String> collections = collectionService.listCollections();
+    List<String> collections = collectionService.listCollections().collections();
     boolean found =
         collections.contains(COLLECTION)
             || collections.stream().anyMatch(c -> c.startsWith(COLLECTION + "_shard"));
@@ -84,12 +84,10 @@ class ConferenceEndToEndIntegrationTest {
   @Test
   @Order(2)
   void collectionHealthIsHealthy() {
-    SolrHealthStatus health = collectionService.checkHealth(COLLECTION);
-    assertTrue(health.isHealthy(), "conferences collection should be healthy");
+    HealthStatus health = collectionService.checkHealth(COLLECTION);
+    assertTrue(health.healthy(), "conferences collection should be healthy");
     assertEquals(
-        Long.valueOf(TOTAL_SESSIONS),
-        health.totalDocuments(),
-        "Should contain 116 conference sessions");
+        Long.valueOf(TOTAL_SESSIONS), health.numDocs(), "Should contain 116 conference sessions");
   }
 
   @Test
@@ -163,12 +161,12 @@ class ConferenceEndToEndIntegrationTest {
   @Test
   @Order(8)
   void collectionStatsShowIndexedDocuments() throws Exception {
-    SolrMetrics metrics = collectionService.getCollectionStats(COLLECTION);
+    CollectionMetrics metrics = collectionService.getCollectionStats(COLLECTION);
     assertNotNull(metrics, "Metrics should not be null");
-    assertNotNull(metrics.indexStats(), "Index stats should not be null");
+    assertNotNull(metrics.index(), "Index stats should not be null");
     assertEquals(
         Integer.valueOf(TOTAL_SESSIONS),
-        metrics.indexStats().numDocs(),
+        metrics.index().numDocs(),
         "Should report 116 indexed documents");
   }
 }

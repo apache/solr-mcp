@@ -111,11 +111,12 @@ docker run -p 8080:8080 --rm -e PROFILES=http \
 
 ### MCP Tools (src/main/java/org/apache/solr/mcp/server/)
 
-Four service classes expose MCP tools via `@McpTool` annotations:
+Five service classes expose MCP tools via `@McpTool` annotations:
 
 - **SearchService** (`search/`) - Full-text search with filtering, faceting, sorting, pagination
 - **IndexingService** (`indexing/`) - Document indexing supporting JSON, CSV, XML, and markdown formats
 - **CollectionService** (`collection/`) - List collections, get stats, health checks
+- **AliasService** (`alias/`) - List, create and delete collection aliases
 - **SchemaService** (`schema/`) - Schema introspection and additive modification (add-fields, add-field-types)
 
 ### Document Creators and pass-throughs
