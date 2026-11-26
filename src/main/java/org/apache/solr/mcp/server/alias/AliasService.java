@@ -176,6 +176,6 @@ public class AliasService {
   }
 
   private Optional<Alias> findAlias(String name) throws SolrServerException, IOException {
-    return listAliases().stream().filter(a -> a.name().equals(name)).findFirst();
+    return listAliases().stream().filter(alias -> alias.name().equals(name)).findFirst();
   }
 }

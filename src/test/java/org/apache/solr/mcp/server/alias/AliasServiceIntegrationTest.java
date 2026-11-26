@@ -72,7 +72,9 @@ class AliasServiceIntegrationTest {
   }
 
   private Optional<Alias> alias(String name) throws Exception {
-    return aliasService.listAliases().stream().filter(a -> a.name().equals(name)).findFirst();
+    return aliasService.listAliases().stream()
+        .filter(alias -> alias.name().equals(name))
+        .findFirst();
   }
 
   @Test
