@@ -75,10 +75,11 @@ public abstract class McpContractConformanceTestBase {
                       Map.of(
                           "name",
                           "contract_text",
-                          "class",
+                          "className",
                           "solr.TextField",
                           "analyzer",
-                          Map.of("tokenizer", Map.of("class", "solr.StandardTokenizerFactory")))))),
+                          Map.of(
+                              "tokenizer", Map.of("className", "solr.StandardTokenizerFactory")))))),
           Map.entry(
               "add-fields",
               Map.of(
@@ -94,7 +95,6 @@ public abstract class McpContractConformanceTestBase {
           Map.entry("delete-alias", Map.of("name", "contract-alias")),
           Map.entry("get-collection-stats", Map.of("collection", COLLECTION)),
           Map.entry("get-schema", Map.of("collection", COLLECTION)),
-          Map.entry("list-fields", Map.of("collection", COLLECTION)),
           Map.entry("search", Map.of("collection", COLLECTION, "query", "*:*")));
 
   /** The {@code tools} array of a {@code tools/list} result. */
@@ -114,7 +114,7 @@ public abstract class McpContractConformanceTestBase {
   void everyOutputSchemaDescribesAnObject() throws Exception {
     Map<String, Map<String, Object>> schemas = outputSchemas();
     assertTrue(schemas.containsKey("check-health"), "check-health must publish an outputSchema");
-    for (String listTool : List.of("list-aliases", "list-collections")) {
+    for (String listTool : List.of("list-aliases", "list-collections", "list-fields")) {
       assertFalse(
           schemas.containsKey(listTool),
           () -> listTool + " returns a list, so it must not publish an object-only outputSchema");
