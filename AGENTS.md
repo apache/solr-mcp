@@ -227,9 +227,9 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
   - **Solr API model types** used by `CoreAdminResponse.getCoreStatus()`:
     `SolrJerseyResponse`, `ErrorInfo`, `CoreStatusResponse` and their nested types
   - **MCP tool response records** (invisible to AOT because the MCP framework uses
-    generic `Object` dispatch): `AliasResult`, `CollectionCreationResult`,
-    `SolrHealthStatus`, `SolrMetrics`, `IndexStats`, `QueryStats`, `CacheStats`,
-    `CacheInfo`, `HandlerStats`, `HandlerInfo`, `SearchResponse`, `SortClause`,
+    generic `Object` dispatch): `Alias`, `AliasDeletion`, `Collection`,
+    `CollectionCreationResult`, `HealthStatus` and its `Reason`, `CollectionMetrics` and its
+    nested stats records, `SearchResponse`, `SortClause`,
     `SchemaUpdateResult`, `CollectionSchema` and `FieldListing` and their nested records
   - **Spring AI**: `org.springframework.ai.mcp.annotation.context.DefaultMetaProvider`,
     which `MetaUtils` instantiates reflectively

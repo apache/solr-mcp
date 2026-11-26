@@ -153,7 +153,7 @@ class CollectionServiceIntegrationTest {
     // Query stats come from the *:* probe query inside getCollectionStats
     QueryStats queryStats = metrics.query();
     assertNotNull(queryStats);
-    assertNotNull(queryStats.queryTime());
+    assertTrue(queryStats.queryTime() >= 0, "queryTime is a non-negative millisecond count");
     assertEquals(
         DOC_COUNT, queryStats.totalResults(), "totalResults should match indexed document count");
     assertEquals(0L, queryStats.start());
