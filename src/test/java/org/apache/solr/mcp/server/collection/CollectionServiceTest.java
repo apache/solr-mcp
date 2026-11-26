@@ -1189,7 +1189,9 @@ class CollectionServiceTest {
   void completeCollection_ReportsTotalAndWhetherMoreMatched(int matching) throws Exception {
     CollectionService spyService = spy(collectionService);
     List<String> collections = new ArrayList<>();
-    IntStream.range(0, matching).mapToObj(i -> String.format("c%04d", i)).forEach(collections::add);
+    IntStream.range(0, matching)
+        .mapToObj(index -> String.format("c%04d", index))
+        .forEach(collections::add);
     collections.add("other");
     doReturn(named(collections)).when(spyService).listCollections();
 
