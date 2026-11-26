@@ -212,7 +212,8 @@ public class IndexingService {
           "Index documents passed as a JSON array of objects into Solr collection; one object"
               + " per document, multi-valued fields as arrays, nested objects flattened with underscores."
               + " Pass the array itself, not a JSON string. Field names are used as given. "
-              + PARSED_RESULT_DESCRIPTION)
+              + PARSED_RESULT_DESCRIPTION,
+      generateOutputSchema = true)
   public IndexingResult indexJsonDocuments(
       @McpToolParam(description = "Solr collection to index into") String collection,
       @McpToolParam(description = "Documents to index: a JSON array with one object per document")
@@ -243,7 +244,8 @@ public class IndexingService {
           "Index documents from CSV string into Solr collection via Solr's CSV handler. The first row"
               + " is the header and its column names are used as the field names, as given; repeat a column name"
               + " to make that field multi-valued; empty cells are skipped. Solr accepts or rejects the"
-              + " payload as a whole and reports no document count")
+              + " payload as a whole and reports no document count",
+      generateOutputSchema = true)
   public IndexingResult indexCsvDocuments(
       @McpToolParam(description = "Solr collection to index into") String collection,
       @McpToolParam(description = "CSV string containing documents to index") String csv)
@@ -276,7 +278,8 @@ public class IndexingService {
               + "<field name=\"genres\">a</field><field name=\"genres\">b</field></doc></add>; repeat <field> for"
               + " multi-valued fields. Only <add> blocks are accepted; delete and commit commands are rejected."
               + " Field names are used as given. Solr accepts or rejects the payload as a whole and"
-              + " reports no document count")
+              + " reports no document count",
+      generateOutputSchema = true)
   public IndexingResult indexXmlDocuments(
       @McpToolParam(description = "Solr collection to index into") String collection,
       @McpToolParam(description = "Solr update XML: an <add> block of <doc> elements") String xml)
@@ -361,7 +364,8 @@ public class IndexingService {
               + "Pass many documents in one call rather than one call per document. "
               + "Do NOT use for JSON/CSV/XML input; use index-json-documents, index-csv-documents, or index-xml-documents instead. "
               + "Only convert source content to markdown when there is no dedicated tool for the source format, and supply a stable 'id' in the YAML front matter when doing so. "
-              + PARSED_RESULT_DESCRIPTION)
+              + PARSED_RESULT_DESCRIPTION,
+      generateOutputSchema = true)
   public IndexingResult indexMarkdownDocuments(
       @McpToolParam(description = "Solr collection to index into") String collection,
       @McpToolParam(

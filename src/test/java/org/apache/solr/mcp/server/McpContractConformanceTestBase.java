@@ -102,6 +102,30 @@ public abstract class McpContractConformanceTestBase {
           Map.entry("delete-alias", Map.of("name", ALIAS_TO_DELETE)),
           Map.entry("get-collection-stats", Map.of("collection", COLLECTION)),
           Map.entry("get-schema", Map.of("collection", COLLECTION)),
+          Map.entry(
+              "index-csv-documents",
+              Map.of("collection", COLLECTION, "csv", "id,title\ncontract-csv-1,Contract CSV")),
+          Map.entry(
+              "index-json-documents",
+              Map.of(
+                  "collection",
+                  COLLECTION,
+                  "documents",
+                  List.of(Map.of("id", "contract-json-1", "title", "Contract JSON")))),
+          Map.entry(
+              "index-markdown-documents",
+              Map.of(
+                  "collection",
+                  COLLECTION,
+                  "documents",
+                  List.of("---\nid: contract-md-1\n---\n# Contract Markdown\n\nBody text."))),
+          Map.entry(
+              "index-xml-documents",
+              Map.of(
+                  "collection",
+                  COLLECTION,
+                  "xml",
+                  "<add><doc><field name=\"id\">contract-xml-1</field></doc></add>")),
           Map.entry("search", Map.of("collection", COLLECTION, "query", "*:*")));
 
   /** The {@code tools} array of a {@code tools/list} result. */
