@@ -16,20 +16,10 @@
  */
 package org.apache.solr.mcp.server.modern;
 
-import static org.apache.solr.mcp.server.modern.ModernMcpRequests.PROTOCOL_VERSION;
-import static org.apache.solr.mcp.server.modern.ModernMcpRequests.request;
-import static org.apache.solr.mcp.server.modern.ModernMcpRequests.result;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.util.List;
 import java.util.Map;
 import org.apache.solr.mcp.server.McpContractConformanceTestBase;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
-import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Tag;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -57,37 +47,18 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers(disabledWithoutDocker = true)
 class McpModernContractConformanceIntegrationTest extends McpContractConformanceTestBase {
 
-  private static final HttpClient HTTP = HttpClient.newHttpClient();
-
   @LocalServerPort private int port;
 
-  private Map<String, Object> call(String method, Map<String, Object> params, @Nullable String name)
-      throws Exception {
-    HttpRequest.Builder builder =
-        HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/mcp"))
-            .header("Content-Type", "application/json")
-            .header("Accept", "application/json, text/event-stream")
-            .header("Mcp-Method", method)
-            .header("MCP-Protocol-Version", PROTOCOL_VERSION)
-            .POST(HttpRequest.BodyPublishers.ofString(request(method, params)));
-    if (name != null) {
-      builder.header("Mcp-Name", name);
-    }
-    HttpResponse<String> response =
-        HTTP.send(builder.build(), HttpResponse.BodyHandlers.ofString());
-    assertEquals(200, response.statusCode(), () -> method + " failed: " + response.body());
-    return result(response.body());
-  }
+  private final ModernMcpToolClient tools = new ModernMcpToolClient(() -> port);
 
   @Override
-  @SuppressWarnings("unchecked")
   protected List<Map<String, Object>> listTools() throws Exception {
-    return (List<Map<String, Object>>) call("tools/list", Map.of(), null).get("tools");
+    return tools.listTools();
   }
 
   @Override
   protected Map<String, Object> callTool(String name, Map<String, Object> arguments)
       throws Exception {
-    return call("tools/call", Map.of("name", name, "arguments", arguments), name);
+    return tools.callTool(name, arguments);
   }
 }

@@ -53,6 +53,10 @@ import tools.jackson.databind.json.JsonMapper;
  * {@code @JsonAnyGetter} or a {@code Map} component, and the records are written without the one
  * and with maps only where the contract is open.
  *
+ * <p>Every tool that names a collection, alias or configset is also called with one that does not
+ * exist, and must fail as a tool error ({@link McpToolFailures#assertReportsFailure}); {@link
+ * McpSolrUnreachableTestBase} does the same with Solr unreachable.
+ *
  * <p>Subclasses supply the transport: {@link #listTools()} and {@link #callTool(String, Map)} work
  * on the raw JSON-RPC shapes, so both protocols are checked against the same expectations.
  */
@@ -72,6 +76,9 @@ public abstract class McpContractConformanceTestBase {
   private static final String COLLECTIONS_ARG = "collections";
   private static final String DOCUMENTS_ARG = "documents";
   private static final String NAME = "name";
+
+  /** The {@code HealthStatus.Reason} {@code check-health} gives for a missing collection. */
+  private static final String COLLECTION_NOT_FOUND = "COLLECTION_NOT_FOUND";
 
   /** The tools that return a list, so they publish no outputSchema. */
   private static final Set<String> LIST_TOOLS =
@@ -223,6 +230,38 @@ public abstract class McpContractConformanceTestBase {
         jsonMapper.valueToTree(structured),
         jsonMapper.readTree((String) first.get("text")),
         () -> tool + ": the text block must hold the same JSON as structuredContent");
+  }
+
+  /**
+   * Every tool but the two that name nothing has arguments for the missing-target check, so a new
+   * tool cannot silently skip it.
+   */
+  @Test
+  void everyToolThatNamesATargetHasMissingTargetArguments() throws Exception {
+    Set<String> targetTools = McpToolFailures.toolNames(listTools());
+    assertTrue(
+        targetTools.containsAll(McpToolFailures.TOOLS_WITHOUT_A_TARGET),
+        () -> "missing tools: " + targetTools);
+    targetTools.removeAll(McpToolFailures.TOOLS_WITHOUT_A_TARGET);
+    assertEquals(
+        targetTools,
+        new TreeSet<>(McpToolFailures.MISSING_TARGET_ARGUMENTS.keySet()),
+        "MISSING_TARGET_ARGUMENTS tools");
+  }
+
+  @TestFactory
+  Stream<DynamicTest> everyToolCalledOnAMissingTargetReturnsAToolError() {
+    return new TreeSet<>(McpToolFailures.MISSING_TARGET_ARGUMENTS.keySet())
+        .stream()
+            .map(
+                tool ->
+                    DynamicTest.dynamicTest(
+                        tool,
+                        () ->
+                            McpToolFailures.assertReportsFailure(
+                                tool,
+                                callTool(tool, McpToolFailures.MISSING_TARGET_ARGUMENTS.get(tool)),
+                                COLLECTION_NOT_FOUND)));
   }
 
   @SuppressWarnings("unchecked")

@@ -16,13 +16,8 @@
  */
 package org.apache.solr.mcp.server;
 
-import io.modelcontextprotocol.client.McpClient;
-import io.modelcontextprotocol.client.McpSyncClient;
-import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
-import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import java.util.List;
 import java.util.Map;
-import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Tag;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -31,7 +26,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import tools.jackson.core.type.TypeReference;
 
 /** The contract conformance checks over the legacy (2025) protocol, through the SDK client. */
 @SpringBootTest(
@@ -52,36 +46,20 @@ class McpContractConformanceIntegrationTest extends McpContractConformanceTestBa
 
   @LocalServerPort private int port;
 
-  private @Nullable McpSyncClient client;
-
-  private McpSyncClient client() {
-    McpSyncClient current = client;
-    if (current == null) {
-      current =
-          McpClient.sync(
-                  HttpClientStreamableHttpTransport.builder("http://localhost:" + port).build())
-              .build();
-      current.initialize();
-      client = current;
-    }
-    return current;
-  }
+  private final LegacyMcpToolClient tools = new LegacyMcpToolClient(() -> port);
 
   @AfterAll
   void closeClient() {
-    if (client != null) {
-      client.closeGracefully();
-    }
+    tools.close();
   }
 
   @Override
   protected List<Map<String, Object>> listTools() {
-    return jsonMapper.convertValue(client().listTools().tools(), new TypeReference<>() {});
+    return tools.listTools();
   }
 
   @Override
   protected Map<String, Object> callTool(String name, Map<String, Object> arguments) {
-    return jsonMapper.convertValue(
-        client().callTool(new CallToolRequest(name, arguments)), new TypeReference<>() {});
+    return tools.callTool(name, arguments);
   }
 }
