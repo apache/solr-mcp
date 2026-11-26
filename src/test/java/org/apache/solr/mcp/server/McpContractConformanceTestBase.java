@@ -25,7 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DynamicTest;
@@ -66,21 +68,31 @@ public abstract class McpContractConformanceTestBase {
   /** The application's mapper, from the {@code @SpringBootTest} context each subclass starts. */
   @Autowired protected JsonMapper jsonMapper;
 
+  private static final String COLLECTION_ARG = "collection";
+  private static final String COLLECTIONS_ARG = "collections";
+  private static final String DOCUMENTS_ARG = "documents";
+  private static final String NAME = "name";
+
+  /** The tools that return a list, so they publish no outputSchema. */
+  private static final Set<String> LIST_TOOLS =
+      Set.of("list-aliases", "list-collections", "list-fields");
+
   /**
-   * Arguments for calling each tool that publishes an output schema. A tool that starts publishing
-   * one needs an entry here, or {@link #everyToolWithAnOutputSchemaHasSampleArguments()} fails.
+   * Arguments for calling each tool that publishes an output schema. Every tool outside {@link
+   * #LIST_TOOLS} needs an entry here, or {@link #everyToolButTheListToolsPublishesAnOutputSchema()}
+   * fails.
    */
   private static final Map<String, Map<String, Object>> SAMPLE_ARGUMENTS =
       Map.ofEntries(
           Map.entry(
               "add-field-types",
               Map.of(
-                  "collection",
+                  COLLECTION_ARG,
                   COLLECTION,
                   "fieldTypes",
                   List.of(
                       Map.of(
-                          "name",
+                          NAME,
                           "contract_text",
                           "className",
                           "solr.TextField",
@@ -91,42 +103,42 @@ public abstract class McpContractConformanceTestBase {
           Map.entry(
               "add-fields",
               Map.of(
-                  "collection",
+                  COLLECTION_ARG,
                   COLLECTION,
                   "fields",
-                  List.of(Map.of("name", "contract_year", "type", "pint")))),
-          Map.entry("check-health", Map.of("collection", COLLECTION)),
+                  List.of(Map.of(NAME, "contract_year", "type", "pint")))),
+          Map.entry("check-health", Map.of(COLLECTION_ARG, COLLECTION)),
           Map.entry(
-              "create-alias", Map.of("name", "contract-alias", "collections", List.of(COLLECTION))),
-          Map.entry("create-collection", Map.of("name", COLLECTION + "-created")),
-          Map.entry("delete-alias", Map.of("name", ALIAS_TO_DELETE)),
-          Map.entry("get-collection-stats", Map.of("collection", COLLECTION)),
-          Map.entry("get-schema", Map.of("collection", COLLECTION)),
+              "create-alias", Map.of(NAME, "contract-alias", COLLECTIONS_ARG, List.of(COLLECTION))),
+          Map.entry("create-collection", Map.of(NAME, COLLECTION + "-created")),
+          Map.entry("delete-alias", Map.of(NAME, ALIAS_TO_DELETE)),
+          Map.entry("get-collection-stats", Map.of(COLLECTION_ARG, COLLECTION)),
+          Map.entry("get-schema", Map.of(COLLECTION_ARG, COLLECTION)),
           Map.entry(
               "index-csv-documents",
-              Map.of("collection", COLLECTION, "csv", "id,title\ncontract-csv-1,Contract CSV")),
+              Map.of(COLLECTION_ARG, COLLECTION, "csv", "id,title\ncontract-csv-1,Contract CSV")),
           Map.entry(
               "index-json-documents",
               Map.of(
-                  "collection",
+                  COLLECTION_ARG,
                   COLLECTION,
-                  "documents",
+                  DOCUMENTS_ARG,
                   List.of(Map.of("id", "contract-json-1", "title", "Contract JSON")))),
           Map.entry(
               "index-markdown-documents",
               Map.of(
-                  "collection",
+                  COLLECTION_ARG,
                   COLLECTION,
-                  "documents",
+                  DOCUMENTS_ARG,
                   List.of("---\nid: contract-md-1\n---\n# Contract Markdown\n\nBody text."))),
           Map.entry(
               "index-xml-documents",
               Map.of(
-                  "collection",
+                  COLLECTION_ARG,
                   COLLECTION,
                   "xml",
                   "<add><doc><field name=\"id\">contract-xml-1</field></doc></add>")),
-          Map.entry("search", Map.of("collection", COLLECTION, "query", "*:*")));
+          Map.entry("search", Map.of(COLLECTION_ARG, COLLECTION, "query", "*:*")));
 
   /** The {@code tools} array of a {@code tools/list} result. */
   protected abstract List<Map<String, Object>> listTools() throws Exception;
@@ -137,24 +149,17 @@ public abstract class McpContractConformanceTestBase {
 
   @BeforeAll
   void createCollectionAndAlias() throws Exception {
-    Map<String, Object> created = callTool("create-collection", Map.of("name", COLLECTION));
+    Map<String, Object> created = callTool("create-collection", Map.of(NAME, COLLECTION));
     assertNotEquals(Boolean.TRUE, created.get("isError"), () -> "create-collection: " + created);
     Map<String, Object> aliased =
         callTool(
-            "create-alias", Map.of("name", ALIAS_TO_DELETE, "collections", List.of(COLLECTION)));
+            "create-alias", Map.of(NAME, ALIAS_TO_DELETE, COLLECTIONS_ARG, List.of(COLLECTION)));
     assertNotEquals(Boolean.TRUE, aliased.get("isError"), () -> "create-alias: " + aliased);
   }
 
   @Test
   void everyOutputSchemaDescribesAnObject() throws Exception {
-    Map<String, Map<String, Object>> schemas = outputSchemas();
-    assertTrue(schemas.containsKey("check-health"), "check-health must publish an outputSchema");
-    for (String listTool : List.of("list-aliases", "list-collections", "list-fields")) {
-      assertFalse(
-          schemas.containsKey(listTool),
-          () -> listTool + " returns a list, so it must not publish an object-only outputSchema");
-    }
-    for (Map.Entry<String, Map<String, Object>> schema : schemas.entrySet()) {
+    for (Map.Entry<String, Map<String, Object>> schema : outputSchemas().entrySet()) {
       assertEquals(
           "object",
           schema.getValue().get("type"),
@@ -163,13 +168,23 @@ public abstract class McpContractConformanceTestBase {
     }
   }
 
+  /**
+   * Every tool that returns a record publishes an output schema, and has sample arguments to call
+   * it with, so a tool that loses {@code generateOutputSchema} fails here instead of silently
+   * dropping out of the dynamic tests. The list tools publish none, because a 2025-11-25 {@code
+   * outputSchema} must describe an object.
+   */
   @Test
-  void everyToolWithAnOutputSchemaHasSampleArguments() throws Exception {
-    for (String tool : outputSchemas().keySet()) {
-      assertTrue(
-          SAMPLE_ARGUMENTS.containsKey(tool),
-          () -> tool + " publishes an outputSchema but has no SAMPLE_ARGUMENTS entry");
+  void everyToolButTheListToolsPublishesAnOutputSchema() throws Exception {
+    Set<String> recordTools = new TreeSet<>();
+    for (Map<String, Object> tool : listTools()) {
+      recordTools.add((String) tool.get(NAME));
     }
+    assertTrue(recordTools.containsAll(LIST_TOOLS), () -> "missing list tools: " + recordTools);
+    recordTools.removeAll(LIST_TOOLS);
+
+    assertEquals(recordTools, outputSchemas().keySet(), "tools publishing an outputSchema");
+    assertEquals(recordTools, new TreeSet<>(SAMPLE_ARGUMENTS.keySet()), "SAMPLE_ARGUMENTS tools");
   }
 
   @TestFactory
@@ -215,7 +230,7 @@ public abstract class McpContractConformanceTestBase {
     Map<String, Map<String, Object>> schemas = new TreeMap<>();
     for (Map<String, Object> tool : listTools()) {
       if (tool.get("outputSchema") instanceof Map<?, ?> schema && !schema.isEmpty()) {
-        schemas.put((String) tool.get("name"), (Map<String, Object>) schema);
+        schemas.put((String) tool.get(NAME), (Map<String, Object>) schema);
       }
     }
     return schemas;
