@@ -80,7 +80,7 @@ class SolrNativeHintsTest {
   @Test
   void registersMcpResponseRecordHints() {
     // Jackson reads each record's components through its accessors (methods).
-    for (String record :
+    for (String recordName :
         List.of(
             "org.apache.solr.mcp.server.search.SearchResponse",
             "org.apache.solr.mcp.server.search.SearchResponse$SearchHit",
@@ -88,12 +88,12 @@ class SolrNativeHintsTest {
             "org.apache.solr.mcp.server.search.SearchResponse$FacetValue")) {
       assertTrue(
           RuntimeHintsPredicates.reflection()
-              .onType(TypeReference.of(record))
+              .onType(TypeReference.of(recordName))
               .withMemberCategories(
                   MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
                   MemberCategory.INVOKE_DECLARED_METHODS)
               .test(hints),
-          record);
+          recordName);
     }
   }
 
