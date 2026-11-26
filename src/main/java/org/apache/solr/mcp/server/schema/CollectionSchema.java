@@ -66,6 +66,16 @@ public record CollectionSchema(
   private static final JsonMapper SOLR_JSON =
       JsonMapper.builder().disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build();
 
+  /** The Schema API's key for a field type's, analyzer's or component's class. */
+  private static final String CLASS = "class";
+
+  /** The Schema API's keys for a field type's four analyzer slots. */
+  private static final String ANALYZER = "analyzer";
+
+  private static final String INDEX_ANALYZER = "indexAnalyzer";
+  private static final String QUERY_ANALYZER = "queryAnalyzer";
+  private static final String MULTI_TERM_ANALYZER = "multiTermAnalyzer";
+
   /** Copies the lists so the record cannot change after it is built. */
   public CollectionSchema {
     fieldTypes = List.copyOf(fieldTypes);
@@ -176,7 +186,7 @@ public record CollectionSchema(
     private static final Set<String> NAMED =
         Set.of(
             "name",
-            "class",
+            CLASS,
             "indexed",
             "stored",
             "docValues",
@@ -194,10 +204,10 @@ public record CollectionSchema(
             "sortMissingLast",
             "useDocValuesAsStored",
             "large",
-            "analyzer",
-            "indexAnalyzer",
-            "queryAnalyzer",
-            "multiTermAnalyzer");
+            ANALYZER,
+            INDEX_ANALYZER,
+            QUERY_ANALYZER,
+            MULTI_TERM_ANALYZER);
 
     /**
      * Copies the parameters, ordered by name, so the record cannot change after it is built. A
@@ -210,7 +220,7 @@ public record CollectionSchema(
     static FieldType fromSolr(Map<String, Object> type) {
       return new FieldType(
           String.valueOf(type.get("name")),
-          String.valueOf(type.get("class")),
+          String.valueOf(type.get(CLASS)),
           bool(type, "indexed"),
           bool(type, "stored"),
           bool(type, "docValues"),
@@ -228,25 +238,29 @@ public record CollectionSchema(
           bool(type, "sortMissingLast"),
           bool(type, "useDocValuesAsStored"),
           bool(type, "large"),
-          Analyzer.fromSolr(type.get("analyzer")),
-          Analyzer.fromSolr(type.get("indexAnalyzer")),
-          Analyzer.fromSolr(type.get("queryAnalyzer")),
-          Analyzer.fromSolr(type.get("multiTermAnalyzer")),
+          Analyzer.fromSolr(type.get(ANALYZER)),
+          Analyzer.fromSolr(type.get(INDEX_ANALYZER)),
+          Analyzer.fromSolr(type.get(QUERY_ANALYZER)),
+          Analyzer.fromSolr(type.get(MULTI_TERM_ANALYZER)),
           scalarParameters(type, NAMED));
+    }
+
+    private static @Nullable Boolean bool(Map<String, Object> map, String key) {
+      return map.get(key) instanceof Boolean value ? value : null;
     }
 
     /** The field type's own attributes, without its analyzers, as the Schema API names them. */
     Map<String, Object> attributesToSolr() {
       Map<String, Object> attributes = new LinkedHashMap<>(sorted(parameters));
       Map<String, Object> declared = SOLR_JSON.convertValue(this, ATTRIBUTES);
-      declared.remove("className");
-      declared.remove("parameters");
-      declared.remove("analyzer");
-      declared.remove("indexAnalyzer");
-      declared.remove("queryAnalyzer");
-      declared.remove("multiTermAnalyzer");
+      // The analyzers go to SolrJ's typed AnalyzerDefinition slots; className and parameters are
+      // this record's names for what the Schema API spells as "class" and as top-level keys.
+      declared.keySet().removeAll(Set.of("className", "parameters"));
+      declared
+          .keySet()
+          .removeAll(Set.of(ANALYZER, INDEX_ANALYZER, QUERY_ANALYZER, MULTI_TERM_ANALYZER));
       attributes.putAll(declared);
-      attributes.put("class", className);
+      attributes.put(CLASS, className);
       return attributes;
     }
   }
@@ -269,7 +283,7 @@ public record CollectionSchema(
       @Nullable List<AnalyzerComponent> filters,
       @Nullable Map<String, String> parameters) {
 
-    private static final Set<String> NAMED = Set.of("class", "charFilters", "tokenizer", "filters");
+    private static final Set<String> NAMED = Set.of(CLASS, "charFilters", "tokenizer", "filters");
 
     /**
      * Copies the collections so the record cannot change after it is built. A client may leave any
@@ -287,7 +301,7 @@ public record CollectionSchema(
       }
       Map<String, Object> map = cast(raw);
       return new Analyzer(
-          string(map, "class"),
+          string(map, CLASS),
           maps(map.get("charFilters")).stream().map(AnalyzerComponent::fromSolr).toList(),
           map.get("tokenizer") instanceof Map<?, ?> tokenizer
               ? AnalyzerComponent.fromSolr(cast(tokenizer))
@@ -300,7 +314,7 @@ public record CollectionSchema(
     Map<String, Object> attributesToSolr() {
       Map<String, Object> attributes = new LinkedHashMap<>(sorted(parameters));
       if (className != null) {
-        attributes.put("class", className);
+        attributes.put(CLASS, className);
       }
       return attributes;
     }
@@ -327,7 +341,7 @@ public record CollectionSchema(
   public record AnalyzerComponent(
       @Nullable String name, @Nullable String className, @Nullable Map<String, String> parameters) {
 
-    private static final Set<String> NAMED = Set.of("name", "class");
+    private static final Set<String> NAMED = Set.of("name", CLASS);
 
     /**
      * Copies the parameters, ordered by name, so the record cannot change after it is built. A
@@ -339,9 +353,7 @@ public record CollectionSchema(
 
     static AnalyzerComponent fromSolr(Map<String, Object> component) {
       return new AnalyzerComponent(
-          string(component, "name"),
-          string(component, "class"),
-          scalarParameters(component, NAMED));
+          string(component, "name"), string(component, CLASS), scalarParameters(component, NAMED));
     }
 
     /** The component as the Schema API names its attributes. */
@@ -351,7 +363,7 @@ public record CollectionSchema(
         attributes.put("name", name);
       }
       if (className != null) {
-        attributes.put("class", className);
+        attributes.put(CLASS, className);
       }
       attributes.putAll(sorted(parameters));
       return attributes;
@@ -372,10 +384,6 @@ public record CollectionSchema(
 
   private static @Nullable String string(Map<String, Object> map, String key) {
     return map.get(key) instanceof String value ? value : null;
-  }
-
-  private static @Nullable Boolean bool(Map<String, Object> map, String key) {
-    return map.get(key) instanceof Boolean value ? value : null;
   }
 
   /**

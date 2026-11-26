@@ -132,8 +132,6 @@ public class SchemaService {
   /** The section of a Luke response that lists the fields, one entry per field in the index. */
   private static final String LUKE_FIELDS_SECTION = "fields";
 
-  /** Keeps Luke's field order, which is alphabetical. */
-
   /** SolrJ client for communicating with Solr server */
   private final SolrClient solrClient;
 
