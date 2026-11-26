@@ -36,7 +36,12 @@ import org.jspecify.annotations.Nullable;
  */
 final class ModernMcpToolClient {
 
-  private static final HttpClient HTTP = HttpClient.newHttpClient();
+  /**
+   * One HTTP client per test class, never shared: a test server's random port can be handed to a
+   * later test class's server, and a shared client would then send that class's first request down
+   * a pooled connection the earlier server already closed.
+   */
+  private final HttpClient http = HttpClient.newHttpClient();
 
   private final IntSupplier port;
 
@@ -63,7 +68,7 @@ final class ModernMcpToolClient {
       builder.header("Mcp-Name", name);
     }
     HttpResponse<String> response =
-        HTTP.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+        http.send(builder.build(), HttpResponse.BodyHandlers.ofString());
     assertEquals(200, response.statusCode(), () -> method + " failed: " + response.body());
     return result(response.body());
   }

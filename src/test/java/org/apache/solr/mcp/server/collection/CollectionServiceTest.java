@@ -1149,14 +1149,11 @@ class CollectionServiceTest {
   // completeCollection tests
   @Test
   void completeCollection_WithMatchingPrefix_ReturnsMatches() throws Exception {
-    CollectionService spyService = spy(collectionService);
-    doReturn(named(Arrays.asList("products", "prod-logs", "users")))
-        .when(spyService)
-        .listCollections();
+    stubCollections(Arrays.asList("products", "prod-logs", "users"));
 
     List<String> result =
         completionValues(
-            spyService.completeCollection(
+            collectionService.completeCollection(
                 new CompleteRequest.CompleteArgument("collection", "prod")));
 
     assertEquals(List.of("prod-logs", "products"), result);
@@ -1164,12 +1161,12 @@ class CollectionServiceTest {
 
   @Test
   void completeCollection_WithEmptyPrefix_ReturnsAllSorted() throws Exception {
-    CollectionService spyService = spy(collectionService);
-    doReturn(named(Arrays.asList("zeta", "alpha", "mu"))).when(spyService).listCollections();
+    stubCollections(Arrays.asList("zeta", "alpha", "mu"));
 
     List<String> result =
         completionValues(
-            spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "")));
+            collectionService.completeCollection(
+                new CompleteRequest.CompleteArgument("collection", "")));
 
     assertEquals(List.of("alpha", "mu", "zeta"), result);
   }
@@ -1187,14 +1184,11 @@ class CollectionServiceTest {
 
   @Test
   void completeCollection_IsCaseInsensitive() throws Exception {
-    CollectionService spyService = spy(collectionService);
-    doReturn(named(Arrays.asList("Products", "PROD_LOGS", "users")))
-        .when(spyService)
-        .listCollections();
+    stubCollections(Arrays.asList("Products", "PROD_LOGS", "users"));
 
     List<String> result =
         completionValues(
-            spyService.completeCollection(
+            collectionService.completeCollection(
                 new CompleteRequest.CompleteArgument("collection", "prod")));
 
     assertEquals(List.of("PROD_LOGS", "Products"), result);
@@ -1202,12 +1196,11 @@ class CollectionServiceTest {
 
   @Test
   void completeCollection_WithNoMatches_ReturnsEmpty() throws Exception {
-    CollectionService spyService = spy(collectionService);
-    doReturn(named(Arrays.asList("alpha", "beta"))).when(spyService).listCollections();
+    stubCollections(Arrays.asList("alpha", "beta"));
 
     List<String> result =
         completionValues(
-            spyService.completeCollection(
+            collectionService.completeCollection(
                 new CompleteRequest.CompleteArgument("collection", "zzz")));
 
     assertTrue(result.isEmpty());
@@ -1215,30 +1208,30 @@ class CollectionServiceTest {
 
   @Test
   void completeCollection_WithWrongArgumentName_ReturnsEmpty() throws Exception {
-    CollectionService spyService = spy(collectionService);
     // Should not even attempt to list collections when the argument name does not
     // match the template variable.
     List<String> result =
         completionValues(
-            spyService.completeCollection(new CompleteRequest.CompleteArgument("field", "prod")));
+            collectionService.completeCollection(
+                new CompleteRequest.CompleteArgument("field", "prod")));
 
     assertTrue(result.isEmpty());
-    verify(spyService, never()).listCollections();
+    verifyNoInteractions(solrClient);
   }
 
   @ParameterizedTest(name = "{0} matches")
   @ValueSource(ints = {0, 99, 100, 150})
   void completeCollection_ReportsTotalAndWhetherMoreMatched(int matching) throws Exception {
-    CollectionService spyService = spy(collectionService);
     List<String> collections = new ArrayList<>();
     IntStream.range(0, matching)
         .mapToObj(index -> String.format("c%04d", index))
         .forEach(collections::add);
     collections.add("other");
-    doReturn(named(collections)).when(spyService).listCollections();
+    stubCollections(collections);
 
     CompleteResult result =
-        spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "c"));
+        collectionService.completeCollection(
+            new CompleteRequest.CompleteArgument("collection", "c"));
 
     int max = CollectionService.MAX_COMPLETION_RESULTS;
     assertEquals(Math.min(matching, max), result.completion().values().size());
@@ -1248,16 +1241,16 @@ class CollectionServiceTest {
 
   @Test
   void completeCollection_CapsResultsAtMax() throws Exception {
-    CollectionService spyService = spy(collectionService);
     List<String> many =
         IntStream.range(0, CollectionService.MAX_COMPLETION_RESULTS + 25)
             .mapToObj(i -> String.format("c%04d", i))
             .toList();
-    doReturn(named(many)).when(spyService).listCollections();
+    stubCollections(many);
 
     List<String> result =
         completionValues(
-            spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "c")));
+            collectionService.completeCollection(
+                new CompleteRequest.CompleteArgument("collection", "c")));
 
     assertEquals(CollectionService.MAX_COMPLETION_RESULTS, result.size());
     assertEquals("c0000", result.get(0));
@@ -1275,8 +1268,14 @@ class CollectionServiceTest {
     assertTrue(result.isEmpty());
   }
 
-  /** Collections with these names, as {@code listCollections} returns them. */
-  private static List<Collection> named(List<String> names) {
-    return names.stream().map(Collection::new).toList();
+  /**
+   * Answers the Collections API {@code LIST} request with these names. The completions read the
+   * collections through the same Solr call as {@code list-collections}, with failures logged at
+   * DEBUG, so they are stubbed at the client rather than on the tool method.
+   */
+  private void stubCollections(List<String> names) throws Exception {
+    NamedList<Object> response = new NamedList<>();
+    response.add("collections", names);
+    when(solrClient.request(any(CollectionAdminRequest.List.class), any())).thenReturn(response);
   }
 }

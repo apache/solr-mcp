@@ -261,7 +261,8 @@ public abstract class McpContractConformanceTestBase {
                             McpToolFailures.assertReportsFailure(
                                 tool,
                                 callTool(tool, McpToolFailures.MISSING_TARGET_ARGUMENTS.get(tool)),
-                                COLLECTION_NOT_FOUND)));
+                                COLLECTION_NOT_FOUND,
+                                McpToolFailures.missingTargetText(tool))));
   }
 
   @SuppressWarnings("unchecked")

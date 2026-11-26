@@ -193,6 +193,9 @@ public class SchemaService {
     try {
       return McpResults.jsonResource(
           request.uri(), jsonMapper.writeValueAsString(getSchema(collection)));
+    } catch (IllegalArgumentException | IllegalStateException _) {
+      // SolrCalls' translation of a failed request; SolrCalls has already logged the cause.
+      throw new IllegalStateException(SCHEMA_RESOURCE_ERROR);
     } catch (Exception e) {
       // Deliberately no cause: MCP reports the root cause's message to the client,
       // and Solr and SolrJ failure text can carry internal host names, URLs and
@@ -313,6 +316,9 @@ public class SchemaService {
     try {
       return McpResults.jsonResource(
           request.uri(), jsonMapper.writeValueAsString(listFields(collection)));
+    } catch (IllegalArgumentException | IllegalStateException _) {
+      // SolrCalls' translation of a failed request; SolrCalls has already logged the cause.
+      throw new IllegalStateException(FIELDS_RESOURCE_ERROR);
     } catch (Exception e) {
       // No cause, for the same reason as getSchemaResource: Solr failure text can
       // carry internal host names and URLs.

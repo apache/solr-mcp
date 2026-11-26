@@ -27,6 +27,7 @@ import org.apache.solr.common.SolrException;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.event.Level;
 
 /**
  * Runs a call to Solr from an MCP tool and turns its failures into errors the client can act on.
@@ -99,7 +100,7 @@ public final class SolrCalls {
   private static final String OPERATION_SEPARATOR = ": ";
 
   /** Leads Solr's own reason for a failed request. */
-  static final String SOLR_REASON_LEAD = "Solr returned an error: ";
+  public static final String SOLR_REASON_LEAD = "Solr returned an error: ";
 
   /**
    * Error text, formatted with the HTTP status, for a Solr error whose reason is not passed on: one
@@ -133,7 +134,7 @@ public final class SolrCalls {
           + " load and health.";
 
   /** Error text for any other connection or I/O failure. */
-  static final String UNREACHABLE =
+  public static final String UNREACHABLE =
       "Solr could not be reached. Retry later; if it persists, ask the operator to check that"
           + " Solr is running and the configured Solr URL.";
 
@@ -225,10 +226,35 @@ public final class SolrCalls {
    * @throws IllegalStateException if Solr failed, denied access, timed out or could not be reached
    */
   public static <T> T call(String operation, String notFound, ReasonHint hint, SolrCall<T> call) {
+    return call(operation, notFound, hint, Level.WARN, call);
+  }
+
+  /**
+   * Runs {@code call}, translating its failures with no hint, and logging the original at {@code
+   * logLevel} instead of {@code WARN}. A caller that runs often and expects Solr to be away at
+   * times, such as a completion, logs at {@link Level#DEBUG} so an outage does not fill the log
+   * with one stack trace per keystroke (Effective Java, 3rd ed., Item 77: do not ignore a failure,
+   * but record it at the weight it deserves).
+   *
+   * @param operation what failed, leading the error text
+   * @param notFound the error text for a 404
+   * @param logLevel the level the original failure is logged at
+   * @param call the call to run
+   * @param <T> what the call returns
+   * @return the call's result
+   * @throws IllegalArgumentException if Solr refused the request because of something in it
+   * @throws IllegalStateException if Solr failed, denied access, timed out or could not be reached
+   */
+  public static <T> T call(String operation, String notFound, Level logLevel, SolrCall<T> call) {
+    return call(operation, notFound, ReasonHint.NONE, logLevel, call);
+  }
+
+  private static <T> T call(
+      String operation, String notFound, ReasonHint hint, Level logLevel, SolrCall<T> call) {
     try {
       return call.call();
     } catch (SolrException | SolrServerException | IOException failure) {
-      logger.warn("{}", operation, failure);
+      logger.atLevel(logLevel).setCause(failure).log(operation);
       throw translate(operation, notFound, hint, failure);
     }
   }

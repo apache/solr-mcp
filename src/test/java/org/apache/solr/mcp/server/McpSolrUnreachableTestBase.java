@@ -93,6 +93,7 @@ public abstract class McpSolrUnreachableTestBase {
                         McpToolFailures.assertReportsFailure(
                             tool,
                             callTool(tool, McpToolFailures.unreachableArguments(tool)),
-                            SOLR_UNREACHABLE)));
+                            SOLR_UNREACHABLE,
+                            McpToolFailures.unreachableText())));
   }
 }

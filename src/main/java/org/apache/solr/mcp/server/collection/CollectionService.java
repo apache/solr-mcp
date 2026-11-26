@@ -58,6 +58,7 @@ import org.apache.solr.mcp.server.util.SolrCalls;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.event.Level;
 import org.springframework.ai.mcp.annotation.McpArg;
 import org.springframework.ai.mcp.annotation.McpComplete;
 import org.springframework.ai.mcp.annotation.McpPrompt;
@@ -110,10 +111,11 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <p><strong>Error Handling:</strong>
  *
- * <p>Collection-level operations (listing, validation) propagate {@link SolrServerException} and
- * {@link IOException} so that callers (including the MCP framework) receive a clear error when Solr
- * is unreachable. Sub-metric operations (cache, handler) degrade gracefully and return {@code null}
- * when their specific endpoints are unavailable.
+ * <p>Collection-level operations (listing, stats, creation) call Solr through {@link SolrCalls},
+ * which translates a failure into an exception whose message the MCP client receives as an {@code
+ * isError} result, Solr unreachable included. {@code check-health} reports a fixed {@link
+ * HealthStatus.Reason} instead. Sub-metric operations (cache, handler) degrade gracefully and
+ * return {@code null} when their specific endpoints are unavailable.
  *
  * <p><strong>Example Usage:</strong>
  *
@@ -346,6 +348,9 @@ public class CollectionService {
     try {
       return McpResults.jsonResource(
           request.uri(), jsonMapper.writeValueAsString(listCollections()));
+    } catch (IllegalArgumentException | IllegalStateException _) {
+      // SolrCalls' translation of a failed listing; SolrCalls has already logged the cause.
+      throw new IllegalStateException(COLLECTIONS_RESOURCE_ERROR);
     } catch (Exception e) {
       // Deliberately no cause: MCP reports the root cause's message to the client,
       // and Solr and SolrJ failure text can carry internal host names, URLs and
@@ -379,14 +384,15 @@ public class CollectionService {
     String prefix = argument.value().toLowerCase(Locale.ROOT);
     try {
       List<String> matches =
-          listCollections().stream()
+          collections(Level.DEBUG).stream()
               .map(Collection::name)
               .filter(name -> name.toLowerCase(Locale.ROOT).startsWith(prefix))
               .sorted()
               .toList();
       return McpResults.completion(matches, MAX_COMPLETION_RESULTS);
     } catch (IllegalArgumentException | IllegalStateException _) {
-      // SolrCalls' translations of a failed listing; a completion offers nothing instead.
+      // SolrCalls' translations of a failed listing, logged at DEBUG: a completion runs on every
+      // keystroke, so it offers nothing rather than an error.
       return McpResults.completion(List.of(), MAX_COMPLETION_RESULTS);
     }
   }
@@ -486,10 +492,21 @@ public class CollectionService {
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
       description = "List solr collections")
   public List<Collection> listCollections() {
+    return collections(Level.WARN);
+  }
+
+  /**
+   * Reads every collection name from Solr.
+   *
+   * @param logLevel the level a failure is logged at
+   * @return the collections, one {@link Collection} per name
+   */
+  private List<Collection> collections(Level logLevel) {
     CollectionAdminResponse response =
         SolrCalls.call(
             LIST_COLLECTIONS_FAILED,
             SolrCalls.ADMIN_API_NOT_FOUND,
+            logLevel,
             () -> new CollectionAdminRequest.List().process(solrClient));
 
     @SuppressWarnings("unchecked")

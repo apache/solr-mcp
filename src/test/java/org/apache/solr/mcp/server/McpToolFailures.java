@@ -20,11 +20,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import org.apache.solr.mcp.server.util.SolrCalls;
 
 /**
  * Arguments and assertions for calling every tool when it cannot succeed, shared by the
@@ -40,6 +42,12 @@ public final class McpToolFailures {
 
   /** A collection that is never created. */
   public static final String MISSING_COLLECTION = "contract-missing-collection";
+
+  /** A configset that is never created. */
+  private static final String MISSING_CONFIGSET = "contract-missing-configset";
+
+  /** An alias that is never created. */
+  private static final String MISSING_ALIAS = "contract-missing-alias";
 
   /** SolrJ's own wording around a failure, which must never reach the client. */
   private static final List<String> FORBIDDEN_TEXT =
@@ -84,9 +92,8 @@ public final class McpToolFailures {
               Map.of(NAME, "contract-failure-alias", COLLECTIONS_ARG, List.of(MISSING_COLLECTION))),
           Map.entry(
               "create-collection",
-              Map.of(
-                  NAME, "contract-failure-collection", "configSet", "contract-missing-configset")),
-          Map.entry("delete-alias", Map.of(NAME, "contract-missing-alias")),
+              Map.of(NAME, "contract-failure-collection", "configSet", MISSING_CONFIGSET)),
+          Map.entry("delete-alias", Map.of(NAME, MISSING_ALIAS)),
           Map.entry("get-collection-stats", Map.of(COLLECTION_ARG, MISSING_COLLECTION)),
           Map.entry("get-schema", Map.of(COLLECTION_ARG, MISSING_COLLECTION)),
           Map.entry(
@@ -116,7 +123,37 @@ public final class McpToolFailures {
           Map.entry("list-fields", Map.of(COLLECTION_ARG, MISSING_COLLECTION)),
           Map.entry("search", Map.of(COLLECTION_ARG, MISSING_COLLECTION, "query", "*:*")));
 
+  /**
+   * What the error text of each tool must contain when what it names does not exist. Most tools get
+   * the {@code list-collections} hint for a 404; {@code create-alias} and {@code create-collection}
+   * carry Solr's reason, which names what is missing; {@code delete-alias} reports the alias
+   * itself.
+   */
+  private static final Map<String, List<String>> MISSING_TARGET_TEXT =
+      Map.of(
+          "create-alias",
+          List.of(SolrCalls.SOLR_REASON_LEAD, MISSING_COLLECTION),
+          "create-collection",
+          List.of(SolrCalls.SOLR_REASON_LEAD, MISSING_CONFIGSET),
+          "delete-alias",
+          List.of("Alias '" + MISSING_ALIAS + "' does not exist"));
+
   private McpToolFailures() {}
+
+  /**
+   * The text a tool's error must contain when what it names does not exist.
+   *
+   * @param tool the tool
+   * @return fragments that must all appear in the error text
+   */
+  public static List<String> missingTargetText(String tool) {
+    return MISSING_TARGET_TEXT.getOrDefault(tool, List.of(SolrCalls.LIST_COLLECTIONS_HINT));
+  }
+
+  /** The text every tool's error must contain when Solr cannot be reached. */
+  public static List<String> unreachableText() {
+    return List.of(SolrCalls.UNREACHABLE);
+  }
 
   /**
    * Arguments for calling {@code tool} when Solr cannot be reached: the missing-target arguments,
@@ -138,16 +175,23 @@ public final class McpToolFailures {
   /**
    * Asserts that {@code result} reports a failure the way the {@code mcp-contracts} spec requires.
    * For {@code check-health} that is an unhealthy result with {@code expectedHealthReason}; for
-   * every other tool it is an error result whose text names no URL and quotes none of SolrJ's
-   * wording.
+   * every other tool it is an error result whose text says what went wrong in the server's terms,
+   * names no URL and quotes none of SolrJ's wording. Checking for the expected text, and not only
+   * for the absence of SolrJ's, catches a tool that wraps a failure as {@code new
+   * RuntimeException(e)}: a refused connection then reads {@code java.net.ConnectException} and
+   * {@code null}, which names no URL either.
    *
    * @param tool the tool that was called
    * @param result the {@code tools/call} result object
    * @param expectedHealthReason the {@code HealthStatus.Reason} name {@code check-health} must give
+   * @param expectedText fragments the error text must contain
    */
   @SuppressWarnings("unchecked")
   public static void assertReportsFailure(
-      String tool, Map<String, Object> result, String expectedHealthReason) {
+      String tool,
+      Map<String, Object> result,
+      String expectedHealthReason,
+      List<String> expectedText) {
     if (CHECK_HEALTH.equals(tool)) {
       assertFalse(Boolean.TRUE.equals(result.get(IS_ERROR)), () -> tool + ": " + result);
       Map<?, ?> health =
@@ -160,6 +204,12 @@ public final class McpToolFailures {
         Boolean.TRUE, result.get(IS_ERROR), () -> tool + " must fail as a tool error: " + result);
     List<Map<String, Object>> content = (List<Map<String, Object>>) result.get("content");
     assertNotNull(content, () -> tool + " must say why it failed: " + result);
+    String allText = String.valueOf(content.getFirst().get("text"));
+    for (String expected : expectedText) {
+      assertTrue(
+          allText.contains(expected),
+          () -> tool + ": the error text must contain " + expected + ": " + allText);
+    }
     for (Map<String, Object> block : content) {
       String text = String.valueOf(block.get("text"));
       assertFalse(text.isBlank(), () -> tool + " must say why it failed: " + result);
