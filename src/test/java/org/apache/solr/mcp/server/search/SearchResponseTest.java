@@ -20,7 +20,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -36,7 +35,7 @@ class SearchResponseTest {
    */
   @Test
   void nullMaxScoreIsLeftOutOfTheJson() {
-    SearchResponse response = new SearchResponse(0, 0, null, List.of(), Map.of());
+    SearchResponse response = new SearchResponse(0, 0, null, List.of(), List.of());
 
     JsonNode json = JSON.valueToTree(response);
 
