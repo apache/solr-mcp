@@ -28,6 +28,17 @@ A field or dynamic-field object SHALL have `name`, `type` and, only for the prop
 - **WHEN** the schema declares a field attribute that is not one of the listed properties
 - **THEN** the field object does not contain it
 
+### Requirement: Field and field-type metadata is passed on whole
+A field, dynamic-field or field-type object SHALL have `metadata`, a JSON object, when the schema declares key-value metadata for it (SOLR-18678), such as `dc:description` or `ext:internal`. Its keys, their order and its values, including booleans, numbers, lists and nested objects, SHALL be passed on as Solr reports them. When Solr reports the metadata as a NamedList's flat `[key, value, …]` array, the object SHALL hold the same pairs, and a key the array repeats SHALL keep every value, as a list. The object SHALL be absent when the schema declares no metadata. `add-fields` and `add-field-types` SHALL send `metadata` to Solr unchanged. The key follows SOLR-18678 and may change before that issue is released.
+
+#### Scenario: A described field
+- **WHEN** the `id` field declares metadata `dc:description` = `"unique document identifier"` and `ext:internal` = `false`
+- **THEN** its object has `metadata` `{"dc:description":"unique document identifier","ext:internal":false}`
+
+#### Scenario: No metadata
+- **WHEN** a field declares no metadata
+- **THEN** its object has no `metadata` property
+
 ### Requirement: Field types have a class, declared properties, analyzers and class parameters
 A field-type object SHALL have:
 - `name` and `className`.
