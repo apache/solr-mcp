@@ -29,7 +29,9 @@ import java.util.List;
 import java.util.Map;
 import org.apache.solr.client.solrj.RemoteSolrException;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.common.SolrErrorWrappingException;
 import org.apache.solr.common.SolrException;
+import org.apache.solr.common.util.NamedList;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -51,6 +53,14 @@ class SolrCallsTest {
   private static final String HOST_NAME = "solr-node";
 
   private static final String UNDEFINED_FIELD = "undefined field bogus";
+
+  /** Solr 10's message for a facet on a field the schema does not define. */
+  private static final String UNDEFINED_FIELD_X = "undefined field: \"x\"";
+
+  /** The {@code errorClass} Solr 10 sends for most of its errors. */
+  private static final String SOLR_EXCEPTION = SolrException.class.getName();
+
+  private static final String SERVER_ERROR = "Server error writing document";
 
   private static final String LIST_FIELDS_HINT = ". Hint: call list-fields.";
 
@@ -269,18 +279,55 @@ class SolrCallsTest {
   }
 
   @Test
-  void anErrorObjectWithAnErrorClassKeepsTheClassAsSolrWroteIt() {
+  void anErrorObjectsErrorClassIsNotPassedOn() {
+    // Solr 10 sends errorClass, and SolrJ puts it in front of msg in getMessage().
+    final RemoteSolrException refused =
+        new RemoteSolrException(
+            HOST, 400, Map.of("errorClass", SOLR_EXCEPTION, "msg", UNDEFINED_FIELD_X, "code", 400));
+
+    assertThat(refused.getMessage()).contains(SOLR_EXCEPTION);
+    assertThat(translated(refused))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage(OPERATION + ": " + SolrCalls.SOLR_REASON_LEAD + UNDEFINED_FIELD_X)
+        .message()
+        .doesNotContain("Exception");
+  }
+
+  @Test
+  void anErrorObjectParsedAsANamedListGivesTheSameReason() {
+    final NamedList<Object> error = new NamedList<>();
+    error.add("errorClass", SOLR_EXCEPTION);
+    error.add("msg", UNDEFINED_FIELD_X);
+    error.add("code", 400);
+
+    assertThat(translated(new RemoteSolrException(HOST, 400, error)))
+        .hasMessage(OPERATION + ": " + SolrCalls.SOLR_REASON_LEAD + UNDEFINED_FIELD_X);
+  }
+
+  @Test
+  void aSchemaCommandErrorKeepsEachCommandsErrorMessages() {
+    // Solr 10's Schema API: msg is the summary; each command's errors are in details.
     final RemoteSolrException refused =
         new RemoteSolrException(
             HOST,
             400,
-            Map.of("errorClass", "org.apache.solr.common.SolrException", "msg", UNDEFINED_FIELD));
+            Map.of(
+                "errorClass",
+                SolrErrorWrappingException.class.getName(),
+                "msg",
+                "error processing commands",
+                "details",
+                List.of(
+                    Map.of(
+                        "add-field",
+                        Map.of("name", "title", "type", "string"),
+                        "errorMessages",
+                        List.of("Field 'title' already exists.")))));
 
     assertThat(translated(refused).getMessage())
-        .endsWith(
-            SolrCalls.SOLR_REASON_LEAD
-                + "org.apache.solr.common.SolrException: "
-                + UNDEFINED_FIELD);
+        .startsWith(OPERATION + ": " + SolrCalls.SOLR_REASON_LEAD + "error processing commands")
+        .contains("Field 'title' already exists.")
+        .doesNotContain("Exception");
   }
 
   @Test
@@ -294,16 +341,13 @@ class SolrCallsTest {
 
   @Test
   void aServerErrorDropsANestedNodesHostAndAsksForTheOperator() {
-    // A node forwarding the request quotes the other node's RemoteSolrException in its reason.
+    // Solr 9: a node that forwarded the request sends no errorClass, and its msg quotes the other
+    // node's RemoteSolrException message, "Error from server at <host>: <msg>".
     final RemoteSolrException failed =
         new RemoteSolrException(
             HOST,
             500,
-            Map.of(
-                "msg",
-                "org.apache.solr.client.solrj.RemoteSolrException: Error from server at "
-                    + OTHER_NODE
-                    + ": Server error writing document"));
+            Map.of("msg", SolrCalls.REMOTE_ERROR_PREFIX + OTHER_NODE + ": " + SERVER_ERROR));
 
     assertThat(translated(failed))
         .isInstanceOf(IllegalStateException.class)
@@ -311,13 +355,14 @@ class SolrCallsTest {
             OPERATION
                 + ": "
                 + SolrCalls.SOLR_REASON_LEAD
-                + "org.apache.solr.client.solrj.RemoteSolrException: Server error writing document"
+                + SERVER_ERROR
                 + SolrCalls.SERVER_ERROR_HINT);
   }
 
   @Test
-  void aNestedRemoteErrorClassInSolrsErrorObjectLosesItsHost() {
-    // RemoteSolrException.getRemoteErrorMessageSuffix special-cases a remote RemoteSolrException.
+  void aForwardedRequestsErrorGivesTheOtherNodesReason() {
+    // Solr 10: a node that forwarded the request reports the other node's RemoteSolrException,
+    // whose msg is only "Error from server at <host>"; the other node's error object is in details.
     final RemoteSolrException failed =
         new RemoteSolrException(
             HOST,
@@ -326,10 +371,47 @@ class SolrCallsTest {
                 "errorClass",
                 RemoteSolrException.class.getName(),
                 "msg",
-                "Error from server at " + OTHER_NODE + ": Server error writing document"));
+                SolrCalls.REMOTE_ERROR_PREFIX + OTHER_NODE,
+                "details",
+                List.of(
+                    Map.of(
+                        "remoteHost",
+                        OTHER_NODE,
+                        "remoteError",
+                        Map.of("errorClass", SOLR_EXCEPTION, "msg", SERVER_ERROR)))));
 
-    assertThat(translated(failed).getMessage())
-        .contains(RemoteSolrException.class.getName() + ": Server error writing document");
+    assertThat(translated(failed))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage(
+            OPERATION
+                + ": "
+                + SolrCalls.SOLR_REASON_LEAD
+                + SERVER_ERROR
+                + SolrCalls.SERVER_ERROR_HINT);
+  }
+
+  @Test
+  void aForwardedRequestsErrorWithoutAMessageGetsTheFixedStatusText() {
+    final RemoteSolrException failed =
+        new RemoteSolrException(
+            HOST,
+            500,
+            Map.of(
+                "errorClass",
+                RemoteSolrException.class.getName(),
+                "msg",
+                SolrCalls.REMOTE_ERROR_PREFIX + OTHER_NODE,
+                "details",
+                List.of(
+                    Map.of(
+                        "remoteHost",
+                        OTHER_NODE,
+                        "remoteError",
+                        Map.of("errorClass", SOLR_EXCEPTION)))));
+
+    assertThat(translated(failed))
+        .hasMessage(
+            OPERATION + ": " + SolrCalls.STATUS_ERROR.formatted(500) + SolrCalls.SERVER_ERROR_HINT);
   }
 
   @Test

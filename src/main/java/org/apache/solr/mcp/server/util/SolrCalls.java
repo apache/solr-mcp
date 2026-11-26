@@ -19,11 +19,13 @@ package org.apache.solr.mcp.server.util;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.net.http.HttpTimeoutException;
-import java.util.Objects;
+import java.util.List;
 import java.util.regex.Pattern;
 import org.apache.solr.client.solrj.RemoteSolrException;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.common.SolrErrorWrappingException;
 import org.apache.solr.common.SolrException;
+import org.apache.solr.common.util.Utils;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -95,6 +97,22 @@ public final class SolrCalls {
 
   /** Takes the place of a URL removed from Solr's reason. */
   private static final String URL_REPLACEMENT = "<url>";
+
+  /** Where Solr's {@code error} object names the class of the exception it reports. */
+  private static final List<String> ERROR_CLASS_PATH = List.of("errorClass");
+
+  /** Where Solr's {@code error} object holds the exception's message. */
+  private static final List<String> MESSAGE_PATH = List.of("msg");
+
+  /** Where Solr's {@code error} object holds the exception's details. */
+  private static final List<String> DETAILS_PATH = List.of("details");
+
+  /**
+   * Where the error object of a {@code RemoteSolrException} holds the error object of the node the
+   * request was forwarded to: {@code RemoteSolrException} keeps it as the {@code remoteError} of
+   * its first detail.
+   */
+  private static final List<String> FORWARDED_ERROR_PATH = List.of("details[0]", "remoteError");
 
   /** Separates the operation from what went wrong. */
   private static final String OPERATION_SEPARATOR = ": ";
@@ -298,11 +316,13 @@ public final class SolrCalls {
    * carries a reason Solr wrote. In SolrJ 10.0.0 only the constructors that take that object call
    * {@code setDetails}, so {@code getRemoteErrorObject()} is non-null for them and null for the
    * constructor that takes a message, which SolrJ uses for the text it writes itself: an HTML error
-   * page body, {@code "non ok status: ..."}, or the HTTP reason phrase and request method. For the
-   * former, {@code getMessage()} is {@code getResponseMessage()} ({@code "Error from server at " +
-   * remoteHost}) followed by {@code ": "} and the error's class and message, so the reason is
-   * exactly what follows the response message. Any other {@code SolrException}, such as one SolrJ
-   * raises before sending a request, carries no reason Solr wrote.
+   * page body, {@code "non ok status: ..."}, or the HTTP reason phrase and request method. Any
+   * other {@code SolrException}, such as one SolrJ raises before sending a request, carries no
+   * reason Solr wrote.
+   *
+   * <p>The reason is read from the error object itself (see {@link #solrMessage}), never from
+   * {@code getMessage()}: SolrJ puts the error's {@code errorClass} in front of its {@code msg}
+   * there, and Solr 10 sends one.
    *
    * <p>A node that forwarded the request to another can quote that node's {@code
    * RemoteSolrException} text in its reason, so every {@code Error from server at <host>: } in the
@@ -312,19 +332,57 @@ public final class SolrCalls {
    * @return Solr's reason, stripped; empty when there is none to pass on
    */
   static String reason(SolrException failure) {
-    if (!(failure instanceof RemoteSolrException remote) || remote.getRemoteErrorObject() == null) {
+    if (!(failure instanceof RemoteSolrException remote)) {
       return "";
     }
-    final String message = Objects.requireNonNullElse(remote.getMessage(), "");
-    final String responseMessage = Objects.requireNonNullElse(remote.getResponseMessage(), "");
-    if (!message.startsWith(responseMessage)) {
+    final Object remoteError = remote.getRemoteErrorObject();
+    if (remoteError == null) {
       return "";
     }
-    String suffix = message.substring(responseMessage.length());
-    if (suffix.startsWith(REMOTE_HOST_SEPARATOR)) {
-      suffix = suffix.substring(REMOTE_HOST_SEPARATOR.length());
+    return URL.matcher(withoutRemoteHosts(solrMessage(remoteError)))
+        .replaceAll(URL_REPLACEMENT)
+        .strip();
+  }
+
+  /**
+   * The message in one of Solr's {@code error} objects, read the way SolrJ 10.0.0's {@code
+   * RemoteSolrException.getRemoteErrorMessageSuffix} reads it, but without the {@code errorClass}
+   * it puts in front.
+   *
+   * <ul>
+   *   <li>An error a node received from another node it forwarded the request to has the {@code
+   *       errorClass} {@code RemoteSolrException}, and its {@code msg} is only {@code "Error from
+   *       server at " + remoteHost}. The other node's error object is at {@code
+   *       details[0]/remoteError}, so its message is used when it has one.
+   *   <li>A {@code SolrErrorWrappingException}, which the Schema API throws for a rejected command,
+   *       keeps each command's error messages in {@code details}. SolrJ's own {@code
+   *       SolrErrorWrappingException.constructMessage} appends them, as Solr 9 already does in
+   *       {@code msg}.
+   * </ul>
+   *
+   * @param remoteError the error object, a {@code Map} or a {@code NamedList}
+   * @return the message, or an empty string when the object has none
+   */
+  private static String solrMessage(Object remoteError) {
+    final Object errorClass = Utils.getObjectByPath(remoteError, false, ERROR_CLASS_PATH);
+    if (RemoteSolrException.class.getName().equals(errorClass)) {
+      final Object forwardedError = Utils.getObjectByPath(remoteError, false, FORWARDED_ERROR_PATH);
+      if (forwardedError != null) {
+        final String forwardedMessage = solrMessage(forwardedError);
+        if (!forwardedMessage.isEmpty()) {
+          return forwardedMessage;
+        }
+      }
     }
-    return URL.matcher(withoutRemoteHosts(suffix)).replaceAll(URL_REPLACEMENT).strip();
+    final Object message = Utils.getObjectByPath(remoteError, false, MESSAGE_PATH);
+    if (message == null) {
+      return "";
+    }
+    if (SolrErrorWrappingException.class.getName().equals(errorClass)) {
+      return SolrErrorWrappingException.constructMessage(
+          message.toString(), Utils.getObjectByPath(remoteError, false, DETAILS_PATH));
+    }
+    return message.toString();
   }
 
   /**
