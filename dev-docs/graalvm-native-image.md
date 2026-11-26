@@ -172,7 +172,7 @@ it is the path the native tests run.
   `CollectionCreationResult`, `HealthStatus` (and `HealthStatus$Reason`),
   `CollectionMetrics` with its nested stats records, `SearchResponse` (with its
   nested `SearchHit`, `FacetField` and `FacetValue`),
-  `SchemaUpdateResult`. These are records the MCP framework dispatches via generic
+  `SchemaUpdateResult`, `IndexingResult` and `IndexingResult$Format`. These are records the MCP framework dispatches via generic
   `Object`, so AOT can't see them. They're registered by name with
   `registerTypeIfPresent`.
 - **`logback-spring.xml` resource.** Registered as a resource pattern as

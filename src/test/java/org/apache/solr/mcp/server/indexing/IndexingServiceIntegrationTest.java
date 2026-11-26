@@ -27,6 +27,7 @@ import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.request.SolrQuery;
+import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.TestDocuments;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
@@ -50,6 +51,10 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class IndexingServiceIntegrationTest {
 
   private static final String COLLECTION_NAME = "indexing_test_" + System.currentTimeMillis();
+
+  /** A {@code pint} field, so a non-numeric value makes Solr reject that one document. */
+  private static final String PAGES_FIELD = "pages";
+
   private static boolean initialized = false;
   @Autowired private IndexingDocumentCreator indexingDocumentCreator;
   @Autowired private IndexingService indexingService;
@@ -64,6 +69,9 @@ class IndexingServiceIntegrationTest {
       CollectionAdminRequest.Create createRequest =
           CollectionAdminRequest.createCollection(COLLECTION_NAME, "_default", 1, 1);
       createRequest.process(solrClient);
+      new SchemaRequest.AddField(
+              Map.of("name", PAGES_FIELD, "type", "pint", "stored", true, "indexed", true))
+          .process(solrClient, COLLECTION_NAME);
       initialized = true;
     }
   }
@@ -160,8 +168,100 @@ class IndexingServiceIntegrationTest {
             IndexingResult.Format.json,
             1,
             1,
-            List.of("User-Name", "id", "product_price")),
+            List.of("User-Name", "id", "product_price"),
+            3),
         result);
+  }
+
+  @Test
+  void indexJsonDocuments_whenSolrRejectsSomeDocuments_reportsTheAcceptedOnes() throws Exception {
+    String json =
+        """
+				[
+				  {"id": "rejected-001", "title": "One", "pages": 120},
+				  {"id": "rejected-002", "title": "Two", "pages": "many", "colour": "red"},
+				  {"id": "rejected-003", "title": "Three", "pages": 90},
+				  {"id": "rejected-004", "title": "Four", "pages": "lots", "colour": "blue"},
+				  {"id": "rejected-005", "title": "Five"}
+				]
+				""";
+
+    IndexingResult result =
+        indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
+
+    // the two documents with a non-numeric pint value are rejected, and only they carry
+    // `colour`, so it is not among the field names of the indexed documents
+    assertEquals(
+        new IndexingResult(
+            COLLECTION_NAME,
+            IndexingResult.Format.json,
+            5,
+            3,
+            List.of("id", PAGES_FIELD, "title"),
+            3),
+        result);
+    assertEquals(
+        3,
+        solrClient
+            .query(COLLECTION_NAME, new SolrQuery("id:rejected-*"))
+            .getResults()
+            .getNumFound());
+  }
+
+  @Test
+  void indexJsonDocuments_whenSolrRejectsEveryDocument_fails() {
+    String json =
+        """
+				[
+				  {"id": "all-rejected-001", "pages": "many"},
+				  {"id": "all-rejected-002", "pages": "lots"}
+				]
+				""";
+
+    IllegalArgumentException failure =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json)));
+
+    assertEquals(IndexingService.EVERY_DOCUMENT_REJECTED, failure.getMessage());
+  }
+
+  @Test
+  void indexMarkdownDocuments_countsEveryDocumentOneInputSplitsInto() throws Exception {
+    String markdown =
+        """
+				---
+				id: split-001
+				---
+				# First
+
+				The first record.
+
+				---
+				id: split-002
+				---
+				# Second
+
+				The second record.
+
+				---
+				id: split-003
+				---
+				# Third
+
+				The third record.
+				""";
+    int created = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown).size();
+
+    IndexingResult result =
+        indexingService.indexMarkdownDocuments(COLLECTION_NAME, List.of(markdown));
+
+    assertEquals(3, created, "the input holds three front matter records");
+    assertEquals(created, result.documentsSubmitted());
+    assertEquals(created, result.documentsIndexed());
+    assertEquals(
+        3,
+        solrClient.query(COLLECTION_NAME, new SolrQuery("id:split-*")).getResults().getNumFound());
   }
 
   @Test
@@ -727,7 +827,8 @@ class IndexingServiceIntegrationTest {
 				""");
 
     assertEquals(
-        new IndexingResult(COLLECTION_NAME, IndexingResult.Format.csv, null, null, null), result);
+        new IndexingResult(COLLECTION_NAME, IndexingResult.Format.csv, null, null, null, null),
+        result);
     var alpha =
         solrClient.query(COLLECTION_NAME, new SolrQuery("id:csv-001")).getResults().getFirst();
     assertEquals(
@@ -751,7 +852,8 @@ class IndexingServiceIntegrationTest {
 				""");
 
     assertEquals(
-        new IndexingResult(COLLECTION_NAME, IndexingResult.Format.xml, null, null, null), result);
+        new IndexingResult(COLLECTION_NAME, IndexingResult.Format.xml, null, null, null, null),
+        result);
     var gamma =
         solrClient.query(COLLECTION_NAME, new SolrQuery("id:xml-001")).getResults().getFirst();
     assertEquals("Gamma", gamma.getFirstValue("title"));

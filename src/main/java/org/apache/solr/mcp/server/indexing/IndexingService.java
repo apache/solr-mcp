@@ -96,13 +96,12 @@ import org.springframework.stereotype.Service;
  * <p><strong>Example Usage:</strong>
  *
  * <pre>{@code
- * // Index JSON array of documents
- * String jsonData = "[{\"title\":\"Document 1\",\"content\":\"Content here\"}]";
- * indexingService.indexDocuments("my_collection", jsonData);
+ * // Index a JSON array of documents, one map per document
+ * List<Map<String, Object>> documents = List.of(Map.of("id", "1", "title", "Document 1"));
+ * IndexingResult result = indexingService.indexJsonDocuments("my_collection", documents);
  *
- * // Programmatic document creation and indexing
- * List<SolrInputDocument> docs = indexingService.createSchemalessDocuments(jsonData);
- * int successful = indexingService.indexDocuments("my_collection", docs);
+ * // Programmatic indexing of documents built elsewhere
+ * List<SolrInputDocument> accepted = indexingService.indexDocuments("my_collection", docs);
  * }</pre>
  *
  * @see SolrInputDocument
@@ -117,6 +116,27 @@ public class IndexingService {
 
   /** Solr's update handler, which reads CSV and update XML by their content type. */
   private static final String UPDATE_PATH = "/update";
+
+  /** Maximum number of distinct field names listed in an indexing result. */
+  static final int MAX_REPORTED_FIELDS = 50;
+
+  /**
+   * The part of the JSON and Markdown tool descriptions that describes the result. It is a
+   * compile-time constant so the annotations can use it.
+   */
+  private static final String PARSED_RESULT_DESCRIPTION =
+      "Returns documentsSubmitted, documentsIndexed (lower when Solr rejected some documents),"
+          + " fieldNames (up to "
+          + MAX_REPORTED_FIELDS
+          + " field names of the indexed documents, in sort order) and fieldCount (how many"
+          + " field names there are). Fails if Solr rejects every document.";
+
+  /**
+   * The error for a call whose documents Solr rejected one and all. It is a fixed phrase, so no
+   * Solr text reaches the client; the per-document failures are logged.
+   */
+  static final String EVERY_DOCUMENT_REJECTED =
+      "Solr rejected every document; check the field names and types against get-schema";
 
   /** SolrJ client for communicating with Solr server */
   private final SolrClient solrClient;
@@ -191,9 +211,8 @@ public class IndexingService {
       description =
           "Index documents passed as a JSON array of objects into Solr collection; one object"
               + " per document, multi-valued fields as arrays, nested objects flattened with underscores."
-              + " Pass the array itself, not a JSON string. Field names are used as given. Returns"
-              + " documentsSubmitted, documentsIndexed (lower when Solr rejected some documents) and"
-              + " the fieldNames as indexed")
+              + " Pass the array itself, not a JSON string. Field names are used as given. "
+              + PARSED_RESULT_DESCRIPTION)
   public IndexingResult indexJsonDocuments(
       @McpToolParam(description = "Solr collection to index into") String collection,
       @McpToolParam(description = "Documents to index: a JSON array with one object per document")
@@ -342,7 +361,7 @@ public class IndexingService {
               + "Pass many documents in one call rather than one call per document. "
               + "Do NOT use for JSON/CSV/XML input; use index-json-documents, index-csv-documents, or index-xml-documents instead. "
               + "Only convert source content to markdown when there is no dedicated tool for the source format, and supply a stable 'id' in the YAML front matter when doing so. "
-              + "Returns documentsSubmitted, documentsIndexed (lower when Solr rejected some documents) and the fieldNames as indexed.")
+              + PARSED_RESULT_DESCRIPTION)
   public IndexingResult indexMarkdownDocuments(
       @McpToolParam(description = "Solr collection to index into") String collection,
       @McpToolParam(
@@ -359,38 +378,36 @@ public class IndexingService {
   }
 
   /**
-   * Indexes documents the server parsed itself and reports how many Solr accepted.
+   * Indexes documents the server parsed itself and reports how many Solr accepted, with the field
+   * names of the accepted documents. Nested JSON objects are flattened with underscores, so the
+   * indexed names can differ from the input; reporting them lets MCP clients query the right
+   * fields.
    *
    * @param collection the collection to index into
    * @param format the input format the documents were parsed from
    * @param documents the parsed documents
-   * @return the counts and the field names of the submitted documents
+   * @return the counts, the first {@link #MAX_REPORTED_FIELDS} field names of the accepted
+   *     documents in sort order, and how many distinct field names they have
+   * @throws IllegalArgumentException if there were documents and Solr rejected all of them
    */
   private IndexingResult indexParsed(
       String collection, Format format, List<SolrInputDocument> documents)
       throws IOException, SolrServerException {
-    int indexedCount = indexDocuments(collection, documents);
-    return IndexingResult.parsed(
-        collection, format, documents.size(), indexedCount, indexedFieldNames(documents));
-  }
-
-  /** Maximum number of distinct field names listed in an indexing result. */
-  static final int MAX_REPORTED_FIELDS = 50;
-
-  /**
-   * Lists the distinct field names of the submitted documents, sorted, keeping the first {@link
-   * #MAX_REPORTED_FIELDS}. Nested JSON objects are flattened with underscores, so the indexed names
-   * can differ from the input; reporting them lets MCP clients query the right fields.
-   *
-   * @param documents the documents that were submitted for indexing
-   * @return the sorted field names, at most {@link #MAX_REPORTED_FIELDS} of them
-   */
-  private static List<String> indexedFieldNames(List<SolrInputDocument> documents) {
+    List<SolrInputDocument> accepted = indexDocuments(collection, documents);
+    if (!documents.isEmpty() && accepted.isEmpty()) {
+      throw new IllegalArgumentException(EVERY_DOCUMENT_REJECTED);
+    }
     Set<String> fieldNames = new TreeSet<>();
-    for (SolrInputDocument document : documents) {
+    for (SolrInputDocument document : accepted) {
       fieldNames.addAll(document.getFieldNames());
     }
-    return fieldNames.stream().limit(MAX_REPORTED_FIELDS).toList();
+    return IndexingResult.parsed(
+        collection,
+        format,
+        documents.size(),
+        accepted.size(),
+        fieldNames.stream().limit(MAX_REPORTED_FIELDS).toList(),
+        fieldNames.size());
   }
 
   /**
@@ -400,41 +417,55 @@ public class IndexingService {
    *
    * <p>If Solr rejects the request with a 400 (a document with an unknown field or a value of the
    * wrong type), the documents are retried one at a time so the valid ones are still indexed, then
-   * committed. Any other failure (unknown collection, auth, 5xx, Solr unreachable) would fail every
-   * retry the same way, so it propagates unchanged.
+   * committed. A retried document that Solr answers with a 400 is skipped. Any other failure, of
+   * the batch or of a retried document (unknown collection, auth, 5xx, Solr unreachable), says
+   * nothing about the documents, so it propagates unchanged.
    *
    * @param collection the name of the Solr collection to index into
    * @param documents the documents to index
-   * @return the number of documents successfully indexed
+   * @return the documents Solr accepted, in input order: all of them when the batch succeeds
    * @throws SolrServerException if Solr cannot be reached or the commit fails
    * @throws IOException if there are I/O errors during communication
    */
-  public int indexDocuments(String collection, List<SolrInputDocument> documents)
+  public List<SolrInputDocument> indexDocuments(
+      String collection, List<SolrInputDocument> documents)
       throws SolrServerException, IOException {
     UpdateRequest request = new UpdateRequest();
     request.add(documents);
     request.setAction(AbstractUpdateRequest.ACTION.COMMIT, false, true, true);
     try {
       request.process(solrClient, collection);
-      return documents.size();
+      return List.copyOf(documents);
     } catch (SolrException e) {
-      if (e.code() != SolrException.ErrorCode.BAD_REQUEST.code) {
-        throw e;
-      }
+      requireBadRequest(e);
       logger.warn("Solr rejected the batch, retrying documents individually", e);
     }
 
-    int successCount = 0;
-    for (SolrInputDocument doc : documents) {
+    List<SolrInputDocument> accepted = new ArrayList<>();
+    for (SolrInputDocument document : documents) {
       try {
-        solrClient.add(collection, doc);
-        successCount++;
+        solrClient.add(collection, document);
+        accepted.add(document);
       } catch (SolrException e) {
-        logger.debug("Failed to index individual document", e);
+        requireBadRequest(e);
+        logger.debug("Solr rejected an individual document", e);
       }
     }
     solrClient.commit(collection, false, true, true);
-    return successCount;
+    return List.copyOf(accepted);
+  }
+
+  /**
+   * Rethrows a Solr failure unless it is a 400, the only answer that means Solr rejected the
+   * documents themselves.
+   *
+   * @param failure the failure Solr reported
+   * @throws SolrException {@code failure} itself, when its code is not 400
+   */
+  private static void requireBadRequest(SolrException failure) {
+    if (failure.code() != SolrException.ErrorCode.BAD_REQUEST.code) {
+      throw failure;
+    }
   }
 
   /**
@@ -528,9 +559,10 @@ public class IndexingService {
 				   - Call `%s` with `collection=%s` and `%s=<%s>`.
 				   - The tool commits at the end and returns `collection` and `format`. For JSON and
 				     markdown it also returns `documentsSubmitted`, `documentsIndexed` (lower when Solr
-				     rejected some documents) and the `fieldNames` as indexed. For CSV and XML Solr
-				     accepts or rejects the whole payload and reports no count, so step 4 is where you
-				     learn it.
+				     rejected some documents), `fieldNames` (up to 50 field names of the indexed
+				     documents, in sort order) and `fieldCount` (how many there are); it fails if Solr
+				     rejects every document. For CSV and XML Solr accepts or rejects the whole payload
+				     and reports no count, so step 4 is where you learn it.
 				   - On error, read the message carefully: an "unknown field" error means the schema is
 				     missing a field — go back to step 1 and run `design-schema`. A parse error means
 				     the input format does not match the chosen tool — fix the payload and retry.

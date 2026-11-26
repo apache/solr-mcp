@@ -26,17 +26,21 @@ import org.jspecify.annotations.Nullable;
  * <p>A failed call throws and never produces this result, so there is no {@code success} flag.
  *
  * <p>The counts and field names are present only for the formats the server parses itself (JSON and
- * Markdown). CSV and XML go to Solr unchanged, and Solr's update response carries no document
- * count, so for those formats the three properties are absent.
+ * Markdown), and then all four are present. CSV and XML go to Solr unchanged, and Solr's update
+ * response carries no document count, so for those formats all four are absent.
  *
  * @param collection the collection the documents were indexed into
  * @param format the input format of the call
  * @param documentsSubmitted the number of documents the input produced; absent for CSV and XML
- * @param documentsIndexed the number of documents Solr accepted; lower than {@code
+ * @param documentsIndexed the number of documents Solr accepted, at least 1 when any were submitted
+ *     (a call whose documents Solr all rejected fails instead); lower than {@code
  *     documentsSubmitted} when Solr rejected some documents individually; absent for CSV and XML
- * @param fieldNames the distinct field names of the submitted documents, sorted, as they were sent
- *     to Solr (nested JSON objects flattened with underscores). At most 50 names are listed, the
- *     first 50 in sort order, to keep the result small. Absent for CSV and XML
+ * @param fieldNames the distinct field names of the documents Solr accepted, as indexed (nested
+ *     JSON objects flattened with underscores), in sort order. At most 50 names are listed, the
+ *     first 50 in sort order, to keep the result small; {@code fieldCount} tells whether the list
+ *     was cut short. Absent for CSV and XML
+ * @param fieldCount how many distinct field names the accepted documents have; larger than the size
+ *     of {@code fieldNames} when the list was cut short. Absent for CSV and XML
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record IndexingResult(
@@ -44,11 +48,42 @@ public record IndexingResult(
     Format format,
     @Nullable Integer documentsSubmitted,
     @Nullable Integer documentsIndexed,
-    @Nullable List<String> fieldNames) {
+    @Nullable List<String> fieldNames,
+    @Nullable Integer fieldCount) {
 
-  /** Copies {@code fieldNames} so the result cannot change after it is built. */
+  /**
+   * Checks that the result has one of its two legal shapes, and copies {@code fieldNames} so the
+   * result cannot change after it is built.
+   *
+   * @throws IllegalArgumentException if only some of the counts and field names are present, if
+   *     {@code documentsIndexed} is negative or larger than {@code documentsSubmitted}, or if
+   *     {@code fieldNames} holds more names than {@code fieldCount}
+   */
   public IndexingResult {
-    fieldNames = fieldNames == null ? null : List.copyOf(fieldNames);
+    if (documentsSubmitted != null
+        && documentsIndexed != null
+        && fieldNames != null
+        && fieldCount != null) {
+      if (documentsIndexed < 0 || documentsIndexed > documentsSubmitted) {
+        throw new IllegalArgumentException(
+            "documentsIndexed must be between 0 and documentsSubmitted, got "
+                + documentsIndexed
+                + " of "
+                + documentsSubmitted);
+      }
+      if (fieldNames.size() > fieldCount) {
+        throw new IllegalArgumentException(
+            "fieldNames holds " + fieldNames.size() + " names but fieldCount is " + fieldCount);
+      }
+      fieldNames = List.copyOf(fieldNames);
+    } else if (documentsSubmitted != null
+        || documentsIndexed != null
+        || fieldNames != null
+        || fieldCount != null) {
+      throw new IllegalArgumentException(
+          "documentsSubmitted, documentsIndexed, fieldNames and fieldCount must all be present"
+              + " or all be absent");
+    }
   }
 
   /**
@@ -58,7 +93,8 @@ public record IndexingResult(
    * @param format {@link Format#json} or {@link Format#markdown}
    * @param documentsSubmitted the number of documents the input produced
    * @param documentsIndexed the number of documents Solr accepted
-   * @param fieldNames the field names to report
+   * @param fieldNames the field names to report, at most {@code fieldCount} of them
+   * @param fieldCount how many distinct field names the accepted documents have
    * @return a result with counts and field names
    */
   static IndexingResult parsed(
@@ -66,8 +102,10 @@ public record IndexingResult(
       Format format,
       int documentsSubmitted,
       int documentsIndexed,
-      List<String> fieldNames) {
-    return new IndexingResult(collection, format, documentsSubmitted, documentsIndexed, fieldNames);
+      List<String> fieldNames,
+      int fieldCount) {
+    return new IndexingResult(
+        collection, format, documentsSubmitted, documentsIndexed, fieldNames, fieldCount);
   }
 
   /**
@@ -78,7 +116,7 @@ public record IndexingResult(
    * @return a result without counts or field names
    */
   static IndexingResult forwarded(String collection, Format format) {
-    return new IndexingResult(collection, format, null, null, null);
+    return new IndexingResult(collection, format, null, null, null, null);
   }
 
   /**

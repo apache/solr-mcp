@@ -104,15 +104,19 @@ class IndexingServiceTest {
 
     IndexingResult result = indexingService.indexJsonDocuments(COLLECTION, json);
 
-    assertEquals(new IndexingResult(COLLECTION, Format.json, 3, 3, List.of("id", "title")), result);
+    assertEquals(
+        new IndexingResult(COLLECTION, Format.json, 3, 3, List.of("id", "title"), 2), result);
   }
 
   @Test
   void indexJsonDocuments_WhenSolrRejectsSomeDocuments_ReportsOnlyTheAcceptedOnes()
       throws Exception {
     List<Map<String, Object>> json = List.of(Map.of("id", "1"));
-    when(indexingDocumentCreator.createSchemalessDocumentsFromJson(json))
-        .thenReturn(createMockDocuments(5));
+    List<SolrInputDocument> documents = createMockDocuments(5);
+    // only the two documents Solr rejects carry this field
+    documents.get(1).addField("colour", "red");
+    documents.get(3).addField("colour", "blue");
+    when(indexingDocumentCreator.createSchemalessDocumentsFromJson(json)).thenReturn(documents);
     // the batch fails with a 400, then the per-document retry rejects two of the five
     when(solrClient.request(any(UpdateRequest.class), eq(COLLECTION))).thenThrow(BAD_REQUEST);
     when(solrClient.add(eq(COLLECTION), any(SolrInputDocument.class)))
@@ -128,7 +132,62 @@ class IndexingServiceTest {
     assertEquals(3, result.documentsIndexed());
     assertEquals(Format.json, result.format());
     assertEquals(COLLECTION, result.collection());
+    assertEquals(
+        List.of("id", "title"),
+        result.fieldNames(),
+        "field names come from the accepted documents only");
+    assertEquals(2, result.fieldCount());
     verify(solrClient, times(5)).add(eq(COLLECTION), any(SolrInputDocument.class));
+  }
+
+  @Test
+  void indexJsonDocuments_WhenSolrRejectsEveryDocument_FailsWithAFixedMessage() throws Exception {
+    List<Map<String, Object>> json = List.of(Map.of("id", "1"));
+    when(indexingDocumentCreator.createSchemalessDocumentsFromJson(json))
+        .thenReturn(createMockDocuments(3));
+    when(solrClient.request(any(UpdateRequest.class), eq(COLLECTION))).thenThrow(BAD_REQUEST);
+    when(solrClient.add(eq(COLLECTION), any(SolrInputDocument.class))).thenThrow(BAD_REQUEST);
+
+    IllegalArgumentException failure =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> indexingService.indexJsonDocuments(COLLECTION, json));
+
+    assertEquals(
+        IndexingService.EVERY_DOCUMENT_REJECTED,
+        failure.getMessage(),
+        "the message is the server's own phrase, with no Solr text");
+    verify(solrClient, times(3)).add(eq(COLLECTION), any(SolrInputDocument.class));
+  }
+
+  @Test
+  void indexJsonDocuments_WithNoDocuments_ReportsZeroWithoutFailing() throws Exception {
+    List<Map<String, Object>> json = List.of();
+    when(indexingDocumentCreator.createSchemalessDocumentsFromJson(json)).thenReturn(List.of());
+    when(solrClient.request(any(UpdateRequest.class), eq(COLLECTION)))
+        .thenReturn(new NamedList<>());
+
+    IndexingResult result = indexingService.indexJsonDocuments(COLLECTION, json);
+
+    assertEquals(new IndexingResult(COLLECTION, Format.json, 0, 0, List.of(), 0), result);
+  }
+
+  @Test
+  void indexDocuments_WhenARetriedDocumentFailsWithANon400_PropagatesWithoutCommitting()
+      throws Exception {
+    List<SolrInputDocument> docs = createMockDocuments(3);
+    when(solrClient.request(any(UpdateRequest.class), eq(COLLECTION))).thenThrow(BAD_REQUEST);
+    when(solrClient.add(eq(COLLECTION), any(SolrInputDocument.class)))
+        .thenReturn(null)
+        .thenThrow(new RemoteSolrException("http://localhost:8983/solr", 503, "Unavailable", null));
+
+    RemoteSolrException failure =
+        assertThrows(
+            RemoteSolrException.class, () -> indexingService.indexDocuments(COLLECTION, docs));
+
+    assertEquals(503, failure.code(), "a 503 is not a rejected document");
+    verify(solrClient, times(2)).add(eq(COLLECTION), any(SolrInputDocument.class));
+    verify(solrClient, never()).commit(anyString(), anyBoolean(), anyBoolean(), anyBoolean());
   }
 
   @Test
@@ -149,6 +208,7 @@ class IndexingServiceTest {
     assertEquals(IndexingService.MAX_REPORTED_FIELDS, fieldNames.size());
     assertEquals("field_00", fieldNames.getFirst());
     assertEquals("field_49", fieldNames.getLast());
+    assertEquals(60, result.fieldCount(), "fieldCount tells the client the list was cut short");
   }
 
   @Test
@@ -169,7 +229,7 @@ class IndexingServiceTest {
   @Test
   void indexingResult_IsImmutable() {
     List<String> fieldNames = new ArrayList<>(List.of("id"));
-    IndexingResult result = new IndexingResult(COLLECTION, Format.json, 1, 1, fieldNames);
+    IndexingResult result = new IndexingResult(COLLECTION, Format.json, 1, 1, fieldNames, 2);
 
     fieldNames.add("title");
 
@@ -177,6 +237,36 @@ class IndexingServiceTest {
     assertEquals(List.of("id"), copied);
     assertNotNull(copied);
     assertThrows(UnsupportedOperationException.class, () -> copied.add("title"));
+  }
+
+  @Test
+  void indexingResult_AcceptsOnlyItsTwoLegalShapes() {
+    List<String> names = List.of("id", "title");
+
+    assertDoesNotThrow(() -> new IndexingResult(COLLECTION, Format.json, 5, 3, names, 2));
+    assertDoesNotThrow(() -> new IndexingResult(COLLECTION, Format.json, 5, 3, names, 60));
+    assertDoesNotThrow(() -> new IndexingResult(COLLECTION, Format.csv, null, null, null, null));
+    // counts and field names are present together or not at all
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new IndexingResult(COLLECTION, Format.json, 5, 3, null, null));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new IndexingResult(COLLECTION, Format.json, 5, 3, names, null));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new IndexingResult(COLLECTION, Format.csv, null, null, null, 2));
+    // more documents indexed than submitted, or a negative count
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new IndexingResult(COLLECTION, Format.json, 3, 5, names, 2));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new IndexingResult(COLLECTION, Format.json, 3, -1, names, 2));
+    // more names listed than the count says there are
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new IndexingResult(COLLECTION, Format.json, 3, 3, names, 1));
   }
 
   @Test
@@ -201,9 +291,9 @@ class IndexingServiceTest {
     when(solrClient.request(any(UpdateRequest.class), eq(COLLECTION)))
         .thenReturn(new NamedList<>());
 
-    int result = indexingService.indexDocuments(COLLECTION, docs);
+    List<SolrInputDocument> result = indexingService.indexDocuments(COLLECTION, docs);
 
-    assertEquals(5, result);
+    assertEquals(5, result.size());
     ArgumentCaptor<UpdateRequest> captor = ArgumentCaptor.forClass(UpdateRequest.class);
     verify(solrClient).request(captor.capture(), eq(COLLECTION));
     assertEquals(5, captor.getValue().getDocuments().size());
@@ -218,9 +308,9 @@ class IndexingServiceTest {
     when(solrClient.request(any(UpdateRequest.class), eq(COLLECTION)))
         .thenReturn(new NamedList<>());
 
-    int result = indexingService.indexDocuments(COLLECTION, docs);
+    List<SolrInputDocument> result = indexingService.indexDocuments(COLLECTION, docs);
 
-    assertEquals(2500, result);
+    assertEquals(2500, result.size());
     ArgumentCaptor<UpdateRequest> captor = ArgumentCaptor.forClass(UpdateRequest.class);
     verify(solrClient).request(captor.capture(), eq(COLLECTION));
     assertEquals(2500, captor.getValue().getDocuments().size());
@@ -234,9 +324,9 @@ class IndexingServiceTest {
         .thenThrow(new RemoteSolrException("http://localhost:8983/solr", 400, "Batch error", null));
     when(solrClient.add(eq(COLLECTION), any(SolrInputDocument.class))).thenReturn(null);
 
-    int result = indexingService.indexDocuments(COLLECTION, docs);
+    List<SolrInputDocument> result = indexingService.indexDocuments(COLLECTION, docs);
 
-    assertEquals(3, result);
+    assertEquals(3, result.size());
     verify(solrClient, times(3)).add(eq(COLLECTION), any(SolrInputDocument.class));
     // the rejected request's commit never ran
     verify(solrClient).commit(COLLECTION, false, true, true);
@@ -251,9 +341,9 @@ class IndexingServiceTest {
         .thenThrow(BAD_REQUEST)
         .thenReturn(null);
 
-    int result = indexingService.indexDocuments(COLLECTION, docs);
+    List<SolrInputDocument> result = indexingService.indexDocuments(COLLECTION, docs);
 
-    assertEquals(2, result);
+    assertEquals(2, result.size());
     verify(solrClient, times(3)).add(eq(COLLECTION), any(SolrInputDocument.class));
     verify(solrClient).commit(COLLECTION, false, true, true);
   }
@@ -361,7 +451,7 @@ class IndexingServiceTest {
         "soft commit: searchable on return, the segment fsync left to Solr's autoCommit");
     verify(solrClient, never()).commit(anyString());
     assertEquals(
-        new IndexingResult(COLLECTION, Format.csv, null, null, null),
+        new IndexingResult(COLLECTION, Format.csv, null, null, null, null),
         result,
         "no document count or field names are claimed: Solr does not report them");
     assertEquals(
@@ -399,7 +489,7 @@ class IndexingServiceTest {
         captor.getValue().getParams().get("softCommit"),
         "soft commit: searchable on return, the segment fsync left to Solr's autoCommit");
     verify(solrClient, never()).commit(anyString());
-    assertEquals(new IndexingResult(COLLECTION, Format.xml, null, null, null), result);
+    assertEquals(new IndexingResult(COLLECTION, Format.xml, null, null, null, null), result);
   }
 
   @Test
@@ -482,7 +572,7 @@ class IndexingServiceTest {
         indexingService.indexMarkdownDocuments(COLLECTION, List.of("# One", "# Two"));
 
     assertEquals(
-        new IndexingResult(COLLECTION, Format.markdown, 2, 2, List.of("id", "title")), result);
+        new IndexingResult(COLLECTION, Format.markdown, 2, 2, List.of("id", "title"), 2), result);
     verify(indexingDocumentCreator).createSchemalessDocumentsFromMarkdown("# One");
     verify(indexingDocumentCreator).createSchemalessDocumentsFromMarkdown("# Two");
     ArgumentCaptor<UpdateRequest> captor = ArgumentCaptor.forClass(UpdateRequest.class);

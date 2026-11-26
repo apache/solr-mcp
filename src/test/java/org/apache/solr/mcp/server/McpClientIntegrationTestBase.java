@@ -238,7 +238,9 @@ public abstract class McpClientIntegrationTestBase {
             "documentsIndexed",
             5,
             "fieldNames",
-            List.of("author", "category", "id", "title")),
+            List.of("author", "category", "id", "title"),
+            "fieldCount",
+            4),
         indexed);
   }
 

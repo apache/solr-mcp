@@ -149,8 +149,10 @@ block, because Solr's update grammar also carries `<delete>` and `<commit>` on t
 same endpoint. There is no generic-XML mapping; the XML tool takes Solr update XML
 (`<add><doc><field name="...">`). All four tools return an `IndexingResult`
 (`collection`, `format`). For JSON and Markdown it also carries
-`documentsSubmitted`, `documentsIndexed` and `fieldNames`; Solr's update response
-carries no document count, so for CSV and XML those three are absent.
+`documentsSubmitted`, `documentsIndexed`, `fieldNames` (up to 50 field names of the
+accepted documents, in sort order) and `fieldCount` (how many there are), and the
+call fails if Solr rejects every document. Solr's update response carries no
+document count, so for CSV and XML those four are absent.
 
 ### Transport Modes
 
@@ -246,8 +248,8 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
     `CollectionCreationResult`, `HealthStatus` and its `Reason`, `CollectionMetrics` and its
     nested stats records, `SearchResponse` and its nested `SearchHit`,
     `FacetField` and `FacetValue`, `SortClause`,
-    `SchemaUpdateResult`, `CollectionSchema` and its nested records, `IndexedField` and
-    `FieldProperty`
+    `SchemaUpdateResult`, `IndexingResult` and its `Format` enum, `CollectionSchema` and its
+    nested records, `IndexedField` and `FieldProperty`
   - **Spring AI**: `org.springframework.ai.mcp.annotation.context.DefaultMetaProvider`,
     which `MetaUtils` instantiates reflectively
   - **Resources**: `logback-spring.xml` (see Logging Architecture), and SolrJ's
