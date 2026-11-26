@@ -152,12 +152,15 @@ JavaBin defaults. The native image does not need either choice. SolrJ's
   These are the JSON response containers and indexing inputs reflected over at
   runtime.
 - **SolrJ schema request types** — `AnalyzerDefinition`, `FieldTypeDefinition`.
-  Needed for Jackson's `convertValue` when `add-field-types` deserializes
-  analyzer trees in native image.
-- **SolrJ schema response type** — `SchemaRepresentation`, returned by the
-  `get-schema` MCP tool. Without its hints, Spring AI's JSON in native image
-  silently drops the `fields`/`fieldTypes`/`dynamicFields`/`copyFields` arrays —
-  a quiet correctness bug, not a crash.
+  No current code path reaches them reflectively: `add-field-types` builds both
+  with setters, and SolrJ reads them back through getters into `NamedList`s
+  before writing the request JSON. They are kept so that a definition
+  serialized or logged reflectively still works in native image.
+- **Schema records** — `CollectionSchema` and its nested records, `FieldProperty`
+  and `IndexedField`, returned by `get-schema` and `list-fields` and bound from
+  `add-fields` / `add-field-types` arguments. Like the MCP tool response
+  records below, the MCP framework handles them as `Object`, so AOT can't see
+  them; they're registered by name in the same list.
 - **MCP tool response records** — `CollectionCreationResult`, `SolrHealthStatus`,
   `SolrMetrics`, `IndexStats`, `QueryStats`, `CacheStats`, `CacheInfo`,
   `HandlerStats`, `HandlerInfo`, `SearchResponse`, `SchemaUpdateResult`. These
