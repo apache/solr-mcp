@@ -808,11 +808,11 @@ class CollectionServiceTest {
             new SolrServerException(
                 "Server refused connection at: http://solr-internal.corp:8983/solr"));
 
+    ReadResourceRequest request = new ReadResourceRequest(COLLECTIONS_URI);
+
     IllegalStateException e =
         assertThrows(
-            IllegalStateException.class,
-            () ->
-                collectionService.getCollectionsResource(new ReadResourceRequest(COLLECTIONS_URI)));
+            IllegalStateException.class, () -> collectionService.getCollectionsResource(request));
 
     assertEquals(CollectionService.COLLECTIONS_RESOURCE_ERROR, e.getMessage());
     assertNull(e.getCause());

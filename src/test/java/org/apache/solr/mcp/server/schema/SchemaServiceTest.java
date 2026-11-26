@@ -16,8 +16,8 @@
  */
 package org.apache.solr.mcp.server.schema;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.apache.solr.mcp.server.McpResultAssertions.promptText;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -237,14 +237,13 @@ class SchemaServiceTest {
             new SolrServerException(
                 "Server refused connection at: http://solr-internal.corp:8983/solr"));
 
+    ReadResourceRequest request = new ReadResourceRequest("solr://" + collectionName + "/schema");
+
     // When
     IllegalStateException e =
         assertThrows(
             IllegalStateException.class,
-            () ->
-                schemaService.getSchemaResource(
-                    new ReadResourceRequest("solr://" + collectionName + "/schema"),
-                    collectionName));
+            () -> schemaService.getSchemaResource(request, collectionName));
 
     // Then the client gets the fixed message, never the Solr failure text
     assertEquals(SchemaService.SCHEMA_RESOURCE_ERROR, e.getMessage());
