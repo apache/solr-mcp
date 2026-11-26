@@ -79,11 +79,22 @@ class SolrNativeHintsTest {
 
   @Test
   void registersMcpResponseRecordHints() {
-    assertTrue(
-        RuntimeHintsPredicates.reflection()
-            .onType(TypeReference.of("org.apache.solr.mcp.server.search.SearchResponse"))
-            .withMemberCategory(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS)
-            .test(hints));
+    // Jackson reads each record's components through its accessors (methods).
+    for (String record :
+        List.of(
+            "org.apache.solr.mcp.server.search.SearchResponse",
+            "org.apache.solr.mcp.server.search.SearchResponse$SearchHit",
+            "org.apache.solr.mcp.server.search.SearchResponse$FacetField",
+            "org.apache.solr.mcp.server.search.SearchResponse$FacetValue")) {
+      assertTrue(
+          RuntimeHintsPredicates.reflection()
+              .onType(TypeReference.of(record))
+              .withMemberCategories(
+                  MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
+                  MemberCategory.INVOKE_DECLARED_METHODS)
+              .test(hints),
+          record);
+    }
   }
 
   /**

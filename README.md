@@ -107,7 +107,7 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 
 | Tool | Description |
 |------|-------------|
-| `search` | Full-text search with filtering, faceting, sorting, and pagination |
+| `search` | Full-text search with filtering, faceting, sorting, and pagination. Each hit has `id` (the uniqueKey value), `score` and its other `fields`; `facets` lists each field's value counts |
 | `index-json-documents` | Index documents passed as a JSON array of objects into a collection |
 | `index-csv-documents` | Index documents from a CSV string via Solr's CSV handler; repeat a column name for multi-valued fields |
 | `index-xml-documents` | Index documents from Solr update XML (`<add><doc><field name="...">`); only `<add>` blocks are accepted |

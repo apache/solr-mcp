@@ -20,7 +20,7 @@ import io.micrometer.observation.annotation.Observed;
 import io.modelcontextprotocol.spec.McpSchema.GetPromptResult;
 import io.modelcontextprotocol.spec.McpSchema.Role;
 import java.io.IOException;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -30,6 +30,7 @@ import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.SolrQuery;
 import org.apache.solr.client.solrj.response.FacetField;
 import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.DisMaxParams;
@@ -89,8 +90,8 @@ import org.springframework.util.StringUtils;
  *
  * <p><strong>Response Format:</strong>
  *
- * <p>Returns structured {@link SearchResponse} objects that encapsulate search results, metadata,
- * and facet information in a format optimized for JSON serialization and consumption by AI clients.
+ * <p>Returns a {@link SearchResponse}: the totals, one {@link SearchResponse.SearchHit} per
+ * document with its uniqueKey value as {@code id}, and a list of facet counts per field.
  *
  * @see SearchResponse
  * @see SolrClient
@@ -178,7 +179,15 @@ public class SearchService {
           + " If facetFields were supplied, call list-fields to check those fields or retry without facetFields;"
           + " if it persists, ask the operator to check server logs and Solr compatibility.";
 
+  /**
+   * The field Solr fills with each document's relevance score when {@code fl} asks for it. It is
+   * reported as {@link SearchResponse.SearchHit#score()}, not among the hit's fields.
+   */
+  private static final String SCORE_FIELD = "score";
+
   private final SolrClient solrClient;
+
+  private final UniqueKeyCache uniqueKeys;
 
   /**
    * Constructs a new SearchService with the required SolrClient dependency.
@@ -192,30 +201,51 @@ public class SearchService {
    */
   public SearchService(SolrClient solrClient) {
     this.solrClient = solrClient;
+    this.uniqueKeys = new UniqueKeyCache(solrClient);
   }
 
   /**
-   * Extracts facet information from a QueryResponse.
+   * Converts Solr's facet fields into the response's facet list.
    *
-   * @param queryResponse The QueryResponse containing facet results
-   * @return A Map where keys are facet field names and values are Maps of facet values to counts,
-   *     both in Solr's original (count-sorted) order
+   * @param queryResponse the response holding the facet counts
+   * @return one entry per faceted field, with values in Solr's (count-sorted) order; empty when the
+   *     search asked for no facets
    */
-  private static Map<String, Map<String, Long>> getFacets(QueryResponse queryResponse) {
-    Map<String, Map<String, Long>> facets = new LinkedHashMap<>();
-    if (queryResponse.getFacetFields() != null && !queryResponse.getFacetFields().isEmpty()) {
-      queryResponse
-          .getFacetFields()
-          .forEach(
-              facetField -> {
-                Map<String, Long> facetValues = new LinkedHashMap<>();
-                for (FacetField.Count count : facetField.getValues()) {
-                  facetValues.put(count.getName(), count.getCount());
-                }
-                facets.put(facetField.getName(), facetValues);
-              });
+  private static List<SearchResponse.FacetField> toFacets(QueryResponse queryResponse) {
+    final List<FacetField> facetFields = queryResponse.getFacetFields();
+    if (facetFields == null) {
+      return List.of();
+    }
+    final List<SearchResponse.FacetField> facets = new ArrayList<>(facetFields.size());
+    for (FacetField facetField : facetFields) {
+      final List<SearchResponse.FacetValue> values = new ArrayList<>(facetField.getValueCount());
+      for (FacetField.Count count : facetField.getValues()) {
+        values.add(new SearchResponse.FacetValue(count.getName(), count.getCount()));
+      }
+      facets.add(new SearchResponse.FacetField(facetField.getName(), values));
     }
     return facets;
+  }
+
+  /**
+   * Converts one Solr document into a hit: the uniqueKey value becomes {@code id}, {@code score}
+   * becomes the hit's score, and every other field stays in {@code fields} in Solr's order.
+   *
+   * @param document the document as Solr returned it
+   * @param uniqueKey the collection's uniqueKey field
+   * @return the hit, or {@code null} when the document has no value for {@code uniqueKey}
+   */
+  private static SearchResponse.@Nullable SearchHit toHit(SolrDocument document, String uniqueKey) {
+    final Object id = document.getFieldValue(uniqueKey);
+    if (id == null) {
+      return null;
+    }
+    final Float score =
+        document.getFieldValue(SCORE_FIELD) instanceof Number number ? number.floatValue() : null;
+    final Map<String, Object> fields = new LinkedHashMap<>(document);
+    fields.remove(uniqueKey);
+    fields.remove(SCORE_FIELD);
+    return new SearchResponse.SearchHit(String.valueOf(id), score, fields);
   }
 
   /**
@@ -263,8 +293,9 @@ public class SearchService {
    *     are ignored
    * @param start Starting offset for pagination
    * @param rows Number of rows to return
-   * @param fields Fields to return (fl parameter); {@code score} is always added. Blank entries are
-   *     ignored; all stored fields are returned when none remain
+   * @param fields Fields to return (fl parameter); {@code score} is always added, and so is the
+   *     uniqueKey field, which each hit reports as {@code id}. Blank entries are ignored; all
+   *     stored fields are returned when none remain
    * @param queryFields Fields to search the query against, with optional boosts (qf parameter).
    *     Blank entries are ignored; any remaining entry switches the request to eDisMax
    * @return A SearchResponse containing the search results and facets
@@ -287,6 +318,8 @@ public class SearchService {
 			results rank by score. For other eDisMax features (mm, pf, bq, boost), embed Solr local params
 			in q instead and leave queryFields empty, e.g. {!edismax qf='name author' mm=2}george martin.
 			Pass fields to return only the fields you need; by default every stored field comes back.
+			Each hit in documents has id (the collection's uniqueKey value), score, and its other fields
+			under fields; facets lists each faceted field with its values and counts, highest count first.
 			Put filters in fq (filterQueries) instead of q so Solr can cache and reuse them.
 			Call list-fields first to get the field names that hold data and their types, rather than
 			guessing names: dynamic fields such as genre_s exist only once documents use them. Facet
@@ -322,9 +355,9 @@ public class SearchService {
           @Nullable Integer rows,
       @McpToolParam(
               description =
-                  "Solr fl parameter: fields to return, e.g. [\"id\", \"name\"]. score is always"
-                      + " included. If none specified, all stored fields are returned. Blank entries"
-                      + " are ignored",
+                  "Solr fl parameter: fields to return, e.g. [\"name\", \"year\"]. score and the"
+                      + " uniqueKey (returned as each hit's id) are always included. If none"
+                      + " specified, all stored fields are returned. Blank entries are ignored",
               required = false)
           @Nullable List<String> fields,
       @McpToolParam(
@@ -398,23 +431,37 @@ public class SearchService {
     }
 
     try {
-      final QueryResponse queryResponse = solrClient.query(collection, solrQuery);
+      // Every hit reports its uniqueKey value as id, so a narrowed fl must still return it.
+      final String uniqueKey = uniqueKeys.get(collection);
+      if (!nonBlankFields.isEmpty() && !nonBlankFields.contains(uniqueKey)) {
+        solrQuery.addField(uniqueKey);
+      }
 
-      // Add documents
+      final QueryResponse queryResponse = solrClient.query(collection, solrQuery);
       final SolrDocumentList documents = queryResponse.getResults();
 
-      // Convert SolrDocuments to Maps
-      // SolrDocument is a Map in Solr's field order, so no per-document copy
-      final List<Map<String, Object>> docs = Collections.unmodifiableList(documents);
-
-      // Add facets if present
-      final var facets = getFacets(queryResponse);
+      final List<SearchResponse.SearchHit> hits = new ArrayList<>(documents.size());
+      for (SolrDocument document : documents) {
+        final SearchResponse.SearchHit hit = toHit(document, uniqueKey);
+        if (hit == null) {
+          // Only a remembered uniqueKey that the collection no longer has (it was deleted and
+          // created again with another schema) leaves a hit without it; look it up afresh next
+          // time.
+          uniqueKeys.evict(collection);
+          throw new IllegalStateException("Hit without uniqueKey field " + uniqueKey);
+        }
+        hits.add(hit);
+      }
 
       logger.info(
           "Search on collection {} matched {} documents", collection, documents.getNumFound());
 
       return new SearchResponse(
-          documents.getNumFound(), documents.getStart(), documents.getMaxScore(), docs, facets);
+          documents.getNumFound(),
+          documents.getStart(),
+          documents.getMaxScore(),
+          hits,
+          toFacets(queryResponse));
     } catch (SolrException e) {
       throw withRemediationHint(e, collection);
     } catch (SolrServerException e) {
@@ -575,9 +622,12 @@ public class SearchService {
 				                 * Many results: add a `filterQueries` constraint to narrow, or pass
 				                   `facetFields` on a relevant `string`/`strings` field to surface the distribution
 				                   and pick a sharper filter.
-				   - Inspect `documents` for the actual content. Each document carries a relevance
-				     `score`, and the response's `maxScore` is the top score among them; both are most
-				     meaningful as a relative confidence signal for non-`*:*` queries.
+				   - Inspect `documents` for the actual content. Each hit has `id` (the collection's
+				     uniqueKey value), a relevance `score`, and its other values under `fields`. The
+				     response's `maxScore` is the top score; scores are most meaningful as a relative
+				     confidence signal for non-`*:*` queries.
+				   - `facets` is a list with one entry per faceted field: `field` and its `values`, each
+				     a `value` with its `count`, highest count first.
 
 				5. Summarize.
 				   - Answer the user's question grounded in the documents found, citing concrete field

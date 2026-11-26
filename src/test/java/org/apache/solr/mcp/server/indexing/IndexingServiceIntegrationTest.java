@@ -194,22 +194,16 @@ class IndexingServiceIntegrationTest {
             COLLECTION_NAME, "id:test002 OR id:test003", null, null, null, null, null);
 
     assertNotNull(result);
-    List<Map<String, Object>> documents = result.documents();
+    List<SearchResponse.SearchHit> documents = result.documents();
     assertEquals(2, documents.size());
 
     // Verify specific document fields
     boolean foundBook2 = false;
     boolean foundBook3 = false;
 
-    for (Map<String, Object> book : documents) {
-      // Get ID and handle both String and List cases
-      Object idValue = book.get("id");
-      String id;
-      if (idValue instanceof List) {
-        id = (String) ((List<?>) idValue).getFirst();
-      } else {
-        id = (String) idValue;
-      }
+    for (SearchResponse.SearchHit hit : documents) {
+      String id = hit.id();
+      Map<String, Object> book = hit.fields();
 
       if (id.equals("test002")) {
         foundBook2 = true;
@@ -300,18 +294,11 @@ class IndexingServiceIntegrationTest {
         searchService.search(COLLECTION_NAME, "id:test004", null, null, null, null, null);
 
     assertNotNull(result);
-    List<Map<String, Object>> documents = result.documents();
+    List<SearchResponse.SearchHit> documents = result.documents();
     assertEquals(1, documents.size());
 
-    Map<String, Object> book = documents.getFirst();
-
-    // Handle ID field
-    Object idValue = book.get("id");
-    if (idValue instanceof List) {
-      assertEquals("test004", ((List<?>) idValue).getFirst());
-    } else {
-      assertEquals("test004", idValue);
-    }
+    assertEquals("test004", documents.getFirst().id());
+    Map<String, Object> book = documents.getFirst().fields();
 
     // Handle name field
     Object nameValue = book.get("name");
@@ -360,7 +347,7 @@ class IndexingServiceIntegrationTest {
     SearchResponse result =
         searchService.search(COLLECTION_NAME, "id:test005", null, null, null, null, null);
     assertEquals(1, result.documents().size());
-    Map<String, Object> doc = result.documents().getFirst();
+    Map<String, Object> doc = result.documents().getFirst().fields();
 
     // Solr accepts these names as they are; field names are case-sensitive
     assertEquals("Value with hyphen", getFieldValue(doc, "first-name"));
@@ -422,10 +409,10 @@ class IndexingServiceIntegrationTest {
         searchService.search(COLLECTION_NAME, "id:nested001", null, null, null, null, null);
 
     assertNotNull(result);
-    List<Map<String, Object>> documents = result.documents();
+    List<SearchResponse.SearchHit> documents = result.documents();
     assertEquals(1, documents.size());
 
-    Map<String, Object> doc = documents.getFirst();
+    Map<String, Object> doc = documents.getFirst().fields();
 
     // Check that deeply nested fields were flattened with underscore prefix
     // Level 1
@@ -507,10 +494,10 @@ class IndexingServiceIntegrationTest {
             COLLECTION_NAME, "id:special_fields_001", null, null, null, null, null);
 
     assertNotNull(result);
-    List<Map<String, Object>> documents = result.documents();
+    List<SearchResponse.SearchHit> documents = result.documents();
     assertEquals(1, documents.size());
 
-    Map<String, Object> doc = documents.getFirst();
+    Map<String, Object> doc = documents.getFirst().fields();
 
     // The server sends these names as given; Solr's schemaless update chain
     // (the _default configset) replaces the special characters with underscores
@@ -597,13 +584,13 @@ class IndexingServiceIntegrationTest {
         searchService.search(COLLECTION_NAME, "id:array_objects_001", null, null, null, null, null);
 
     assertNotNull(result);
-    List<Map<String, Object>> documents = result.documents();
+    List<SearchResponse.SearchHit> documents = result.documents();
     assertEquals(1, documents.size());
 
-    Map<String, Object> doc = documents.getFirst();
+    Map<String, Object> doc = documents.getFirst().fields();
 
     // Check that the document was indexed correctly
-    assertEquals("array_objects_001", getFieldValue(doc, "id"));
+    assertEquals("array_objects_001", documents.getFirst().id());
     assertEquals("Document with arrays of objects", getFieldValue(doc, "title"));
 
     // Check that the arrays of primitive values were indexed correctly

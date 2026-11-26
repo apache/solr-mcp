@@ -29,26 +29,82 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.SolrQuery;
+import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.FacetField;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrException;
+import org.apache.solr.common.util.NamedList;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
 import org.mockito.ArgumentCaptor;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 /** Unit tests for SearchService with mocked SolrClient. */
 @DisabledInNativeImage
 class SearchServiceTest {
+
+  private static final String ID = "id";
+
+  private static final String SKU = "sku";
+
+  private static final String COLLECTION = "test_collection";
+
+  private static final JsonMapper JSON = JsonMapper.builder().build();
+
+  /**
+   * A mocked client whose Schema API reports {@code uniqueKey} for every collection. Every search
+   * asks for the uniqueKey before it queries, so each test needs this stub.
+   */
+  private static SolrClient solrClientWithUniqueKey(String uniqueKey) throws Exception {
+    SolrClient client = mock(SolrClient.class);
+    NamedList<Object> response = new NamedList<>();
+    response.add("uniqueKey", uniqueKey);
+    when(client.request(any(SchemaRequest.UniqueKey.class), any())).thenReturn(response);
+    return client;
+  }
+
+  /** A service whose client answers every query with {@code documents} and {@code facets}. */
+  private static SearchService serviceReturning(
+      String uniqueKey, SolrDocumentList documents, List<FacetField> facets) throws Exception {
+    SolrClient client = solrClientWithUniqueKey(uniqueKey);
+    QueryResponse response = mock(QueryResponse.class);
+    when(response.getResults()).thenReturn(documents);
+    when(response.getFacetFields()).thenReturn(facets);
+    when(client.query(eq(COLLECTION), any(SolrQuery.class))).thenReturn(response);
+    return new SearchService(client);
+  }
+
+  private static SolrDocumentList documentList(long numFound, long start, SolrDocument... docs) {
+    SolrDocumentList documents = new SolrDocumentList();
+    documents.setNumFound(numFound);
+    documents.setStart(start);
+    documents.addAll(List.of(docs));
+    return documents;
+  }
+
+  /** Serializes a result the way the MCP layer does and reads it back as plain JSON values. */
+  private static Map<String, Object> toJson(Object result) {
+    return JSON.readValue(JSON.writeValueAsString(result), new TypeReference<>() {});
+  }
+
+  private static SolrDocument document(Map<String, Object> fields) {
+    SolrDocument document = new SolrDocument();
+    fields.forEach(document::setField);
+    return document;
+  }
 
   @Test
   void constructor_ShouldInitializeWithSolrClient() {
@@ -58,7 +114,7 @@ class SearchServiceTest {
 
   @Test
   void search_WithBlankFiltersAndFacets_ShouldOmitThem() throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     QueryResponse mockResponse = mock(QueryResponse.class);
     when(mockResponse.getResults()).thenReturn(createMockDocumentList());
     when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
@@ -80,7 +136,7 @@ class SearchServiceTest {
   @Test
   void search_AsksForNamedListsAsJsonObjects() throws Exception {
     // JsonResponseParser reads facet counts only in json.nl=map style.
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     QueryResponse mockResponse = mock(QueryResponse.class);
     when(mockResponse.getResults()).thenReturn(createMockDocumentList());
     when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
@@ -97,7 +153,7 @@ class SearchServiceTest {
 
   @Test
   void search_WithBlankSortFields_ShouldOmitSorting() throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     QueryResponse mockResponse = mock(QueryResponse.class);
     when(mockResponse.getResults()).thenReturn(createMockDocumentList());
     when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
@@ -121,7 +177,7 @@ class SearchServiceTest {
 
   @Test
   void search_WithMixedBlankAndValidOptions_ShouldPreserveValidValues() throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     QueryResponse mockResponse = mock(QueryResponse.class);
     when(mockResponse.getResults()).thenReturn(createMockDocumentList());
     String filter = "{!tag=genre}genre_s:fantasy";
@@ -156,8 +212,8 @@ class SearchServiceTest {
   }
 
   @Test
-  void search_WithInvalidNonblankSortOrder_ShouldStillFail() {
-    SearchService localService = new SearchService(mock(SolrClient.class));
+  void search_WithInvalidNonblankSortOrder_ShouldStillFail() throws Exception {
+    SearchService localService = new SearchService(solrClientWithUniqueKey(ID));
     List<SortClause> sort = List.of(new SortClause("price", "descending"));
     IllegalArgumentException e =
         assertThrows(
@@ -179,7 +235,7 @@ class SearchServiceTest {
             new SolrException(SolrException.ErrorCode.FORBIDDEN, detail),
             new ClassCastException(detail),
             new IllegalStateException(detail))) {
-      SolrClient mockClient = mock(SolrClient.class);
+      SolrClient mockClient = solrClientWithUniqueKey(ID);
       when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenThrow(failure);
       SearchService localService = new SearchService(mockClient);
       Exception e =
@@ -205,7 +261,7 @@ class SearchServiceTest {
 
   @Test
   void search_FacetConversionFailure_ShouldNotReturnSuccessfulSearch() throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     QueryResponse mockResponse = mock(QueryResponse.class);
     when(mockResponse.getResults()).thenReturn(createMockDocumentListWithData());
     ClassCastException failure =
@@ -234,7 +290,7 @@ class SearchServiceTest {
    */
 
   private static SearchService serviceThrowing(SolrException e) throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenThrow(e);
     return new SearchService(mockClient);
   }
@@ -328,7 +384,7 @@ class SearchServiceTest {
 
   @Test
   void search_WithNullQuery_ShouldDefaultToMatchAll() throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     QueryResponse mockResponse = mock(QueryResponse.class);
     SolrDocumentList mockDocuments = createMockDocumentList();
     when(mockResponse.getResults()).thenReturn(mockDocuments);
@@ -353,7 +409,7 @@ class SearchServiceTest {
    */
   @Test
   void search_ShouldRequestScoreInFieldList() throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     QueryResponse mockResponse = mock(QueryResponse.class);
     SolrDocumentList mockDocuments = createMockDocumentList();
     when(mockResponse.getResults()).thenReturn(mockDocuments);
@@ -375,7 +431,7 @@ class SearchServiceTest {
 
   @Test
   void search_WithCustomQuery_ShouldUseProvidedQuery() throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     QueryResponse mockResponse = mock(QueryResponse.class);
     String customQuery = "name:\"Spring Boot\"";
     SolrDocumentList mockDocuments = createMockDocumentList();
@@ -396,7 +452,7 @@ class SearchServiceTest {
 
   @Test
   void search_WithFilterQueries_ShouldApplyFilters() throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     QueryResponse mockResponse = mock(QueryResponse.class);
     List<String> filterQueries = List.of("genre_s:fantasy", "price:[0 TO 10]");
     SolrDocumentList mockDocuments = createMockDocumentList();
@@ -417,7 +473,7 @@ class SearchServiceTest {
 
   @Test
   void search_WithFacetFields_ShouldEnableFaceting() throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     QueryResponse mockResponse = mock(QueryResponse.class);
     List<String> facetFields = List.of("genre_s", "author_ss");
     SolrDocumentList mockDocuments = createMockDocumentList();
@@ -433,7 +489,7 @@ class SearchServiceTest {
 
   @Test
   void search_WithSortClauses_ShouldApplySorting() throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     QueryResponse mockResponse = mock(QueryResponse.class);
     List<SortClause> sortClauses =
         List.of(new SortClause("price", "asc"), new SortClause("name", "desc"));
@@ -449,7 +505,7 @@ class SearchServiceTest {
 
   @Test
   void search_WithPagination_ShouldApplyStartAndRows() throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     QueryResponse mockResponse = mock(QueryResponse.class);
     Integer start = 10;
     Integer rows = 20;
@@ -472,7 +528,7 @@ class SearchServiceTest {
 
   @Test
   void search_WithAllParameters_ShouldCombineAllOptions() throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     QueryResponse mockResponse = mock(QueryResponse.class);
     String query = "title:Java";
     List<String> filterQueries = List.of("inStock:true");
@@ -503,7 +559,7 @@ class SearchServiceTest {
 
   @Test
   void search_WhenSolrThrowsException_ShouldPropagateException() throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
         .thenThrow(new SolrServerException("Connection error"));
     SearchService localService = new SearchService(mockClient);
@@ -514,7 +570,7 @@ class SearchServiceTest {
 
   @Test
   void search_WhenIOException_ShouldPropagateException() throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
         .thenThrow(new IOException("Network error"));
     SearchService localService = new SearchService(mockClient);
@@ -525,7 +581,7 @@ class SearchServiceTest {
 
   @Test
   void search_WithEmptyResults_ShouldReturnEmptyDocumentList() throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     QueryResponse mockResponse = mock(QueryResponse.class);
     SolrDocumentList emptyDocuments = new SolrDocumentList();
     emptyDocuments.setNumFound(0);
@@ -543,7 +599,7 @@ class SearchServiceTest {
 
   @Test
   void search_WithNullFilterQueries_ShouldNotApplyFilters() throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     QueryResponse mockResponse = mock(QueryResponse.class);
     SolrDocumentList mockDocuments = createMockDocumentList();
     when(mockResponse.getResults()).thenReturn(mockDocuments);
@@ -563,7 +619,7 @@ class SearchServiceTest {
 
   @Test
   void search_WithEmptyFacetFields_ShouldNotEnableFaceting() throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     QueryResponse mockResponse = mock(QueryResponse.class);
     SolrDocumentList mockDocuments = createMockDocumentList();
     when(mockResponse.getResults()).thenReturn(mockDocuments);
@@ -583,7 +639,7 @@ class SearchServiceTest {
 
   @Test
   void searchResponse_ShouldContainAllFields() throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     QueryResponse mockResponse = mock(QueryResponse.class);
     SolrDocumentList mockDocuments = createMockDocumentListWithData();
     when(mockResponse.getResults()).thenReturn(mockDocuments);
@@ -602,13 +658,12 @@ class SearchServiceTest {
   }
 
   /**
-   * Documents come back as the raw {@link SolrDocument} (which implements {@code Map<String,
-   * Object>}, backed by a {@link java.util.LinkedHashMap}), so field order must survive unchanged
-   * rather than being scrambled by a {@link java.util.HashMap} copy.
+   * A hit's {@code fields} is a {@link java.util.LinkedHashMap} copy of the {@link SolrDocument},
+   * so Solr's field order survives rather than being scrambled by a {@link java.util.HashMap}.
    */
   @Test
   void searchResponse_ShouldPreserveDocumentFieldOrder() throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     QueryResponse mockResponse = mock(QueryResponse.class);
     SolrDocumentList mockDocuments = createMockDocumentListWithData();
     when(mockResponse.getResults()).thenReturn(mockDocuments);
@@ -617,11 +672,12 @@ class SearchServiceTest {
     SearchService localService = new SearchService(mockClient);
     SearchResponse result =
         localService.search("test_collection", null, null, null, null, null, null);
-    var firstDoc = result.documents().getFirst();
+    SearchResponse.SearchHit firstHit = result.documents().getFirst();
+    assertEquals("book001", firstHit.id());
     assertEquals(
-        List.of("id", "name", "author_ss", "price", "genre_s"),
-        List.copyOf(firstDoc.keySet()),
-        "document field order must match Solr's original order");
+        List.of("name", "author_ss", "price", "genre_s"),
+        List.copyOf(firstHit.fields().keySet()),
+        "hit field order must match Solr's original order, without the uniqueKey");
   }
 
   /**
@@ -630,7 +686,7 @@ class SearchServiceTest {
    */
   @Test
   void searchResponse_ShouldPreserveFacetOrder() throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     QueryResponse mockResponse = mock(QueryResponse.class);
     SolrDocumentList mockDocuments = createMockDocumentList();
     when(mockResponse.getResults()).thenReturn(mockDocuments);
@@ -642,12 +698,14 @@ class SearchServiceTest {
             "test_collection", null, null, List.of("genre_s", "author_ss"), null, null, null);
     assertEquals(
         List.of("genre_s", "author_ss"),
-        List.copyOf(result.facets().keySet()),
+        result.facets().stream().map(SearchResponse.FacetField::field).toList(),
         "facet field order must match Solr's response order");
     assertEquals(
-        List.of("technology", "fiction"),
-        List.copyOf(result.facets().get("genre_s").keySet()),
-        "facet bucket order (count-sorted by Solr) must be preserved");
+        List.of(
+            new SearchResponse.FacetValue("technology", 5),
+            new SearchResponse.FacetValue("fiction", 3)),
+        result.facets().getFirst().values(),
+        "facet value order (count-sorted by Solr) must be preserved");
   }
 
   private SolrDocumentList createMockDocumentList() {
@@ -682,7 +740,7 @@ class SearchServiceTest {
   /** Runs a search with the given fields/queryFields and returns the request sent to Solr. */
   private SolrQuery searchAndCapture(String query, List<String> fields, List<String> queryFields)
       throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     QueryResponse mockResponse = mock(QueryResponse.class);
     when(mockResponse.getResults()).thenReturn(createMockDocumentList());
     when(mockClient.query(eq("test_collection"), any(SolrQuery.class))).thenReturn(mockResponse);
@@ -737,7 +795,7 @@ class SearchServiceTest {
 
   @Test
   void search_WithQueryFieldsAndLocalParams_ShouldRejectBeforeQuerying() throws Exception {
-    SolrClient mockClient = mock(SolrClient.class);
+    SolrClient mockClient = solrClientWithUniqueKey(ID);
     SearchService localService = new SearchService(mockClient);
     IllegalArgumentException e =
         assertThrows(
@@ -765,6 +823,211 @@ class SearchServiceTest {
     authorFacet.add("Craig Walls", 2);
     authorFacet.add("Joshua Bloch", 1);
     return List.of(genreFacet, authorFacet);
+  }
+
+  // ===== typed search contract (spec: search) =====
+
+  @Test
+  void search_ReportsNumFoundStartAndAtMostRowsHits() throws Exception {
+    SolrDocumentList page =
+        documentList(42, 10, document(Map.of(ID, "doc10")), document(Map.of(ID, "doc11")));
+    SearchResponse result =
+        serviceReturning(ID, page, null).search(COLLECTION, null, null, null, null, 10, 5);
+    assertEquals(42, result.numFound());
+    assertEquals(10, result.start());
+    assertTrue(result.documents().size() <= 5);
+    assertEquals(
+        List.of("doc10", "doc11"),
+        result.documents().stream().map(SearchResponse.SearchHit::id).toList());
+  }
+
+  @Test
+  void search_WithoutScores_OmitsMaxScoreAndHitScore() throws Exception {
+    SolrDocumentList page = documentList(1, 0, document(Map.of(ID, "doc1", "name", "x")));
+    SearchResponse result =
+        serviceReturning(ID, page, null).search(COLLECTION, null, null, null, null, null, null);
+    assertNull(result.maxScore());
+    assertNull(result.documents().getFirst().score());
+
+    Map<String, Object> json = toJson(result);
+    assertFalse(json.containsKey("maxScore"), json::toString);
+    Map<?, ?> hit = (Map<?, ?>) ((List<?>) json.get("documents")).getFirst();
+    assertEquals(Map.of(ID, "doc1", "fields", Map.of("name", "x")), hit);
+  }
+
+  @Test
+  void search_UniqueKeyNotNamedId_BecomesHitIdAndLeavesFields() throws Exception {
+    SolrDocument doc = new SolrDocument();
+    doc.setField("name", "Widget");
+    doc.setField(SKU, "A-1");
+    SearchResponse result =
+        serviceReturning(SKU, documentList(1, 0, doc), null)
+            .search(COLLECTION, null, null, null, null, null, null);
+    SearchResponse.SearchHit hit = result.documents().getFirst();
+    assertEquals("A-1", hit.id());
+    assertEquals(Map.of("name", "Widget"), hit.fields());
+  }
+
+  @Test
+  void search_NonStringUniqueKey_IsReportedAsString() throws Exception {
+    SearchResponse result =
+        serviceReturning(SKU, documentList(1, 0, document(Map.of(SKU, 7L))), null)
+            .search(COLLECTION, null, null, null, null, null, null);
+    assertEquals("7", result.documents().getFirst().id());
+  }
+
+  @Test
+  void search_WithScores_MovesScoreOutOfFields() throws Exception {
+    SolrDocument doc = new SolrDocument();
+    doc.setField(ID, "doc1");
+    doc.setField("name", "x");
+    doc.setField("score", 1.5f);
+    SolrDocumentList page = documentList(1, 0, doc);
+    page.setMaxScore(1.5f);
+    SearchResponse result =
+        serviceReturning(ID, page, null)
+            .search(
+                COLLECTION, "name:x", null, null, null, null, null, List.of("name", "score"), null);
+    SearchResponse.SearchHit hit = result.documents().getFirst();
+    assertEquals(1.5f, hit.score());
+    assertEquals(1.5f, result.maxScore());
+    assertEquals(Map.of("name", "x"), hit.fields());
+  }
+
+  @Test
+  void search_FieldValuesKeepTheirJsonTypes() throws Exception {
+    SolrDocument doc = new SolrDocument();
+    doc.setField(ID, "doc1");
+    doc.setField("year", 1965L);
+    doc.setField("genres", List.of("drama", "war"));
+    SearchResponse result =
+        serviceReturning(ID, documentList(1, 0, doc), null)
+            .search(COLLECTION, null, null, null, null, null, null);
+
+    Map<String, Object> json = toJson(result);
+    Map<?, ?> fields =
+        (Map<?, ?>) ((Map<?, ?>) ((List<?>) json.get("documents")).getFirst()).get("fields");
+    assertEquals(1965, ((Number) fields.get("year")).intValue());
+    assertInstanceOf(Number.class, fields.get("year"));
+    assertEquals(List.of("drama", "war"), fields.get("genres"));
+  }
+
+  @Test
+  void search_FieldsWithoutUniqueKey_AddsItToFl() throws Exception {
+    SolrClient client = solrClientWithUniqueKey(SKU);
+    QueryResponse response = mock(QueryResponse.class);
+    when(response.getResults()).thenReturn(documentList(1, 0, document(Map.of(SKU, "A-1"))));
+    when(client.query(eq(COLLECTION), any(SolrQuery.class))).thenReturn(response);
+
+    SearchResponse result =
+        new SearchService(client)
+            .search(COLLECTION, null, null, null, null, null, null, List.of("name"), null);
+
+    ArgumentCaptor<SolrQuery> captor = ArgumentCaptor.forClass(SolrQuery.class);
+    verify(client).query(eq(COLLECTION), captor.capture());
+    assertEquals("name,score,sku", captor.getValue().getFields());
+    assertEquals("A-1", result.documents().getFirst().id());
+  }
+
+  @Test
+  void search_FieldsWithUniqueKey_DoesNotRepeatIt() throws Exception {
+    SolrQuery q = searchAndCapture(null, List.of("name", ID), null);
+    assertEquals("name,id,score", q.getFields());
+  }
+
+  @Test
+  void search_FacetOnOneField_IsAListOfOrderedValueCounts() throws Exception {
+    FacetField genre = new FacetField("genre");
+    genre.add("drama", 12);
+    genre.add("comedy", 7);
+    SearchResponse result =
+        serviceReturning(ID, documentList(19, 0), List.of(genre))
+            .search(COLLECTION, null, null, List.of("genre"), null, null, 0);
+
+    assertEquals(
+        "[{\"field\":\"genre\",\"values\":[{\"value\":\"drama\",\"count\":12},"
+            + "{\"value\":\"comedy\",\"count\":7}]}]",
+        JSON.writeValueAsString(result.facets()));
+  }
+
+  @Test
+  void search_WithoutFacetFields_ReturnsEmptyFacetList() throws Exception {
+    SearchResponse result =
+        serviceReturning(ID, documentList(0, 0), null)
+            .search(COLLECTION, null, null, null, null, null, null);
+    assertEquals(List.of(), result.facets());
+    Map<String, Object> json = toJson(result);
+    assertEquals(List.of(), json.get("facets"));
+  }
+
+  @Test
+  void search_RepeatedOnOneCollection_AsksTheSchemaApiOnce() throws Exception {
+    SolrClient client = solrClientWithUniqueKey(ID);
+    QueryResponse response = mock(QueryResponse.class);
+    when(response.getResults()).thenReturn(documentList(0, 0));
+    when(client.query(any(), any(SolrQuery.class))).thenReturn(response);
+    SearchService localService = new SearchService(client);
+
+    localService.search(COLLECTION, null, null, null, null, null, null);
+    localService.search(COLLECTION, "name:x", null, null, null, null, null);
+    localService.search(COLLECTION, null, null, null, null, 10, 10);
+    localService.search("other_collection", null, null, null, null, null, null);
+
+    verify(client, times(1)).request(any(SchemaRequest.UniqueKey.class), eq(COLLECTION));
+    verify(client, times(1)).request(any(SchemaRequest.UniqueKey.class), eq("other_collection"));
+    verify(client, times(4)).query(any(), any(SolrQuery.class));
+  }
+
+  /**
+   * A hit without the remembered uniqueKey means the collection was recreated with another schema.
+   * The call fails rather than return a hit without an id, and the next search looks the key up
+   * again.
+   */
+  @Test
+  void search_HitWithoutUniqueKey_FailsAndLooksTheKeyUpAgain() throws Exception {
+    SolrClient client = solrClientWithUniqueKey(SKU);
+    QueryResponse response = mock(QueryResponse.class);
+    when(response.getResults()).thenReturn(documentList(1, 0, document(Map.of(ID, "doc1"))));
+    when(client.query(eq(COLLECTION), any(SolrQuery.class))).thenReturn(response);
+    SearchService localService = new SearchService(client);
+
+    IllegalStateException e =
+        assertThrows(
+            IllegalStateException.class,
+            () -> localService.search(COLLECTION, null, null, null, null, null, null));
+    assertTrue(e.getMessage().startsWith("Search failed"), e::getMessage);
+    assertNull(e.getCause(), "MCP must not unwrap a raw failure");
+    assertThrows(
+        IllegalStateException.class,
+        () -> localService.search(COLLECTION, null, null, null, null, null, null));
+    verify(client, times(2)).request(any(SchemaRequest.UniqueKey.class), eq(COLLECTION));
+  }
+
+  @Test
+  void search_SchemaWithoutUniqueKey_FailsWithoutQuerying() throws Exception {
+    SolrClient client = mock(SolrClient.class);
+    when(client.request(any(SchemaRequest.UniqueKey.class), any())).thenReturn(new NamedList<>());
+    SearchService localService = new SearchService(client);
+    IllegalStateException e =
+        assertThrows(
+            IllegalStateException.class,
+            () -> localService.search(COLLECTION, null, null, null, null, null, null));
+    assertTrue(e.getMessage().startsWith("Search failed"), e::getMessage);
+    verify(client, never()).query(any(), any(SolrQuery.class));
+  }
+
+  @Test
+  void search_UniqueKeyLookupOnMissingCollection_HintsListCollections() throws Exception {
+    SolrClient client = mock(SolrClient.class);
+    when(client.request(any(SchemaRequest.UniqueKey.class), any()))
+        .thenThrow(new SolrException(SolrException.ErrorCode.NOT_FOUND, "not found"));
+    SearchService localService = new SearchService(client);
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> localService.search(COLLECTION, null, null, null, null, null, null));
+    assertTrue(e.getMessage().contains(SearchService.LIST_COLLECTIONS_HINT));
+    verify(client, never()).query(any(), any(SolrQuery.class));
   }
 
   @Test

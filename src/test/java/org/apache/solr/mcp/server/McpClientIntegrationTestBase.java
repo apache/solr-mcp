@@ -43,6 +43,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.AutoClose;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
@@ -371,7 +372,7 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    assertThat(json(result)).hasPath("$.facets.id");
+    assertThat(json(result)).extractingPath(facetValuesPath("id")).asArray().isNotEmpty();
   }
 
   @Test
@@ -814,9 +815,18 @@ public abstract class McpClientIntegrationTestBase {
     assertNotError(result);
     JsonContent response = json(result);
     // The dataset has 20 Netflix shows and 20 Amazon Prime Video shows.
-    assertThat(response).extractingPath("$.facets.platform.Netflix").isEqualTo(20);
-    assertThat(response).extractingPath("$.facets.platform['Amazon Prime Video']").isEqualTo(20);
-    assertThat(response).hasPath("$.facets.platform['HBO Max']");
+    assertThat(response)
+        .extractingPath(facetCountPath("platform", "Netflix"))
+        .asArray()
+        .containsExactly(20);
+    assertThat(response)
+        .extractingPath(facetCountPath("platform", "Amazon Prime Video"))
+        .asArray()
+        .containsExactly(20);
+    assertThat(response)
+        .extractingPath(facetValuesPath("platform") + ".value")
+        .asArray()
+        .contains("HBO Max");
   }
 
   @Test
@@ -1154,7 +1164,10 @@ public abstract class McpClientIntegrationTestBase {
                     List.of(Map.of("field", "", "order", "")))));
     assertNotError(result);
     assertEquals(SHOWS_DOC_COUNT, getNumFound(result));
-    assertThat(json(result)).extractingPath("$.facets.platform.Netflix").isEqualTo(20);
+    assertThat(json(result))
+        .extractingPath(facetCountPath("platform", "Netflix"))
+        .asArray()
+        .containsExactly(20);
   }
 
   @Test
@@ -1261,10 +1274,21 @@ public abstract class McpClientIntegrationTestBase {
     assertNotError(result);
     // "Fallout" has "post-apocalyptic" in its description.
     assertThat(getNumFound(result)).as("apocalyptic shows").isGreaterThanOrEqualTo(1);
-    List<Map<String, Object>> documents = read(result, "$.documents[*]");
-    // fields limits each document to title plus score
-    assertThat(documents)
-        .allSatisfy(document -> assertThat(document).containsOnlyKeys("title", "score"));
+    // The uniqueKey is returned as id even though fields left it out; score sits beside it.
+    List<Map<String, Object>> hits = read(result, "$.documents[*]");
+    assertThat(hits)
+        .allSatisfy(
+            hit -> {
+              assertThat(hit).containsOnlyKeys("id", "score", "fields");
+              assertThat(hit.get("id"))
+                  .as("id is the uniqueKey as a string")
+                  .isInstanceOf(String.class);
+              assertThat(hit.get("score")).as("score is a number").isInstanceOf(Number.class);
+              assertThat(hit.get("fields"))
+                  .asInstanceOf(InstanceOfAssertFactories.MAP)
+                  .as("fields limits each hit to title")
+                  .containsOnlyKeys("title");
+            });
   }
 
   @Test
@@ -1346,5 +1370,15 @@ public abstract class McpClientIntegrationTestBase {
 
   protected static int getNumFound(CallToolResult result) {
     return read(result, "$.numFound");
+  }
+
+  /** JsonPath to one field's facet values. A filter path, so it reads as a list. */
+  protected static String facetValuesPath(String field) {
+    return "$.facets[?(@.field == '" + field + "')].values[*]";
+  }
+
+  /** JsonPath to the count of one facet value. A filter path, so it reads as a list. */
+  protected static String facetCountPath(String field, String value) {
+    return "$.facets[?(@.field == '" + field + "')].values[?(@.value == '" + value + "')].count";
   }
 }
