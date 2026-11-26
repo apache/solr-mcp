@@ -44,6 +44,7 @@ import org.apache.solr.mcp.server.schema.CollectionSchema;
 import org.apache.solr.mcp.server.schema.SchemaService;
 import org.apache.solr.mcp.server.search.SearchResponse;
 import org.apache.solr.mcp.server.search.SearchService;
+import org.apache.solr.mcp.server.util.SolrCalls;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -204,9 +205,11 @@ class CollectionServiceIntegrationTest {
         assertThrows(
             IllegalArgumentException.class, () -> collectionService.getCollectionStats(missing));
 
-    assertTrue(
-        exception.getMessage().contains("Collection not found: " + missing),
-        "Message should name the missing collection: " + exception.getMessage());
+    assertEquals(
+        CollectionService.COLLECTION_STATS_FAILED + ": " + SolrCalls.collectionNotFound(missing),
+        exception.getMessage(),
+        "Message should name the missing collection");
+    assertNull(exception.getCause(), "Spring AI would append the cause's URL-bearing message");
   }
 
   @Test

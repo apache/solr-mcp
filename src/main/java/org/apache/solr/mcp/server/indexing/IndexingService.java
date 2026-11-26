@@ -39,6 +39,7 @@ import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreat
 import org.apache.solr.mcp.server.util.McpResults;
 import org.apache.solr.mcp.server.util.PromptNames;
 import org.apache.solr.mcp.server.util.PromptText;
+import org.apache.solr.mcp.server.util.SolrCalls;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -138,6 +139,9 @@ public class IndexingService {
   static final String EVERY_DOCUMENT_REJECTED =
       "Solr rejected every document; check the field names and types against get-schema";
 
+  /** Leads the error text of a failed indexing tool. */
+  static final String INDEXING_FAILED = "Indexing failed";
+
   /** SolrJ client for communicating with Solr server */
   private final SolrClient solrClient;
 
@@ -199,8 +203,10 @@ public class IndexingService {
    * @param collection the name of the Solr collection to index documents into
    * @param documents the documents to index, one map per document
    * @return the collection, the number of documents submitted and indexed, and the field names
-   * @throws IOException if there are critical errors in JSON parsing or Solr communication
-   * @throws SolrServerException if Solr server encounters errors during indexing
+   * @throws IllegalArgumentException if the collection does not exist, or Solr rejected every
+   *     document
+   * @throws IllegalStateException if Solr failed or could not be reached
+   * @see SolrCalls
    * @see IndexingDocumentCreator#createSchemalessDocumentsFromJson(List)
    * @see #indexDocuments(String, List)
    */
@@ -217,8 +223,7 @@ public class IndexingService {
   public IndexingResult indexJsonDocuments(
       @McpToolParam(description = "Solr collection to index into") String collection,
       @McpToolParam(description = "Documents to index: a JSON array with one object per document")
-          List<Map<String, Object>> documents)
-      throws IOException, SolrServerException {
+          List<Map<String, Object>> documents) {
     List<SolrInputDocument> schemalessDocuments =
         indexingDocumentCreator.createSchemalessDocumentsFromJson(documents);
     return indexParsed(collection, Format.json, schemalessDocuments);
@@ -233,8 +238,10 @@ public class IndexingService {
    * @param collection the name of the Solr collection to index documents into
    * @param csv CSV text with a header row
    * @return the collection and format, without counts: Solr does not report one
-   * @throws IOException if communication with Solr fails
-   * @throws SolrServerException if Solr rejects the payload
+   * @throws IllegalArgumentException if the collection does not exist, or Solr rejected the
+   *     payload; the message carries Solr's reason
+   * @throws IllegalStateException if Solr failed or could not be reached
+   * @see SolrCalls
    */
   @PreAuthorize("isAuthenticated()")
   @McpTool(
@@ -248,8 +255,7 @@ public class IndexingService {
       generateOutputSchema = true)
   public IndexingResult indexCsvDocuments(
       @McpToolParam(description = "Solr collection to index into") String collection,
-      @McpToolParam(description = "CSV string containing documents to index") String csv)
-      throws IOException, SolrServerException {
+      @McpToolParam(description = "CSV string containing documents to index") String csv) {
     ContentStreamUpdateRequest request = new ContentStreamUpdateRequest(UPDATE_PATH);
     request.setParam("header", "true");
     request.addContentStream(new ContentStreamBase.StringStream(csv, "text/csv; charset=UTF-8"));
@@ -266,8 +272,10 @@ public class IndexingService {
    * @param collection the name of the Solr collection to index documents into
    * @param xml a Solr {@code <add>} block
    * @return the collection and format, without counts: Solr does not report one
-   * @throws IOException if communication with Solr fails
-   * @throws SolrServerException if Solr rejects the payload
+   * @throws IllegalArgumentException if the collection does not exist, or Solr rejected the
+   *     payload; the message carries Solr's reason
+   * @throws IllegalStateException if Solr failed or could not be reached
+   * @see SolrCalls
    */
   @PreAuthorize("isAuthenticated()")
   @McpTool(
@@ -282,8 +290,7 @@ public class IndexingService {
       generateOutputSchema = true)
   public IndexingResult indexXmlDocuments(
       @McpToolParam(description = "Solr collection to index into") String collection,
-      @McpToolParam(description = "Solr update XML: an <add> block of <doc> elements") String xml)
-      throws IOException, SolrServerException {
+      @McpToolParam(description = "Solr update XML: an <add> block of <doc> elements") String xml) {
     SolrUpdateXml.requireAddBlock(xml);
     ContentStreamUpdateRequest request = new ContentStreamUpdateRequest(UPDATE_PATH);
     request.addContentStream(new ContentStreamBase.StringStream(xml, ClientUtils.TEXT_XML));
@@ -301,10 +308,12 @@ public class IndexingService {
    * _default} configset enables at 15 s, so many small calls do not each force one.
    */
   private IndexingResult forward(
-      String collection, ContentStreamUpdateRequest request, Format format)
-      throws IOException, SolrServerException {
+      String collection, ContentStreamUpdateRequest request, Format format) {
     request.setAction(AbstractUpdateRequest.ACTION.COMMIT, false, true, true);
-    request.process(solrClient, collection);
+    SolrCalls.call(
+        INDEXING_FAILED,
+        SolrCalls.collectionNotFound(collection),
+        () -> request.process(solrClient, collection));
     return IndexingResult.forwarded(collection, format);
   }
 
@@ -350,8 +359,10 @@ public class IndexingService {
    * @param collection the name of the Solr collection to index documents into
    * @param documents the markdown documents, one string per document
    * @return the collection, the number of documents submitted and indexed, and the field names
-   * @throws IOException if there are critical errors in Solr communication
-   * @throws SolrServerException if Solr server encounters errors during indexing
+   * @throws IllegalArgumentException if the collection does not exist, or Solr rejected every
+   *     document
+   * @throws IllegalStateException if Solr failed or could not be reached
+   * @see SolrCalls
    * @see IndexingDocumentCreator#createSchemalessDocumentsFromMarkdown(String)
    * @see #indexDocuments(String, List)
    */
@@ -371,8 +382,7 @@ public class IndexingService {
       @McpToolParam(
               description =
                   "Markdown documents to index, one string per document, each optionally starting with YAML front matter")
-          List<String> documents)
-      throws IOException, SolrServerException {
+          List<String> documents) {
     List<SolrInputDocument> schemalessDocuments = new ArrayList<>();
     for (String markdown : documents) {
       schemalessDocuments.addAll(
@@ -392,12 +402,17 @@ public class IndexingService {
    * @param documents the parsed documents
    * @return the counts, the first {@link #MAX_REPORTED_FIELDS} field names of the accepted
    *     documents in sort order, and how many distinct field names they have
-   * @throws IllegalArgumentException if there were documents and Solr rejected all of them
+   * @throws IllegalArgumentException if there were documents and Solr rejected all of them, or the
+   *     collection does not exist
+   * @throws IllegalStateException if Solr failed or could not be reached
    */
   private IndexingResult indexParsed(
-      String collection, Format format, List<SolrInputDocument> documents)
-      throws IOException, SolrServerException {
-    List<SolrInputDocument> accepted = indexDocuments(collection, documents);
+      String collection, Format format, List<SolrInputDocument> documents) {
+    List<SolrInputDocument> accepted =
+        SolrCalls.call(
+            INDEXING_FAILED,
+            SolrCalls.collectionNotFound(collection),
+            () -> indexDocuments(collection, documents));
     if (!documents.isEmpty() && accepted.isEmpty()) {
       throw new IllegalArgumentException(EVERY_DOCUMENT_REJECTED);
     }

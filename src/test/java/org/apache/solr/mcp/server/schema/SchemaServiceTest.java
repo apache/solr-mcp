@@ -190,12 +190,13 @@ class SchemaServiceTest {
     when(solrClient.request(any(SchemaRequest.class), eq(nonExistentCollection)))
         .thenThrow(new SolrServerException("Collection not found: " + nonExistentCollection));
 
-    // Then
-    assertThrows(
-        Exception.class,
-        () -> {
-          schemaService.getSchema(nonExistentCollection);
-        });
+    // Then - translated, without SolrJ's text or a cause
+    IllegalStateException exception =
+        assertThrows(
+            IllegalStateException.class, () -> schemaService.getSchema(nonExistentCollection));
+    assertTrue(
+        exception.getMessage().startsWith(SchemaService.GET_SCHEMA_FAILED), exception::getMessage);
+    assertNull(exception.getCause());
   }
 
   @Test
@@ -333,12 +334,15 @@ class SchemaServiceTest {
   }
 
   @Test
-  void addFields_solrThrows_propagates() throws Exception {
+  void addFields_solrThrows_isTranslated() throws Exception {
     when(solrClient.request(any(SolrRequest.class), eq("col")))
         .thenThrow(new SolrServerException("simulated"));
 
     List<CollectionSchema.Field> fields = fields(Map.of("name", "x", "type", "string"));
-    assertThrows(SolrServerException.class, () -> schemaService.addFields("col", fields));
+    IllegalStateException exception =
+        assertThrows(IllegalStateException.class, () -> schemaService.addFields("col", fields));
+    assertTrue(
+        exception.getMessage().startsWith(SchemaService.ADD_FIELDS_FAILED), exception::getMessage);
   }
 
   @Test
@@ -468,13 +472,17 @@ class SchemaServiceTest {
   }
 
   @Test
-  void addFieldTypes_solrThrows_propagates() throws Exception {
+  void addFieldTypes_solrThrows_isTranslated() throws Exception {
     when(solrClient.request(any(SolrRequest.class), eq("col")))
         .thenThrow(new SolrServerException("simulated"));
 
     List<CollectionSchema.FieldType> types =
         fieldTypes(Map.of("name", "x", "className", "solr.StrField"));
-    assertThrows(SolrServerException.class, () -> schemaService.addFieldTypes("col", types));
+    IllegalStateException exception =
+        assertThrows(IllegalStateException.class, () -> schemaService.addFieldTypes("col", types));
+    assertTrue(
+        exception.getMessage().startsWith(SchemaService.ADD_FIELD_TYPES_FAILED),
+        exception::getMessage);
   }
 
   /**

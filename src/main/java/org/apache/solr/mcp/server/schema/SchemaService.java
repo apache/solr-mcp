@@ -23,12 +23,10 @@ import io.modelcontextprotocol.spec.McpSchema.GetPromptResult;
 import io.modelcontextprotocol.spec.McpSchema.ReadResourceRequest;
 import io.modelcontextprotocol.spec.McpSchema.ReadResourceResult;
 import io.modelcontextprotocol.spec.McpSchema.Role;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.LukeRequest;
 import org.apache.solr.client.solrj.request.schema.AnalyzerDefinition;
 import org.apache.solr.client.solrj.request.schema.FieldTypeDefinition;
@@ -36,6 +34,7 @@ import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.util.McpResults;
 import org.apache.solr.mcp.server.util.PromptNames;
+import org.apache.solr.mcp.server.util.SolrCalls;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -137,6 +136,18 @@ public class SchemaService {
   /** The section of a Luke response that lists the fields, one entry per field in the index. */
   private static final String LUKE_FIELDS_SECTION = "fields";
 
+  /** Leads the error text of a failed {@code get-schema}. */
+  static final String GET_SCHEMA_FAILED = "Getting the schema failed";
+
+  /** Leads the error text of a failed {@code list-fields}. */
+  static final String LIST_FIELDS_FAILED = "Listing fields failed";
+
+  /** Leads the error text of a failed {@code add-fields}. */
+  static final String ADD_FIELDS_FAILED = "Adding fields failed";
+
+  /** Leads the error text of a failed {@code add-field-types}. */
+  static final String ADD_FIELD_TYPES_FAILED = "Adding field types failed";
+
   /** SolrJ client for communicating with Solr server */
   private final SolrClient solrClient;
 
@@ -235,9 +246,10 @@ public class SchemaService {
    *
    * <p><strong>Error Handling:</strong>
    *
-   * <p>If the collection does not exist or schema retrieval fails, the method will throw an
-   * exception with details about the failure reason. Common issues include collection name typos,
-   * permission problems, or Solr connectivity issues.
+   * <p>If the collection does not exist or schema retrieval fails, the method throws an exception
+   * whose message {@link SolrCalls} writes: a hint to call {@code list-collections} for an unknown
+   * collection, Solr's reason for a refused request, or a fixed text when Solr denied access or
+   * could not be reached.
    *
    * <p><strong>Performance Considerations:</strong>
    *
@@ -247,9 +259,8 @@ public class SchemaService {
    *
    * @param collection the name of the Solr collection to retrieve schema information for
    * @return the schema, with the properties the contract names
-   * @throws SolrServerException if the Solr server returns an error; a missing collection surfaces
-   *     as an unchecked {@code SolrException} (404)
-   * @throws IOException if communication with Solr fails
+   * @throws IllegalArgumentException if the collection does not exist or Solr refused the request
+   * @throws IllegalStateException if Solr failed or could not be reached
    * @see CollectionSchema
    * @see SchemaRequest
    */
@@ -266,12 +277,16 @@ public class SchemaService {
               + "It does not say which fields hold data or which dynamic fields are in use; to "
               + "choose fields for search, call list-fields instead.",
       generateOutputSchema = true)
-  public CollectionSchema getSchema(String collection) throws SolrServerException, IOException {
+  public CollectionSchema getSchema(String collection) {
     // request(), not schemaRequest.process(): process() parses into SolrJ's SchemaRepresentation,
     // whose FieldTypeDefinition nests each type's properties under "attributes" and serializes
     // every unset analyzer slot as null. The Schema API's own JSON objects arrive as
     // SimpleOrderedMap, a java.util.Map, which CollectionSchema.fromSolr maps into the contract.
-    NamedList<Object> response = solrClient.request(new SchemaRequest(), collection);
+    NamedList<Object> response =
+        SolrCalls.call(
+            GET_SCHEMA_FAILED,
+            SolrCalls.collectionNotFound(collection),
+            () -> solrClient.request(new SchemaRequest(), collection));
     @SuppressWarnings("unchecked")
     Map<String, Object> schema = (Map<String, Object>) response.get(SCHEMA_SECTION);
     return CollectionSchema.fromSolr(schema);
@@ -323,10 +338,10 @@ public class SchemaService {
    *
    * @param collection the collection to list fields for
    * @return the fields Luke reports, ordered by name, with their flags decoded
-   * @throws SolrServerException if the request cannot be sent or its response read; an error Solr
-   *     returns, an unknown collection's 404 included, surfaces as an unchecked {@code
-   *     SolrException}
-   * @throws IOException if communication with Solr fails
+   * @throws IllegalArgumentException if the collection name is blank, the collection does not
+   *     exist, or Solr refused the request
+   * @throws IllegalStateException if Solr failed or could not be reached
+   * @see SolrCalls
    */
   @PreAuthorize("isAuthenticated()")
   @McpTool(
@@ -346,8 +361,7 @@ public class SchemaService {
               + " empty. Before Solr 9.11 and 10.1, a collection with more than one shard lists the"
               + " fields and counts of one shard only.")
   public List<IndexedField> listFields(
-      @McpToolParam(description = "Solr collection name") String collection)
-      throws SolrServerException, IOException {
+      @McpToolParam(description = "Solr collection name") String collection) {
     requireCollection(collection);
 
     LukeRequest lukeRequest = new LukeRequest();
@@ -357,7 +371,11 @@ public class SchemaService {
     // which casts each field's docs to Integer and fails on a distributed sum past 2^31 (a Long),
     // and drops dynamicBase. Luke's JSON objects arrive as SimpleOrderedMap, a java.util.Map,
     // which IndexedField.fromLuke maps into the contract.
-    NamedList<Object> response = solrClient.request(lukeRequest, collection);
+    NamedList<Object> response =
+        SolrCalls.call(
+            LIST_FIELDS_FAILED,
+            SolrCalls.collectionNotFound(collection),
+            () -> solrClient.request(lukeRequest, collection));
     return response.get(LUKE_FIELDS_SECTION) instanceof Map<?, ?> fields
         ? IndexedField.fromLuke(castFields(fields))
         : List.of();
@@ -369,8 +387,10 @@ public class SchemaService {
    * @param collection target Solr collection name
    * @param fields the fields to add, in the shape {@link #getSchema(String)} reports
    * @return summary listing the collection and the names of the fields added
-   * @throws SolrServerException if there are errors communicating with Solr
-   * @throws IOException if there are I/O errors during communication
+   * @throws IllegalArgumentException if an argument is blank or empty, the collection does not
+   *     exist, or Solr refused the batch; the message carries Solr's reason
+   * @throws IllegalStateException if Solr failed or could not be reached
+   * @see SolrCalls
    */
   @PreAuthorize("isAuthenticated()")
   @McpTool(
@@ -392,8 +412,7 @@ public class SchemaService {
   public SchemaUpdateResult addFields(
       @McpToolParam(description = "Solr collection name") String collection,
       @McpToolParam(description = "The fields to add, in the shape get-schema reports")
-          List<CollectionSchema.Field> fields)
-      throws SolrServerException, IOException {
+          List<CollectionSchema.Field> fields) {
     requireCollection(collection);
     requireNonEmpty(fields, "fields");
 
@@ -404,7 +423,10 @@ public class SchemaService {
       updates.add(new SchemaRequest.AddField(field.toSolr()));
     }
 
-    new SchemaRequest.MultiUpdate(updates).process(solrClient, collection);
+    SolrCalls.call(
+        ADD_FIELDS_FAILED,
+        SolrCalls.collectionNotFound(collection),
+        () -> new SchemaRequest.MultiUpdate(updates).process(solrClient, collection));
     return new SchemaUpdateResult(collection, names);
   }
 
@@ -414,8 +436,10 @@ public class SchemaService {
    * @param collection target Solr collection name
    * @param fieldTypes the field types to add, in the shape {@link #getSchema(String)} reports
    * @return summary listing the collection and the names of the field types added
-   * @throws SolrServerException if there are errors communicating with Solr
-   * @throws IOException if there are I/O errors during communication
+   * @throws IllegalArgumentException if an argument is blank or empty, the collection does not
+   *     exist, or Solr refused the batch; the message carries Solr's reason
+   * @throws IllegalStateException if Solr failed or could not be reached
+   * @see SolrCalls
    */
   @PreAuthorize("isAuthenticated()")
   @McpTool(
@@ -444,8 +468,7 @@ public class SchemaService {
   public SchemaUpdateResult addFieldTypes(
       @McpToolParam(description = "Solr collection name") String collection,
       @McpToolParam(description = "The field types to add, in the shape get-schema reports")
-          List<CollectionSchema.FieldType> fieldTypes)
-      throws SolrServerException, IOException {
+          List<CollectionSchema.FieldType> fieldTypes) {
     requireCollection(collection);
     requireNonEmpty(fieldTypes, "fieldTypes");
 
@@ -456,7 +479,10 @@ public class SchemaService {
       updates.add(new SchemaRequest.AddFieldType(toFieldTypeDefinition(fieldType)));
     }
 
-    new SchemaRequest.MultiUpdate(updates).process(solrClient, collection);
+    SolrCalls.call(
+        ADD_FIELD_TYPES_FAILED,
+        SolrCalls.collectionNotFound(collection),
+        () -> new SchemaRequest.MultiUpdate(updates).process(solrClient, collection));
     return new SchemaUpdateResult(collection, names);
   }
 

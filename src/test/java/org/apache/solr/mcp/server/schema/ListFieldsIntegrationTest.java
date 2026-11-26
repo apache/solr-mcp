@@ -26,10 +26,10 @@ import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.UpdateRequest;
-import org.apache.solr.common.SolrException;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
+import org.apache.solr.mcp.server.util.SolrCalls;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -135,9 +135,16 @@ class ListFieldsIntegrationTest {
 
   @Test
   void unknownCollectionFailsWithNotFound() {
-    SolrException e =
-        assertThrows(SolrException.class, () -> schemaService.listFields("no_such_collection_xyz"));
-    assertEquals(SolrException.ErrorCode.NOT_FOUND.code, e.code());
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> schemaService.listFields("no_such_collection_xyz"));
+    assertEquals(
+        SchemaService.LIST_FIELDS_FAILED
+            + ": "
+            + SolrCalls.collectionNotFound("no_such_collection_xyz"),
+        e.getMessage());
+    assertNull(e.getCause(), "Spring AI would append the cause's URL-bearing message");
   }
 
   private void indexToShard(String shard, SolrInputDocument document) throws Exception {

@@ -31,10 +31,10 @@ import java.util.Set;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
-import org.apache.solr.common.SolrException;
 import org.apache.solr.mcp.server.TestDocuments;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.apache.solr.mcp.server.indexing.IndexingService;
+import org.apache.solr.mcp.server.util.SolrCalls;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -335,6 +335,13 @@ class SearchServiceIntegrationTest {
     assertTrue(
         e.getMessage().contains(SearchService.LIST_FIELDS_HINT_FORMAT.formatted(COLLECTION_NAME)),
         () -> "expected get-schema hint, got: " + e.getMessage());
+    // The mcp-contracts spec's "Solr rejects a request" scenario: Solr's reason, which names the
+    // field, reaches the client; SolrJ's "Error from server at <host>:" and the URL do not.
+    assertTrue(
+        e.getMessage().contains("definitely_not_a_field"),
+        () -> "expected Solr's reason, got: " + e.getMessage());
+    assertFalse(e.getMessage().contains("Error from server at"), e::getMessage);
+    assertFalse(e.getMessage().contains("http://"), e::getMessage);
     assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
   }
 
@@ -416,26 +423,26 @@ class SearchServiceIntegrationTest {
                 searchService.search(
                     "definitely_not_a_collection", "*:*", null, null, null, null, null));
     assertTrue(
-        e.getMessage().contains(SearchService.LIST_COLLECTIONS_HINT),
+        e.getMessage().contains(SolrCalls.LIST_COLLECTIONS_HINT),
         () -> "expected list-collections hint, got: " + e.getMessage());
     assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
   }
 
   /**
-   * An unclassified Solr error keeps its status but replaces backend text with safe request
-   * guidance. Negative {@code rows} is structurally identical to the undefined-field failures, so
+   * An unclassified Solr refusal carries Solr's reason and the general request guidance, without
+   * the host. Negative {@code rows} is structurally identical to the undefined-field failures, so
    * it also pins that text matching is not over-broad.
    */
   @Test
-  void searchWithUnrecognizedSolrErrorPropagatesWithoutHint() {
-    SolrException e =
+  void searchWithUnrecognizedSolrErrorCarriesSolrsReasonWithoutAFieldHint() {
+    IllegalArgumentException e =
         assertThrows(
-            SolrException.class,
+            IllegalArgumentException.class,
             () -> searchService.search(COLLECTION_NAME, "*:*", null, null, null, null, -5));
     assertFalse(e.getMessage().contains("Hint:"), () -> "expected no hint, got: " + e.getMessage());
-    assertEquals(SolrException.ErrorCode.BAD_REQUEST.code, e.code());
-    assertTrue(e.getMessage().contains("pagination"));
-    assertTrue(e.getMessage().contains("list-fields"));
+    assertTrue(e.getMessage().contains("rows"), () -> "expected Solr's reason: " + e.getMessage());
+    assertTrue(e.getMessage().endsWith(SearchService.BAD_REQUEST_HINT), e::getMessage);
+    assertFalse(e.getMessage().contains("http://"), e::getMessage);
     assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
   }
 

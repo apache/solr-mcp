@@ -412,7 +412,7 @@ class IndexingServiceTest {
   }
 
   @Test
-  void indexJsonDocuments_WhenSolrClientThrowsException_ShouldPropagateException()
+  void indexJsonDocuments_WhenSolrClientThrowsException_ShouldReportSolrUnreachable()
       throws Exception {
     List<Map<String, Object>> json = List.of(Map.of("id", "1"));
     List<SolrInputDocument> mockDocs = createMockDocuments(1);
@@ -421,8 +421,13 @@ class IndexingServiceTest {
     when(solrClient.request(any(UpdateRequest.class), eq(COLLECTION)))
         .thenThrow(new SolrServerException("Solr connection error"));
 
-    assertThrows(
-        SolrServerException.class, () -> indexingService.indexJsonDocuments(COLLECTION, json));
+    IllegalStateException exception =
+        assertThrows(
+            IllegalStateException.class,
+            () -> indexingService.indexJsonDocuments(COLLECTION, json));
+    assertTrue(
+        exception.getMessage().startsWith(IndexingService.INDEXING_FAILED), exception::getMessage);
+    assertNull(exception.getCause());
 
     verify(solrClient).request(any(UpdateRequest.class), eq(COLLECTION));
     verify(solrClient, never()).add(anyString(), any(SolrInputDocument.class));
@@ -503,15 +508,18 @@ class IndexingServiceTest {
   }
 
   @Test
-  void indexXmlDocuments_WhenSolrRejectsThePayload_Throws() throws Exception {
+  void indexXmlDocuments_WhenSolrRejectsThePayload_CarriesSolrsReason() throws Exception {
     when(solrClient.request(any(ContentStreamUpdateRequest.class), eq(COLLECTION)))
         .thenThrow(BAD_REQUEST);
 
-    assertThrows(
-        RemoteSolrException.class,
-        () ->
-            indexingService.indexXmlDocuments(
-                COLLECTION, "<add><doc><field name=\"id\">1</field></doc></add>"));
+    IllegalArgumentException exception =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                indexingService.indexXmlDocuments(
+                    COLLECTION, "<add><doc><field name=\"id\">1</field></doc></add>"));
+    assertTrue(exception.getMessage().endsWith("Bad doc"), exception::getMessage);
+    assertFalse(exception.getMessage().contains("http://"), exception::getMessage);
     verify(solrClient, never()).add(anyString(), any(SolrInputDocument.class));
   }
 
@@ -534,7 +542,7 @@ class IndexingServiceTest {
     ArgumentCaptor<ContentStreamUpdateRequest> captor =
         ArgumentCaptor.forClass(ContentStreamUpdateRequest.class);
     assertThrows(
-        SolrServerException.class,
+        IllegalStateException.class,
         () -> indexingService.indexCsvDocuments(COLLECTION, "id,title\n1,Test\n"));
     verify(solrClient).request(captor.capture(), eq(COLLECTION));
     assertEquals(

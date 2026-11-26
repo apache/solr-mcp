@@ -33,7 +33,9 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.IntStream;
+import org.apache.solr.client.solrj.RemoteSolrException;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -53,6 +55,7 @@ import org.apache.solr.mcp.server.collection.CollectionMetrics.HandlerInfo;
 import org.apache.solr.mcp.server.collection.CollectionMetrics.HandlerStats;
 import org.apache.solr.mcp.server.collection.CollectionMetrics.IndexStats;
 import org.apache.solr.mcp.server.collection.CollectionMetrics.QueryStats;
+import org.apache.solr.mcp.server.util.SolrCalls;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -99,14 +102,20 @@ class CollectionServiceTest {
   }
 
   @Test
-  void listCollections_WhenExceptionOccurs_ShouldPropagate() throws Exception {
+  void listCollections_WhenExceptionOccurs_ShouldReportSolrUnreachable() throws Exception {
     // Given - mock throws exception
-    when(solrClient.request(any(), any())).thenThrow(new SolrServerException("Connection error"));
+    when(solrClient.request(any(), any()))
+        .thenThrow(new SolrServerException("Connection error to http://solr:8983/solr"));
 
-    // When / Then - exception propagates to caller
-    SolrServerException exception =
-        assertThrows(SolrServerException.class, () -> collectionService.listCollections());
-    assertTrue(exception.getMessage().contains("Connection error"));
+    // When / Then - translated, without SolrJ's text or a cause
+    IllegalStateException exception =
+        assertThrows(IllegalStateException.class, () -> collectionService.listCollections());
+    assertTrue(
+        exception.getMessage().startsWith(CollectionService.LIST_COLLECTIONS_FAILED),
+        exception::getMessage);
+    assertTrue(exception.getMessage().contains("could not be reached"), exception::getMessage);
+    assertFalse(exception.getMessage().contains("http://"), exception::getMessage);
+    assertNull(exception.getCause());
   }
 
   // Collection name extraction tests
@@ -418,7 +427,9 @@ class CollectionServiceTest {
   // Collection stats tests
   @Test
   void getCollectionStats_NotFound() throws Exception {
-    SolrException notFound = new SolrException(SolrException.ErrorCode.NOT_FOUND, "not found");
+    RemoteSolrException notFound =
+        new RemoteSolrException(
+            "http://solr:8983/solr/non_existent", 404, "Expected mime type ...", null);
     when(solrClient.request(any(LukeRequest.class), eq("non_existent"))).thenThrow(notFound);
 
     IllegalArgumentException exception =
@@ -426,21 +437,29 @@ class CollectionServiceTest {
             IllegalArgumentException.class,
             () -> collectionService.getCollectionStats("non_existent"));
 
-    assertTrue(exception.getMessage().contains("Collection not found: non_existent"));
-    assertSame(notFound, exception.getCause());
+    assertEquals(
+        CollectionService.COLLECTION_STATS_FAILED
+            + ": "
+            + SolrCalls.collectionNotFound("non_existent"),
+        exception.getMessage());
+    assertNull(exception.getCause(), "Spring AI would append the cause's URL-bearing message");
     verify(solrClient, never()).request(any(CollectionAdminRequest.List.class), any());
   }
 
   @Test
-  void getCollectionStats_OtherSolrException_Propagates() throws Exception {
-    SolrException serverError = new SolrException(SolrException.ErrorCode.SERVER_ERROR, "boom");
+  void getCollectionStats_OtherSolrException_CarriesSolrsReason() throws Exception {
+    RemoteSolrException serverError =
+        new RemoteSolrException("http://solr:8983/solr/test_collection", 500, "boom", null);
     when(solrClient.request(any(LukeRequest.class), eq("test_collection"))).thenThrow(serverError);
 
-    SolrException exception =
+    IllegalStateException exception =
         assertThrows(
-            SolrException.class, () -> collectionService.getCollectionStats("test_collection"));
+            IllegalStateException.class,
+            () -> collectionService.getCollectionStats("test_collection"));
 
-    assertSame(serverError, exception);
+    assertTrue(exception.getMessage().contains("boom"), exception::getMessage);
+    assertFalse(exception.getMessage().contains("http://"), exception::getMessage);
+    assertNull(exception.getCause());
   }
 
   @Test
@@ -777,17 +796,17 @@ class CollectionServiceTest {
   }
 
   @Test
-  void listCollections_SolrServerException_Propagates() throws Exception {
+  void listCollections_SolrServerException_IsTranslated() throws Exception {
     when(solrClient.request(any(), any())).thenThrow(new SolrServerException("Connection error"));
 
-    assertThrows(SolrServerException.class, () -> collectionService.listCollections());
+    assertThrows(IllegalStateException.class, () -> collectionService.listCollections());
   }
 
   @Test
-  void listCollections_IOException_Propagates() throws Exception {
+  void listCollections_IOException_IsTranslated() throws Exception {
     when(solrClient.request(any(), any())).thenThrow(new IOException("IO error"));
 
-    assertThrows(IOException.class, () -> collectionService.listCollections());
+    assertThrows(IllegalStateException.class, () -> collectionService.listCollections());
   }
 
   @Test
@@ -956,13 +975,21 @@ class CollectionServiceTest {
   }
 
   @Test
-  void createCollection_RejectedBySolr_Propagates() throws Exception {
+  void createCollection_RejectedBySolr_CarriesSolrsReason() throws Exception {
     when(solrClient.request(any(), isNull()))
         .thenThrow(
-            new SolrException(SolrException.ErrorCode.BAD_REQUEST, "collection already exists"));
+            new RemoteSolrException(
+                "http://solr:8983/solr/admin/collections",
+                400,
+                Map.of("msg", "collection already exists: books", "code", 400)));
 
-    assertThrows(
-        SolrException.class, () -> collectionService.createCollection("books", null, null, null));
+    IllegalArgumentException exception =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> collectionService.createCollection("books", null, null, null));
+    assertTrue(
+        exception.getMessage().endsWith("collection already exists: books"), exception::getMessage);
+    assertFalse(exception.getMessage().contains("http://"), exception::getMessage);
   }
 
   // createCollection tests
@@ -1064,12 +1091,16 @@ class CollectionServiceTest {
   }
 
   @Test
-  void createCollection_solrException_propagates() throws Exception {
+  void createCollection_solrServerException_isTranslated() throws Exception {
     when(solrClient.request(any(), isNull())).thenThrow(new SolrServerException("Solr error"));
 
-    assertThrows(
-        SolrServerException.class,
-        () -> collectionService.createCollection("fail_core", null, null, null));
+    IllegalStateException exception =
+        assertThrows(
+            IllegalStateException.class,
+            () -> collectionService.createCollection("fail_core", null, null, null));
+    assertTrue(
+        exception.getMessage().startsWith(CollectionService.CREATE_COLLECTION_FAILED),
+        exception::getMessage);
   }
 
   @Test

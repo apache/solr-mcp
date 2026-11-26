@@ -19,14 +19,13 @@ package org.apache.solr.mcp.server.search;
 import io.micrometer.observation.annotation.Observed;
 import io.modelcontextprotocol.spec.McpSchema.GetPromptResult;
 import io.modelcontextprotocol.spec.McpSchema.Role;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Supplier;
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.SolrQuery;
 import org.apache.solr.client.solrj.response.FacetField;
 import org.apache.solr.client.solrj.response.QueryResponse;
@@ -38,6 +37,7 @@ import org.apache.solr.common.params.FacetParams;
 import org.apache.solr.common.util.JsonTextWriter;
 import org.apache.solr.mcp.server.util.McpResults;
 import org.apache.solr.mcp.server.util.PromptNames;
+import org.apache.solr.mcp.server.util.SolrCalls;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -148,10 +148,6 @@ public class SearchService {
       ". Hint: the q parameter uses Lucene query syntax; quote or escape"
           + " special characters and check any {!...} local params.";
 
-  /** Remediation hint naming the {@code list-collections} tool. */
-  static final String LIST_COLLECTIONS_HINT =
-      ". Hint: call list-collections to see available collections.";
-
   /** Rejection for {@code queryFields} combined with a local-params {@code query}. */
   static final String QUERY_FIELDS_WITH_LOCAL_PARAMS_ERROR =
       "Search failed: queryFields cannot be combined with {!...} local params in query:"
@@ -171,9 +167,15 @@ public class SearchService {
    */
   private static final String LOCAL_PARAMS_PREFIX = "{!";
 
-  private static final String CONNECTION_ERROR =
-      "Search failed: unable to communicate with Solr. Retry later;"
-          + " if it persists, ask the operator to check Solr availability and connection settings.";
+  /** Leads every error text the search tool reports for a failed Solr call. */
+  static final String SEARCH_FAILED = "Search failed";
+
+  /** Follows Solr's reason for a 400 that names no field and no syntax error. */
+  static final String BAD_REQUEST_HINT =
+      ". Check query syntax, query fields, filter queries, facet fields, sort clauses, and"
+          + " pagination; call list-fields to verify the field names, and facet and sort only on"
+          + " single-valued fields with D (docValues) in their schema flags.";
+
   private static final String RESPONSE_ERROR =
       "Search failed: unable to process the Solr response."
           + " If facetFields were supplied, call list-fields to check those fields or retry without facetFields;"
@@ -207,16 +209,6 @@ public class SearchService {
 
   /** Separates the new name from the field in an {@code fl} rename such as {@code title:name_s}. */
   private static final char RENAME_SEPARATOR = ':';
-
-  /**
-   * A call to Solr whose failures {@link #callSolr} turns into safe, actionable errors.
-   *
-   * @param <T> what the call returns
-   */
-  @FunctionalInterface
-  private interface SolrCall<T> {
-    T call() throws SolrServerException, IOException;
-  }
 
   private final SolrClient solrClient;
 
@@ -296,8 +288,8 @@ public class SearchService {
    * @param start Starting offset for pagination
    * @param rows Number of rows to return
    * @return A SearchResponse containing the search results and facets
-   * @throws SolrServerException If there's an error communicating with Solr
-   * @throws IOException If there's an I/O error
+   * @throws IllegalArgumentException if Solr refused the search, with Solr's reason and a hint
+   * @throws IllegalStateException if Solr failed or could not be reached
    */
   @PreAuthorize("isAuthenticated()")
   public SearchResponse search(
@@ -307,8 +299,7 @@ public class SearchService {
       @Nullable List<String> facetFields,
       @Nullable List<SortClause> sortClauses,
       @Nullable Integer start,
-      @Nullable Integer rows)
-      throws SolrServerException, IOException {
+      @Nullable Integer rows) {
     return search(
         collection, query, filterQueries, facetFields, sortClauses, start, rows, null, null);
   }
@@ -341,10 +332,11 @@ public class SearchService {
    * @throws IllegalArgumentException if {@code queryFields} is combined with a {@code query} that
    *     starts with {@literal {!...}} local params, or if a {@code fields} entry renames another
    *     field to the uniqueKey (such as {@code id:name_s} when the uniqueKey is {@code id})
+   * @throws IllegalArgumentException if Solr refused the search: the collection does not exist, or
+   *     Solr rejected the request, whose reason the message carries with a hint
    * @throws IllegalStateException if the collection's schema has no uniqueKey, or changed since the
-   *     uniqueKey was read
-   * @throws SolrServerException If there's an error communicating with Solr
-   * @throws IOException If there's an I/O error
+   *     uniqueKey was read, or Solr failed, denied access, timed out or could not be reached
+   * @see SolrCalls
    */
   @PreAuthorize("isAuthenticated()")
   // @formatter:off — keep this @McpTool wrapped like the others; the text block disguises the real
@@ -408,8 +400,7 @@ public class SearchService {
                       + " e.g. [\"name^2\", \"author\"]. Uses the eDisMax parser; cannot be combined"
                       + " with a query that starts with {!...} local params. Blank entries are ignored",
               required = false)
-          @Nullable List<String> queryFields)
-      throws SolrServerException, IOException {
+          @Nullable List<String> queryFields) {
 
     // query
     final SolrQuery solrQuery = new SolrQuery("*:*");
@@ -494,9 +485,9 @@ public class SearchService {
 
     final QueryResponse queryResponse =
         callSolr(collection, () -> solrClient.query(collection, solrQuery));
-    final SolrDocumentList documents = callSolr(collection, queryResponse::getResults);
+    final SolrDocumentList documents = readResponse(collection, queryResponse::getResults);
     final List<SearchResponse.FacetField> facets =
-        callSolr(collection, () -> toFacets(queryResponse));
+        readResponse(collection, () -> toFacets(queryResponse));
 
     final List<SearchResponse.SearchHit> hits = new ArrayList<>(documents.size());
     for (SolrDocument document : documents) {
@@ -538,33 +529,63 @@ public class SearchService {
   }
 
   /**
-   * Runs one call to Solr and turns its failures into errors that are safe to show the client: the
-   * Solr text is logged, never returned, and each error names a next step.
+   * Runs one call to Solr through {@link SolrCalls}, which reports Solr's reason for a refused
+   * search followed by {@link #remediationHint}, and keeps host names and URLs out of the error.
+   * SolrJ also builds the typed {@code QueryResponse} inside the call, so a failure to convert
+   * Solr's answer becomes {@link #RESPONSE_ERROR} as in {@link #readResponse}.
    *
-   * @param collection the collection being searched, for hints and the log
+   * @param collection the collection being searched, for the hints
    * @param call the call to run
    * @param <T> what the call returns
    * @return the call's result
-   * @throws SolrServerException if Solr cannot be reached
-   * @throws IOException if the request fails on the wire
    */
-  private static <T> T callSolr(String collection, SolrCall<T> call)
-      throws SolrServerException, IOException {
+  private static <T> T callSolr(String collection, SolrCalls.SolrCall<T> call) {
+    return SolrCalls.call(
+        SEARCH_FAILED,
+        SolrCalls.collectionNotFound(collection),
+        (statusCode, reason) -> remediationHint(collection, statusCode, reason),
+        () -> {
+          try {
+            return call.call();
+          } catch (SolrException solrFailure) {
+            // Solr's own failure: SolrCalls translates it.
+            throw solrFailure;
+          } catch (RuntimeException conversionFailure) {
+            throw responseError(collection, conversionFailure);
+          }
+        });
+  }
+
+  /**
+   * Reads part of a response Solr returned, turning a failure to convert it into {@link
+   * #RESPONSE_ERROR}.
+   *
+   * @param collection the collection being searched, for the log
+   * @param reader reads the part
+   * @param <T> what the part is
+   * @return the part
+   */
+  private static <T> T readResponse(String collection, Supplier<T> reader) {
     try {
-      return call.call();
-    } catch (SolrException e) {
-      throw withRemediationHint(e, collection);
-    } catch (SolrServerException e) {
-      logger.warn("Solr query failed on collection {}", collection, e);
-      throw new SolrServerException(CONNECTION_ERROR);
-    } catch (IOException e) {
-      logger.warn("Solr query failed on collection {}", collection, e);
-      throw new IOException(CONNECTION_ERROR);
-    } catch (RuntimeException e) {
-      // The client only sees RESPONSE_ERROR; the log is the sole record of the cause.
-      logger.warn("Solr query response failed on collection {}", collection, e);
-      throw new IllegalStateException(RESPONSE_ERROR);
+      return reader.get();
+    } catch (RuntimeException conversionFailure) {
+      throw responseError(collection, conversionFailure);
     }
+  }
+
+  /**
+   * The error that reports a failure to convert Solr's answer. The failure is logged, never
+   * returned: its text names this server's classes.
+   *
+   * @param collection the collection being searched, for the log
+   * @param conversionFailure what the conversion threw
+   * @return an exception naming a next step, without a cause
+   */
+  private static IllegalStateException responseError(
+      String collection, RuntimeException conversionFailure) {
+    // The client only sees RESPONSE_ERROR; the log is the sole record of the cause.
+    logger.warn("Solr query response failed on collection {}", collection, conversionFailure);
+    return new IllegalStateException(RESPONSE_ERROR);
   }
 
   /**
@@ -581,65 +602,29 @@ public class SearchService {
   }
 
   /**
-   * Wraps common Solr query failures with a next-step hint. MCP unwraps exception causes, so
-   * client-facing exceptions must omit the cause to preserve safe guidance; the original failure is
-   * logged for server-side diagnostics.
+   * The next step to suggest after Solr's reason for a search it refused. Solr's reason itself is
+   * already in the error text; this adds which tool or parameter to check.
    *
-   * @param e the Solr exception raised by the query
    * @param collection the collection that was queried
-   * @return an exception carrying safe guidance; never with a cause, which MCP would unwrap in
-   *     place of the guidance
+   * @param statusCode the HTTP status Solr answered with, a 4xx other than 404
+   * @param reason Solr's reason, without SolrJ's wording or URLs
+   * @return the hint, starting with its own punctuation, or an empty string
    */
-  private static RuntimeException withRemediationHint(SolrException e, String collection) {
-    final String message = String.valueOf(e.getMessage());
-
-    // Deliberately no cause on the exceptions below: the MCP annotation layer
-    // reports the ROOT cause's message as the tool error, so attaching the Solr
-    // failure would discard the guidance and the client would never see it. This
-    // log is therefore the only server-side record of the failure.
-    logger.warn("Solr query failed on collection {}", collection, e);
-
-    // An unknown collection is a 404 whose body is Solr's HTML "not found" page,
-    // so SolrJ reports it as a mime-type mismatch and leaves getMetadata() null.
-    // The status code is the only signal that survives; match it rather than the
-    // message text, which mentions neither the collection nor "404".
-    if (e.code() == SolrException.ErrorCode.NOT_FOUND.code) {
-      return new IllegalArgumentException(
-          "Search failed: the collection was not found" + LIST_COLLECTIONS_HINT);
+  private static String remediationHint(String collection, int statusCode, String reason) {
+    // Every 400 is a generic SolrException, told apart only by Solr's message text.
+    if (statusCode != SolrException.ErrorCode.BAD_REQUEST.code) {
+      return "";
     }
-
-    // Everything below is a 400 carrying a generic SolrException, indistinguishable
-    // except by Solr's message text.
-    final String lower = message.toLowerCase(Locale.ROOT);
-    if (e.code() == SolrException.ErrorCode.BAD_REQUEST.code) {
-      if (lower.contains(UNDEFINED_FIELD_TOKEN)
-          || lower.contains(SORT_FIELD_NOT_FOUND_TOKEN)
-          || lower.contains(INVALID_QUERY_FIELD_TOKEN)) {
-        return new IllegalArgumentException(
-            "Search failed: a referenced field is not defined"
-                + LIST_FIELDS_HINT_FORMAT.formatted(collection));
-      }
-      if (lower.contains(SYNTAX_ERROR_TOKEN) || lower.contains(CANNOT_PARSE_TOKEN)) {
-        return new IllegalArgumentException(
-            "Search failed: Solr could not parse the query or filters" + LUCENE_SYNTAX_HINT);
-      }
-      return new SolrException(
-          SolrException.ErrorCode.BAD_REQUEST,
-          "Search failed: Solr rejected the request. Check query syntax, query fields, filter queries,"
-              + " facet fields, sort clauses, and pagination; call list-fields to verify the field names, and facet and"
-              + " sort only on single-valued fields with D (docValues) in their schema flags.");
+    final String lower = reason.toLowerCase(Locale.ROOT);
+    if (lower.contains(UNDEFINED_FIELD_TOKEN)
+        || lower.contains(SORT_FIELD_NOT_FOUND_TOKEN)
+        || lower.contains(INVALID_QUERY_FIELD_TOKEN)) {
+      return LIST_FIELDS_HINT_FORMAT.formatted(collection);
     }
-    if (e.code() == SolrException.ErrorCode.UNAUTHORIZED.code
-        || e.code() == SolrException.ErrorCode.FORBIDDEN.code) {
-      return new SolrException(
-          SolrException.ErrorCode.getErrorCode(e.code()),
-          "Search failed: Solr denied access. Ask the operator to check the configured Solr credentials"
-              + " and collection permissions.");
+    if (lower.contains(SYNTAX_ERROR_TOKEN) || lower.contains(CANNOT_PARSE_TOKEN)) {
+      return LUCENE_SYNTAX_HINT;
     }
-    return new SolrException(
-        SolrException.ErrorCode.getErrorCode(e.code()),
-        "Search failed: Solr could not complete the request. Retry later; if it persists,"
-            + " ask the operator to check Solr health and server logs.");
+    return BAD_REQUEST_HINT;
   }
 
   /**

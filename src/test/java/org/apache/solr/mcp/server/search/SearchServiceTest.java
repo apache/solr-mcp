@@ -35,8 +35,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.net.http.HttpTimeoutException;
 import java.util.List;
 import java.util.Map;
+import org.apache.solr.client.solrj.RemoteSolrException;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.SolrQuery;
@@ -47,6 +49,7 @@ import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.util.NamedList;
+import org.apache.solr.mcp.server.util.SolrCalls;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
 import org.mockito.ArgumentCaptor;
@@ -227,6 +230,9 @@ class SearchServiceTest {
     assertTrue(e.getMessage().contains("'asc' or 'desc'"));
   }
 
+  /** The request URL SolrJ quotes in a {@link RemoteSolrException}; it must never be returned. */
+  private static final String SOLR_HOST = "http://internal-solr:8983/solr/test_collection";
+
   @Test
   void search_BackendFailures_ShouldReturnSafeActionableErrors() throws Exception {
     String detail = "private-token http://internal-solr:8983 /private/config java.util.ArrayList";
@@ -234,10 +240,11 @@ class SearchServiceTest {
         List.of(
             new IOException(detail),
             new SolrServerException(detail),
-            new SolrException(SolrException.ErrorCode.SERVER_ERROR, detail),
-            new SolrException(SolrException.ErrorCode.BAD_REQUEST, detail),
-            new SolrException(SolrException.ErrorCode.UNAUTHORIZED, detail),
-            new SolrException(SolrException.ErrorCode.FORBIDDEN, detail),
+            new SolrServerException(
+                "Timeout occurred while waiting response from server at: " + SOLR_HOST,
+                new HttpTimeoutException("request timed out")),
+            new RemoteSolrException(SOLR_HOST, 401, detail, null),
+            new RemoteSolrException(SOLR_HOST, 403, detail, null),
             new ClassCastException(detail),
             new IllegalStateException(detail))) {
       SolrClient mockClient = solrClientWithUniqueKey(ID);
@@ -253,14 +260,34 @@ class SearchServiceTest {
           List.of("private-token", "internal-solr", "/private/config", "java.util.ArrayList")) {
         assertFalse(e.getMessage().contains(sensitive), e::getMessage);
       }
-      assertTrue(e.getMessage().contains("Search failed"), e::getMessage);
+      assertTrue(e.getMessage().startsWith(SearchService.SEARCH_FAILED), e::getMessage);
       assertTrue(
           e.getMessage().contains("operator") || e.getMessage().contains("list-fields"),
           e::getMessage);
       assertNull(e.getCause(), "MCP must not unwrap a raw backend failure");
-      if (failure instanceof SolrException solrFailure) {
-        assertEquals(solrFailure.code(), assertInstanceOf(SolrException.class, e).code());
-      }
+      assertInstanceOf(IllegalStateException.class, e);
+    }
+  }
+
+  /**
+   * Solr's reason for a request it refused reaches the client, so the model can correct its next
+   * call; SolrJ's {@code Error from server at <host>:} prefix and any URL do not.
+   */
+  @Test
+  void search_SolrRefusal_ShouldCarrySolrsReasonWithoutTheHost() throws Exception {
+    for (int statusCode : List.of(400, 500)) {
+      SearchService localService =
+          serviceThrowing(
+              new RemoteSolrException(
+                  SOLR_HOST, statusCode, "Could not read https://internal-solr/x.xml", null));
+      Exception e =
+          assertThrows(
+              Exception.class,
+              () -> localService.search("test_collection", "*:*", null, null, null, null, null));
+      assertTrue(e.getMessage().contains("Could not read <url>"), e::getMessage);
+      assertFalse(e.getMessage().contains("internal-solr"), e::getMessage);
+      assertFalse(e.getMessage().contains("Error from server at"), e::getMessage);
+      assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
     }
   }
 
@@ -304,13 +331,15 @@ class SearchServiceTest {
   void search_WithUndefinedField_ShouldHintGetSchema() throws Exception {
     SearchService localService =
         serviceThrowing(
-            new SolrException(SolrException.ErrorCode.BAD_REQUEST, "undefined field bogus"));
+            new RemoteSolrException(
+                SOLR_HOST, 400, Map.of("msg", "undefined field bogus", "code", 400)));
     IllegalArgumentException e =
         assertThrows(
             IllegalArgumentException.class,
             () -> localService.search("test_collection", "bogus:x", null, null, null, null, null));
-    assertFalse(
-        e.getMessage().contains("undefined field bogus"), "raw Solr message must not be exposed");
+    assertTrue(
+        e.getMessage().contains("undefined field bogus"), "Solr's reason must reach the client");
+    assertFalse(e.getMessage().contains("internal-solr"), e::getMessage);
     assertTrue(
         e.getMessage()
             .contains(SearchService.LIST_FIELDS_HINT_FORMAT.formatted("test_collection")));
@@ -321,8 +350,8 @@ class SearchServiceTest {
   void search_WithUndefinedSortField_ShouldHintGetSchema() throws Exception {
     SearchService localService =
         serviceThrowing(
-            new SolrException(
-                SolrException.ErrorCode.BAD_REQUEST, "sort param field can't be found: bogus"));
+            new RemoteSolrException(
+                SOLR_HOST, 400, "sort param field can't be found: bogus", null));
     List<SortClause> sort = List.of(new SortClause("bogus", "asc"));
     IllegalArgumentException e =
         assertThrows(
@@ -338,15 +367,14 @@ class SearchServiceTest {
   void search_WithQuerySyntaxError_ShouldHintLuceneSyntax() throws Exception {
     SearchService localService =
         serviceThrowing(
-            new SolrException(
-                SolrException.ErrorCode.BAD_REQUEST,
-                "org.apache.solr.search.SyntaxError: Cannot parse 'name:('"));
+            new RemoteSolrException(
+                SOLR_HOST, 400, "org.apache.solr.search.SyntaxError: Cannot parse 'name:('", null));
     IllegalArgumentException e =
         assertThrows(
             IllegalArgumentException.class,
             () -> localService.search("test_collection", "name:(", null, null, null, null, null));
     assertTrue(e.getMessage().contains(SearchService.LUCENE_SYNTAX_HINT));
-    assertFalse(e.getMessage().contains("org.apache.solr.search.SyntaxError"));
+    assertTrue(e.getMessage().contains("Cannot parse 'name:('"), e::getMessage);
     assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
   }
 
@@ -359,31 +387,44 @@ class SearchServiceTest {
   void search_WithNotFoundStatus_ShouldHintListCollections() throws Exception {
     SearchService localService =
         serviceThrowing(
-            new SolrException(
-                SolrException.ErrorCode.NOT_FOUND,
-                "Expected mime type in [application/json, text/plain] but got text/html."));
+            new RemoteSolrException(
+                SOLR_HOST,
+                404,
+                "Expected mime type in [application/json, text/plain] but got text/html.",
+                null));
     IllegalArgumentException e =
         assertThrows(
             IllegalArgumentException.class,
             () -> localService.search("test_collection", "*:*", null, null, null, null, null));
-    assertTrue(e.getMessage().contains(SearchService.LIST_COLLECTIONS_HINT));
+    assertTrue(e.getMessage().contains(SolrCalls.LIST_COLLECTIONS_HINT));
     assertFalse(e.getMessage().contains("mime type"));
     assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
   }
 
   @Test
-  void search_WithUnrelatedSolrError_ShouldPropagateUnchanged() throws Exception {
+  void search_WithOtherBadRequest_ShouldSuggestCheckingTheParameters() throws Exception {
+    SearchService localService =
+        serviceThrowing(new RemoteSolrException(SOLR_HOST, 400, "rows must be >= 0", null));
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> localService.search("test_collection", null, null, null, null, null, null));
+    assertTrue(e.getMessage().contains("rows must be >= 0"), e::getMessage);
+    assertTrue(e.getMessage().endsWith(SearchService.BAD_REQUEST_HINT), e::getMessage);
+    assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
+  }
+
+  @Test
+  void search_WithServerError_ShouldCarrySolrsReasonAndAskForTheOperator() throws Exception {
     SearchService localService =
         serviceThrowing(
             new SolrException(SolrException.ErrorCode.SERVER_ERROR, "internal failure"));
-    SolrException e =
+    IllegalStateException e =
         assertThrows(
-            SolrException.class,
+            IllegalStateException.class,
             () -> localService.search("test_collection", null, null, null, null, null, null));
-    assertEquals(SolrException.ErrorCode.SERVER_ERROR.code, e.code());
-    assertFalse(e.getMessage().contains("internal failure"));
-    assertTrue(e.getMessage().contains("operator"));
-    assertTrue(e.getMessage().contains("Solr health"));
+    assertTrue(e.getMessage().contains("internal failure"), e::getMessage);
+    assertTrue(e.getMessage().contains("operator"), e::getMessage);
     assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
   }
 
@@ -563,25 +604,29 @@ class SearchServiceTest {
   }
 
   @Test
-  void search_WhenSolrThrowsException_ShouldPropagateException() throws Exception {
+  void search_WhenSolrThrowsException_ShouldReportSolrUnreachable() throws Exception {
     SolrClient mockClient = solrClientWithUniqueKey(ID);
     when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
         .thenThrow(new SolrServerException("Connection error"));
     SearchService localService = new SearchService(mockClient);
-    assertThrows(
-        SolrServerException.class,
-        () -> localService.search("test_collection", null, null, null, null, null, null));
+    IllegalStateException e =
+        assertThrows(
+            IllegalStateException.class,
+            () -> localService.search("test_collection", null, null, null, null, null, null));
+    assertTrue(e.getMessage().contains("could not be reached"), e::getMessage);
   }
 
   @Test
-  void search_WhenIOException_ShouldPropagateException() throws Exception {
+  void search_WhenIOException_ShouldReportSolrUnreachable() throws Exception {
     SolrClient mockClient = solrClientWithUniqueKey(ID);
     when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
         .thenThrow(new IOException("Network error"));
     SearchService localService = new SearchService(mockClient);
-    assertThrows(
-        IOException.class,
-        () -> localService.search("test_collection", null, null, null, null, null, null));
+    IllegalStateException e =
+        assertThrows(
+            IllegalStateException.class,
+            () -> localService.search("test_collection", null, null, null, null, null, null));
+    assertTrue(e.getMessage().contains("could not be reached"), e::getMessage);
   }
 
   @Test
@@ -1066,7 +1111,7 @@ class SearchServiceTest {
         assertThrows(
             IllegalArgumentException.class,
             () -> localService.search(COLLECTION, null, null, null, null, null, null));
-    assertTrue(e.getMessage().contains(SearchService.LIST_COLLECTIONS_HINT));
+    assertTrue(e.getMessage().contains(SolrCalls.LIST_COLLECTIONS_HINT));
     verify(client, never()).query(any(), any(SolrQuery.class));
   }
 

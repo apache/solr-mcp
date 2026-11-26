@@ -54,6 +54,7 @@ import org.apache.solr.mcp.server.collection.CollectionMetrics.QueryStats;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
 import org.apache.solr.mcp.server.util.McpResults;
 import org.apache.solr.mcp.server.util.PromptNames;
+import org.apache.solr.mcp.server.util.SolrCalls;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -260,8 +261,14 @@ public class CollectionService {
   // Constants for Error Messages
   // ========================================
 
-  /** Error message prefix for collection not found exceptions */
-  private static final String COLLECTION_NOT_FOUND_ERROR = "Collection not found: ";
+  /** Leads the error text of a failed {@code list-collections}. */
+  static final String LIST_COLLECTIONS_FAILED = "Listing collections failed";
+
+  /** Leads the error text of a failed {@code get-collection-stats}. */
+  static final String COLLECTION_STATS_FAILED = "Getting collection stats failed";
+
+  /** Leads the error text of a failed {@code create-collection}. */
+  static final String CREATE_COLLECTION_FAILED = "Creating the collection failed";
 
   /** Default configset name used when none is specified */
   private static final String DEFAULT_CONFIGSET = "_default";
@@ -378,7 +385,8 @@ public class CollectionService {
               .sorted()
               .toList();
       return McpResults.completion(matches, MAX_COMPLETION_RESULTS);
-    } catch (SolrServerException | IOException _) {
+    } catch (IllegalArgumentException | IllegalStateException _) {
+      // SolrCalls' translations of a failed listing; a completion offers nothing instead.
       return McpResults.completion(List.of(), MAX_COMPLETION_RESULTS);
     }
   }
@@ -468,8 +476,8 @@ public class CollectionService {
    *
    * @return the collections, one {@link Collection} per name; empty when Solr reports no
    *     collections)
-   * @throws SolrServerException if there are errors communicating with Solr
-   * @throws IOException if there are I/O errors during communication
+   * @throws IllegalStateException if Solr failed or could not be reached, as {@link SolrCalls}
+   *     reports it
    * @see CollectionAdminRequest.List
    */
   @PreAuthorize("isAuthenticated()")
@@ -477,9 +485,12 @@ public class CollectionService {
       name = "list-collections",
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
       description = "List solr collections")
-  public List<Collection> listCollections() throws SolrServerException, IOException {
-    CollectionAdminRequest.List request = new CollectionAdminRequest.List();
-    CollectionAdminResponse response = request.process(solrClient);
+  public List<Collection> listCollections() {
+    CollectionAdminResponse response =
+        SolrCalls.call(
+            LIST_COLLECTIONS_FAILED,
+            SolrCalls.ADMIN_API_NOT_FOUND,
+            () -> new CollectionAdminRequest.List().process(solrClient));
 
     @SuppressWarnings("unchecked")
     List<String> collections = (List<String>) response.getResponse().get(COLLECTIONS_KEY);
@@ -512,8 +523,9 @@ public class CollectionService {
    * <p><strong>Validation:</strong>
    *
    * <p>Collection existence is not checked with a separate pre-flight call: the Luke request below
-   * already 404s for an unknown collection, and that response is translated into an {@code
-   * IllegalArgumentException} with a descriptive error message.
+   * already 404s for an unknown collection, and {@link SolrCalls} translates that response into an
+   * {@code IllegalArgumentException} that names the collection and the {@code list-collections}
+   * tool.
    *
    * <p><strong>MCP Tool Usage:</strong>
    *
@@ -523,9 +535,9 @@ public class CollectionService {
    * @param collection the name of the collection to analyze (supports both collection and shard
    *     names)
    * @return comprehensive metrics object containing all collected statistics
-   * @throws IllegalArgumentException if the specified collection does not exist
-   * @throws SolrServerException if there are errors communicating with Solr
-   * @throws IOException if there are I/O errors during communication
+   * @throws IllegalArgumentException if the specified collection does not exist, or Solr refused
+   *     the request
+   * @throws IllegalStateException if Solr failed or could not be reached
    * @see CollectionMetrics
    * @see LukeRequest
    * @see #extractCollectionName(String)
@@ -542,29 +554,25 @@ public class CollectionService {
               + " this is expected and not an error.",
       generateOutputSchema = true)
   public CollectionMetrics getCollectionStats(
-      @McpToolParam(description = "Solr collection to get stats/metrics for") String collection)
-      throws SolrServerException, IOException {
+      @McpToolParam(description = "Solr collection to get stats/metrics for") String collection) {
     // Extract actual collection name from shard name if needed
     String actualCollection = extractCollectionName(collection);
+    String notFound = SolrCalls.collectionNotFound(actualCollection);
 
     // Index statistics using Luke; an unknown collection 404s here
-    LukeResponse lukeResponse;
-    try {
-      lukeResponse = new IndexOnlyLukeRequest().process(solrClient, actualCollection);
-    } catch (SolrException e) {
-      if (e.code() == SolrException.ErrorCode.NOT_FOUND.code) {
-        throw new IllegalArgumentException(
-            COLLECTION_NOT_FOUND_ERROR
-                + actualCollection
-                + ". Hint: call list-collections to see available collections.",
-            e);
-      }
-      throw e;
-    }
+    LukeResponse lukeResponse =
+        SolrCalls.call(
+            COLLECTION_STATS_FAILED,
+            notFound,
+            () -> new IndexOnlyLukeRequest().process(solrClient, actualCollection));
 
     // Query performance metrics
     QueryResponse statsResponse =
-        solrClient.query(actualCollection, new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
+        SolrCalls.call(
+            COLLECTION_STATS_FAILED,
+            notFound,
+            () ->
+                solrClient.query(actualCollection, new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0)));
 
     // One /admin/metrics call feeds both the cache and handler stats
     NamedList<Object> coreMetrics = fetchMetrics(actualCollection);
@@ -997,9 +1005,10 @@ public class CollectionService {
    * @param numShards number of shards (optional, defaults to 1)
    * @param replicationFactor replication factor (optional, defaults to 1)
    * @return the settings the collection was created with, including applied defaults
-   * @throws IllegalArgumentException if the collection name is blank
-   * @throws SolrServerException if Solr returns an error
-   * @throws IOException if there are I/O errors during communication
+   * @throws IllegalArgumentException if the collection name is blank, or Solr refused the request,
+   *     for example for a configset that does not exist; the message carries Solr's reason
+   * @throws IllegalStateException if Solr failed or could not be reached
+   * @see SolrCalls
    */
   @PreAuthorize("isAuthenticated()")
   @McpTool(
@@ -1022,8 +1031,7 @@ public class CollectionService {
       @McpToolParam(description = "Number of shards. Defaults to 1.", required = false)
           @Nullable Integer numShards,
       @McpToolParam(description = "Replication factor. Defaults to 1.", required = false)
-          @Nullable Integer replicationFactor)
-      throws SolrServerException, IOException {
+          @Nullable Integer replicationFactor) {
 
     if (name.isBlank()) {
       throw new IllegalArgumentException(BLANK_COLLECTION_NAME_ERROR);
@@ -1043,7 +1051,8 @@ public class CollectionService {
       request =
           CollectionAdminRequest.createCollection(name, configSet, effectiveShards, effectiveRf);
     }
-    request.process(solrClient);
+    SolrCalls.call(
+        CREATE_COLLECTION_FAILED, SolrCalls.ADMIN_API_NOT_FOUND, () -> request.process(solrClient));
 
     return new CollectionCreationResult(name, effectiveConfigSet, effectiveShards, effectiveRf);
   }
