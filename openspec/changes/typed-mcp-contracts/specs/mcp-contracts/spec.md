@@ -72,6 +72,10 @@ Error text and result properties that describe a failure SHALL NOT include the S
 - **WHEN** `search` sorts on a field the collection does not have
 - **THEN** the client receives `isError: true` with text that includes Solr's reason, and no host name or URL
 
+#### Scenario: Solr 10 names the exception class
+- **WHEN** Solr 10 reports an error whose JSON `error` object has an `errorClass`
+- **THEN** the error text includes Solr's `msg`, and no Java class name
+
 #### Scenario: A collection does not exist
 - **WHEN** a tool is called on a collection Solr does not have, and Solr answers with an HTML 404 page
 - **THEN** the error text is the server's own hint to call `list-collections`, with no HTML from Solr's page

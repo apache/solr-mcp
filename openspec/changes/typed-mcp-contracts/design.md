@@ -140,12 +140,18 @@ The docs' remedy for a tool that wants the model to see a failure is to convert 
 |---|---|
 | `RemoteSolrException` 404 | the tool's own hint, e.g. call `list-collections` |
 | `RemoteSolrException` 401/403 | Solr denied access |
-| other `RemoteSolrException` built from Solr's JSON `error` | Solr's reason, without the `Error from server at <host>:` prefix (`RemoteSolrException`'s constructors in SolrJ 10.0.0) |
+| other `RemoteSolrException` built from Solr's JSON `error` | Solr's reason: the error object's `msg`, with any quoted `Error from server at <host>:` removed (see below) |
 | other `RemoteSolrException` | a fixed message naming the HTTP status |
 | `SolrServerException` for a timeout | Solr did not answer in time |
 | other `SolrServerException`, `IOException` | Solr could not be reached |
 
 Solr's reason is passed only when SolrJ parsed it from Solr's JSON `error` object. Otherwise SolrJ's message holds the raw response body (`HttpSolrClientBase.checkContentType` in SolrJ 10.0.0), and on Solr 9.9 that body is an HTML page. A missing collection's 404 reads "Searching for Solr? You must type the correct path.", and a 401 is a Jetty error page that quotes the request path. Neither tells the model what to do next, which is why 404 and 401/403 get fixed text.
+
+The reason is read from the error object itself, `getRemoteErrorObject()`, with SolrJ's `Utils.getObjectByPath`, which reads the object whether SolrJ parsed it as a `Map` or a `NamedList`. It is never taken from `getMessage()`:
+- **`errorClass` is never passed on.** Solr 10 sends one, and `RemoteSolrException.getRemoteErrorMessageSuffix` in SolrJ 10.0.0 puts it in front of `msg` in `getMessage()`, so the text would read `org.apache.solr.common.SolrException: undefined field ...`. Solr 9.9 sends none.
+- **A forwarded error gives the inner node's reason.** Solr 10 writes a `SolrException`'s `msg` as `getResponseMessage()`, so the `msg` of a `RemoteSolrException` that a node received from another node is only `Error from server at <host>`. The other node's error object is at `details[0]/remoteError`, and its `msg` is used.
+- **A Schema API error keeps each command's errors.** For a `SolrErrorWrappingException`, Solr 10 sends only the summary in `msg` (`error processing commands`) and moves the per-command errors into `details`. SolrJ's own `SolrErrorWrappingException.constructMessage(msg, details)` joins them again, as Solr 9.9 already does in `msg`.
+- **An error object with no `msg`** gets the fixed message naming the HTTP status.
 
 Rejected: an AOP aspect around every `@McpTool` (#273, closed). It does the same conversion from outside the method, which Spring AI does not document. The conformance tests check every tool over the wire instead, both against a missing collection and with Solr unreachable.
 
