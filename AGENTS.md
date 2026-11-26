@@ -11,6 +11,19 @@ Solr MCP Server is a Spring AI Model Context Protocol (MCP) server that enables 
 - **Framework:** Spring Boot 4.2.0, Spring AI 2.1.0
 - **License:** Apache 2.0
 
+## Ask before doing
+
+These reach outside the checkout and cannot be taken back. Ask a human first, every time:
+
+- `./gradlew jib` in any form: it pushes an image to a registry. `jibDockerBuild` builds into the
+  local Docker daemon and is fine.
+- Dispatching `release-publish.yml`, `atr-release.yml` or `atr-release-test.yml`.
+- Any step of [dev-docs/release-process.md](dev-docs/release-process.md): pushing a
+  `releases/solr-mcp/*` tag, staging in ATR, starting or closing a vote on dev@solr.apache.org,
+  announcing.
+- Pointing `SOLR_URL` at anything but the local `compose.yaml` Solr or a Testcontainers instance.
+  The tools create collections, change schemas, index documents and delete aliases.
+
 ## Common Commands
 
 ```bash
@@ -109,15 +122,33 @@ docker run -p 8080:8080 --rm -e PROFILES=http \
 
 ## Architecture
 
-### MCP Tools (src/main/java/org/apache/solr/mcp/server/)
+### Package map (src/main/java/org/apache/solr/mcp/server/)
 
-Five service classes expose MCP tools via `@McpTool` annotations:
+Five service classes expose MCP tools via `@McpTool`. Prompts (`@McpPrompt`), resources
+(`@McpResource`) and completions (`@McpComplete`) live on the same classes:
 
-- **SearchService** (`search/`) - Full-text search with filtering, faceting, sorting, pagination
-- **IndexingService** (`indexing/`) - Document indexing supporting JSON, CSV, XML, and markdown formats
-- **CollectionService** (`collection/`) - List collections, get stats, health checks
-- **AliasService** (`alias/`) - List, create and delete collection aliases
-- **SchemaService** (`schema/`) - Schema introspection and additive modification (add-fields, add-field-types)
+- **SearchService** (`search/`) - `search`: full-text search with filtering, faceting, sorting, pagination
+- **IndexingService** (`indexing/`) - `index-json-documents`, `index-csv-documents`, `index-xml-documents`, `index-markdown-documents`
+- **CollectionService** (`collection/`) - `list-collections`, `get-collection-stats`, `check-health`, `create-collection`; the `solr://collections` resource and every `@McpComplete` handler
+- **AliasService** (`alias/`) - `list-aliases`, `create-alias`, `delete-alias`
+- **SchemaService** (`schema/`) - `get-schema`, `list-fields`, and the additive `add-fields`, `add-field-types`; the `solr://{collection}/schema` and `solr://{collection}/fields` resources
+
+Packages without tools:
+
+- `config/` - `SolrConfig` (the SolrJ client: `JsonResponseParser` reads responses, `XMLRequestWriter`
+  sends updates), `SolrConfigurationProperties` (`solr.*`), `SolrNativeHints`,
+  `InstallOpenTelemetryAppender`, `ModernStdioTransportConfiguration` (STDIO under `MCP_PROTOCOL=modern`)
+- `security/` - HTTP profile only, both off when `HTTP_SECURITY_ENABLED=false`:
+  `HttpSecurityConfiguration` (OAuth2 resource server; `/mcp` is open at the URL level, `/actuator/**`
+  other than health needs a token) and `MethodSecurityConfiguration`, which enables the
+  `@PreAuthorize` checks on the tool methods that actually gate `/mcp`
+- `util/` - `SolrCalls`, which runs every tool's Solr calls and translates their failures (see
+  "MCP contracts" below); `McpResults`, which builds the prompt, resource and completion results;
+  `PromptNames`, the prompt names shared by `@McpPrompt` and `@McpComplete` (they must match
+  byte-for-byte or completion fails at runtime); and `PromptText`, the prompt bodies
+
+Why the project is built this way (Spring AI MCP, Jib): "Design Decisions" in
+[dev-docs/ARCHITECTURE.md](dev-docs/ARCHITECTURE.md).
 
 ### MCP contracts
 
@@ -406,7 +437,9 @@ modes.
 
 `native.yml` runs `dockerIntegrationTest` over a `[stdio, http]` matrix on
 every PR that touches native-related files, so both Paketo native variants
-are exercised. The Jib JVM path runs in `build-and-publish.yml`.
+are exercised. No workflow tests the Jib JVM image: `build-and-publish.yml` runs
+`./gradlew build`, which does not include `dockerIntegrationTest`. Run
+`./gradlew dockerIntegrationTest` locally for a change that touches the image.
 
 ### Solr Version Compatibility Testing
 
@@ -443,6 +476,8 @@ Environment variables:
 - `MCP_PROTOCOL`: MCP spec revision. Unset = 2025 revisions (`stateless` HTTP, `streamable`
   STDIO); `modern` = 2026-07-28. Sets `spring.ai.mcp.server.protocol`; fixed at build time in
   native images.
+- `HTTP_SECURITY_ENABLED`: HTTP mode is secured by default (`true`); `false` turns off OAuth2
+  and the `@PreAuthorize` checks
 - `OAUTH2_ISSUER_URI`: OAuth2 issuer URL (HTTP mode only)
 - `OTEL_SAMPLING_PROBABILITY`: trace sampling rate (default `1.0`)
 - `OTEL_TRACES_URL` / `OTEL_METRICS_URL` / `OTEL_LOGS_URL`: OTLP/HTTP endpoints
