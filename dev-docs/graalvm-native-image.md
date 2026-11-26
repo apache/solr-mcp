@@ -170,7 +170,8 @@ it is the path the native tests run.
   them; they're registered by name in the same list.
 - **MCP tool response records** — `Alias`, `AliasDeletion`, `Collection`,
   `CollectionCreationResult`, `HealthStatus` (and `HealthStatus$Reason`),
-  `CollectionMetrics` with its nested stats records, `SearchResponse`,
+  `CollectionMetrics` with its nested stats records, `SearchResponse` (with its
+  nested `SearchHit`, `FacetField` and `FacetValue`),
   `SchemaUpdateResult`. These are records the MCP framework dispatches via generic
   `Object`, so AOT can't see them. They're registered by name with
   `registerTypeIfPresent`.

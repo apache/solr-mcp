@@ -120,11 +120,11 @@ class SearchServiceTest {
     when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
         .thenAnswer(
             invocation -> {
-              SolrQuery q = invocation.getArgument(1);
-              assertEquals("*:*", q.getQuery());
-              assertNull(q.getFilterQueries());
-              assertNull(q.getFacetFields());
-              assertNull(q.get("facet"));
+              SolrQuery sentQuery = invocation.getArgument(1);
+              assertEquals("*:*", sentQuery.getQuery());
+              assertNull(sentQuery.getFilterQueries());
+              assertNull(sentQuery.getFacetFields());
+              assertNull(sentQuery.get("facet"));
               return mockResponse;
             });
     SearchService localService = new SearchService(mockClient);
@@ -142,8 +142,8 @@ class SearchServiceTest {
     when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
         .thenAnswer(
             invocation -> {
-              SolrQuery q = invocation.getArgument(1);
-              assertEquals("map", q.get("json.nl"));
+              SolrQuery sentQuery = invocation.getArgument(1);
+              assertEquals("map", sentQuery.get("json.nl"));
               return mockResponse;
             });
     SearchService localService = new SearchService(mockClient);
@@ -159,8 +159,8 @@ class SearchServiceTest {
     when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
         .thenAnswer(
             invocation -> {
-              SolrQuery q = invocation.getArgument(1);
-              assertNull(q.getSortField());
+              SolrQuery sentQuery = invocation.getArgument(1);
+              assertNull(sentQuery.getSortField());
               return mockResponse;
             });
     SearchService localService = new SearchService(mockClient);
@@ -185,14 +185,15 @@ class SearchServiceTest {
     when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
         .thenAnswer(
             invocation -> {
-              SolrQuery q = invocation.getArgument(1);
-              assertEquals("{!edismax qf='name author_ss'}george martin", q.getQuery());
-              assertArrayEquals(new String[] {filter, "price:[0 TO 10]"}, q.getFilterQueries());
-              assertArrayEquals(new String[] {facet, "author_ss"}, q.getFacetFields());
-              assertEquals("true", q.get("facet"));
-              assertEquals(1, q.getFacetMinCount());
-              assertEquals("count", q.getFacetSortString());
-              assertEquals("price desc,name asc", q.getSortField());
+              SolrQuery sentQuery = invocation.getArgument(1);
+              assertEquals("{!edismax qf='name author_ss'}george martin", sentQuery.getQuery());
+              assertArrayEquals(
+                  new String[] {filter, "price:[0 TO 10]"}, sentQuery.getFilterQueries());
+              assertArrayEquals(new String[] {facet, "author_ss"}, sentQuery.getFacetFields());
+              assertEquals("true", sentQuery.get("facet"));
+              assertEquals(1, sentQuery.getFacetMinCount());
+              assertEquals("count", sentQuery.getFacetSortString());
+              assertEquals("price desc,name asc", sentQuery.getSortField());
               return mockResponse;
             });
     SearchService localService = new SearchService(mockClient);
@@ -392,8 +393,8 @@ class SearchServiceTest {
     when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
         .thenAnswer(
             invocation -> {
-              SolrQuery q = invocation.getArgument(1);
-              assertEquals("*:*", q.getQuery());
+              SolrQuery sentQuery = invocation.getArgument(1);
+              assertEquals("*:*", sentQuery.getQuery());
               return mockResponse;
             });
     SearchService localService = new SearchService(mockClient);
@@ -417,10 +418,10 @@ class SearchServiceTest {
     when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
         .thenAnswer(
             invocation -> {
-              SolrQuery q = invocation.getArgument(1);
+              SolrQuery sentQuery = invocation.getArgument(1);
               assertTrue(
-                  List.of(q.getFields().split(",")).contains("score"),
-                  () -> "expected fl to request score, got: " + q.getFields());
+                  List.of(sentQuery.getFields().split(",")).contains("score"),
+                  () -> "expected fl to request score, got: " + sentQuery.getFields());
               return mockResponse;
             });
     SearchService localService = new SearchService(mockClient);
@@ -440,8 +441,8 @@ class SearchServiceTest {
     when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
         .thenAnswer(
             invocation -> {
-              SolrQuery q = invocation.getArgument(1);
-              assertEquals(customQuery, q.getQuery());
+              SolrQuery sentQuery = invocation.getArgument(1);
+              assertEquals(customQuery, sentQuery.getQuery());
               return mockResponse;
             });
     SearchService localService = new SearchService(mockClient);
@@ -461,8 +462,8 @@ class SearchServiceTest {
     when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
         .thenAnswer(
             invocation -> {
-              SolrQuery q = invocation.getArgument(1);
-              assertArrayEquals(filterQueries.toArray(), q.getFilterQueries());
+              SolrQuery sentQuery = invocation.getArgument(1);
+              assertArrayEquals(filterQueries.toArray(), sentQuery.getFilterQueries());
               return mockResponse;
             });
     SearchService localService = new SearchService(mockClient);
@@ -515,9 +516,9 @@ class SearchServiceTest {
     when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
         .thenAnswer(
             invocation -> {
-              SolrQuery q = invocation.getArgument(1);
-              assertEquals(start, q.getStart());
-              assertEquals(rows, q.getRows());
+              SolrQuery sentQuery = invocation.getArgument(1);
+              assertEquals(start, sentQuery.getStart());
+              assertEquals(rows, sentQuery.getRows());
               return mockResponse;
             });
     SearchService localService = new SearchService(mockClient);
@@ -607,8 +608,8 @@ class SearchServiceTest {
     when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
         .thenAnswer(
             invocation -> {
-              SolrQuery q = invocation.getArgument(1);
-              assertNull(q.getFilterQueries());
+              SolrQuery sentQuery = invocation.getArgument(1);
+              assertNull(sentQuery.getFilterQueries());
               return mockResponse;
             });
     SearchService localService = new SearchService(mockClient);
@@ -627,8 +628,8 @@ class SearchServiceTest {
     when(mockClient.query(eq("test_collection"), any(SolrQuery.class)))
         .thenAnswer(
             invocation -> {
-              SolrQuery q = invocation.getArgument(1);
-              assertNull(q.getFacetFields());
+              SolrQuery sentQuery = invocation.getArgument(1);
+              assertNull(sentQuery.getFacetFields());
               return mockResponse;
             });
     SearchService localService = new SearchService(mockClient);
@@ -753,44 +754,45 @@ class SearchServiceTest {
 
   @Test
   void search_WithoutFieldsOrQueryFields_ShouldSendDefaultParams() throws Exception {
-    SolrQuery q = searchAndCapture("george", null, null);
-    assertEquals("*,score", q.getFields());
-    assertNull(q.get("qf"));
-    assertNull(q.get("defType"));
+    SolrQuery sentQuery = searchAndCapture("george", null, null);
+    assertEquals("*,score", sentQuery.getFields());
+    assertNull(sentQuery.get("qf"));
+    assertNull(sentQuery.get("defType"));
   }
 
   @Test
   void search_WithFields_ShouldLimitFlAndKeepScore() throws Exception {
-    SolrQuery q = searchAndCapture(null, List.of("id", " \t", "name"), null);
-    assertEquals("id,name,score", q.getFields());
+    SolrQuery sentQuery = searchAndCapture(null, List.of("id", " \t", "name"), null);
+    assertEquals("id,name,score", sentQuery.getFields());
   }
 
   @Test
   void search_WithOnlyBlankFields_ShouldReturnAllFields() throws Exception {
-    SolrQuery q = searchAndCapture(null, List.of("", " \n"), null);
-    assertEquals("*,score", q.getFields());
+    SolrQuery sentQuery = searchAndCapture(null, List.of("", " \n"), null);
+    assertEquals("*,score", sentQuery.getFields());
   }
 
   @Test
   void search_WithQueryFields_ShouldSendQfAndEdismax() throws Exception {
-    SolrQuery q = searchAndCapture("george martin", null, List.of("name^2", "", "author_ss"));
-    assertEquals("george martin", q.getQuery());
-    assertEquals("name^2 author_ss", q.get("qf"));
-    assertEquals("edismax", q.get("defType"));
+    SolrQuery sentQuery =
+        searchAndCapture("george martin", null, List.of("name^2", "", "author_ss"));
+    assertEquals("george martin", sentQuery.getQuery());
+    assertEquals("name^2 author_ss", sentQuery.get("qf"));
+    assertEquals("edismax", sentQuery.get("defType"));
   }
 
   @Test
   void search_WithOnlyBlankQueryFields_ShouldNotSwitchParser() throws Exception {
-    SolrQuery q = searchAndCapture("george", null, List.of(" \t", ""));
-    assertNull(q.get("qf"));
-    assertNull(q.get("defType"));
+    SolrQuery sentQuery = searchAndCapture("george", null, List.of(" \t", ""));
+    assertNull(sentQuery.get("qf"));
+    assertNull(sentQuery.get("defType"));
   }
 
   @Test
   void search_WithLocalParamsAndNoQueryFields_ShouldSendQueryUnchanged() throws Exception {
-    SolrQuery q = searchAndCapture("{!edismax qf=name}george", null, null);
-    assertEquals("{!edismax qf=name}george", q.getQuery());
-    assertNull(q.get("defType"));
+    SolrQuery sentQuery = searchAndCapture("{!edismax qf=name}george", null, null);
+    assertEquals("{!edismax qf=name}george", sentQuery.getQuery());
+    assertNull(sentQuery.get("defType"));
   }
 
   @Test
@@ -828,14 +830,23 @@ class SearchServiceTest {
   // ===== typed search contract (spec: search) =====
 
   @Test
-  void search_ReportsNumFoundStartAndAtMostRowsHits() throws Exception {
+  void search_PagedSearch_SendsStartAndRowsAndReportsNumFoundAndStart() throws Exception {
+    SolrClient client = solrClientWithUniqueKey(ID);
+    QueryResponse response = mock(QueryResponse.class);
     SolrDocumentList page =
         documentList(42, 10, document(Map.of(ID, "doc10")), document(Map.of(ID, "doc11")));
+    when(response.getResults()).thenReturn(page);
+    when(client.query(eq(COLLECTION), any(SolrQuery.class))).thenReturn(response);
+
     SearchResponse result =
-        serviceReturning(ID, page, null).search(COLLECTION, null, null, null, null, 10, 5);
+        new SearchService(client).search(COLLECTION, null, null, null, null, 10, 5);
+
+    ArgumentCaptor<SolrQuery> captor = ArgumentCaptor.forClass(SolrQuery.class);
+    verify(client).query(eq(COLLECTION), captor.capture());
+    assertEquals(10, captor.getValue().getStart());
+    assertEquals(5, captor.getValue().getRows());
     assertEquals(42, result.numFound());
     assertEquals(10, result.start());
-    assertTrue(result.documents().size() <= 5);
     assertEquals(
         List.of("doc10", "doc11"),
         result.documents().stream().map(SearchResponse.SearchHit::id).toList());
@@ -931,8 +942,8 @@ class SearchServiceTest {
 
   @Test
   void search_FieldsWithUniqueKey_DoesNotRepeatIt() throws Exception {
-    SolrQuery q = searchAndCapture(null, List.of("name", ID), null);
-    assertEquals("name,id,score", q.getFields());
+    SolrQuery sentQuery = searchAndCapture(null, List.of("name", ID), null);
+    assertEquals("name,id,score", sentQuery.getFields());
   }
 
   @Test
@@ -995,7 +1006,7 @@ class SearchServiceTest {
         assertThrows(
             IllegalStateException.class,
             () -> localService.search(COLLECTION, null, null, null, null, null, null));
-    assertTrue(e.getMessage().startsWith("Search failed"), e::getMessage);
+    assertEquals(SearchService.SCHEMA_CHANGED_ERROR, e.getMessage());
     assertNull(e.getCause(), "MCP must not unwrap a raw failure");
     assertThrows(
         IllegalStateException.class,
@@ -1012,8 +1023,29 @@ class SearchServiceTest {
         assertThrows(
             IllegalStateException.class,
             () -> localService.search(COLLECTION, null, null, null, null, null, null));
-    assertTrue(e.getMessage().startsWith("Search failed"), e::getMessage);
+    assertEquals(SearchService.NO_UNIQUE_KEY_ERROR, e.getMessage());
+    assertNull(e.getCause(), "MCP must not unwrap a raw failure");
     verify(client, never()).query(any(), any(SolrQuery.class));
+  }
+
+  @Test
+  void search_FieldsRenamingAnotherFieldToTheUniqueKey_IsRejectedBeforeQuerying() throws Exception {
+    SolrClient client = solrClientWithUniqueKey(ID);
+    SearchService localService = new SearchService(client);
+    List<String> fields = List.of("name", "id:name_s");
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                localService.search(COLLECTION, null, null, null, null, null, null, fields, null));
+    assertEquals(SearchService.RENAME_TO_UNIQUE_KEY_ERROR, e.getMessage());
+    verify(client, never()).query(any(), any(SolrQuery.class));
+  }
+
+  @Test
+  void search_FieldsRenamingTheUniqueKeyItself_IsAllowed() throws Exception {
+    SolrQuery sentQuery = searchAndCapture(null, List.of("key:id", "name"), null);
+    assertEquals("key:id,name,score,id", sentQuery.getFields());
   }
 
   @Test

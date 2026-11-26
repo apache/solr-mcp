@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.LongSupplier;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -27,14 +28,21 @@ import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.springframework.util.StringUtils;
 
 /**
- * Looks up each collection's uniqueKey field with the Schema API and remembers it, so searches on
- * the same collection cost one Schema API call rather than one each.
+ * Looks up each collection's uniqueKey field with the Schema API ({@code GET /schema/uniquekey},
+ * Solr's {@code schema-read} permission) and remembers it, so searches on the same collection cost
+ * one Schema API call rather than one each.
  *
  * <p>A collection's uniqueKey cannot change while the collection exists. A collection can, however,
  * be deleted and created again under the same name with a different schema, so an entry is trusted
  * only for {@link #TIME_TO_LIVE}. The cache also holds at most {@link #MAX_ENTRIES} collections and
  * drops the least recently used one beyond that, so a server that sees many short-lived collections
  * does not grow without bound.
+ *
+ * <p>A schema without a uniqueKey, which only standalone Solr allows, has no value to report as a
+ * hit's {@code id}, so such a collection cannot be searched. The lookup returns empty for it and
+ * remembers nothing.
+ *
+ * <p>Thread-safe; Solr is called without holding the lock.
  */
 final class UniqueKeyCache {
 
@@ -43,9 +51,6 @@ final class UniqueKeyCache {
 
   /** The most collections remembered at once. */
   static final int MAX_ENTRIES = 256;
-
-  /** Failure for a schema that declares no uniqueKey, which leaves a hit without an {@code id}. */
-  static final String NO_UNIQUE_KEY_ERROR = "The collection's schema declares no uniqueKey field";
 
   /** A remembered uniqueKey and the {@link #nanoClock} reading after which it is stale. */
   private record Entry(String field, long expiresAtNanos) {}
@@ -80,30 +85,29 @@ final class UniqueKeyCache {
    * Returns the name of the collection's uniqueKey field, asking Solr only when no fresh entry is
    * remembered.
    *
-   * @param collection the collection to look up
-   * @return the uniqueKey field name
-   * @throws IllegalStateException if the schema declares no uniqueKey
+   * @param collection the collection or alias to look up
+   * @return the uniqueKey field name, or empty when the schema declares none
    * @throws SolrServerException if Solr cannot be reached
    * @throws IOException if the request fails on the wire
    */
-  String get(String collection) throws SolrServerException, IOException {
+  Optional<String> get(String collection) throws SolrServerException, IOException {
     final long now = nanoClock.getAsLong();
     synchronized (entries) {
       final Entry entry = entries.get(collection);
       if (entry != null && now - entry.expiresAtNanos() < 0) {
-        return entry.field();
+        return Optional.of(entry.field());
       }
     }
     // Outside the lock: two searches that miss at once both ask Solr, which is harmless.
     final String field =
         new SchemaRequest.UniqueKey().process(solrClient, collection).getUniqueKey();
     if (!StringUtils.hasText(field)) {
-      throw new IllegalStateException(NO_UNIQUE_KEY_ERROR);
+      return Optional.empty();
     }
     synchronized (entries) {
       entries.put(collection, new Entry(field, now + TIME_TO_LIVE.toNanos()));
     }
-    return field;
+    return Optional.of(field);
   }
 
   /**

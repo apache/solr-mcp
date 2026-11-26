@@ -60,7 +60,7 @@ public record SearchResponse(
     List<SearchHit> documents,
     List<FacetField> facets) {
 
-  /** Copies the lists so the response cannot change after it is built. */
+  /** Copies the lists into unmodifiable lists, so no hit or facet can be added or removed. */
   public SearchResponse {
     documents = List.copyOf(documents);
     facets = List.copyOf(facets);
@@ -73,14 +73,15 @@ public record SearchResponse(
    * @param score the document's relevance score; absent when Solr returned none
    * @param fields the document's other returned fields by name, in Solr's order, without the
    *     uniqueKey field and without {@code score}. Values keep their JSON types: numbers stay
-   *     numbers and multi-valued fields are arrays
+   *     numbers and multi-valued fields are arrays. The map is unmodifiable; its values are not
+   *     deep-copied, so a multi-valued field's list is the one Solr's response holds
    */
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record SearchHit(String id, @Nullable Float score, Map<String, Object> fields) {
 
     /**
      * Copies {@code fields} into an unmodifiable map that keeps its order. {@code Map.copyOf} would
-     * lose Solr's field order.
+     * lose Solr's field order. The values themselves are not copied.
      */
     public SearchHit {
       fields = Collections.unmodifiableMap(new LinkedHashMap<>(fields));
@@ -96,7 +97,7 @@ public record SearchResponse(
    */
   public record FacetField(String field, List<FacetValue> values) {
 
-    /** Copies {@code values} so the facet cannot change after it is built. */
+    /** Copies {@code values} into an unmodifiable list. */
     public FacetField {
       values = List.copyOf(values);
     }

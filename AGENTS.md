@@ -243,7 +243,8 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
   - **MCP tool response records** (invisible to AOT because the MCP framework uses
     generic `Object` dispatch): `Alias`, `AliasDeletion`, `Collection`,
     `CollectionCreationResult`, `HealthStatus` and its `Reason`, `CollectionMetrics` and its
-    nested stats records, `SearchResponse`, `SortClause`,
+    nested stats records, `SearchResponse` and its nested `SearchHit`,
+    `FacetField` and `FacetValue`, `SortClause`,
     `SchemaUpdateResult`, `CollectionSchema` and its nested records, `IndexedField` and
     `FieldProperty`
   - **Spring AI**: `org.springframework.ai.mcp.annotation.context.DefaultMetaProvider`,

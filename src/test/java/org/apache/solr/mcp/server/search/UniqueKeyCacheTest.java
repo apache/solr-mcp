@@ -17,7 +17,6 @@
 package org.apache.solr.mcp.server.search;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -25,6 +24,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
@@ -56,9 +56,9 @@ class UniqueKeyCacheTest {
 
   @Test
   void repeatedLookupsWithinTheTimeToLiveAskSolrOnce() throws Exception {
-    assertEquals("sku", cache.get(COLLECTION));
+    assertEquals(Optional.of("sku"), cache.get(COLLECTION));
     nanos.addAndGet(UniqueKeyCache.TIME_TO_LIVE.toNanos() - 1);
-    assertEquals("sku", cache.get(COLLECTION));
+    assertEquals(Optional.of("sku"), cache.get(COLLECTION));
     verify(solrClient, times(1)).request(any(SchemaRequest.UniqueKey.class), eq(COLLECTION));
   }
 
@@ -93,10 +93,11 @@ class UniqueKeyCacheTest {
   }
 
   @Test
-  void aSchemaWithoutUniqueKeyFails() throws Exception {
+  void aSchemaWithoutUniqueKeyIsEmptyAndNotRemembered() throws Exception {
     when(solrClient.request(any(SchemaRequest.UniqueKey.class), eq("keyless")))
         .thenReturn(new NamedList<>());
-    IllegalStateException e = assertThrows(IllegalStateException.class, () -> cache.get("keyless"));
-    assertEquals(UniqueKeyCache.NO_UNIQUE_KEY_ERROR, e.getMessage());
+    assertEquals(Optional.empty(), cache.get("keyless"));
+    assertEquals(Optional.empty(), cache.get("keyless"));
+    verify(solrClient, times(2)).request(any(SchemaRequest.UniqueKey.class), eq("keyless"));
   }
 }

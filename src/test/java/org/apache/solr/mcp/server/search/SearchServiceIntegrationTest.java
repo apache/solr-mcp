@@ -41,6 +41,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.testcontainers.containers.Container.ExecResult;
+import org.testcontainers.containers.SolrContainer;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /** Integration tests for SearchService using a real Solr instance via Testcontainers. */
@@ -55,10 +57,35 @@ class SearchServiceIntegrationTest {
   /** Restricts a search to the ten sample books; testSpecialCharactersInQuery adds an eleventh. */
   private static final List<String> BOOKS_ONLY = List.of("cat_ss:book");
 
+  /** A collection whose schema's uniqueKey is {@code sku} instead of {@code id}. */
+  private static final String SKU_COLLECTION = "search_sku_" + System.currentTimeMillis();
+
+  /**
+   * Builds and uploads a configset for {@link #SKU_COLLECTION}. SolrCloud cannot change a uniqueKey
+   * through the Schema API, so this copies {@code _default}, makes {@code sku} the uniqueKey (a
+   * required string field; {@code id} stays, no longer required) and uploads the copy to the
+   * embedded ZooKeeper. {@code %1$s} is the configset name.
+   */
+  private static final String SKU_CONFIGSET_SCRIPT =
+      """
+      set -e
+      rm -rf /tmp/%1$s
+      cp -r /opt/solr/server/solr/configsets/_default/conf /tmp/%1$s
+      sed -i \
+        -e 's|<uniqueKey>id</uniqueKey>|<uniqueKey>sku</uniqueKey>|' \
+        -e '/<field name="id" /s/required="true"/required="false"/' \
+        -e '/<field name="id" /a <field name="sku" type="string" indexed="true" stored="true" required="true" multiValued="false" />' \
+        /tmp/%1$s/managed-schema.xml
+      grep -q '<uniqueKey>sku</uniqueKey>' /tmp/%1$s/managed-schema.xml
+      /opt/solr/bin/solr zk upconfig -n %1$s -d /tmp/%1$s -z localhost:9983
+      """;
+
   private static boolean initialized = false;
+  private static boolean skuCollectionCreated = false;
   @Autowired private SearchService searchService;
   @Autowired private IndexingService indexingService;
   @Autowired private SolrClient solrClient;
+  @Autowired private SolrContainer solrContainer;
 
   @BeforeEach
   void setUp() throws Exception {
@@ -675,6 +702,65 @@ class SearchServiceIntegrationTest {
       return OptionalDouble.of(((Number) priceObj).doubleValue());
     }
     return OptionalDouble.empty();
+  }
+
+  /** Creates {@link #SKU_COLLECTION} from its own configset and indexes three products, once. */
+  private void createSkuCollection() throws Exception {
+    if (skuCollectionCreated) {
+      return;
+    }
+    ExecResult upload =
+        solrContainer.execInContainer("sh", "-c", SKU_CONFIGSET_SCRIPT.formatted(SKU_COLLECTION));
+    assertEquals(0, upload.getExitCode(), () -> upload.getStdout() + upload.getStderr());
+    CollectionAdminRequest.createCollection(SKU_COLLECTION, SKU_COLLECTION, 1, 1)
+        .process(solrClient);
+    indexingService.indexJsonDocuments(
+        SKU_COLLECTION,
+        TestDocuments.json(
+            """
+            [
+              {"sku": "A-1", "name": "Anvil"},
+              {"sku": "B-2", "name": "Bucket"},
+              {"sku": "C-3", "name": "Crowbar"}
+            ]
+            """));
+    solrClient.commit(SKU_COLLECTION);
+    skuCollectionCreated = true;
+  }
+
+  @Test
+  void uniqueKeyNotNamedIdIsReportedAsId() throws Exception {
+    createSkuCollection();
+    SearchResponse result =
+        searchService.search(
+            SKU_COLLECTION, null, null, null, List.of(new SortClause("sku", "asc")), null, null);
+    assertEquals(List.of("A-1", "B-2", "C-3"), ids(result));
+    for (SearchResponse.SearchHit hit : result.documents()) {
+      assertFalse(hit.fields().containsKey("sku"), () -> "sku is the hit's id: " + hit);
+      assertTrue(hit.fields().containsKey("name"), () -> "the other fields stay: " + hit);
+    }
+  }
+
+  @Test
+  void uniqueKeyNotNamedIdIsAddedToANarrowedFieldList() throws Exception {
+    createSkuCollection();
+    SearchResponse result =
+        searchService.search(
+            SKU_COLLECTION, "name:bucket", null, null, null, null, null, List.of("name"), null);
+    SearchResponse.SearchHit hit = result.documents().getFirst();
+    assertEquals("B-2", hit.id());
+    assertEquals(Set.of("name"), hit.fields().keySet());
+  }
+
+  @Test
+  void searchThroughAnAliasReturnsTheCollectionsIds() throws Exception {
+    String alias = COLLECTION_NAME + "_alias";
+    CollectionAdminRequest.createAlias(alias, COLLECTION_NAME).process(solrClient);
+    SearchResponse result =
+        searchService.search(
+            alias, null, BOOKS_ONLY, null, List.of(new SortClause("id", "asc")), 0, 3);
+    assertEquals(10, result.numFound());
+    assertEquals(List.of("book001", "book002", "book003"), ids(result));
   }
 
   private static List<String> ids(SearchResponse response) {

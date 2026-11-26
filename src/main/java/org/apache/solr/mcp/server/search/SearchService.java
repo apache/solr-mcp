@@ -180,10 +180,43 @@ public class SearchService {
           + " if it persists, ask the operator to check server logs and Solr compatibility.";
 
   /**
+   * Failure for a collection whose schema declares no uniqueKey, which only standalone Solr allows.
+   */
+  static final String NO_UNIQUE_KEY_ERROR =
+      "Search failed: the collection's schema has no unique key, so its documents cannot be"
+          + " identified.";
+
+  /**
+   * Failure for a hit without the remembered uniqueKey: the collection was deleted and created
+   * again with another schema since the key was read.
+   */
+  static final String SCHEMA_CHANGED_ERROR =
+      "Search failed: the collection's schema changed since its unique key was read; retry the"
+          + " search.";
+
+  /** Rejection for a {@code fields} entry such as {@code id:name_s} when {@code id} is the key. */
+  static final String RENAME_TO_UNIQUE_KEY_ERROR =
+      "Search failed: fields cannot rename another field to the unique key, which each hit"
+          + " already reports as id. Choose another name for the renamed field.";
+
+  /**
    * The field Solr fills with each document's relevance score when {@code fl} asks for it. It is
    * reported as {@link SearchResponse.SearchHit#score()}, not among the hit's fields.
    */
   private static final String SCORE_FIELD = "score";
+
+  /** Separates the new name from the field in an {@code fl} rename such as {@code title:name_s}. */
+  private static final char RENAME_SEPARATOR = ':';
+
+  /**
+   * A call to Solr whose failures {@link #callSolr} turns into safe, actionable errors.
+   *
+   * @param <T> what the call returns
+   */
+  @FunctionalInterface
+  private interface SolrCall<T> {
+    T call() throws SolrServerException, IOException;
+  }
 
   private final SolrClient solrClient;
 
@@ -284,6 +317,12 @@ public class SearchService {
    * Searches a Solr collection with the specified parameters. This method is exposed as a tool for
    * MCP clients to use.
    *
+   * <p>Each hit reports the collection's uniqueKey value as its {@code id}. The uniqueKey is read
+   * with the Schema API ({@code GET /schema/uniquekey}) on the first search of each collection and
+   * again every few minutes, so the Solr account needs Solr's {@code schema-read} permission as
+   * well as {@code read}. A collection whose schema has no uniqueKey, which only standalone Solr
+   * allows, cannot be searched.
+   *
    * @param collection The Solr collection to query
    * @param query The Solr query string (q parameter). Defaults to "*:*" if not specified
    * @param filterQueries List of filter queries (fq parameter); blank entries are ignored
@@ -300,7 +339,10 @@ public class SearchService {
    *     Blank entries are ignored; any remaining entry switches the request to eDisMax
    * @return A SearchResponse containing the search results and facets
    * @throws IllegalArgumentException if {@code queryFields} is combined with a {@code query} that
-   *     starts with {@literal {!...}} local params
+   *     starts with {@literal {!...}} local params, or if a {@code fields} entry renames another
+   *     field to the uniqueKey (such as {@code id:name_s} when the uniqueKey is {@code id})
+   * @throws IllegalStateException if the collection's schema has no uniqueKey, or changed since the
+   *     uniqueKey was read
    * @throws SolrServerException If there's an error communicating with Solr
    * @throws IOException If there's an I/O error
    */
@@ -430,38 +472,86 @@ public class SearchService {
       solrQuery.setRows(rows);
     }
 
-    try {
-      // Every hit reports its uniqueKey value as id, so a narrowed fl must still return it.
-      final String uniqueKey = uniqueKeys.get(collection);
-      if (!nonBlankFields.isEmpty() && !nonBlankFields.contains(uniqueKey)) {
+    final String uniqueKey =
+        callSolr(collection, () -> uniqueKeys.get(collection))
+            .orElseThrow(
+                () -> {
+                  logger.warn(
+                      "Collection {} has no uniqueKey, so it cannot be searched", collection);
+                  return new IllegalStateException(NO_UNIQUE_KEY_ERROR);
+                });
+
+    // Every hit reports its uniqueKey value as id, so a narrowed fl must still return it, and no
+    // other field may be renamed onto it.
+    if (!nonBlankFields.isEmpty()) {
+      if (nonBlankFields.stream().anyMatch(field -> renamesOnto(field, uniqueKey))) {
+        throw new IllegalArgumentException(RENAME_TO_UNIQUE_KEY_ERROR);
+      }
+      if (!nonBlankFields.contains(uniqueKey)) {
         solrQuery.addField(uniqueKey);
       }
+    }
 
-      final QueryResponse queryResponse = solrClient.query(collection, solrQuery);
-      final SolrDocumentList documents = queryResponse.getResults();
+    final QueryResponse queryResponse =
+        callSolr(collection, () -> solrClient.query(collection, solrQuery));
+    final SolrDocumentList documents = callSolr(collection, queryResponse::getResults);
+    final List<SearchResponse.FacetField> facets =
+        callSolr(collection, () -> toFacets(queryResponse));
 
-      final List<SearchResponse.SearchHit> hits = new ArrayList<>(documents.size());
-      for (SolrDocument document : documents) {
-        final SearchResponse.SearchHit hit = toHit(document, uniqueKey);
-        if (hit == null) {
-          // Only a remembered uniqueKey that the collection no longer has (it was deleted and
-          // created again with another schema) leaves a hit without it; look it up afresh next
-          // time.
-          uniqueKeys.evict(collection);
-          throw new IllegalStateException("Hit without uniqueKey field " + uniqueKey);
-        }
-        hits.add(hit);
+    final List<SearchResponse.SearchHit> hits = new ArrayList<>(documents.size());
+    for (SolrDocument document : documents) {
+      final SearchResponse.SearchHit hit = toHit(document, uniqueKey);
+      if (hit == null) {
+        // Only a remembered uniqueKey that the collection no longer has (it was deleted and created
+        // again with another schema) leaves a hit without it; look it up afresh next time.
+        uniqueKeys.evict(collection);
+        logger.warn(
+            "A hit on collection {} has no value for its remembered uniqueKey {}; forgot the key",
+            collection,
+            uniqueKey);
+        throw new IllegalStateException(SCHEMA_CHANGED_ERROR);
       }
+      hits.add(hit);
+    }
 
-      logger.info(
-          "Search on collection {} matched {} documents", collection, documents.getNumFound());
+    logger.info(
+        "Search on collection {} matched {} documents", collection, documents.getNumFound());
 
-      return new SearchResponse(
-          documents.getNumFound(),
-          documents.getStart(),
-          documents.getMaxScore(),
-          hits,
-          toFacets(queryResponse));
+    return new SearchResponse(
+        documents.getNumFound(), documents.getStart(), documents.getMaxScore(), hits, facets);
+  }
+
+  /**
+   * Whether an {@code fl} entry renames some other field to {@code uniqueKey}, as {@code id:name_s}
+   * does when the uniqueKey is {@code id}. Renaming the uniqueKey itself, as {@code key:id} does,
+   * is fine.
+   *
+   * @param field one {@code fields} entry
+   * @param uniqueKey the collection's uniqueKey field
+   * @return true if the entry would put another value where the hit's {@code id} comes from
+   */
+  private static boolean renamesOnto(String field, String uniqueKey) {
+    final int separator = field.indexOf(RENAME_SEPARATOR);
+    return separator >= 0
+        && field.substring(0, separator).strip().equals(uniqueKey)
+        && !field.substring(separator + 1).strip().equals(uniqueKey);
+  }
+
+  /**
+   * Runs one call to Solr and turns its failures into errors that are safe to show the client: the
+   * Solr text is logged, never returned, and each error names a next step.
+   *
+   * @param collection the collection being searched, for hints and the log
+   * @param call the call to run
+   * @param <T> what the call returns
+   * @return the call's result
+   * @throws SolrServerException if Solr cannot be reached
+   * @throws IOException if the request fails on the wire
+   */
+  private static <T> T callSolr(String collection, SolrCall<T> call)
+      throws SolrServerException, IOException {
+    try {
+      return call.call();
     } catch (SolrException e) {
       throw withRemediationHint(e, collection);
     } catch (SolrServerException e) {
