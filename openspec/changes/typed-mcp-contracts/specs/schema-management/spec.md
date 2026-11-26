@@ -49,13 +49,17 @@ An analyzer object SHALL have `charFilters`, `tokenizer` and `filters`. Each com
 ### Requirement: Listed fields are a list with effective properties and document counts
 `list-fields` SHALL return `fields` as a list ordered by field name. Each entry has:
 - `name` and `type`.
-- `flags`, the list of properties in effect for the field, using the property names of the schema contract.
+- `flags`, the list of properties in effect for the field. They use the schema contract's property names, plus `tokenized`, `storeOffsetsWithPositions`, `lazy` and `binary`, which Luke reports but a schema does not declare.
 - `dynamicBase` when the field comes from a dynamic field.
 - `docs` when Solr reports a document count.
 
 #### Scenario: A field created from a dynamic field
 - **WHEN** the index holds `title_s` created from dynamic field `*_s`
 - **THEN** its entry has `name` `title_s`, `dynamicBase` `*_s`, and `flags` containing `indexed`
+
+#### Scenario: A flag letter Solr adds later
+- **WHEN** Luke reports a field's flags with a letter the server does not know, alongside indexed and stored
+- **THEN** `flags` contains `indexed` and `stored`, and the unknown letter is left out
 
 #### Scenario: Effective flags are decoded
 - **WHEN** Solr reports a field as indexed, tokenized and stored

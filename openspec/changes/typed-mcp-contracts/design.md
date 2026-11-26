@@ -68,6 +68,8 @@ Each domain maps Solr responses into its records in the service or a static `fro
 - **schema**:
   - `CollectionSchema` with nested `Field`, `FieldType`, `Analyzer`, `AnalyzerComponent(name?, className?, parameters)` and `CopyField`.
   - `Field` and `FieldType` declare the spec's properties as `@Nullable Boolean` components, which keeps declared `false` and leaves undeclared properties absent. Remaining field-type attributes go into `parameters: Map<String, String>`. Remaining field attributes are dropped.
+  - `parameters` maps are sorted by name, not kept in Solr's order: the Schema API returns attributes in no meaningful order, and a sorted map gives the same JSON for the same schema every time.
+  - `parameters`, `charFilters` and `filters` are `@Nullable` components, so a client may leave them out of `add-field-types` input. That makes them optional in the generated schema too. The compact constructors turn an absent value into an empty one, so outputs always include them.
   - `FieldListing(List<ListedField>)` sorted by name, with `flags: Set<FieldProperty>`.
   - `FieldProperty` is a server-owned enum whose JSON values are the camelCase schema-attribute names (`indexed`, `docValues`, …). It replaces SolrJ's `FieldFlag` in the contract. `FieldFlags` keeps decoding Luke's flag letters into it.
 - **collection**:
