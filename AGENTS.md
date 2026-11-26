@@ -437,9 +437,9 @@ modes.
 
 `native.yml` runs `dockerIntegrationTest` over a `[stdio, http]` matrix on
 every PR that touches native-related files, so both Paketo native variants
-are exercised. No workflow tests the Jib JVM image: `build-and-publish.yml` runs
-`./gradlew build`, which does not include `dockerIntegrationTest`. Run
-`./gradlew dockerIntegrationTest` locally for a change that touches the image.
+are exercised. The Jib JVM image runs on every PR in `ci.yml`'s `docker-image` job
+(`./gradlew dockerIntegrationTest`). The `build` job also runs `rat`, which `./gradlew build`
+otherwise runs only after merge, in `build-and-publish.yml`.
 
 ### Solr Version Compatibility Testing
 
