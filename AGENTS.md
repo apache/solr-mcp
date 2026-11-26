@@ -151,143 +151,45 @@ Configuration files: `application-stdio.properties`, `application-http.propertie
 
 ### SBOM Architecture
 
-CycloneDX SBOM generation is wired by applying the `org.cyclonedx.bom` plugin,
-version **3.4.1**. Spring Boot 4's `CyclonedxPluginAction` recognises 3.x and
-auto-configures the `cyclonedxBom` task (type `org.cyclonedx.gradle.CyclonedxAggregateTask`):
-it writes `build/reports/cyclonedx/application.cdx.json`, embeds that in the bootJar at
-`META-INF/sbom/application.cdx.json`, and sets the `Sbom-Format` / `Sbom-Location`
-manifest headers the actuator needs. The actuator then serves it at
-`/actuator/sbom/application` in the `http` profile (enabled via
-`application-http.properties`). Both the Jib JVM image and the Paketo native images
-package the bootJar contents, so every distribution artifact ships the SBOM without
-per-image wiring.
+The `org.cyclonedx.bom` plugin (3.4.1) writes `build/reports/cyclonedx/application.cdx.json`;
+Spring Boot embeds it in the bootJar at `META-INF/sbom/application.cdx.json`, so every image
+ships it, and the actuator serves it at `/actuator/sbom/application` in the `http` profile.
 
-What the build still configures by hand is **scope**. cyclonedx 3.x splits the work
-across two tasks: `cyclonedxDirectBom` (`CyclonedxDirectTask`) resolves the dependency
-graph and owns `includeConfigs`, while `cyclonedxBom` only aggregates its output. Left
-at defaults the direct task scans every configuration, which adds ~100 test/build-only
-components (JUnit, AssertJ, ByteBuddy, docker-java, JaCoCo, Error Prone, NullAway) that
-are not in the fat jar. `build.gradle.kts` therefore sets
-`includeConfigs = [productionRuntimeClasspath]` **on `cyclonedxDirectBom`**, giving an
-SBOM that lists exactly the shipped classpath `generateBinaryLicense`'s completeness gate
-checks against.
+> **Do not drop `includeConfigs = [productionRuntimeClasspath]` on `cyclonedxDirectBom`**
+> in `build.gradle.kts`. Without it the SBOM lists ~100 test/build-only components that are
+> not in the fat jar, and nothing in the build catches it: the LICENSE completeness gate only
+> fails on *missing* entries, never extra ones.
 
-> **Do not drop that scoping.** Nothing in the build would catch it: the LICENSE appendix
-> filters to shipped coordinates, and the completeness gate only fails on *missing*
-> entries, never extra ones. The over-broad SBOM would ship silently and register as
-> false-positive CVEs in scanners that read it as a manifest of the artifact's contents.
-
-Historical note: this used to pin cyclonedx to **2.4.1**, because 3.x once failed at
-configuration time on Gradle 9.4.1 (a variant-mutation conflict on `:cyclonedxDirectBom`).
-That is fixed as of 3.4.1. The pin had a cost that was not obvious: because Spring Boot's
-action bails on an unrecognised plugin version, and jar-embedding is part of that same
-action, **the pinned build shipped no SBOM at all** — no `META-INF/sbom/` entry and no
-`Sbom-*` manifest headers in the bootJar, hence nothing for `/actuator/sbom/application`
-to serve. `./gradlew cyclonedxBom` still produced a report under `build/reports/`, which
-is why this went unnoticed. Resolved along with
-[#186](https://github.com/apache/solr-mcp/issues/186).
+How the tasks fit together and the 2.4.1-pin history:
+[dev-docs/sbom-and-license.md](dev-docs/sbom-and-license.md).
 
 ### Logging Architecture
 
-The STDIO transport uses stdout for JSON-RPC messages, so any stray stdout output
-corrupts the protocol. The setup follows Spring Boot's conventions: **one** logback
-configuration, `logback-spring.xml`, resolved by Boot by convention, plus one line of
-code in `Main` for the window before Boot exists.
+STDIO uses stdout for JSON-RPC, so any stray stdout output corrupts the protocol. Rules:
 
-**Why the `-spring` name and nothing else.** Boot's rule: `<springProfile>` "cannot be
-used in the standard `logback.xml` file because it is loaded too early." A standard-
-location file is worse than useless here: `AbstractLoggingSystem.initializeWithConventions()`
-finds it first, reinitializes from it and **returns**, so the `-spring` variant is never
-loaded and every `<springProfile>` appender is silently dropped. HTTP mode would run with
-no console logs and no OTLP log export, and startup failures would exit 1 showing only
-the banner. `LoggingConfigurationTest` fails the build if a `logback.xml` (or
-`logback-test.xml`) ever reappears, or if `logging.config` is set in
-`application.properties` to paper over one. `LOGGING_CONFIG` in the environment still
-works as Boot's normal operator override for an *external* file.
+- **One logback file: `logback-spring.xml`.** Never add a `logback.xml` or
+  `logback-test.xml`, and never set `logging.config` in `application.properties` to point at
+  one. Boot loads a standard-location file first and silently drops every `<springProfile>`
+  appender, so HTTP mode runs with no console logs and no OTLP export.
+  `LoggingConfigurationTest` fails the build on either.
+- **The `stdio` profile has no appenders.** Do not add one, including the OTel appender.
+- **`application-stdio.properties` must not set `logging.pattern.console=`** (the
+  empty-pattern idiom Spring AI documents). Boot copies it into the JVM-wide
+  `CONSOLE_LOG_PATTERN`, logback rejects the empty pattern, and in tests it breaks every
+  later http-profile context in the same JVM. `LoggingConfigurationTest` enforces this.
+- **Keep `Main.main()`'s first statement**, which sets `logback.statusListenerClass` to
+  `NopStatusListener`. In a native image logback otherwise prints its status list to stdout
+  mid-stream. Only `./gradlew dockerIntegrationTest -Pnative` covers this end to end.
 
-**Why `Main` sets `logback.statusListenerClass`.** Logback initializes itself on the
-first `LoggerFactory` touch, before Boot's `LoggingApplicationListener` runs. In a
-**native image** it cannot read its own manifest, so `ContextInitializer.checkVersions()`
-always raises `|-WARN … Versions of logback-classic and ? are different or unknown`, and
-`LogbackServiceProvider` then calls `StatusPrinter.printInCaseOfErrorsOrWarnings()`,
-flushing the whole `|-INFO` status list to **stdout** — in the middle of the MCP
-JSON-RPC stream. That provider skips the print whenever a status listener is installed,
-and `ContextInitializer.autoConfig()` installs one from the `logback.statusListenerClass`
-system property *after* the version check but *before* the print. `Main.main()` therefore
-sets that property to `NopStatusListener` as its first statement, unless an operator has
-already set it (so `-Dlogback.statusListenerClass=ch.qos.logback.core.status.OnConsoleStatusListener`
-still works for debugging logback itself). On the JVM the version lookup succeeds and
-nothing is printed, so this is reproducible *only* in the native image:
-`DockerImageMcpClientStdioIntegrationTest` under `./gradlew dockerIntegrationTest
--Pnative` is the sole test that covers it end to end.
-
-Contents of `logback-spring.xml`:
-
-- A `NopStatusListener` suppressing logback's internal status messages during Boot's
-  own (re)configuration, which are written straight to stdout and bypass the appenders.
-- `<springProfile>` blocks scoping appenders per transport mode:
-  - **HTTP**: Boot's own `console-appender.xml` (so `logging.pattern.console` /
-    `logging.charset.console` / `logging.threshold.console` behave as in a stock Boot
-    app) + OpenTelemetry appender (OTLP log export with `captureExperimentalAttributes`
-    and `captureKeyValuePairAttributes` enabled).
-  - **STDIO**: No appenders defined, so nothing can reach stdout. The OTEL appender is
-    intentionally excluded too.
-- `application-stdio.properties` must **not** set `logging.pattern.console=` (the
-  empty-pattern idiom Spring AI documents for STDIO servers). Boot copies it into the
-  JVM-wide `CONSOLE_LOG_PATTERN` system property (first writer wins) and logback rejects
-  an empty pattern (`Empty or null pattern`) instead of silencing output. Spring
-  Framework 7 pauses a test's ApplicationContext on context switch, which stops Boot's
-  logging lifecycle bean and makes the next context re-initialise logback, so a
-  stdio-profile test running first would break every later http-profile context in the
-  same JVM (`DistributedTracingTest`). `LoggingConfigurationTest` enforces this.
-
-Under AOT, `LogbackLoggingSystem` replays `META-INF/spring/logback-model` — the model
-`processAot` serialized from `logback-spring.xml` — before looking at the classpath.
-Verify with:
-
-```bash
-strings build/resources/aot/META-INF/spring/logback-model | grep -E 'SpringProfile|OpenTelemetry'
-```
-
-`SpringProfileModel` is serialized unresolved, so profiles are still evaluated at runtime;
-the `logback-spring.xml` resource hint in `SolrNativeHints` is belt-and-braces for the
-non-AOT path.
-
-**Init order**: `Main` sets `logback.statusListenerClass` → first logger touch (logback
-self-init, silent) → Spring Boot starts → logback-spring.xml → application-{profile}.properties
-
-**Debugging tip**: if an HTTP-mode startup fails with no output, check that no
-`logback.xml` has crept onto the classpath; `LoggingConfigurationTest` should already
-have caught it.
+If an HTTP-mode startup fails with no output, look for a `logback.xml` on the classpath.
+Why each rule holds, the AOT logback model and the init order:
+[dev-docs/logging.md](dev-docs/logging.md).
 
 ### Docker image strategy
 
-Two toolchains, three image artifacts. See **Image × Mode matrix** above
-for the published-artifact summary.
-
-- **Jib** builds the JVM image (`solr-mcp:<v>`). Plain `java -jar` entrypoint,
-  multi-arch (amd64 + arm64), clean stdout. One image serves both stdio and
-  http; runtime `PROFILES` env var selects.
-- **Paketo `bootBuildImage`** builds two native-image variants:
-  - `solr-mcp:<v>-native-stdio` via `./gradlew bootBuildImage -Pnative`
-  - `solr-mcp:<v>-native-http`  via `./gradlew bootBuildImage -Pnative -Pprofile=http`
-
-**Why not Paketo for the JVM image:** Paketo's `libjvm` runtime helpers
-(memory calculator, NMT, ca-certificates) write 6 status lines to stdout
-before the JVM starts. This breaks MCP STDIO at the protocol level;
-verified end-to-end via `DockerImageMcpClientStdioIntegrationTest` (Spring
-AI MCP client times out on `initialize()`). Filed upstream as
-[paketo-buildpacks/libjvm#482](https://github.com/paketo-buildpacks/libjvm/issues/482).
-Jib doesn't have this problem because it writes a plain `java -jar`
-entrypoint — no launcher script, no stdout pollution.
-
-**Why two native images instead of one:** Spring AOT bakes
-`spring.main.web-application-type` into the binary at AOT time. Activating
-both `stdio` and `http` profiles during AOT picks `servlet` (http overrides
-stdio), which forces Tomcat to start regardless of the runtime `PROFILES`
-value — breaking stdio. So we AOT-pin per profile and produce one native
-image per transport: stdio binary excludes web servlet beans; http binary
-includes them.
+Two toolchains, three image artifacts; see **Image × Mode matrix** above for the images and
+why Paketo is not used for the JVM image. Jib's JVM image is multi-arch (amd64 + arm64) and
+serves both transports; the two Paketo native images are AOT-pinned to one transport each.
 
 ### GraalVM Native Image
 
@@ -330,7 +232,7 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
     `SchemaUpdateResult`, `CollectionSchema` and `FieldListing` and their nested records
   - **Spring AI**: `org.springframework.ai.mcp.annotation.context.DefaultMetaProvider`,
     which `MetaUtils` instantiates reflectively
-  - **Resources**: `logback-spring.xml` (see Logging Architecture above), and SolrJ's
+  - **Resources**: `logback-spring.xml` (see Logging Architecture), and SolrJ's
     `EnvToSyspropMappings.properties` / `DeprecatedSystemPropertyMappings.properties`,
     which `EnvUtils` loads in its static initializer
 - **Wire format:** `SolrConfig` reads JSON responses (`JsonResponseParser`) and sends
@@ -369,53 +271,20 @@ changed these things; keep them in mind when reading older docs or PRs:
 
 ## Release LICENSE / NOTICE
 
-ASF policy requires distinct LICENSE/NOTICE for the *source* form and the *binary*
-form, because the binary (Spring Boot fat `bootJar`) bundles third-party bytecode.
-See [infra.apache.org/licensing-howto](https://infra.apache.org/licensing-howto.html).
+ASF policy requires distinct LICENSE/NOTICE for the source and binary forms. The source-form
+jars carry the repo-root `LICENSE`/`NOTICE` unchanged. The bootJar's `META-INF/LICENSE` and
+`META-INF/NOTICE` are **generated on every build** by the `org.apache.solr.mcp.license-notice`
+plugin in `buildSrc/` (`generateBinaryLicense`, `generateBinaryNotice`), from the CycloneDX
+SBOM and the bundled jars' own NOTICE files. Do not hand-edit them.
 
-- **Source form** (thin `jar`, `-sources`, `-javadoc`): the base `LICENSE` (Apache-2.0)
-  and `NOTICE` at the repo root, bundled into `META-INF/` as-is.
-- **Binary form** (`bootJar`): generated at build time and bundled into its `META-INF/`:
-  - `generateBinaryLicense` → `LICENSE` = base Apache-2.0 + an appendix listing every
-    bundled `productionRuntimeClasspath` dependency and a link to its license. Licenses
-    are read from the **CycloneDX SBOM** (`cyclonedxBom`, the same SBOM embedded at
-    `META-INF/sbom/application.cdx.json`), filtered to the shipped classpath. The SBOM
-    resolves a license for every bundled component — including Gradle-module-metadata
-    -only ASF artifacts such as `solr-solrj`/`solr-api` that POM-only scanners miss — so
-    no per-dependency list is hand-maintained.
-  - `generateBinaryNotice` → `NOTICE` = base NOTICE + the `META-INF/NOTICE` files lifted
-    verbatim (de-duplicated) from the bundled jars (Maven-Shade
-    `ApacheNoticeResourceTransformer` approach).
-- **Where / when they appear:** both binary files are regenerated on every build — the
-  two tasks run ahead of `bootJar` (and in `check`), so any `./gradlew build` / `bootJar`
-  produces them. They live at `META-INF/LICENSE` and `META-INF/NOTICE` inside the fat jar
-  (`build/libs/solr-mcp-<v>.jar`), and therefore inside every published **Docker image**
-  too, since the Jib JVM image and the Paketo native images both package the bootJar
-  contents. Inspect a built artifact with
-  `unzip -p build/libs/solr-mcp-<v>.jar META-INF/LICENSE` (or `META-INF/NOTICE`); the
-  generator also writes them to `build/generated/license/` for local viewing. The
-  source-form jars (thin `jar`, `-sources`, `-javadoc`) instead carry the repo-root base
-  files unchanged.
-- **Licenses are disclosed as the SBOM reports them** (SPDX ids where available). The
-  appendix is a disclosure, not a license policy: there is **no allow-list and no
-  corrections**, so a few imprecise-but-permissive upstream labels appear as-is (e.g.
-  `mcp-server-security` shows `Apache-1.0`, ANTLR shows `BSD-4-Clause`/`BSD licence`); the
-  appendix preamble says so and links each license. All bundled deps are ASF Category A/B.
-- **Completeness gate** (`generateBinaryLicense`, run as part of `check`/`build`): the
-  *only* gate — fails if a bundled dependency is missing from the SBOM, so a dependency
-  can never be silently omitted from the LICENSE. It makes no judgement about which
-  licenses are acceptable. (Unlike apache/solr's `solr/licenses/` folder, which JanHoy
-  said not to replicate, there is no per-dependency license/checksum store here.)
-- This builds on the SBOM generation (see **SBOM Architecture**); the SBOM remains the
-  machine-readable bill of materials, and LICENSE/NOTICE are the human-readable legal
-  artifacts derived from it.
-- **Implementation:** the `org.apache.solr.mcp.license-notice` convention plugin in
-  `buildSrc/` (typed `GenerateBinaryLicense` / `GenerateBinaryNotice` tasks). The root
-  `build.gradle.kts` only applies the plugin. The tasks are unit-tested in
-  `buildSrc/src/test/kotlin/.../LicenseNoticeTasksTest.kt` (appendix listing, SBOM
-  name/URL handling, the completeness gate, and NOTICE de-duplication); `buildSrc`'s
-  `test` runs as part of `./gradlew build`, because `buildSrc/build.gradle.kts` finalizes its
-  `jar` with `test` (Gradle 8+ otherwise builds only the jar the root build needs).
+- **Completeness gate:** `generateBinaryLicense` (in `check`) fails if a bundled dependency is
+  missing from the SBOM. It is the only gate: there is no license allow-list and no
+  per-dependency license store, so do not add one.
+- Inspect a built jar with `unzip -p build/libs/solr-mcp-<v>.jar META-INF/LICENSE`.
+- The tasks are tested in `buildSrc/src/test/kotlin/.../LicenseNoticeTasksTest.kt`, which
+  `./gradlew build` runs.
+
+Details: [dev-docs/sbom-and-license.md](dev-docs/sbom-and-license.md).
 
 ## Testing Structure
 
