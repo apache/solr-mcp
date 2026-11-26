@@ -203,14 +203,40 @@ class SolrCallsTest {
 
   @Test
   void anHtmlServerErrorGetsTheFixedStatusTextWithoutThePage() {
-    final RemoteSolrException failed =
-        new RemoteSolrException(
-            HOST, 503, EXPECTED_JSON + "<html><body>URI: /solr/books/update</body></html>", null);
+    // HttpSolrClientBase.checkContentType through the message constructor: Jetty's or a proxy's
+    // HTML page for a server error.
+    for (int statusCode : List.of(500, 503)) {
+      final RemoteSolrException failed =
+          new RemoteSolrException(
+              HOST,
+              statusCode,
+              EXPECTED_JSON
+                  + "<html><head><title>Error "
+                  + statusCode
+                  + " Server Error</title></head><body>URI: /solr/books/update</body></html>",
+              null);
 
-    assertThat(translated(failed))
+      assertThat(translated(failed))
+          .isInstanceOf(IllegalStateException.class)
+          .hasMessage(
+              OPERATION
+                  + ": "
+                  + SolrCalls.STATUS_ERROR.formatted(statusCode)
+                  + SolrCalls.SERVER_ERROR_HINT);
+    }
+  }
+
+  @Test
+  void aNonOkStatusWithoutABodyGetsTheFixedStatusText() {
+    // HttpSolrClientBase: a non-OK status with no response parser or content type, as a proxy's
+    // 502 can be.
+    final RemoteSolrException badGateway =
+        new RemoteSolrException(HOST, 502, "non ok status: 502, message:Bad Gateway", null);
+
+    assertThat(translated(badGateway))
         .isInstanceOf(IllegalStateException.class)
         .hasMessage(
-            OPERATION + ": " + SolrCalls.STATUS_ERROR.formatted(503) + SolrCalls.SERVER_ERROR_HINT);
+            OPERATION + ": " + SolrCalls.STATUS_ERROR.formatted(502) + SolrCalls.SERVER_ERROR_HINT);
   }
 
   @Test
