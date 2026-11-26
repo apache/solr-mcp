@@ -215,7 +215,8 @@ reaching the backend Solr directly, bypassing this server, is out of model (§3)
 | `MCP_PROTOCOL` | unset (`stateless` HTTP, `streamable` STDIO; 2025 revisions) | `modern` serves the MCP 2026-07-28 revision (MCP Java SDK 2.2.0's modern server): no `initialize`/session, `server/discover`, `Mcp-Method`/`Mcp-Name` headers (added to the CORS header allowlist). The same `@PreAuthorize` checks guard every entry point. Multi-round-trip requests return a sealed `requestState`, keyed per instance unless `spring.ai.mcp.server.modern.request-state-secret` is set. Fixed at build time in native images. | *(documented — [docs/modern-protocol.md](docs/modern-protocol.md))* |
 | `MCP_CORS_ALLOWED_ORIGINS` | MCP Inspector localhost proxy | Explicit CORS allowlist; wildcard-with-credentials is rejected by construction (`setAllowedOrigins`, not patterns). | *(documented)* |
 | `SOLR_USERNAME` / `SOLR_PASSWORD` | unset | When both set, static HTTP Basic Auth to backend Solr on every request; when unset, unauthenticated backend calls. | Q-backendcreds |
-| `SOLR_INDEX_URL_ALLOWED_HOSTS` | `raw.githubusercontent.com,*.githubusercontent.com,github.com` | Which hosts `index-url` may fetch; exact hosts, `*.suffix` patterns, or `*`, which widens the boundary to the server's whole network (link-local and cloud-metadata addresses stay refused). | *(documented)* |
+| `SOLR_INDEX_URL_ALLOWED_HOSTS` | `raw.githubusercontent.com,*.githubusercontent.com,github.com` | Which hosts `index-url` may fetch; exact hosts, `*.suffix` patterns, or `*`, which widens the boundary to the server's whole network (link-local and blocked addresses stay refused). | *(documented)* |
+| `SOLR_INDEX_URL_BLOCKED_ADDRESSES` | `fd00:ec2::254,100.100.100.200,168.63.129.16` | IP literals `index-url` refuses on every redirect hop, on top of all link-local addresses; the default is the known cloud-metadata addresses that are not link-local (AWS IPv6, Alibaba Cloud, Azure), set in `application.properties`. Host names and ranges fail startup, and so does a missing property, so a configuration that skips `application.properties` cannot drop the list silently; an empty value blocks only link-local addresses. | *(documented)* |
 | `SOLR_INDEX_URL_READ_TIMEOUT` | `30s` | Bounds how long a remote endpoint can hold an `index-url` call open per read. The connect timeout (`10s`) is operational, not security-relevant. | *(documented)* |
 | `SOLR_INDEX_URL_TOTAL_TIMEOUT` | `5m` | Deadline for one whole `index-url` fetch, redirects included, so a host that drips bytes cannot outlast the per-read timeout. | *(documented)* |
 | `SOLR_INDEX_URL_MAX_CONCURRENT_FETCHES` | `4` | How many `index-url` calls may run at once; further calls fail immediately. Bounds outbound and Solr connections held by streaming fetches, and the number of Markdown documents held in memory at once. | *(documented)* |
@@ -342,8 +343,9 @@ Two adversaries are in scope; several are explicitly not.
   any `http(s)` URL whose host matches `SOLR_INDEX_URL_ALLOWED_HOSTS` (default:
   GitHub raw-content hosts; `*` allows any host the server can reach, including
   loopback and RFC1918). Link-local addresses (`169.254.0.0/16`, `fe80::/10`)
-  and the known cloud-metadata literals (`fd00:ec2::254`, `100.100.100.200`,
-  `168.63.129.16`) are refused on every redirect hop regardless; other providers'
+  and the addresses in `SOLR_INDEX_URL_BLOCKED_ADDRESSES` (default: the known
+  cloud-metadata literals `fd00:ec2::254`, `100.100.100.200`, `168.63.129.16`) are
+  refused on every redirect hop regardless; other providers'
   metadata endpoints are not enumerated. The fetch carries no credentials or
   caller headers, and refuses an https→http redirect; a refused or abandoned
   response is closed without reading its body (the JDK may drain a small

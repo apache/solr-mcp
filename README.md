@@ -134,8 +134,12 @@ credentials or custom headers, so `localhost` means the server, not your client.
 Only allow-listed hosts are fetched: by default `raw.githubusercontent.com`,
 `*.githubusercontent.com` and `github.com`. `SOLR_INDEX_URL_ALLOWED_HOSTS` takes a
 comma-separated list of exact hosts, `*.suffix` patterns, or `*` for any host the
-server can reach; link-local addresses and the known cloud-metadata addresses
-(AWS, Alibaba Cloud, Azure) are always refused. There is no size limit: JSON, CSV
+server can reach; link-local addresses and the addresses in
+`SOLR_INDEX_URL_BLOCKED_ADDRESSES` are always refused. That list defaults to the
+known cloud-metadata addresses that are not link-local (`fd00:ec2::254`,
+`100.100.100.200`, `168.63.129.16`: AWS IPv6, Alibaba Cloud, Azure) and takes
+comma-separated IP literals only; setting it replaces the defaults, so include them
+when adding addresses. There is no size limit: JSON, CSV
 and XML stream from the URL straight into Solr's update handlers without being held
 in the server's memory (XML must be a Solr `<add>` block, as for
 `index-xml-documents`), and Markdown is read whole and parsed by the server. The

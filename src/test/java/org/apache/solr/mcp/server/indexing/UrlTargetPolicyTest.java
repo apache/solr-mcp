@@ -22,6 +22,7 @@ import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -35,6 +36,11 @@ class UrlTargetPolicyTest {
   private static final List<String> ANY = List.of("*");
   private static final List<String> GITHUB =
       List.of("raw.githubusercontent.com", "*.githubusercontent.com", "github.com");
+
+  /** The {@code solr.index-url.blocked-addresses} default from application.properties. */
+  private static final Set<InetAddress> BLOCKED =
+      Set.copyOf(addresses("fd00:ec2::254", "100.100.100.200", "168.63.129.16"));
+
   private static final List<InetAddress> PUBLIC = addresses("93.184.216.34");
   private static final URI EXAMPLE = uri("http://example.invalid/x.json");
 
@@ -42,30 +48,36 @@ class UrlTargetPolicyTest {
   void exactHostMatchesCaseInsensitivelyAndIgnoresATrailingDot() {
     assertDoesNotThrow(
         () ->
-            UrlTargetPolicy.check(uri("http://RAW.githubusercontent.com./x.json"), GITHUB, PUBLIC));
+            UrlTargetPolicy.check(
+                uri("http://RAW.githubusercontent.com./x.json"), GITHUB, BLOCKED, PUBLIC));
   }
 
   @Test
   void wildcardMatchesSubdomainsButNotTheBareSuffix() {
     assertDoesNotThrow(
         () ->
-            UrlTargetPolicy.check(uri("https://gist.githubusercontent.com/x.csv"), GITHUB, PUBLIC));
+            UrlTargetPolicy.check(
+                uri("https://gist.githubusercontent.com/x.csv"), GITHUB, BLOCKED, PUBLIC));
     URI bareSuffix = uri("https://githubusercontent.com/x.csv");
     var e =
         assertThrows(
             IllegalArgumentException.class,
-            () -> UrlTargetPolicy.check(bareSuffix, GITHUB, PUBLIC));
+            () -> UrlTargetPolicy.check(bareSuffix, GITHUB, BLOCKED, PUBLIC));
     assertEquals(UrlTargetPolicy.HOST_NOT_ALLOWED, e.getMessage());
   }
 
   @Test
   void starAllowsAnyHostIncludingLoopbackAndPrivateAddresses() {
     assertDoesNotThrow(
-        () -> UrlTargetPolicy.check(uri("http://10.0.0.1/x.json"), ANY, addresses("10.0.0.1")));
+        () ->
+            UrlTargetPolicy.check(
+                uri("http://10.0.0.1/x.json"), ANY, BLOCKED, addresses("10.0.0.1")));
     assertDoesNotThrow(
-        () -> UrlTargetPolicy.check(uri("http://localhost/x.json"), ANY, addresses("127.0.0.1")));
+        () ->
+            UrlTargetPolicy.check(
+                uri("http://localhost/x.json"), ANY, BLOCKED, addresses("127.0.0.1")));
     assertDoesNotThrow(
-        () -> UrlTargetPolicy.check(uri("http://[::1]/x.json"), ANY, addresses("::1")));
+        () -> UrlTargetPolicy.check(uri("http://[::1]/x.json"), ANY, BLOCKED, addresses("::1")));
   }
 
   @Test
@@ -74,7 +86,8 @@ class UrlTargetPolicyTest {
     List<String> noHosts = List.of();
     var e =
         assertThrows(
-            IllegalArgumentException.class, () -> UrlTargetPolicy.check(github, noHosts, PUBLIC));
+            IllegalArgumentException.class,
+            () -> UrlTargetPolicy.check(github, noHosts, BLOCKED, PUBLIC));
     assertEquals(UrlTargetPolicy.HOST_NOT_ALLOWED, e.getMessage());
   }
 
@@ -85,7 +98,7 @@ class UrlTargetPolicyTest {
     var e =
         assertThrows(
             IllegalArgumentException.class,
-            () -> UrlTargetPolicy.check(offList, GITHUB, unresolved));
+            () -> UrlTargetPolicy.check(offList, GITHUB, BLOCKED, unresolved));
     assertEquals(UrlTargetPolicy.HOST_NOT_ALLOWED, e.getMessage());
   }
 
@@ -103,8 +116,28 @@ class UrlTargetPolicyTest {
     List<InetAddress> refused = addresses(literal);
     var e =
         assertThrows(
-            IllegalArgumentException.class, () -> UrlTargetPolicy.check(EXAMPLE, ANY, refused));
+            IllegalArgumentException.class,
+            () -> UrlTargetPolicy.check(EXAMPLE, ANY, BLOCKED, refused));
     assertEquals(UrlTargetPolicy.REFUSED_ADDRESS, e.getMessage());
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"169.254.169.254", "fe80::1", "::ffff:169.254.169.254"})
+  void refusesLinkLocalAddressesWithNothingBlocked(String literal) {
+    List<InetAddress> linkLocal = addresses(literal);
+    Set<InetAddress> nothingBlocked = Set.of();
+    var e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> UrlTargetPolicy.check(EXAMPLE, ANY, nothingBlocked, linkLocal));
+    assertEquals(UrlTargetPolicy.REFUSED_ADDRESS, e.getMessage());
+  }
+
+  @Test
+  void aMetadataAddressIsRefusedOnlyWhileItIsBlocked() {
+    List<InetAddress> azure = addresses("168.63.129.16");
+    Set<InetAddress> nothingBlocked = Set.of();
+    assertDoesNotThrow(() -> UrlTargetPolicy.check(EXAMPLE, ANY, nothingBlocked, azure));
   }
 
   @Test
@@ -113,7 +146,7 @@ class UrlTargetPolicyTest {
     var e =
         assertThrows(
             IllegalArgumentException.class,
-            () -> UrlTargetPolicy.check(EXAMPLE, ANY, oneLinkLocal));
+            () -> UrlTargetPolicy.check(EXAMPLE, ANY, BLOCKED, oneLinkLocal));
     assertEquals(UrlTargetPolicy.REFUSED_ADDRESS, e.getMessage());
   }
 
@@ -131,7 +164,8 @@ class UrlTargetPolicyTest {
     URI rejected = uri(url);
     var e =
         assertThrows(
-            IllegalArgumentException.class, () -> UrlTargetPolicy.check(rejected, ANY, PUBLIC));
+            IllegalArgumentException.class,
+            () -> UrlTargetPolicy.check(rejected, ANY, BLOCKED, PUBLIC));
     assertEquals(UrlTargetPolicy.INVALID_URL, e.getMessage());
   }
 
@@ -141,7 +175,7 @@ class UrlTargetPolicyTest {
     var e =
         assertThrows(
             IllegalArgumentException.class,
-            () -> UrlTargetPolicy.check(portOutOfRange, GITHUB, PUBLIC));
+            () -> UrlTargetPolicy.check(portOutOfRange, GITHUB, BLOCKED, PUBLIC));
     assertEquals(UrlTargetPolicy.INVALID_URL, e.getMessage());
   }
 
@@ -150,7 +184,7 @@ class UrlTargetPolicyTest {
     assertDoesNotThrow(
         () ->
             UrlTargetPolicy.check(
-                uri("http://[::1]:8000/x.json"), List.of("::1"), addresses("::1")));
+                uri("http://[::1]:8000/x.json"), List.of("::1"), BLOCKED, addresses("::1")));
   }
 
   @Test
@@ -159,7 +193,7 @@ class UrlTargetPolicyTest {
     var e =
         assertThrows(
             IllegalArgumentException.class,
-            () -> UrlTargetPolicy.check(credentialed, GITHUB, PUBLIC));
+            () -> UrlTargetPolicy.check(credentialed, GITHUB, BLOCKED, PUBLIC));
     assertEquals(UrlTargetPolicy.EMBEDDED_CREDENTIALS, e.getMessage());
   }
 
@@ -167,7 +201,9 @@ class UrlTargetPolicyTest {
   @ValueSource(strings = {"127.0.0.1", "::1", "10.0.0.1", "93.184.216.34"})
   void allowsOrdinaryAddressesWithStar(String literal) {
     assertDoesNotThrow(
-        () -> UrlTargetPolicy.check(uri("http://example.invalid/x.json"), ANY, addresses(literal)));
+        () ->
+            UrlTargetPolicy.check(
+                uri("http://example.invalid/x.json"), ANY, BLOCKED, addresses(literal)));
   }
 
   private static URI uri(String url) {

@@ -198,9 +198,10 @@ the client's callback URL, and is not covered by these guides.
 - Setting `SOLR_INDEX_URL_ALLOWED_HOSTS=*` on a deployment whose network has
   internal services you would not expose to every authenticated MCP caller.
   `index-url` fetches any allow-listed host the server can reach; with `*` that
-  includes loopback and RFC1918 services (link-local addresses and the known
-  AWS, Alibaba Cloud and Azure metadata addresses stay refused; other providers'
-  metadata endpoints are not enumerated). Keep the default GitHub allow-list or
+  includes loopback and RFC1918 services (link-local addresses and the addresses
+  in `SOLR_INDEX_URL_BLOCKED_ADDRESSES`, by default the known AWS, Alibaba Cloud
+  and Azure metadata addresses, stay refused; other providers' metadata endpoints
+  are not enumerated, so add any your network exposes). Keep the default GitHub allow-list or
   add specific hosts.
 
 ## Primary sources

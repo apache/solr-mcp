@@ -29,8 +29,9 @@ that launched the process. No code changes are required for STDIO security.
   It is read once at startup. Never wire it from an MCP tool argument.
 - **`index-url` is the one tool that makes an outbound request to a
   caller-supplied address.** Only hosts on `SOLR_INDEX_URL_ALLOWED_HOSTS` are
-  fetched (GitHub raw content by default); link-local addresses and the known
-  cloud-metadata addresses (AWS, Alibaba Cloud, Azure) are always refused; no
+  fetched (GitHub raw content by default); link-local addresses and the addresses
+  in `SOLR_INDEX_URL_BLOCKED_ADDRESSES` (by default the known AWS, Alibaba Cloud
+  and Azure metadata addresses) are always refused; no
   credentials or caller headers are sent; and each fetch is bounded by
   timeouts and a concurrency limit, not by size. Under STDIO the reachable
   network is the launching user's own, the same boundary the process already has.

@@ -18,16 +18,16 @@ package org.apache.solr.mcp.server.indexing;
 
 import java.net.InetAddress;
 import java.net.URI;
-import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
 /**
  * Pure checks that decide whether {@code index-url} may fetch a URL: absolute http(s) with a host
- * and no embedded credentials, a host on the operator's allow-list, and no link-local or
- * cloud-metadata address even when the allow-list is {@code *}. The caller resolves the host, so
- * this class never performs I/O and the same checks run on every redirect hop.
+ * and no embedded credentials, a host on the operator's allow-list, and no link-local or blocked
+ * address even when the allow-list is {@code *}. The caller resolves the host and supplies the
+ * blocked addresses already parsed, so this class never performs I/O and the same checks run on
+ * every redirect hop.
  */
 final class UrlTargetPolicy {
 
@@ -41,13 +41,6 @@ final class UrlTargetPolicy {
   static final String REFUSED_ADDRESS =
       "This server does not fetch link-local or cloud-metadata addresses.";
 
-  /** The EC2 IPv6 instance-metadata address; not link-local, so listed explicitly. */
-  private static final Set<InetAddress> METADATA_ADDRESSES =
-      Set.of(
-          literal("fd00:ec2::254"), // AWS IPv6
-          literal("100.100.100.200"), // Alibaba Cloud
-          literal("168.63.129.16")); // Azure WireServer
-
   private UrlTargetPolicy() {}
 
   /**
@@ -56,11 +49,16 @@ final class UrlTargetPolicy {
    * @param uri the URL as supplied, or the target of a redirect
    * @param allowedHosts exact hosts, {@code *.suffix} patterns, or {@code *}; an empty list allows
    *     nothing
+   * @param blockedAddresses addresses refused in addition to every link-local address
    * @param resolved every address the host resolves to; empty when only the syntactic and
    *     allow-list checks are wanted
    * @throws IllegalArgumentException with the message the tool returns verbatim
    */
-  static void check(URI uri, List<String> allowedHosts, List<InetAddress> resolved) {
+  static void check(
+      URI uri,
+      List<String> allowedHosts,
+      Set<InetAddress> blockedAddresses,
+      List<InetAddress> resolved) {
     String scheme = uri.getScheme();
     String host = uri.getHost();
     if (scheme == null || host == null || uri.getPort() > 65535) {
@@ -79,7 +77,7 @@ final class UrlTargetPolicy {
       throw new IllegalArgumentException(HOST_NOT_ALLOWED);
     }
     for (InetAddress address : resolved) {
-      if (address.isLinkLocalAddress() || METADATA_ADDRESSES.contains(address)) {
+      if (address.isLinkLocalAddress() || blockedAddresses.contains(address)) {
         throw new IllegalArgumentException(REFUSED_ADDRESS);
       }
     }
@@ -115,13 +113,5 @@ final class UrlTargetPolicy {
       lowered = lowered.substring(1, lowered.length() - 1); // IPv6 literal
     }
     return lowered.endsWith(".") ? lowered.substring(0, lowered.length() - 1) : lowered;
-  }
-
-  private static InetAddress literal(String address) {
-    try {
-      return InetAddress.getByName(address);
-    } catch (UnknownHostException e) {
-      throw new IllegalStateException("Not a literal address: " + address, e);
-    }
   }
 }

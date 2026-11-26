@@ -526,6 +526,7 @@ Environment variables:
   native images.
 - `OAUTH2_ISSUER_URI`: OAuth2 issuer URL (HTTP mode only)
 - `SOLR_INDEX_URL_ALLOWED_HOSTS`: hosts `index-url` may fetch (default `raw.githubusercontent.com,*.githubusercontent.com,github.com`; `*` = any)
+- `SOLR_INDEX_URL_BLOCKED_ADDRESSES`: IP literals `index-url` refuses on every hop, on top of all link-local addresses (default `fd00:ec2::254,100.100.100.200,168.63.129.16`, the AWS IPv6, Alibaba Cloud and Azure metadata addresses, set in `application.properties`). A host name or range fails startup, and so does a missing property; an empty value blocks only link-local addresses
 - `SOLR_INDEX_URL_CONNECT_TIMEOUT`, `SOLR_INDEX_URL_READ_TIMEOUT`, `SOLR_INDEX_URL_TOTAL_TIMEOUT`, `SOLR_INDEX_URL_MAX_CONCURRENT_FETCHES`: `index-url` timeouts and concurrency limit (defaults `10s`, `30s`, `5m`, `4`); there is no size limit
 - `OTEL_SAMPLING_PROBABILITY`: trace sampling rate (default `1.0`)
 - `OTEL_TRACES_URL` / `OTEL_METRICS_URL` / `OTEL_LOGS_URL`: OTLP/HTTP endpoints

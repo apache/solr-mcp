@@ -53,6 +53,8 @@ class UrlFetcherTest {
   private static final Duration CONNECT = Duration.ofSeconds(5);
   private static final Duration READ = Duration.ofSeconds(1);
   private static final Duration TOTAL = Duration.ofMinutes(5);
+  private static final List<String> BLOCKED =
+      List.of("fd00:ec2::254", "100.100.100.200", "168.63.129.16");
 
   private HttpServer server;
   private ExecutorService handlers;
@@ -183,14 +185,16 @@ class UrlFetcherTest {
         });
     server.start();
     base = "http://127.0.0.1:" + server.getAddress().getPort();
-    open = new UrlFetcher(new UrlIndexingProperties(List.of("*"), CONNECT, READ, TOTAL, 4));
+    open =
+        new UrlFetcher(new UrlIndexingProperties(List.of("*"), CONNECT, READ, TOTAL, 4, BLOCKED));
     restricted =
-        new UrlFetcher(new UrlIndexingProperties(List.of("127.0.0.1"), CONNECT, READ, TOTAL, 4));
+        new UrlFetcher(
+            new UrlIndexingProperties(List.of("127.0.0.1"), CONNECT, READ, TOTAL, 4, BLOCKED));
     // a read timeout longer than the total deadline, so only the deadline can fire
     dripping =
         new UrlFetcher(
             new UrlIndexingProperties(
-                List.of("*"), CONNECT, Duration.ofSeconds(5), Duration.ofSeconds(1), 4));
+                List.of("*"), CONNECT, Duration.ofSeconds(5), Duration.ofSeconds(1), 4, BLOCKED));
   }
 
   @AfterEach
@@ -381,6 +385,18 @@ class UrlFetcherTest {
     int before = requests.get();
     URI metadata = URI.create("http://169.254.169.254/latest/meta-data/");
     var e = assertThrows(IllegalArgumentException.class, () -> open.fetch(metadata));
+    assertEquals(UrlTargetPolicy.REFUSED_ADDRESS, e.getMessage());
+    assertEquals(before, requests.get());
+  }
+
+  @Test
+  void aConfiguredBlockedAddressIsRefusedWithoutSendingARequest() {
+    var blockingLoopback =
+        new UrlFetcher(
+            new UrlIndexingProperties(List.of("*"), CONNECT, READ, TOTAL, 4, List.of("127.0.0.1")));
+    int before = requests.get();
+    URI loopback = url("/shows.json");
+    var e = assertThrows(IllegalArgumentException.class, () -> blockingLoopback.fetch(loopback));
     assertEquals(UrlTargetPolicy.REFUSED_ADDRESS, e.getMessage());
     assertEquals(before, requests.get());
   }

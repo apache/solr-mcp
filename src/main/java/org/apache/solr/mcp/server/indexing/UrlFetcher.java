@@ -28,6 +28,7 @@ import java.nio.charset.UnsupportedCharsetException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -63,6 +64,7 @@ final class UrlFetcher {
 
   private final RestClient restClient;
   private final List<String> allowedHosts;
+  private final Set<InetAddress> blockedAddresses;
   private final long totalTimeoutNanos;
 
   /**
@@ -108,6 +110,7 @@ final class UrlFetcher {
     factory.setReadTimeout(properties.readTimeout());
     this.restClient = RestClient.builder().requestFactory(factory).build();
     this.allowedHosts = properties.allowedHosts();
+    this.blockedAddresses = properties.blockedInetAddresses();
     this.totalTimeoutNanos = properties.totalTimeout().toNanos();
   }
 
@@ -131,7 +134,10 @@ final class UrlFetcher {
       }
       try {
         UrlTargetPolicy.check(
-            current, allowedHosts, List.of()); // syntax and allow-list before any DNS
+            current,
+            allowedHosts,
+            blockedAddresses,
+            List.of()); // syntax and allow-list before any DNS
       } catch (IllegalArgumentException e) {
         boolean syntactic =
             UrlTargetPolicy.INVALID_URL.equals(e.getMessage())
@@ -143,7 +149,10 @@ final class UrlFetcher {
         throw e;
       }
       UrlTargetPolicy.check(
-          current, allowedHosts, List.of(InetAddress.getAllByName(current.getHost())));
+          current,
+          allowedHosts,
+          blockedAddresses,
+          List.of(InetAddress.getAllByName(current.getHost())));
       switch (send(current, deadline)) {
         case Redirect(String location) -> {
           if (++redirects > MAX_REDIRECTS) {
