@@ -1294,7 +1294,7 @@ public abstract class McpClientIntegrationTestBase {
     // Through Spring AI's serialization: Luke's flag letters arrive decoded as the contract's
     // property names, with neither the letters nor Luke's info legend left over.
     Map<String, Object> id =
-        listing.stream().filter(f -> "id".equals(f.get("name"))).findFirst().orElseThrow();
+        listing.stream().filter(field -> "id".equals(field.get("name"))).findFirst().orElseThrow();
     assertTrue(((List<?>) id.get("flags")).containsAll(List.of("indexed", "stored")), "" + id);
     assertFalse(id.containsKey("schema"), "" + id);
   }
