@@ -46,6 +46,10 @@ A tool that cannot do what was asked SHALL fail the call, so the client receives
 - **WHEN** `create-collection` is called and Solr rejects the request
 - **THEN** the client receives `isError: true` and no result object
 
+#### Scenario: Solr cannot be reached
+- **WHEN** any tool is called while Solr is unreachable
+- **THEN** the client receives a result with `isError: true` and server-written text, not a JSON-RPC protocol error
+
 #### Scenario: A successful mutation has no status flag
 - **WHEN** any tool that changes Solr state succeeds
 - **THEN** its result has no `success` or `message` property
@@ -58,11 +62,19 @@ Results SHALL NOT include timestamps taken from the MCP server's clock. A time v
 - **THEN** the result has no creation-time property
 
 ### Requirement: Error text does not carry Solr internals
-Error text and result properties that describe a failure SHALL NOT include Solr's or SolrJ's exception messages, which can quote host names, URLs, paths and credentials.
+Error text and result properties that describe a failure SHALL NOT include the Solr host, URL or credentials, or SolrJ's own wording around a failure, such as `Error from server at <host>:` or `Timeout occurred while waiting response from server at: <url>`. When Solr reports why it rejected a request, the error text SHALL include that reason as Solr wrote it, so the client can correct its next call.
 
 #### Scenario: A health check fails
 - **WHEN** `check-health` is called on a collection whose ping fails
 - **THEN** the result's `reason` is one of the server's fixed phrases, and the underlying exception text appears only in the server log
+
+#### Scenario: Solr rejects a request
+- **WHEN** `search` sorts on a field the collection does not have
+- **THEN** the client receives `isError: true` with text that includes Solr's reason, and no host name or URL
+
+#### Scenario: Solr times out
+- **WHEN** a tool's request to Solr times out
+- **THEN** the error text says Solr did not answer in time, and does not include the request URL
 
 ### Requirement: Prompts return typed prompt results
 Every prompt SHALL return a prompt result whose `description` is set, with its instructions as one or more messages that each carry an explicit role.

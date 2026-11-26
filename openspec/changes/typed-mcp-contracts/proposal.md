@@ -22,6 +22,8 @@ Solr's response formats are implementation details that change between versions.
   - Every tool that returns a record sets `generateOutputSchema = true`, so `tools/list` publishes an `outputSchema` and each call returns `structuredContent`. Tools that return a list publish none, because MCP 2025-11-25 allows only object-rooted output schemas.
   - The MCP SDK keeps adding the serialized-JSON text copy.
 - **One failure channel.** Failures are exceptions, which reach the client as `isError` results. Results no longer carry `success`/`message` flags or timestamps taken from the server's clock.
+  - Every tool translates Solr failures in its own method body, so an unreachable Solr is an `isError` result, not a JSON-RPC protocol error (#213).
+  - Error text keeps Solr's reason for a rejected request and drops the Solr host and URL.
 - **BREAKING `search`:**
   - `documents` becomes `List<SearchHit(id, score, fields)>`, with `id` read from the collection's uniqueKey field.
   - `facets` becomes `List<FacetField(field, values: List<FacetValue(value, count)>)>`, which keeps Solr's count order.

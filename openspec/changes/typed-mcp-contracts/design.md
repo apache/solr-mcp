@@ -93,7 +93,7 @@ Collection-typed components are copied with `List.copyOf`/`Map.copyOf` in compac
 
 ### D5. Health reasons are a fixed enum
 
-`HealthStatus.reason` comes from a server enum (`COLLECTION_NOT_FOUND`, `PING_FAILED`, `SOLR_UNREACHABLE`, `QUERY_FAILED`), chosen from the exception type and Solr's HTTP code. The exception is logged at `warn` with its cause. This applies the rule #275 established for resources (no Solr text in responses) to a value that is caught and returned rather than thrown, so the redaction aspect never sees it.
+`HealthStatus.reason` comes from a server enum (`COLLECTION_NOT_FOUND`, `PING_FAILED`, `SOLR_UNREACHABLE`, `QUERY_FAILED`), chosen from the exception type and Solr's HTTP code. The exception is logged at `warn` with its cause. This applies the rule #275 established for resources (no Solr text in responses) to a value that is caught and returned rather than thrown, so it never reaches D9's translation.
 
 ### D6. Prompts, resources and completions return MCP's result types
 
@@ -126,6 +126,25 @@ Each area is its own PR off `main`. They merge in this order, because group 1 tu
 4. Search (D3, D4), whose current record already validates.
 5. Indexing (D3). Returning `IndexingResult` makes the flag mandatory for these four tools.
 6. Whole-surface checks.
+7. Tool failures (D9), stacked on step 6.
+
+### D9. Tools translate Solr failures in the method body
+
+Spring AI 2.1.0 decides how a tool failure reaches the client by its type. The [MCP annotations docs](https://docs.spring.io/spring-ai/reference/2.0-SNAPSHOT/api/mcp/mcp-annotations-server.html) and the source (`AbstractMcpToolMethodCallback.callMethod`, `SyncMcpToolMethodCallback`) agree:
+- A `RuntimeException` becomes an `isError` result. Its text is the exception's message followed by its root cause's message (`AbstractSyncMcpToolMethodCallback.createSyncErrorResult`).
+- A declared checked exception is wrapped in `UndeclaredThrowableException` and rethrown. The client gets a JSON-RPC `-32603` error with no text it can act on (#213).
+
+The docs' remedy for a tool that wants the model to see a failure is to convert it to a `RuntimeException` in the method body. So every tool's Solr calls go through one shared helper, and no `@McpTool` method declares `SolrServerException` or `IOException`. The helper throws a `RuntimeException` with no cause, because Spring AI appends the root cause's message, and SolrJ's messages quote the Solr URL. It logs the original exception at `warn`.
+
+| SolrJ failure | Error text |
+|---|---|
+| `RemoteSolrException` 404 | the tool's own hint, e.g. call `list-collections` |
+| `RemoteSolrException` 401/403 | Solr denied access |
+| other `RemoteSolrException` | Solr's reason, after its `Error from server at <host>:` prefix (`RemoteSolrException`'s constructor in SolrJ 10.0.0) |
+| `SolrServerException` for a timeout | Solr did not answer in time |
+| other `SolrServerException`, `IOException` | Solr could not be reached |
+
+Rejected: an AOP aspect around every `@McpTool` (#273, closed). It does the same conversion from outside the method, which Spring AI does not document. The conformance tests check every tool over the wire instead, both against a missing collection and with Solr unreachable.
 
 ## Risks / Trade-offs
 
@@ -133,6 +152,7 @@ Each area is its own PR off `main`. They merge in this order, because group 1 tu
 - **[Risk]** The SDK's output validation turns a contract slip into a failed call in production. → The D1 conformance test covers every tool in CI, including the D2 rule that optional components are `@Nullable`.
 - **[Trade-off]** Dropping unknown Solr attributes hides settings a later Solr adds, for example a new field property. → The contract adds them on purpose. `parameters` keeps class-specific field-type settings, which are the most common case.
 - **[Risk]** The uniqueKey lookup adds a Schema API request to the first search on each collection. → Cached per collection (D4). The request is a cheap admin call.
+- **[Trade-off]** Solr's reason text reaches the model (D9). It describes the failed request, but a server-side failure can name a node or a path. → The host prefix is always removed, credentials cannot appear because `solr.url` rejects user info (#277), and the full exception is in the server log.
 - **[Trade-off]** Every client-visible output changes at once before 1.0.0. → This is deliberate. Doing it after 1.0.0 would need a breaking release.
 
 ## Migration Plan

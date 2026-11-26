@@ -4,7 +4,7 @@ Each numbered group is one PR off `main` (design D8). Merge order is 2, 4, 1, th
 
 ## 1. Contract test scaffolding and MCP result types
 
-- [ ] 1.1 Add `McpContractConformanceIntegrationTest` (legacy) and `McpModernContractConformanceIntegrationTest` (modern). For every tool that publishes an `outputSchema`, they:
+- [x] 1.1 Add `McpContractConformanceIntegrationTest` (legacy) and `McpModernContractConformanceIntegrationTest` (modern). For every tool that publishes an `outputSchema`, they:
   - assert the schema describes an object;
   - call the tool against Testcontainers Solr and assert the call succeeds, which means the SDK's schema validation passed;
   - assert the first text block parses to the same JSON as `structuredContent`.
@@ -15,7 +15,7 @@ Each numbered group is one PR off `main` (design D8). Merge order is 2, 4, 1, th
 - [x] 1.4 Return `ReadResourceResult` with one `application/json` `TextResourceContents` from `solr://collections`, `solr://{collection}/schema` and `solr://{collection}/fields`, keeping the fixed error messages. Verify: the resource tests assert the `uri`, the `mimeType`, and text equal to the matching tool's JSON.
 - [x] 1.5 Return `CompleteResult` with `total` and `hasMore` from all six completion handlers, counting every match before the 100 cap. Verify: unit tests cover 0, 99, 100 and 150 matching collections.
 - [x] 1.6 Document the contract rules from the `mcp-contracts` spec in `AGENTS.md`, under an "MCP contracts" section beside "Architecture". Verify: the section names each rule the spec states.
-- [ ] 1.7 Set `generateOutputSchema = true` on every tool whose method returns a record (not a `String` or a `List`), with sample arguments for each in the conformance test. Verify: the conformance tests pass for every flagged tool on both protocols once groups 2 and 4 are merged.
+- [x] 1.7 Set `generateOutputSchema = true` on every tool whose method returns a record (not a `String` or a `List`), with sample arguments for each in the conformance test. Verify: the conformance tests pass for every flagged tool on both protocols once groups 2 and 4 are merged.
 
 ## 2. Alias and collection contracts (reworks #294)
 
@@ -30,9 +30,9 @@ Each numbered group is one PR off `main` (design D8). Merge order is 2, 4, 1, th
 
 ## 3. Search contract
 
-- [ ] 3.1 Add the uniqueKey lookup with a per-collection cache (design D4). Add the uniqueKey to `fl` when the client's `fields` leaves it out. Verify: a unit test shows one Schema API call across repeated searches on the same collection.
-- [ ] 3.2 Replace `SearchResponse.documents` with `List<SearchHit(id, score?, fields)>` and `facets` with `List<FacetField(field, List<FacetValue(value, count)>)>`. Verify: `SearchServiceTest` and `SearchServiceIntegrationTest` cover a non-`id` uniqueKey, a request with `score`, a `fields` list without the uniqueKey, facet order, and no facets.
-- [ ] 3.3 Confirm every optional component is `@Nullable` (design D2), update `SolrNativeHints`, and update the README and docs-site search pages and the `search-collection` prompt text where it describes the output. Verify: the 1.1 test passes for `search`, and `nativeTest -Pnative` is green.
+- [x] 3.1 Add the uniqueKey lookup with a per-collection cache (design D4). Add the uniqueKey to `fl` when the client's `fields` leaves it out. Verify: a unit test shows one Schema API call across repeated searches on the same collection.
+- [x] 3.2 Replace `SearchResponse.documents` with `List<SearchHit(id, score?, fields)>` and `facets` with `List<FacetField(field, List<FacetValue(value, count)>)>`. Verify: `SearchServiceTest` and `SearchServiceIntegrationTest` cover a non-`id` uniqueKey, a request with `score`, a `fields` list without the uniqueKey, facet order, and no facets.
+- [x] 3.3 Confirm every optional component is `@Nullable` (design D2), update `SolrNativeHints`, and update the README and docs-site search pages and the `search-collection` prompt text where it describes the output. Verify: the 1.1 test passes for `search`, and `nativeTest -Pnative` is green.
 
 ## 4. Schema contract
 
@@ -46,19 +46,27 @@ Each numbered group is one PR off `main` (design D8). Merge order is 2, 4, 1, th
   Verify: tests cover an explicit `stored: false`, a dropped unknown field attribute, `positionIncrementGap` in `parameters`, and the `standard`/`lowercase` chain.
 - [x] 4.3 Rework `FieldListing` to a name-sorted `List<ListedField>` with `flags: Set<FieldProperty>`, and no `other` map. Verify: `list-fields` tests cover a dynamic-field-derived field, and the absence of Luke letters.
 - [x] 4.4 Change `add-fields` to take `List<CollectionSchema.Field>` and `add-field-types` to take `List<CollectionSchema.FieldType>`, mapping to SolrJ's `SchemaRequest` builders. Required properties and types are enforced by the SDK's input validation; like other tool arguments, properties the contract does not name are not checked by the server. Verify: integration tests cover adding `year`/`pint`/`docValues` and a round trip of a field and of a text field type through `get-schema`.
-- [ ] 4.5 Confirm every optional component is `@Nullable` (design D2), update `SolrNativeHints`, and update the README, the docs-site schema pages and the `view-schema`/`design-schema` prompt text that shows field JSON. Verify: `nativeTest -Pnative` is green, and the group-1 conformance test passes for the four schema tools when group 1 is rebased onto this group.
+- [x] 4.5 Confirm every optional component is `@Nullable` (design D2), update `SolrNativeHints`, and update the README, the docs-site schema pages and the `view-schema`/`design-schema` prompt text that shows field JSON. Verify: `nativeTest -Pnative` is green, and the group-1 conformance test passes for the four schema tools when group 1 is rebased onto this group.
 - [x] 4.6 Add nullable `metadata: Map<String, Object>` to `Field` and `FieldType` for SOLR-18678's key-value metadata, read from a JSON object or a flat NamedList array and sent unchanged by `add-fields` and `add-field-types`; the key follows SOLR-18678 and may change. Verify: `SchemaServiceTest` covers the object and flat-array forms, absence, both add requests, and a `get-schema` to `add-fields` round trip.
 
 ## 5. Indexing contract
 
-- [ ] 5.1 Add `IndexingResult(collection, format, documentsSubmitted?, documentsIndexed?, fieldNames?)`. Return it from all four indexing tools, with counts and field names only for JSON and Markdown. Verify: `IndexingServiceTest` covers all-accepted, partially-rejected (5 submitted, 3 indexed), Markdown sections, and CSV/XML without counts.
-- [ ] 5.2 Confirm every optional component is `@Nullable` (design D2), set `generateOutputSchema = true` on the four indexing tools, update `SolrNativeHints`, and update the README, the docs-site indexing pages and the `index-data` prompt text that quotes the old sentence. Verify: the 1.1 test passes for these tools, and `nativeTest -Pnative` is green.
+- [x] 5.1 Add `IndexingResult(collection, format, documentsSubmitted?, documentsIndexed?, fieldNames?)`. Return it from all four indexing tools, with counts and field names only for JSON and Markdown. Verify: `IndexingServiceTest` covers all-accepted, partially-rejected (5 submitted, 3 indexed), Markdown sections, and CSV/XML without counts.
+- [x] 5.2 Confirm every optional component is `@Nullable` (design D2), set `generateOutputSchema = true` on the four indexing tools, update `SolrNativeHints`, and update the README, the docs-site indexing pages and the `index-data` prompt text that quotes the old sentence. Verify: the 1.1 test passes for these tools, and `nativeTest -Pnative` is green.
 
 ## 6. Whole-surface checks
 
-- [ ] 6.1 Make the 1.1 test assert that every registered tool sets `generateOutputSchema = true`, so a new tool without a schema fails the build. Verify: removing the flag from one tool locally makes the test fail.
-- [ ] 6.2 Run the full compatibility matrix (`-Dsolr.test.image` = 9.4, 9.9, 9.10, 10) and `./gradlew dockerIntegrationTest` for the Jib, native-stdio and native-http images. Verify: all green; record the results in the PR.
+- [x] 6.1 Make the 1.1 test assert, over `tools/list`, that every tool except the three list tools publishes an `outputSchema`, and that the same set has sample arguments. Verify: removing the flag from one tool locally makes the test fail.
+- [x] 6.2 Run the full compatibility matrix (`-Dsolr.test.image` = 9.4, 9.9, 9.10, 10) and `./gradlew dockerIntegrationTest` for the Jib, native-stdio and native-http images. Verify: all green; record the results in the PR.
 - [ ] 6.3 Add an "MCP contracts" entry to the 1.0.0 changelog listing every changed output and input. Verify: `./gradlew getChangelog --project-version=1.0.0` shows it.
+
+## 7. Tool failures (D9)
+
+- [ ] 7.1 Add one shared helper that runs a Solr call and translates its failures as D9's table says: a `RuntimeException` with no cause, the original logged at `warn`. Verify: unit tests build real SolrJ 10 exceptions for each row and assert the message, that there is no cause, and that no host or URL appears.
+- [ ] 7.2 Move `search`'s own failure translation onto the helper, keeping its hints. Verify: `SearchServiceTest` and `SearchServiceIntegrationTest`.
+- [ ] 7.3 Route every Solr call of the alias, collection, schema and indexing tools through the helper, and drop `throws SolrServerException, IOException` from every `@McpTool` method. Verify: no `@McpTool` method declares a checked exception; each service's tests.
+- [ ] 7.4 Add failure conformance tests on both protocols. Every tool is called on a missing collection, then with `solr.url` pointing at a closed port. Each call must return `isError: true`, never a JSON-RPC error, with no `Error from server at`, `http://` or `https://` in its text. Verify: undoing one tool's translation locally makes the test fail.
+- [ ] 7.5 Finish 6.3: list the changed outputs and inputs in the 1.0.0 changelog, and state that every failure is an `isError` result. Add D9's error rules to the "MCP contracts" section of `AGENTS.md`. Verify: `./gradlew getChangelog --project-version=1.0.0` shows them.
 
 ## Workflow follow-up
 
