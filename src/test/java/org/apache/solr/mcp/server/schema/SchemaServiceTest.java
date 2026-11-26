@@ -124,9 +124,9 @@ class SchemaServiceTest {
 
   @ParameterizedTest
   @ValueSource(classes = {CollectionSchema.Field.class, CollectionSchema.FieldType.class})
-  void schemaPropertiesMatchTheRecordsBooleanComponents(Class<? extends Record> record) {
+  void schemaPropertiesMatchTheRecordsBooleanComponents(Class<? extends Record> recordType) {
     List<String> booleans =
-        Arrays.stream(record.getRecordComponents())
+        Arrays.stream(recordType.getRecordComponents())
             .filter(component -> component.getType() == Boolean.class)
             .map(RecordComponent::getName)
             .toList();
