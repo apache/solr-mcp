@@ -439,12 +439,15 @@ class SchemaServiceIntegrationTest {
   }
 
   private static CollectionSchema.Field field(CollectionSchema schema, String name) {
-    return schema.fields().stream().filter(f -> name.equals(f.name())).findFirst().orElseThrow();
+    return schema.fields().stream()
+        .filter(field -> name.equals(field.name()))
+        .findFirst()
+        .orElseThrow();
   }
 
   private static CollectionSchema.FieldType fieldType(CollectionSchema schema, String name) {
     return schema.fieldTypes().stream()
-        .filter(t -> name.equals(t.name()))
+        .filter(fieldType -> name.equals(fieldType.name()))
         .findFirst()
         .orElseThrow();
   }
