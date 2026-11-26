@@ -149,12 +149,19 @@ class IndexingServiceIntegrationTest {
 				]
 				""";
 
-    String result = indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
+    IndexingResult result =
+        indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
     // Names are kept as given; nested objects are flattened with underscores,
-    // which is why the response lists the indexed names.
-    assertTrue(result.contains("User-Name"), result);
-    assertTrue(result.contains("product_price"), result);
+    // which is why the result lists the indexed names.
+    assertEquals(
+        new IndexingResult(
+            COLLECTION_NAME,
+            IndexingResult.Format.json,
+            1,
+            1,
+            List.of("User-Name", "id", "product_price")),
+        result);
   }
 
   @Test
@@ -710,7 +717,7 @@ class IndexingServiceIntegrationTest {
 
   @Test
   void indexCsvDocuments_goesThroughSolrsCsvHandlerWithColumnNamesAsGiven() throws Exception {
-    String result =
+    IndexingResult result =
         indexingService.indexCsvDocuments(
             COLLECTION_NAME,
             """
@@ -719,7 +726,8 @@ class IndexingServiceIntegrationTest {
 				csv-002,Beta,Horror,,7.1
 				""");
 
-    assertTrue(result.contains("Solr accepted the CSV payload"), result);
+    assertEquals(
+        new IndexingResult(COLLECTION_NAME, IndexingResult.Format.csv, null, null, null), result);
     var alpha =
         solrClient.query(COLLECTION_NAME, new SolrQuery("id:csv-001")).getResults().getFirst();
     assertEquals(
@@ -732,7 +740,7 @@ class IndexingServiceIntegrationTest {
 
   @Test
   void indexXmlDocuments_forwardsSolrUpdateXmlAndRejectsCommands() throws Exception {
-    String result =
+    IndexingResult result =
         indexingService.indexXmlDocuments(
             COLLECTION_NAME,
             """
@@ -742,7 +750,8 @@ class IndexingServiceIntegrationTest {
 				</add>
 				""");
 
-    assertTrue(result.contains("Solr accepted the XML <add> block"), result);
+    assertEquals(
+        new IndexingResult(COLLECTION_NAME, IndexingResult.Format.xml, null, null, null), result);
     var gamma =
         solrClient.query(COLLECTION_NAME, new SolrQuery("id:xml-001")).getResults().getFirst();
     assertEquals("Gamma", gamma.getFirstValue("title"));

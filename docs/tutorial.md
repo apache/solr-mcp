@@ -92,7 +92,7 @@ documents containing fields it has never seen, and it will invent types for them
 
 > *"Index the contents of ./shows.json into the shows-auto collection."*
 
-You should get `61 of 61 documents`. No schema, no field definitions, no
+You should get `"documentsSubmitted": 61` and `"documentsIndexed": 61`. No schema, no field definitions, no
 configuration — and it worked.
 
 This is genuinely useful. Schemaless mode exists so you can get data in and start

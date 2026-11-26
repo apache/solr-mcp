@@ -225,6 +225,21 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
+    Map<String, Object> indexed =
+        JSON_MAPPER.readValue(extractText(result), new TypeReference<>() {});
+    assertEquals(
+        Map.of(
+            "collection",
+            COLLECTION,
+            "format",
+            "json",
+            "documentsSubmitted",
+            5,
+            "documentsIndexed",
+            5,
+            "fieldNames",
+            List.of("author", "category", "id", "title")),
+        indexed);
   }
 
   @Test
@@ -392,6 +407,12 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
+    Map<String, Object> indexed =
+        JSON_MAPPER.readValue(extractText(result), new TypeReference<>() {});
+    assertEquals(
+        Map.of("collection", COLLECTION, "format", "csv"),
+        indexed,
+        "CSV goes to Solr unchanged, so no counts or field names are reported");
   }
 
   @Test
@@ -534,9 +555,12 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(indexResult);
     assertNotError(indexResult);
-    assertTrue(
-        extractText(indexResult).contains("Successfully indexed 1"),
-        "Markdown indexing should report one indexed document: " + extractText(indexResult));
+    Map<String, Object> indexed =
+        JSON_MAPPER.readValue(extractText(indexResult), new TypeReference<>() {});
+    assertEquals("markdown", indexed.get("format"));
+    assertEquals(
+        1, indexed.get("documentsSubmitted"), "Markdown indexing should submit one document");
+    assertEquals(1, indexed.get("documentsIndexed"), "Markdown indexing should index one document");
 
     CallToolResult searchResult =
         mcpClient.callTool(

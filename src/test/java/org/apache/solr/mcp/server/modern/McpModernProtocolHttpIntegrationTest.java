@@ -162,20 +162,36 @@ class McpModernProtocolHttpIntegrationTest {
   @Order(3)
   void toolsCallCreatesIndexesAndSearches() throws Exception {
     callTool("create-collection", Map.of("name", COLLECTION));
-    callTool(
-        "index-json-documents",
-        Map.of(
-            "collection",
-            COLLECTION,
-            "documents",
-            TestDocuments.json(
-                """
+    Map<String, Object> indexed =
+        callTool(
+            "index-json-documents",
+            Map.of(
+                "collection",
+                COLLECTION,
+                "documents",
+                TestDocuments.json(
+                    """
                 [
                   {"id": "1", "title": "Modern MCP", "category": "protocol"},
                   {"id": "2", "title": "Stateless servers", "category": "protocol"},
                   {"id": "3", "title": "Solr basics", "category": "search"}
                 ]
                 """)));
+    String indexedText = firstText(indexed);
+    assertEquals(
+        Map.of(
+            "collection",
+            COLLECTION,
+            "format",
+            "json",
+            "documentsSubmitted",
+            3,
+            "documentsIndexed",
+            3,
+            "fieldNames",
+            List.of("category", "id", "title")),
+        parse(indexedText),
+        indexedText);
 
     String text =
         firstText(

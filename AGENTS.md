@@ -147,9 +147,10 @@ are used as given. The one server-side step is `indexing/SolrUpdateXml`, a
 hardened StAX read up to the root element that rejects anything but an `<add>`
 block, because Solr's update grammar also carries `<delete>` and `<commit>` on the
 same endpoint. There is no generic-XML mapping; the XML tool takes Solr update XML
-(`<add><doc><field name="...">`). Solr's update response carries no document
-count, so these two tools report that Solr accepted the payload rather than a
-count.
+(`<add><doc><field name="...">`). All four tools return an `IndexingResult`
+(`collection`, `format`). For JSON and Markdown it also carries
+`documentsSubmitted`, `documentsIndexed` and `fieldNames`; Solr's update response
+carries no document count, so for CSV and XML those three are absent.
 
 ### Transport Modes
 

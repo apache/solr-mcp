@@ -25,17 +25,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.stream.Collectors;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.AbstractUpdateRequest;
 import org.apache.solr.client.solrj.request.ContentStreamUpdateRequest;
 import org.apache.solr.client.solrj.request.UpdateRequest;
-import org.apache.solr.client.solrj.response.UpdateResponse;
 import org.apache.solr.client.solrj.util.ClientUtils;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.util.ContentStreamBase;
+import org.apache.solr.mcp.server.indexing.IndexingResult.Format;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
 import org.apache.solr.mcp.server.util.McpResults;
 import org.apache.solr.mcp.server.util.PromptNames;
@@ -116,6 +115,9 @@ public class IndexingService {
 
   private static final Logger logger = LoggerFactory.getLogger(IndexingService.class);
 
+  /** Solr's update handler, which reads CSV and update XML by their content type. */
+  private static final String UPDATE_PATH = "/update";
+
   /** SolrJ client for communicating with Solr server */
   private final SolrClient solrClient;
 
@@ -176,7 +178,7 @@ public class IndexingService {
    *
    * @param collection the name of the Solr collection to index documents into
    * @param documents the documents to index, one map per document
-   * @return a human-readable summary reporting how many documents were successfully indexed
+   * @return the collection, the number of documents submitted and indexed, and the field names
    * @throws IOException if there are critical errors in JSON parsing or Solr communication
    * @throws SolrServerException if Solr server encounters errors during indexing
    * @see IndexingDocumentCreator#createSchemalessDocumentsFromJson(List)
@@ -189,24 +191,17 @@ public class IndexingService {
       description =
           "Index documents passed as a JSON array of objects into Solr collection; one object"
               + " per document, multi-valued fields as arrays, nested objects flattened with underscores."
-              + " Pass the array itself, not a JSON string. Field names are used as given; the response"
-              + " lists the field names as indexed")
-  public String indexJsonDocuments(
+              + " Pass the array itself, not a JSON string. Field names are used as given. Returns"
+              + " documentsSubmitted, documentsIndexed (lower when Solr rejected some documents) and"
+              + " the fieldNames as indexed")
+  public IndexingResult indexJsonDocuments(
       @McpToolParam(description = "Solr collection to index into") String collection,
       @McpToolParam(description = "Documents to index: a JSON array with one object per document")
           List<Map<String, Object>> documents)
       throws IOException, SolrServerException {
-    List<SolrInputDocument> schemalessDoc =
+    List<SolrInputDocument> schemalessDocuments =
         indexingDocumentCreator.createSchemalessDocumentsFromJson(documents);
-    int successCount = indexDocuments(collection, schemalessDoc);
-    return "Successfully indexed "
-        + successCount
-        + " of "
-        + schemalessDoc.size()
-        + " documents into collection '"
-        + collection
-        + "'"
-        + describeIndexedFields(schemalessDoc);
+    return indexParsed(collection, Format.json, schemalessDocuments);
   }
 
   /**
@@ -217,7 +212,7 @@ public class IndexingService {
    *
    * @param collection the name of the Solr collection to index documents into
    * @param csv CSV text with a header row
-   * @return a human-readable confirmation that Solr accepted and committed the payload
+   * @return the collection and format, without counts: Solr does not report one
    * @throws IOException if communication with Solr fails
    * @throws SolrServerException if Solr rejects the payload
    */
@@ -228,15 +223,16 @@ public class IndexingService {
       description =
           "Index documents from CSV string into Solr collection via Solr's CSV handler. The first row"
               + " is the header and its column names are used as the field names, as given; repeat a column name"
-              + " to make that field multi-valued; empty cells are skipped")
-  public String indexCsvDocuments(
+              + " to make that field multi-valued; empty cells are skipped. Solr accepts or rejects the"
+              + " payload as a whole and reports no document count")
+  public IndexingResult indexCsvDocuments(
       @McpToolParam(description = "Solr collection to index into") String collection,
       @McpToolParam(description = "CSV string containing documents to index") String csv)
       throws IOException, SolrServerException {
-    ContentStreamUpdateRequest request = new ContentStreamUpdateRequest("/update");
+    ContentStreamUpdateRequest request = new ContentStreamUpdateRequest(UPDATE_PATH);
     request.setParam("header", "true");
     request.addContentStream(new ContentStreamBase.StringStream(csv, "text/csv; charset=UTF-8"));
-    return forward(collection, request, "CSV payload");
+    return forward(collection, request, Format.csv);
   }
 
   /**
@@ -248,7 +244,7 @@ public class IndexingService {
    *
    * @param collection the name of the Solr collection to index documents into
    * @param xml a Solr {@code <add>} block
-   * @return a human-readable confirmation that Solr accepted and committed the payload
+   * @return the collection and format, without counts: Solr does not report one
    * @throws IOException if communication with Solr fails
    * @throws SolrServerException if Solr rejects the payload
    */
@@ -260,40 +256,34 @@ public class IndexingService {
           "Index documents from Solr update XML into Solr collection: <add><doc><field name=\"id\">1</field>"
               + "<field name=\"genres\">a</field><field name=\"genres\">b</field></doc></add>; repeat <field> for"
               + " multi-valued fields. Only <add> blocks are accepted; delete and commit commands are rejected."
-              + " Field names are used as given")
-  public String indexXmlDocuments(
+              + " Field names are used as given. Solr accepts or rejects the payload as a whole and"
+              + " reports no document count")
+  public IndexingResult indexXmlDocuments(
       @McpToolParam(description = "Solr collection to index into") String collection,
       @McpToolParam(description = "Solr update XML: an <add> block of <doc> elements") String xml)
       throws IOException, SolrServerException {
     SolrUpdateXml.requireAddBlock(xml);
-    ContentStreamUpdateRequest request = new ContentStreamUpdateRequest("/update");
+    ContentStreamUpdateRequest request = new ContentStreamUpdateRequest(UPDATE_PATH);
     request.addContentStream(new ContentStreamBase.StringStream(xml, ClientUtils.TEXT_XML));
-    return forward(collection, request, "XML <add> block");
+    return forward(collection, request, Format.xml);
   }
 
   /**
-   * Sends a payload to a Solr update handler and reports Solr's answer. The commit rides along on
-   * the same request rather than following as a second round trip, so the status and query time
-   * reported here cover the commit this message claims. Solr's update response carries no document
-   * count, so none is claimed.
+   * Sends a payload to a Solr update handler, committing it on the same request rather than in a
+   * second round trip, so a returned result means Solr accepted and committed the payload. A
+   * rejected payload throws. Solr's update response carries no document count, so the result claims
+   * none.
    *
    * <p>The commit is a soft one: {@code waitSearcher} keeps the documents searchable the moment the
    * tool returns, while the segment fsync is left to Solr's {@code autoCommit}, which the {@code
    * _default} configset enables at 15 s, so many small calls do not each force one.
    */
-  private String forward(String collection, ContentStreamUpdateRequest request, String payload)
+  private IndexingResult forward(
+      String collection, ContentStreamUpdateRequest request, Format format)
       throws IOException, SolrServerException {
     request.setAction(AbstractUpdateRequest.ACTION.COMMIT, false, true, true);
-    UpdateResponse response = request.process(solrClient, collection);
-    return "Solr accepted the "
-        + payload
-        + " for collection '"
-        + collection
-        + "' and committed it (status "
-        + response.getStatus()
-        + ", "
-        + response.getQTime()
-        + " ms)";
+    request.process(solrClient, collection);
+    return IndexingResult.forwarded(collection, format);
   }
 
   /**
@@ -337,7 +327,7 @@ public class IndexingService {
    *
    * @param collection the name of the Solr collection to index documents into
    * @param documents the markdown documents, one string per document
-   * @return a summary of the indexing result
+   * @return the collection, the number of documents submitted and indexed, and the field names
    * @throws IOException if there are critical errors in Solr communication
    * @throws SolrServerException if Solr server encounters errors during indexing
    * @see IndexingDocumentCreator#createSchemalessDocumentsFromMarkdown(String)
@@ -351,58 +341,56 @@ public class IndexingService {
           "Index markdown documents into Solr collection, one array element per document, extracting front matter, title, headings, and body text from each. "
               + "Pass many documents in one call rather than one call per document. "
               + "Do NOT use for JSON/CSV/XML input; use index-json-documents, index-csv-documents, or index-xml-documents instead. "
-              + "Only convert source content to markdown when there is no dedicated tool for the source format, and supply a stable 'id' in the YAML front matter when doing so.")
-  public String indexMarkdownDocuments(
+              + "Only convert source content to markdown when there is no dedicated tool for the source format, and supply a stable 'id' in the YAML front matter when doing so. "
+              + "Returns documentsSubmitted, documentsIndexed (lower when Solr rejected some documents) and the fieldNames as indexed.")
+  public IndexingResult indexMarkdownDocuments(
       @McpToolParam(description = "Solr collection to index into") String collection,
       @McpToolParam(
               description =
                   "Markdown documents to index, one string per document, each optionally starting with YAML front matter")
           List<String> documents)
       throws IOException, SolrServerException {
-    List<SolrInputDocument> schemalessDoc = new ArrayList<>();
+    List<SolrInputDocument> schemalessDocuments = new ArrayList<>();
     for (String markdown : documents) {
-      schemalessDoc.addAll(indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown));
+      schemalessDocuments.addAll(
+          indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown));
     }
-    int successCount = indexDocuments(collection, schemalessDoc);
-    return "Successfully indexed "
-        + successCount
-        + " of "
-        + schemalessDoc.size()
-        + " documents into collection '"
-        + collection
-        + "'";
+    return indexParsed(collection, Format.markdown, schemalessDocuments);
   }
 
   /**
-   * Maximum number of distinct field names listed in an indexing response before the remainder is
-   * elided.
+   * Indexes documents the server parsed itself and reports how many Solr accepted.
+   *
+   * @param collection the collection to index into
+   * @param format the input format the documents were parsed from
+   * @param documents the parsed documents
+   * @return the counts and the field names of the submitted documents
    */
-  private static final int MAX_REPORTED_FIELDS = 50;
+  private IndexingResult indexParsed(
+      String collection, Format format, List<SolrInputDocument> documents)
+      throws IOException, SolrServerException {
+    int indexedCount = indexDocuments(collection, documents);
+    return IndexingResult.parsed(
+        collection, format, documents.size(), indexedCount, indexedFieldNames(documents));
+  }
+
+  /** Maximum number of distinct field names listed in an indexing result. */
+  static final int MAX_REPORTED_FIELDS = 50;
 
   /**
-   * Summarizes the field names that were indexed. Nested JSON objects are flattened with
-   * underscores, so the indexed names can differ from the input; reporting them lets MCP clients
-   * query the right fields.
+   * Lists the distinct field names of the submitted documents, sorted, keeping the first {@link
+   * #MAX_REPORTED_FIELDS}. Nested JSON objects are flattened with underscores, so the indexed names
+   * can differ from the input; reporting them lets MCP clients query the right fields.
    *
    * @param documents the documents that were submitted for indexing
-   * @return a sentence listing the distinct indexed field names, or an empty string if there are
-   *     none
+   * @return the sorted field names, at most {@link #MAX_REPORTED_FIELDS} of them
    */
-  private static String describeIndexedFields(List<SolrInputDocument> documents) {
-    Set<String> fieldNames =
-        documents.stream()
-            .flatMap(document -> document.getFieldNames().stream())
-            .collect(Collectors.toCollection(TreeSet::new));
-    if (fieldNames.isEmpty()) {
-      return "";
+  private static List<String> indexedFieldNames(List<SolrInputDocument> documents) {
+    Set<String> fieldNames = new TreeSet<>();
+    for (SolrInputDocument document : documents) {
+      fieldNames.addAll(document.getFieldNames());
     }
-    String listed =
-        fieldNames.stream().limit(MAX_REPORTED_FIELDS).collect(Collectors.joining(", "));
-    String elided =
-        fieldNames.size() > MAX_REPORTED_FIELDS
-            ? " and " + (fieldNames.size() - MAX_REPORTED_FIELDS) + " more"
-            : "";
-    return ". Indexed field names: " + listed + elided;
+    return fieldNames.stream().limit(MAX_REPORTED_FIELDS).toList();
   }
 
   /**
@@ -538,9 +526,11 @@ public class IndexingService {
 
 				3. Index the documents.
 				   - Call `%s` with `collection=%s` and `%s=<%s>`.
-				   - The tool commits at the end. For JSON and markdown the return value is the count
-				     of successfully indexed documents; for CSV and XML it confirms that Solr accepted
-				     the whole payload, and step 4 is where you learn the count.
+				   - The tool commits at the end and returns `collection` and `format`. For JSON and
+				     markdown it also returns `documentsSubmitted`, `documentsIndexed` (lower when Solr
+				     rejected some documents) and the `fieldNames` as indexed. For CSV and XML Solr
+				     accepts or rejects the whole payload and reports no count, so step 4 is where you
+				     learn it.
 				   - On error, read the message carefully: an "unknown field" error means the schema is
 				     missing a field — go back to step 1 and run `design-schema`. A parse error means
 				     the input format does not match the chosen tool — fix the payload and retry.

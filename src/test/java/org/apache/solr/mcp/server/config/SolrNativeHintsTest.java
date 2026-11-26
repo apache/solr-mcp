@@ -125,6 +125,23 @@ class SolrNativeHintsTest {
   }
 
   @Test
+  void registersIndexingResultHints() {
+    for (String type :
+        List.of(
+            "org.apache.solr.mcp.server.indexing.IndexingResult",
+            "org.apache.solr.mcp.server.indexing.IndexingResult$Format")) {
+      assertTrue(
+          RuntimeHintsPredicates.reflection()
+              .onType(TypeReference.of(type))
+              .withMemberCategories(
+                  MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
+                  MemberCategory.INVOKE_DECLARED_METHODS)
+              .test(hints),
+          type);
+    }
+  }
+
+  @Test
   void registersCollectionSchemaRecordHints() {
     // Jackson builds the input records for add-fields and add-field-types (constructors) and
     // writes every record out through its accessors (methods), so both are needed.
