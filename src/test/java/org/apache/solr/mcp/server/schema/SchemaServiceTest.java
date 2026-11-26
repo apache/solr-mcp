@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.modelcontextprotocol.spec.McpSchema.ReadResourceRequest;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.reflect.RecordComponent;
@@ -239,7 +240,11 @@ class SchemaServiceTest {
     // When
     IllegalStateException e =
         assertThrows(
-            IllegalStateException.class, () -> schemaService.getSchemaResource(collectionName));
+            IllegalStateException.class,
+            () ->
+                schemaService.getSchemaResource(
+                    new ReadResourceRequest("solr://" + collectionName + "/schema"),
+                    collectionName));
 
     // Then the client gets the fixed message, never the Solr failure text
     assertEquals(SchemaService.SCHEMA_RESOURCE_ERROR, e.getMessage());

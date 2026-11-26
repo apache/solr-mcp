@@ -26,6 +26,7 @@ import static org.mockito.Mockito.*;
 
 import io.modelcontextprotocol.spec.McpSchema.CompleteRequest;
 import io.modelcontextprotocol.spec.McpSchema.CompleteResult;
+import io.modelcontextprotocol.spec.McpSchema.ReadResourceRequest;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -69,6 +70,8 @@ import tools.jackson.databind.json.JsonMapper;
 @ExtendWith(MockitoExtension.class)
 @DisabledInNativeImage
 class CollectionServiceTest {
+
+  private static final String COLLECTIONS_URI = "solr://collections";
 
   @Mock private SolrClient solrClient;
 
@@ -793,7 +796,9 @@ class CollectionServiceTest {
 
     assertEquals(
         "[{\"name\":\"collection1\"},{\"name\":\"collection2\"}]",
-        resourceJson(collectionService.getCollectionsResource(), "solr://collections"));
+        resourceJson(
+            collectionService.getCollectionsResource(new ReadResourceRequest(COLLECTIONS_URI)),
+            COLLECTIONS_URI));
   }
 
   @Test
@@ -804,7 +809,10 @@ class CollectionServiceTest {
                 "Server refused connection at: http://solr-internal.corp:8983/solr"));
 
     IllegalStateException e =
-        assertThrows(IllegalStateException.class, () -> collectionService.getCollectionsResource());
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                collectionService.getCollectionsResource(new ReadResourceRequest(COLLECTIONS_URI)));
 
     assertEquals(CollectionService.COLLECTIONS_RESOURCE_ERROR, e.getMessage());
     assertNull(e.getCause());

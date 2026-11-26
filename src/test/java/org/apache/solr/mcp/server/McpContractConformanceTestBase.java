@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DynamicTest;
@@ -40,8 +41,9 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <p>Each such tool is called against a real Solr. The call must succeed, which means the MCP SDK's
  * own check of {@code structuredContent} against the published schema passed; the schema must
- * describe an object, which the SDK does not check; and the first text block must hold the same
- * JSON, for clients that read only text.
+ * describe an object, which the SDK does not check; the first text block must hold the same JSON,
+ * for clients that read only text; and the result must carry no {@code success} or {@code message}
+ * status property, since a failure is reported as an error result instead.
  *
  * <p>Like Spring AI, which publishes MCP output schemas open to additional properties, this test
  * does not close them: a result can only carry an undeclared property through a
@@ -56,6 +58,9 @@ import tools.jackson.databind.json.JsonMapper;
 public abstract class McpContractConformanceTestBase {
 
   protected static final String COLLECTION = "contract-conformance";
+
+  /** The alias {@code delete-alias} deletes, created up front so that test can run alone. */
+  private static final String ALIAS_TO_DELETE = "contract-alias-to-delete";
 
   protected static final JsonMapper JSON = JsonMapper.builder().build();
 
@@ -79,7 +84,8 @@ public abstract class McpContractConformanceTestBase {
                           "solr.TextField",
                           "analyzer",
                           Map.of(
-                              "tokenizer", Map.of("className", "solr.StandardTokenizerFactory")))))),
+                              "tokenizer",
+                              Map.of("className", "solr.StandardTokenizerFactory")))))),
           Map.entry(
               "add-fields",
               Map.of(
@@ -88,11 +94,10 @@ public abstract class McpContractConformanceTestBase {
                   "fields",
                   List.of(Map.of("name", "contract_year", "type", "pint")))),
           Map.entry("check-health", Map.of("collection", COLLECTION)),
-          // Tools run in name order, so create-alias runs before delete-alias.
           Map.entry(
               "create-alias", Map.of("name", "contract-alias", "collections", List.of(COLLECTION))),
           Map.entry("create-collection", Map.of("name", COLLECTION + "-created")),
-          Map.entry("delete-alias", Map.of("name", "contract-alias")),
+          Map.entry("delete-alias", Map.of("name", ALIAS_TO_DELETE)),
           Map.entry("get-collection-stats", Map.of("collection", COLLECTION)),
           Map.entry("get-schema", Map.of("collection", COLLECTION)),
           Map.entry("search", Map.of("collection", COLLECTION, "query", "*:*")));
@@ -105,9 +110,13 @@ public abstract class McpContractConformanceTestBase {
       throws Exception;
 
   @BeforeAll
-  void createCollection() throws Exception {
+  void createCollectionAndAlias() throws Exception {
     Map<String, Object> created = callTool("create-collection", Map.of("name", COLLECTION));
     assertNotEquals(Boolean.TRUE, created.get("isError"), () -> "create-collection: " + created);
+    Map<String, Object> aliased =
+        callTool(
+            "create-alias", Map.of("name", ALIAS_TO_DELETE, "collections", List.of(COLLECTION)));
+    assertNotEquals(Boolean.TRUE, aliased.get("isError"), () -> "create-alias: " + aliased);
   }
 
   @Test
@@ -154,8 +163,16 @@ public abstract class McpContractConformanceTestBase {
     Map<String, Object> result = callTool(tool, SAMPLE_ARGUMENTS.get(tool));
     assertNotEquals(Boolean.TRUE, result.get("isError"), () -> tool + " failed: " + result);
 
-    Object structured = result.get("structuredContent");
-    assertInstanceOf(Map.class, structured, () -> tool + " must return object structuredContent");
+    Map<?, ?> structured =
+        assertInstanceOf(
+            Map.class,
+            result.get("structuredContent"),
+            () -> tool + " must return object structuredContent");
+    for (String statusFlag : List.of("success", "message")) {
+      assertFalse(
+          structured.containsKey(statusFlag),
+          () -> tool + ": a successful result carries no " + statusFlag + " flag: " + structured);
+    }
 
     List<Map<String, Object>> content = (List<Map<String, Object>>) result.get("content");
     assertNotNull(content, () -> tool + " must also return text content");
@@ -169,7 +186,7 @@ public abstract class McpContractConformanceTestBase {
 
   @SuppressWarnings("unchecked")
   private Map<String, Map<String, Object>> outputSchemas() throws Exception {
-    Map<String, Map<String, Object>> schemas = new java.util.TreeMap<>();
+    Map<String, Map<String, Object>> schemas = new TreeMap<>();
     for (Map<String, Object> tool : listTools()) {
       if (tool.get("outputSchema") instanceof Map<?, ?> schema && !schema.isEmpty()) {
         schemas.put((String) tool.get("name"), (Map<String, Object>) schema);

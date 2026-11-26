@@ -20,6 +20,7 @@ import static org.apache.solr.mcp.server.util.PromptText.optionalCodeBlock;
 
 import io.micrometer.observation.annotation.Observed;
 import io.modelcontextprotocol.spec.McpSchema.GetPromptResult;
+import io.modelcontextprotocol.spec.McpSchema.ReadResourceRequest;
 import io.modelcontextprotocol.spec.McpSchema.ReadResourceResult;
 import io.modelcontextprotocol.spec.McpSchema.Role;
 import java.io.IOException;
@@ -164,6 +165,7 @@ public class SchemaService {
    * the {@code @McpComplete} endpoint in CollectionService. The returned JSON contains the complete
    * schema definition including fields, field types, dynamic fields, and copy fields.
    *
+   * @param request the read request, whose URI the result echoes
    * @param collection the name of the collection to retrieve schema for
    * @return the schema as one {@code application/json} resource content
    * @throws IllegalStateException with {@link #SCHEMA_RESOURCE_ERROR} if the schema cannot be
@@ -176,11 +178,10 @@ public class SchemaService {
       description =
           "Full schema definition for a Solr collection: field types, declared fields, dynamic-field patterns and copy fields",
       mimeType = "application/json")
-  public ReadResourceResult getSchemaResource(String collection) {
+  public ReadResourceResult getSchemaResource(ReadResourceRequest request, String collection) {
     try {
       return McpResults.jsonResource(
-          "solr://" + collection + "/schema",
-          jsonMapper.writeValueAsString(getSchema(collection)));
+          request.uri(), jsonMapper.writeValueAsString(getSchema(collection)));
     } catch (Exception e) {
       // Deliberately no cause: MCP reports the root cause's message to the client,
       // and Solr and SolrJ failure text can carry internal host names, URLs and
@@ -280,6 +281,7 @@ public class SchemaService {
    * MCP Resource endpoint that returns the fields holding data in a collection, the same JSON as
    * {@link #listFields(String)}.
    *
+   * @param request the read request, whose URI the result echoes
    * @param collection the collection to list fields for
    * @return the field listing as one {@code application/json} resource content
    * @throws IllegalStateException with {@link #FIELDS_RESOURCE_ERROR} if the fields cannot be
@@ -292,11 +294,10 @@ public class SchemaService {
       description =
           "The fields that hold data in a Solr collection, with their types, flags and document counts",
       mimeType = "application/json")
-  public ReadResourceResult getFieldsResource(String collection) {
+  public ReadResourceResult getFieldsResource(ReadResourceRequest request, String collection) {
     try {
       return McpResults.jsonResource(
-          "solr://" + collection + "/fields",
-          jsonMapper.writeValueAsString(listFields(collection)));
+          request.uri(), jsonMapper.writeValueAsString(listFields(collection)));
     } catch (Exception e) {
       // No cause, for the same reason as getSchemaResource: Solr failure text can
       // carry internal host names and URLs.

@@ -24,6 +24,7 @@ import io.micrometer.observation.annotation.Observed;
 import io.modelcontextprotocol.spec.McpSchema.CompleteRequest;
 import io.modelcontextprotocol.spec.McpSchema.CompleteResult;
 import io.modelcontextprotocol.spec.McpSchema.GetPromptResult;
+import io.modelcontextprotocol.spec.McpSchema.ReadResourceRequest;
 import io.modelcontextprotocol.spec.McpSchema.ReadResourceResult;
 import io.modelcontextprotocol.spec.McpSchema.Role;
 import java.io.IOException;
@@ -323,6 +324,7 @@ public class CollectionService {
    * <p>This resource provides a simple way for MCP clients to discover what collections are
    * available in the Solr cluster. The returned JSON contains an array of collection names.
    *
+   * @param request the read request, whose URI the result echoes
    * @return the collection list as one {@code application/json} resource content
    * @throws IllegalStateException with {@link #COLLECTIONS_RESOURCE_ERROR} if the collections
    *     cannot be listed or serialized
@@ -333,10 +335,10 @@ public class CollectionService {
       name = "solr-collections",
       description = "List of all Solr collections available in the cluster",
       mimeType = "application/json")
-  public ReadResourceResult getCollectionsResource() {
+  public ReadResourceResult getCollectionsResource(ReadResourceRequest request) {
     try {
       return McpResults.jsonResource(
-          "solr://collections", jsonMapper.writeValueAsString(listCollections()));
+          request.uri(), jsonMapper.writeValueAsString(listCollections()));
     } catch (Exception e) {
       // Deliberately no cause: MCP reports the root cause's message to the client,
       // and Solr and SolrJ failure text can carry internal host names, URLs and

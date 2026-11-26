@@ -1206,15 +1206,15 @@ public abstract class McpClientIntegrationTestBase {
     ReadResourceResult resource =
         mcpClient.readResource(new ReadResourceRequest("solr://" + SHOWS_COLLECTION + "/fields"));
 
-    String resourceText =
-        McpResultAssertions.resourceJson(resource, "solr://" + SHOWS_COLLECTION + "/fields");
-    List<String> toolFields = read(tool, "$[*].name");
-    List<String> resourceFields = JsonPath.read(resourceText, "$[*].name");
-    assertThat(toolFields).containsExactlyInAnyOrderElementsOf(resourceFields);
+    assertThat(
+            new JsonContent(
+                McpResultAssertions.resourceJson(
+                    resource, "solr://" + SHOWS_COLLECTION + "/fields")))
+        .isStrictlyEqualTo(extractText(tool));
   }
 
   @Test
-  @Order(42)
+  @Order(44)
   void collectionsResourceMatchesListCollectionsTool() {
     CallToolResult tool = mcpClient.callTool(new CallToolRequest("list-collections", Map.of()));
     ReadResourceResult resource =
@@ -1265,6 +1265,20 @@ public abstract class McpClientIntegrationTestBase {
     // fields limits each document to title plus score
     assertThat(documents)
         .allSatisfy(document -> assertThat(document).containsOnlyKeys("title", "score"));
+  }
+
+  @Test
+  @Order(46)
+  void schemaResourceMatchesGetSchemaTool() {
+    String uri = "solr://" + SHOWS_COLLECTION + "/schema";
+    CallToolResult tool =
+        mcpClient.callTool(
+            new CallToolRequest("get-schema", Map.of("collection", SHOWS_COLLECTION)));
+    ReadResourceResult resource = mcpClient.readResource(new ReadResourceRequest(uri));
+
+    assertNotError(tool);
+    assertThat(new JsonContent(McpResultAssertions.resourceJson(resource, uri)))
+        .isStrictlyEqualTo(extractText(tool));
   }
 
   @Test
