@@ -45,7 +45,7 @@ For JSON and Markdown, which the server parses itself, the result SHALL include:
 - **THEN** `documentsSubmitted` is 4
 
 ### Requirement: Pass-through formats report acceptance without counts
-For CSV and XML, which go to Solr unchanged, the result SHALL omit `documentsSubmitted`, `documentsIndexed` and `fieldNames`, because Solr's update response carries no document count.
+For CSV and XML, which go to Solr unchanged, the result SHALL omit `documentsSubmitted`, `documentsIndexed`, `fieldNames` and `fieldCount`, because Solr's update response carries no document count.
 
 #### Scenario: Indexing CSV
 - **WHEN** a client indexes CSV and Solr accepts and commits it
