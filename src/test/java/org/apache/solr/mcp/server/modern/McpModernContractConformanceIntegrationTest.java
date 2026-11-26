@@ -43,7 +43,11 @@ import org.testcontainers.junit.jupiter.Testcontainers;
     properties = {
       "http.security.enabled=false",
       "spring.docker.compose.enabled=false",
-      "MCP_PROTOCOL=modern"
+      "MCP_PROTOCOL=modern",
+      // Its own context, not McpModernProtocolHttpIntegrationTest's: Spring pauses a cached
+      // context between test classes, and the modern HTTP transport answers 503 "Server is
+      // shutting down" to the class that resumes it.
+      "solr.mcp.test.context=modern-contract-conformance"
     })
 @ActiveProfiles("http")
 @Import(TestcontainersConfiguration.class)

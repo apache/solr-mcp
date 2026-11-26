@@ -35,7 +35,13 @@ import tools.jackson.core.type.TypeReference;
 /** The contract conformance checks over the legacy (2025) protocol, through the SDK client. */
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-    properties = {"http.security.enabled=false", "spring.docker.compose.enabled=false"})
+    properties = {
+      "http.security.enabled=false",
+      "spring.docker.compose.enabled=false",
+      // Its own context, not McpClientIntegrationTest's: a context Spring paused between test
+      // classes and resumed for another class can leave the MCP transport shut down.
+      "solr.mcp.test.context=contract-conformance"
+    })
 @ActiveProfiles("http")
 @Import(TestcontainersConfiguration.class)
 @Tag("integration")
