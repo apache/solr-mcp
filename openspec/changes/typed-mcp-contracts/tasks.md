@@ -58,15 +58,15 @@ Each numbered group is one PR off `main` (design D8). Merge order is 2, 4, 1, th
 
 - [x] 6.1 Make the 1.1 test assert, over `tools/list`, that every tool except the three list tools publishes an `outputSchema`, and that the same set has sample arguments. Verify: removing the flag from one tool locally makes the test fail.
 - [x] 6.2 Run the full compatibility matrix (`-Dsolr.test.image` = 9.4, 9.9, 9.10, 10) and `./gradlew dockerIntegrationTest` for the Jib, native-stdio and native-http images. Verify: all green; record the results in the PR.
-- [ ] 6.3 Add an "MCP contracts" entry to the 1.0.0 changelog listing every changed output and input. Verify: `./gradlew getChangelog --project-version=1.0.0` shows it.
+- [x] 6.3 Add an "MCP contracts" entry to the 1.0.0 changelog listing every changed output and input. Verify: `./gradlew getChangelog --unreleased` shows it.
 
 ## 7. Tool failures (D9)
 
-- [ ] 7.1 Add one shared helper that runs a Solr call and translates its failures as D9's table says: a `RuntimeException` with no cause, the original logged at `warn`. Verify: unit tests build real SolrJ 10 exceptions for each row and assert the message, that there is no cause, and that no host or URL appears.
-- [ ] 7.2 Move `search`'s own failure translation onto the helper, keeping its hints. Verify: `SearchServiceTest` and `SearchServiceIntegrationTest`.
-- [ ] 7.3 Route every Solr call of the alias, collection, schema and indexing tools through the helper, and drop `throws SolrServerException, IOException` from every `@McpTool` method. Verify: no `@McpTool` method declares a checked exception; each service's tests.
-- [ ] 7.4 Add failure conformance tests on both protocols. Every tool is called on a missing collection, then with `solr.url` pointing at a closed port. Each call must return `isError: true`, never a JSON-RPC error, with no `Error from server at`, `http://` or `https://` in its text. Verify: undoing one tool's translation locally makes the test fail.
-- [ ] 7.5 Finish 6.3: list the changed outputs and inputs in the 1.0.0 changelog, and state that every failure is an `isError` result. Add D9's error rules to the "MCP contracts" section of `AGENTS.md`. Verify: `./gradlew getChangelog --project-version=1.0.0` shows them.
+- [x] 7.1 Add one shared helper that runs a Solr call and translates its failures as D9's table says: a `RuntimeException` with no cause, the original logged at `warn`. Verify: unit tests build real SolrJ 10 exceptions for each row and assert the message, that there is no cause, and that no host or URL appears.
+- [x] 7.2 Move `search`'s own failure translation onto the helper, keeping its hints. Verify: `SearchServiceTest` and `SearchServiceIntegrationTest`.
+- [x] 7.3 Route every Solr call of the alias, collection, schema and indexing tools through the helper, and drop `throws SolrServerException, IOException` from every `@McpTool` method. Verify: no `@McpTool` method declares a checked exception; each service's tests.
+- [x] 7.4 Add failure conformance tests on both protocols. Every tool is called on a missing collection, then with `solr.url` pointing at a closed port. Each call must return `isError: true`, never a JSON-RPC error, with no `Error from server at`, `http://` or `https://` in its text. Verify: undoing one tool's translation locally makes the test fail.
+- [x] 7.5 Finish 6.3: list the changed outputs and inputs in the 1.0.0 changelog, and state that every failure is an `isError` result. Add D9's error rules to the "MCP contracts" section of `AGENTS.md`. Verify: `./gradlew getChangelog --unreleased` shows them. There is no `[1.0.0]` section until the release patches the changelog.
 
 ## Workflow follow-up
 
