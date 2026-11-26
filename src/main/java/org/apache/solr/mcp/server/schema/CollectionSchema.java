@@ -16,36 +16,45 @@
  */
 package org.apache.solr.mcp.server.schema;
 
-import com.fasterxml.jackson.annotation.JsonAnyGetter;
-import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.solr.common.luke.FieldFlag;
+import java.util.TreeMap;
 import org.jspecify.annotations.Nullable;
-import tools.jackson.databind.annotation.JsonSerialize;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
- * A collection's schema as the Schema API reports it, returned by the {@code get-schema} tool and
- * the {@code solr://{collection}/schema} resource.
+ * A collection's schema, returned by the {@code get-schema} tool and the {@code
+ * solr://{collection}/schema} resource.
  *
- * <p>Each record types the properties clients read and keeps every other property Solr sends in
- * {@code other}: {@link JsonAnySetter} collects them when Solr's response is converted, and {@link
- * JsonAnyGetter} writes them back at the same level, so a property a later Solr version adds is
- * passed on rather than dropped. The one change to the Schema API's JSON is that the boolean flag
- * properties of fields and field types are reported as {@code flags}, see {@link FieldFlags}.
+ * <p>Every record holds only the properties the contract names. An attribute Solr sends that the
+ * contract does not name is not passed on, with two exceptions: the scalar settings of a field
+ * type, an analyzer or an analyzer component, such as {@code positionIncrementGap} or {@code
+ * luceneMatchVersion}, go into its {@code parameters}, because which settings exist depends on the
+ * Solr class the user chose; and a field's or field type's {@code metadata}, the key-value
+ * descriptions a schema attaches for people and agents (SOLR-18678), is passed on whole, because
+ * its keys and values are the schema author's.
  *
- * @param name the schema name
+ * <p>{@link Field} and {@link FieldType} report each schema property the schema declares as a
+ * {@code Boolean}, and leave out the ones it does not, so a declared {@code false} is kept. The
+ * same {@link Field} and {@link FieldType} objects are what {@code add-fields} and {@code
+ * add-field-types} accept.
+ *
+ * @param name the schema's name
  * @param version the schema version
- * @param uniqueKey the uniqueKey field
+ * @param uniqueKey the name of the unique-key field
  * @param fieldTypes the field types
  * @param fields the declared fields
  * @param dynamicFields the dynamic-field patterns
  * @param copyFields the copy-field rules
- * @param other every other top-level property, such as {@code similarity}
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record CollectionSchema(
@@ -55,109 +64,449 @@ public record CollectionSchema(
     List<FieldType> fieldTypes,
     List<Field> fields,
     List<Field> dynamicFields,
-    List<CopyField> copyFields,
-    @JsonAnySetter @JsonAnyGetter Map<String, Object> other) {
+    List<CopyField> copyFields) {
+
+  /** Reads Solr's JSON, dropping the attributes the contract does not name. */
+  private static final JsonMapper SOLR_JSON =
+      JsonMapper.builder().disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build();
+
+  /** The Schema API's key for a field type's, analyzer's or component's class. */
+  private static final String CLASS = "class";
+
+  /** The key for a schema's, field's, field type's or component's name. */
+  private static final String NAME = "name";
+
+  /** The contract's key for a Solr class, which the Schema API spells {@link #CLASS}. */
+  private static final String CLASS_NAME = "className";
 
   /**
-   * A declared field, or a dynamic-field pattern such as {@code *_s}.
+   * The contract's key for class-specific settings, which the Schema API sends as top-level keys.
+   */
+  private static final String PARAMETERS = "parameters";
+
+  /**
+   * The key, in the Schema API and the contract alike, for a field's or field type's key-value
+   * metadata. It follows SOLR-18678, which has not settled the name yet, so it may change.
+   */
+  private static final String METADATA = "metadata";
+
+  /** The keys, in the Schema API and the contract alike, for an analyzer's chain. */
+  private static final String CHAR_FILTERS = "charFilters";
+
+  private static final String TOKENIZER = "tokenizer";
+  private static final String FILTERS = "filters";
+
+  /** The Schema API's keys for a field type's four analyzer slots. */
+  private static final String ANALYZER = "analyzer";
+
+  private static final String INDEX_ANALYZER = "indexAnalyzer";
+  private static final String QUERY_ANALYZER = "queryAnalyzer";
+  private static final String MULTI_TERM_ANALYZER = "multiTermAnalyzer";
+
+  /** A field type's analyzer slots, as the Schema API and the contract both name them. */
+  private static final List<String> ANALYZER_SLOTS =
+      List.of(ANALYZER, INDEX_ANALYZER, QUERY_ANALYZER, MULTI_TERM_ANALYZER);
+
+  /**
+   * The schema properties the contract names, in the order {@link Field} and {@link FieldType}
+   * declare them as {@code Boolean} components. A test checks the two stay in step.
+   */
+  static final List<String> SCHEMA_PROPERTIES =
+      List.of(
+          "indexed",
+          "stored",
+          "docValues",
+          "multiValued",
+          "required",
+          "uninvertible",
+          "omitNorms",
+          "omitTermFreqAndPositions",
+          "omitPositions",
+          "termVectors",
+          "termPositions",
+          "termOffsets",
+          "termPayloads",
+          "sortMissingFirst",
+          "sortMissingLast",
+          "useDocValuesAsStored",
+          "large");
+
+  /** Copies the lists so the record cannot change after it is built. */
+  public CollectionSchema {
+    fieldTypes = List.copyOf(fieldTypes);
+    fields = List.copyOf(fields);
+    dynamicFields = List.copyOf(dynamicFields);
+    copyFields = List.copyOf(copyFields);
+  }
+
+  /**
+   * Builds the schema from the {@code schema} section of a Schema API response.
    *
-   * <p>The Schema API's boolean properties ({@code indexed}, {@code stored}, {@code docValues}, …)
-   * are reported as {@code flags}, SolrJ's {@link FieldFlag}, the same enum {@code list-fields}
-   * uses. Only properties set to {@code true} on the field appear; a property set to {@code false}
-   * or inherited from the field type does not.
+   * @param schema the section, as SolrJ parses Solr's JSON into maps and lists
+   * @return the schema
+   */
+  static CollectionSchema fromSolr(Map<String, Object> schema) {
+    return new CollectionSchema(
+        string(schema, NAME),
+        schema.get("version") instanceof Number version ? version.floatValue() : null,
+        string(schema, "uniqueKey"),
+        maps(schema.get("fieldTypes")).stream().map(FieldType::fromSolr).toList(),
+        maps(schema.get("fields")).stream().map(Field::fromSolr).toList(),
+        maps(schema.get("dynamicFields")).stream().map(Field::fromSolr).toList(),
+        maps(schema.get("copyFields")).stream()
+            .map(copyField -> SOLR_JSON.convertValue(copyField, CopyField.class))
+            .toList());
+  }
+
+  /**
+   * A declared field or dynamic-field pattern. A schema property is present only when the schema
+   * declares it; an absent one inherits from the field type.
    *
    * @param name the field name, or the pattern for a dynamic field
    * @param type the field type name
-   * @param flags the flags set to {@code true} on the field
-   * @param required whether the field is required, if set on the field
-   * @param other every other property, such as {@code useDocValuesAsStored}
+   * @param defaultValue the default value, when set
+   * @param metadata the schema author's key-value metadata for the field, such as {@code
+   *     dc:description}, when the schema declares any
    */
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record Field(
       String name,
       String type,
-      @JsonSerialize(contentUsing = FieldFlags.NameSerializer.class) Set<FieldFlag> flags,
+      @JsonProperty("default") @Nullable String defaultValue,
+      @Nullable Boolean indexed,
+      @Nullable Boolean stored,
+      @Nullable Boolean docValues,
+      @Nullable Boolean multiValued,
       @Nullable Boolean required,
-      @JsonAnySetter @JsonAnyGetter Map<String, Object> other) {
+      @Nullable Boolean uninvertible,
+      @Nullable Boolean omitNorms,
+      @Nullable Boolean omitTermFreqAndPositions,
+      @Nullable Boolean omitPositions,
+      @Nullable Boolean termVectors,
+      @Nullable Boolean termPositions,
+      @Nullable Boolean termOffsets,
+      @Nullable Boolean termPayloads,
+      @Nullable Boolean sortMissingFirst,
+      @Nullable Boolean sortMissingLast,
+      @Nullable Boolean useDocValuesAsStored,
+      @Nullable Boolean large,
+      @Nullable Map<String, Object> metadata) {
 
     /**
-     * Moves the boolean flag properties Jackson collected into {@code other} into {@code flags}.
+     * Copies the metadata so the record cannot change after it is built. Empty metadata means none.
      */
     public Field {
-      if (flags == null || flags.isEmpty()) {
-        Map<String, Object> rest = new LinkedHashMap<>(other);
-        flags = FieldFlags.fromSchemaProperties(rest);
-        other = rest;
-      }
+      metadata = copyMetadata(metadata);
+    }
+
+    static Field fromSolr(Map<String, Object> field) {
+      Map<String, Object> contract = new LinkedHashMap<>(field);
+      contract.put(METADATA, metadataFromSolr(field.get(METADATA)));
+      return SOLR_JSON.convertValue(contract, Field.class);
+    }
+
+    /** The field as Schema API {@code add-field} attributes. */
+    Map<String, Object> toSolr() {
+      return SOLR_JSON.convertValue(this, ATTRIBUTES);
     }
   }
 
   /**
-   * A field type, with its analyzers for a text type.
+   * A field type.
    *
-   * <p>Its boolean properties are defaults for the fields of this type, and are reported as {@code
-   * flags} as on {@link Field}.
-   *
-   * @param name the type name
-   * @param className the implementing class, sent by Solr as {@code class}
-   * @param flags the flags set to {@code true} on the type
-   * @param analyzer the analyzer used for both indexing and querying
-   * @param indexAnalyzer the index-time analyzer
-   * @param queryAnalyzer the query-time analyzer
-   * @param multiTermAnalyzer the analyzer for wildcard, prefix and range terms
-   * @param other every other property, such as {@code positionIncrementGap} or {@code
-   *     vectorDimension}
+   * @param name the field type name
+   * @param className the Solr class implementing it, such as {@code solr.TextField}
+   * @param analyzer the analyzer used for both indexing and querying, when one is declared
+   * @param indexAnalyzer the analyzer used when indexing, when declared separately
+   * @param queryAnalyzer the analyzer used when querying, when declared separately
+   * @param multiTermAnalyzer the analyzer used for multi-term queries, when declared
+   * @param parameters the class-specific settings, such as {@code positionIncrementGap}
+   * @param metadata the schema author's key-value metadata for the field type, when the schema
+   *     declares any
    */
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record FieldType(
       String name,
-      @JsonProperty("class") String className,
-      @JsonSerialize(contentUsing = FieldFlags.NameSerializer.class) Set<FieldFlag> flags,
+      String className,
+      @Nullable Boolean indexed,
+      @Nullable Boolean stored,
+      @Nullable Boolean docValues,
+      @Nullable Boolean multiValued,
+      @Nullable Boolean required,
+      @Nullable Boolean uninvertible,
+      @Nullable Boolean omitNorms,
+      @Nullable Boolean omitTermFreqAndPositions,
+      @Nullable Boolean omitPositions,
+      @Nullable Boolean termVectors,
+      @Nullable Boolean termPositions,
+      @Nullable Boolean termOffsets,
+      @Nullable Boolean termPayloads,
+      @Nullable Boolean sortMissingFirst,
+      @Nullable Boolean sortMissingLast,
+      @Nullable Boolean useDocValuesAsStored,
+      @Nullable Boolean large,
       @Nullable Analyzer analyzer,
       @Nullable Analyzer indexAnalyzer,
       @Nullable Analyzer queryAnalyzer,
       @Nullable Analyzer multiTermAnalyzer,
-      @JsonAnySetter @JsonAnyGetter Map<String, Object> other) {
+      @Nullable Map<String, String> parameters,
+      @Nullable Map<String, Object> metadata) {
+
+    /** The attributes that are not class-specific {@code parameters}. */
+    private static final Set<String> NAMED = named();
+
+    private static Set<String> named() {
+      Set<String> named = new HashSet<>(SCHEMA_PROPERTIES);
+      named.addAll(ANALYZER_SLOTS);
+      named.add(NAME);
+      named.add(CLASS);
+      named.add(METADATA);
+      return Set.copyOf(named);
+    }
 
     /**
-     * Moves the boolean flag properties Jackson collected into {@code other} into {@code flags}.
+     * Copies the parameters, ordered by name, and the metadata, so the record cannot change after
+     * it is built. A client may leave either out; that means none.
      */
     public FieldType {
-      if (flags == null || flags.isEmpty()) {
-        Map<String, Object> rest = new LinkedHashMap<>(other);
-        flags = FieldFlags.fromSchemaProperties(rest);
-        other = rest;
+      parameters = sorted(parameters);
+      metadata = copyMetadata(metadata);
+    }
+
+    static FieldType fromSolr(Map<String, Object> type) {
+      // Collect what the contract names under the contract's keys, then let Jackson build the
+      // record, as for Field: the Schema API's "class" becomes className, the analyzers and
+      // parameters are parsed first because their own attributes are collected, not dropped.
+      Map<String, Object> contract = new LinkedHashMap<>();
+      contract.put(NAME, type.get(NAME));
+      contract.put(CLASS_NAME, type.get(CLASS));
+      for (String property : SCHEMA_PROPERTIES) {
+        if (type.get(property) instanceof Boolean value) {
+          contract.put(property, value);
+        }
       }
+      for (String slot : ANALYZER_SLOTS) {
+        Analyzer analyzer = Analyzer.fromSolr(type.get(slot));
+        if (analyzer != null) {
+          contract.put(slot, analyzer);
+        }
+      }
+      contract.put(PARAMETERS, scalarParameters(type, NAMED));
+      contract.put(METADATA, metadataFromSolr(type.get(METADATA)));
+      return SOLR_JSON.convertValue(contract, FieldType.class);
+    }
+
+    /** The field type's own attributes, without its analyzers, as the Schema API names them. */
+    Map<String, Object> attributesToSolr() {
+      Map<String, Object> attributes = new LinkedHashMap<>(sorted(parameters));
+      Map<String, Object> declared = SOLR_JSON.convertValue(this, ATTRIBUTES);
+      // The analyzers go to SolrJ's typed AnalyzerDefinition slots; className and parameters are
+      // this record's names for what the Schema API spells as "class" and as top-level keys.
+      declared.keySet().removeAll(Set.of(CLASS_NAME, PARAMETERS));
+      declared.keySet().removeAll(ANALYZER_SLOTS);
+      attributes.putAll(declared);
+      attributes.put(CLASS, className);
+      return attributes;
     }
   }
 
   /**
-   * An analyzer chain. Factory entries keep Solr's open-ended properties as maps.
+   * An analyzer: an optional char-filter chain, a tokenizer and a filter chain, or a single Lucene
+   * analyzer class.
    *
+   * @param className the analyzer class, when the analyzer is one class rather than a chain
    * @param charFilters the char filters, in order
-   * @param tokenizer the tokenizer
+   * @param tokenizer the tokenizer, when the analyzer is a chain
    * @param filters the token filters, in order
-   * @param other every other property, such as an analyzer {@code class}
+   * @param parameters other analyzer settings, such as {@code luceneMatchVersion}
    */
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record Analyzer(
-      @Nullable List<Map<String, Object>> charFilters,
-      @Nullable Map<String, Object> tokenizer,
-      @Nullable List<Map<String, Object>> filters,
-      @JsonAnySetter @JsonAnyGetter Map<String, Object> other) {}
+      @Nullable String className,
+      @Nullable List<AnalyzerComponent> charFilters,
+      @Nullable AnalyzerComponent tokenizer,
+      @Nullable List<AnalyzerComponent> filters,
+      @Nullable Map<String, String> parameters) {
+
+    private static final Set<String> NAMED = Set.of(CLASS, CHAR_FILTERS, TOKENIZER, FILTERS);
+
+    /**
+     * Copies the collections so the record cannot change after it is built. A client may leave any
+     * of them out; that means none.
+     */
+    public Analyzer {
+      charFilters = charFilters == null ? List.of() : List.copyOf(charFilters);
+      filters = filters == null ? List.of() : List.copyOf(filters);
+      parameters = sorted(parameters);
+    }
+
+    static @Nullable Analyzer fromSolr(@Nullable Object analyzer) {
+      if (!(analyzer instanceof Map<?, ?> raw)) {
+        return null;
+      }
+      Map<String, Object> map = cast(raw);
+      return new Analyzer(
+          string(map, CLASS),
+          maps(map.get(CHAR_FILTERS)).stream().map(AnalyzerComponent::fromSolr).toList(),
+          map.get(TOKENIZER) instanceof Map<?, ?> tokenizer
+              ? AnalyzerComponent.fromSolr(cast(tokenizer))
+              : null,
+          maps(map.get(FILTERS)).stream().map(AnalyzerComponent::fromSolr).toList(),
+          scalarParameters(map, NAMED));
+    }
+
+    /** This analyzer's own attributes, as the Schema API names them. */
+    Map<String, Object> attributesToSolr() {
+      Map<String, Object> attributes = new LinkedHashMap<>(sorted(parameters));
+      if (className != null) {
+        attributes.put(CLASS, className);
+      }
+      return attributes;
+    }
+
+    /** The char filters; empty when there are none. */
+    List<AnalyzerComponent> charFilterList() {
+      return charFilters == null ? List.of() : charFilters;
+    }
+
+    /** The token filters; empty when there are none. */
+    List<AnalyzerComponent> filterList() {
+      return filters == null ? List.of() : filters;
+    }
+  }
+
+  /**
+   * A tokenizer, char filter or token filter, named by Solr's short name or by its class.
+   *
+   * @param name the short name, such as {@code standard} or {@code lowercase}
+   * @param className the factory class, such as {@code solr.StandardTokenizerFactory}
+   * @param parameters the component's settings, such as {@code ignoreCase}
+   */
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public record AnalyzerComponent(
+      @Nullable String name, @Nullable String className, @Nullable Map<String, String> parameters) {
+
+    private static final Set<String> NAMED = Set.of(NAME, CLASS);
+
+    /**
+     * Copies the parameters, ordered by name, so the record cannot change after it is built. A
+     * client may leave them out; that means none.
+     */
+    public AnalyzerComponent {
+      parameters = sorted(parameters);
+    }
+
+    static AnalyzerComponent fromSolr(Map<String, Object> component) {
+      return new AnalyzerComponent(
+          string(component, NAME), string(component, CLASS), scalarParameters(component, NAMED));
+    }
+
+    /** The component as the Schema API names its attributes. */
+    Map<String, Object> toSolr() {
+      Map<String, Object> attributes = new LinkedHashMap<>();
+      if (name != null) {
+        attributes.put(NAME, name);
+      }
+      if (className != null) {
+        attributes.put(CLASS, className);
+      }
+      attributes.putAll(sorted(parameters));
+      return attributes;
+    }
+  }
 
   /**
    * A copy-field rule.
    *
    * @param source the source field or pattern
-   * @param dest the destination field or pattern
-   * @param maxChars the number of characters copied, if limited
-   * @param other every other property
+   * @param dest the destination field
+   * @param maxChars the most characters copied, when limited
    */
   @JsonInclude(JsonInclude.Include.NON_NULL)
-  public record CopyField(
-      String source,
-      String dest,
-      @Nullable Integer maxChars,
-      @JsonAnySetter @JsonAnyGetter Map<String, Object> other) {}
+  public record CopyField(String source, String dest, @Nullable Integer maxChars) {}
+
+  private static final TypeReference<Map<String, Object>> ATTRIBUTES = new TypeReference<>() {};
+
+  private static @Nullable String string(Map<String, Object> map, String key) {
+    return map.get(key) instanceof String value ? value : null;
+  }
+
+  /**
+   * The scalar attributes of {@code map} not in {@code named}, as strings. Nested values, such as a
+   * similarity definition, are not part of the contract and are left out.
+   */
+  private static Map<String, String> scalarParameters(Map<String, Object> map, Set<String> named) {
+    Map<String, String> parameters = new TreeMap<>();
+    map.forEach(
+        (key, value) -> {
+          if (!named.contains(key)
+              && (value instanceof String || value instanceof Number || value instanceof Boolean)) {
+            parameters.put(key, String.valueOf(value));
+          }
+        });
+    return parameters;
+  }
+
+  /**
+   * Solr's metadata for a field or field type, as a map in the schema's order, or {@code null} when
+   * there is none. SOLR-18678 may send it as a JSON object, or as a NamedList's flat {@code [key,
+   * value, key, value]} array; both become a map. A key the array repeats keeps every value, as a
+   * list. Values are passed on as Solr sends them, nested ones included.
+   */
+  private static @Nullable Map<String, Object> metadataFromSolr(@Nullable Object metadata) {
+    Map<String, Object> map = new LinkedHashMap<>();
+    if (metadata instanceof Map<?, ?> object) {
+      object.forEach((key, value) -> map.put(String.valueOf(key), value));
+    } else if (metadata instanceof List<?> pairs && isFlatNamedList(pairs)) {
+      Map<String, List<@Nullable Object>> values = new LinkedHashMap<>();
+      for (int i = 0; i < pairs.size(); i += 2) {
+        values
+            .computeIfAbsent((String) pairs.get(i), key -> new ArrayList<>())
+            .add(pairs.get(i + 1));
+      }
+      values.forEach((key, all) -> map.put(key, all.size() == 1 ? all.getFirst() : all));
+    }
+    return copyMetadata(map);
+  }
+
+  /** Whether {@code list} is a NamedList rendered flat: an even run of string keys and values. */
+  private static boolean isFlatNamedList(List<?> list) {
+    if (list.size() % 2 != 0) {
+      return false;
+    }
+    for (int i = 0; i < list.size(); i += 2) {
+      if (!(list.get(i) instanceof String)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static @Nullable Map<String, Object> copyMetadata(
+      @Nullable Map<String, Object> metadata) {
+    return metadata == null || metadata.isEmpty()
+        ? null
+        : Collections.unmodifiableMap(new LinkedHashMap<>(metadata));
+  }
+
+  private static Map<String, String> sorted(@Nullable Map<String, String> parameters) {
+    return parameters == null ? Map.of() : Collections.unmodifiableMap(new TreeMap<>(parameters));
+  }
+
+  private static List<Map<String, Object>> maps(@Nullable Object list) {
+    List<Map<String, Object>> maps = new ArrayList<>();
+    if (list instanceof List<?> items) {
+      for (Object item : items) {
+        if (item instanceof Map<?, ?> map) {
+          maps.add(cast(map));
+        }
+      }
+    }
+    return maps;
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> cast(Map<?, ?> map) {
+    return (Map<String, Object>) map;
+  }
 }

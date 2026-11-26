@@ -353,10 +353,10 @@ public abstract class McpClientIntegrationTestBase {
     String text = extractText(result);
     assertFalse(text.isEmpty(), "Schema response should not be empty");
 
-    // Spring AI serializes the CollectionSchema record. In Solr's own shape a field type's
-    // properties sit at the top level (no SolrJ "attributes" wrapper), the catch-all is merged
-    // in rather than emitted as "other", and the arrays are present (they go missing in a
-    // native image when the records lack reflection hints).
+    // Spring AI serializes the CollectionSchema record: declared schema properties as booleans,
+    // a field type's class as className with its class-specific settings in parameters, no SolrJ
+    // "attributes" wrapper and no catch-all, and the arrays present (they go missing in a native
+    // image when the records lack reflection hints).
     Map<String, Object> schema = OBJECT_MAPPER.readValue(text, new TypeReference<>() {});
     assertFalse(schema.containsKey("other"), text);
     List<?> fields = (List<?>) schema.get("fields");
@@ -366,9 +366,9 @@ public abstract class McpClientIntegrationTestBase {
             .filter(f -> "id".equals(f.get("name")))
             .findFirst()
             .orElseThrow();
-    // flags are SolrJ FieldFlag constant names, not Luke legend text ("I - Indexed")
-    assertTrue(((List<?>) id.get("flags")).containsAll(List.of("INDEXED", "STORED")), text);
-    assertFalse(id.containsKey("indexed"), text);
+    assertEquals(true, id.get("indexed"), text);
+    assertEquals(true, id.get("stored"), text);
+    assertFalse(id.containsKey("flags"), text);
     Map<?, ?> textGeneral =
         ((List<?>) schema.get("fieldTypes"))
             .stream()
@@ -376,9 +376,10 @@ public abstract class McpClientIntegrationTestBase {
                 .filter(t -> "text_general".equals(t.get("name")))
                 .findFirst()
                 .orElseThrow();
-    assertEquals("solr.TextField", textGeneral.get("class"), text);
-    assertEquals("100", textGeneral.get("positionIncrementGap"), text);
+    assertEquals("solr.TextField", textGeneral.get("className"), text);
+    assertEquals(Map.of("positionIncrementGap", "100"), textGeneral.get("parameters"), text);
     assertFalse(textGeneral.containsKey("attributes"), text);
+    assertFalse(textGeneral.containsKey("class"), text);
   }
 
   @Test
@@ -1283,18 +1284,18 @@ public abstract class McpClientIntegrationTestBase {
             new CallToolRequest("list-fields", Map.of("collection", SHOWS_COLLECTION)));
 
     assertNotError(result);
-    Map<String, Object> listing =
+    List<Map<String, Object>> listing =
         OBJECT_MAPPER.readValue(extractText(result), new TypeReference<>() {});
     java.util.Set<String> names = fieldNames(listing);
     assertTrue(
         names.containsAll(List.of("id", "title", "platform", "genres", "release_year")),
         "list-fields should list the indexed shows fields: " + names);
 
-    // Through Spring AI's serialization: Luke's flag letters arrive decoded as FieldFlag
-    // constant names, with neither the letters nor Luke's info legend left over.
-    assertFalse(listing.containsKey("info"), "" + listing.keySet());
-    Map<?, ?> id = (Map<?, ?>) ((Map<?, ?>) listing.get("fields")).get("id");
-    assertTrue(((List<?>) id.get("flags")).containsAll(List.of("INDEXED", "STORED")), "" + id);
+    // Through Spring AI's serialization: Luke's flag letters arrive decoded as the contract's
+    // property names, with neither the letters nor Luke's info legend left over.
+    Map<String, Object> id =
+        listing.stream().filter(field -> "id".equals(field.get("name"))).findFirst().orElseThrow();
+    assertTrue(((List<?>) id.get("flags")).containsAll(List.of("indexed", "stored")), "" + id);
     assertFalse(id.containsKey("schema"), "" + id);
   }
 
@@ -1329,9 +1330,10 @@ public abstract class McpClientIntegrationTestBase {
         "Fields-resource completion should include the created collection: " + values);
   }
 
-  @SuppressWarnings("unchecked")
-  private static java.util.Set<String> fieldNames(Map<String, Object> listing) {
-    return ((Map<String, Object>) listing.get("fields")).keySet();
+  private static java.util.Set<String> fieldNames(List<Map<String, Object>> listing) {
+    java.util.Set<String> names = new java.util.LinkedHashSet<>();
+    listing.forEach(field -> names.add((String) field.get("name")));
+    return names;
   }
 
   @Test
