@@ -238,6 +238,8 @@ public abstract class McpClientIntegrationTestBase {
     assertNotError(result);
     assertThat(json(result)).extractingPath("$.healthy").isEqualTo(true);
     assertThat(json(result)).extractingPath("$.numDocs").isEqualTo(5);
+    // a healthy collection has no reason
+    assertThat(json(result)).doesNotHavePath("$.reason");
   }
 
   @Test

@@ -214,7 +214,6 @@ class CollectionServiceIntegrationTest {
 
     assertNotNull(status);
     assertTrue(status.healthy());
-    assertNull(status.reason());
     assertEquals(TEST_COLLECTION, status.collection());
 
     assertNotNull(status.pingMillis());

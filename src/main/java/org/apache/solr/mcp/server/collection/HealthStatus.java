@@ -36,6 +36,20 @@ public record HealthStatus(
     @Nullable Long numDocs,
     @Nullable Reason reason) {
 
+  /**
+   * Checks the combinations a health check can produce (Effective Java Item 49): a healthy result
+   * has no reason, and an unhealthy one has a reason and no measurements.
+   */
+  public HealthStatus {
+    if (healthy && reason != null) {
+      throw new IllegalArgumentException("A healthy collection has no reason: " + reason);
+    }
+    if (!healthy && (reason == null || pingMillis != null || numDocs != null)) {
+      throw new IllegalArgumentException(
+          "An unhealthy collection has a reason and no ping time or document count");
+    }
+  }
+
   /** A healthy collection. */
   static HealthStatus healthy(String collection, long pingMillis, long numDocs) {
     return new HealthStatus(collection, true, pingMillis, numDocs, null);

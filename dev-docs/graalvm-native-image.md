@@ -165,10 +165,10 @@ it is the path the native tests run.
   `get-schema` MCP tool. Without its hints, Spring AI's JSON in native image
   silently drops the `fields`/`fieldTypes`/`dynamicFields`/`copyFields` arrays —
   a quiet correctness bug, not a crash.
-- **MCP tool response records** — `CollectionCreationResult`, `SolrHealthStatus`,
-  `SolrMetrics`, `IndexStats`, `QueryStats`, `CacheStats`, `CacheInfo`,
-  `HandlerStats`, `HandlerInfo`, `SearchResponse`, `SchemaUpdateResult`. These
-  are package-private records the MCP framework dispatches via generic
+- **MCP tool response records** — `Alias`, `AliasDeletion`, `Collection`,
+  `CollectionCreationResult`, `HealthStatus` (and `HealthStatus$Reason`),
+  `CollectionMetrics` with its nested stats records, `SearchResponse`,
+  `SchemaUpdateResult`. These are records the MCP framework dispatches via generic
   `Object`, so AOT can't see them. They're registered by name with
   `registerTypeIfPresent`.
 - **`logback-spring.xml` resource.** Registered as a resource pattern as

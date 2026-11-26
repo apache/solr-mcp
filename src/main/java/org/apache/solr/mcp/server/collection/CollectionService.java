@@ -365,7 +365,7 @@ public class CollectionService {
     try {
       return listCollections().stream()
           .map(Collection::name)
-          .filter(c -> c.toLowerCase(Locale.ROOT).startsWith(prefix))
+          .filter(name -> name.toLowerCase(Locale.ROOT).startsWith(prefix))
           .sorted()
           .limit(MAX_COMPLETION_RESULTS)
           .toList();
@@ -455,7 +455,7 @@ public class CollectionService {
    * <p>This method is exposed as an MCP tool and can be invoked by AI clients with natural language
    * requests like "list all collections" or "show me available databases".
    *
-   * @return a list of collection names; never null (returns an empty list when Solr reports no
+   * @return the collections, one {@link Collection} per name; empty when Solr reports no
    *     collections)
    * @throws SolrServerException if there are errors communicating with Solr
    * @throws IOException if there are I/O errors during communication
@@ -855,7 +855,7 @@ public class CollectionService {
     // second, so the average time is derived from the total time and the request count.
     Float avgTimePerRequest =
         (requests > 0 && totalTime != null) ? (float) totalTime / requests : null;
-    return new HandlerInfo(requests, errors, timeouts, totalTime, avgTimePerRequest, null);
+    return new HandlerInfo(requests, errors, timeouts, totalTime, avgTimePerRequest);
   }
 
   /**
@@ -905,7 +905,6 @@ public class CollectionService {
    *   <li><strong>Performance</strong>: Response time measurement
    *   <li><strong>Content</strong>: Document count verification using universal query ({@value
    *       #ALL_DOCUMENTS_QUERY})
-   *   <li><strong>Timestamp</strong>: When the check was performed
    * </ul>
    *
    * <p><strong>Success Criteria:</strong>
@@ -916,9 +915,9 @@ public class CollectionService {
    *
    * <p><strong>Failure Handling:</strong>
    *
-   * <p>If the health check fails, a status object is returned with {@code isHealthy=false} and the
-   * error message describing the failure reason. This allows monitoring systems to identify
-   * specific issues.
+   * <p>If the health check fails, the result has {@code healthy=false} and a {@link
+   * HealthStatus.Reason} saying which step failed. The exception itself is logged and kept out of
+   * the result, because Solr's error text can quote host names, URLs and credentials.
    *
    * <p><strong>MCP Tool Usage:</strong>
    *
@@ -984,7 +983,7 @@ public class CollectionService {
    *     private copy)
    * @param numShards number of shards (optional, defaults to 1)
    * @param replicationFactor replication factor (optional, defaults to 1)
-   * @return result describing the outcome of the creation operation
+   * @return the settings the collection was created with, including applied defaults
    * @throws IllegalArgumentException if the collection name is blank
    * @throws SolrServerException if Solr returns an error
    * @throws IOException if there are I/O errors during communication
@@ -1119,8 +1118,8 @@ public class CollectionService {
 
 				3. Create.
 				   - Call `create-collection` with `name=%s` and any non-default `configSet`,
-				     `numShards`, `replicationFactor` values. Report the result (success flag +
-				     message).
+				     `numShards`, `replicationFactor` values. Report the name, configSet, numShards
+				     and replicationFactor it returns.
 
 				4. Verify.
 				   - Call `list-collections` again; `%s` should appear.

@@ -310,7 +310,7 @@ class CollectionServiceTest {
 
     assertEquals(
         HealthStatus.unhealthy("missing", HealthStatus.Reason.COLLECTION_NOT_FOUND), result);
-    assertFalse(objectMapper.writeValueAsString(result).contains("http://"));
+    assertFalse(jsonMapper.writeValueAsString(result).contains("http://"));
   }
 
   @Test
@@ -729,7 +729,7 @@ class CollectionServiceTest {
     assertTrue((boolean) method.invoke(collectionService, emptyStats));
 
     HandlerStats nonEmptyStats =
-        new HandlerStats(new HandlerInfo(100L, null, null, null, null, null), null);
+        new HandlerStats(new HandlerInfo(100L, null, null, null, null), null);
     assertFalse((boolean) method.invoke(collectionService, nonEmptyStats));
   }
 
@@ -903,6 +903,49 @@ class CollectionServiceTest {
     NamedList<Object> response = new NamedList<>();
     response.add("metrics", new NamedList<>());
     return response;
+  }
+
+  @Test
+  void getCollectionStats_WithoutMetricsApi_LeavesCachesAndHandlersOutOfTheJson() throws Exception {
+    // Solr 10 removed /admin/mbeans; the metrics request fails and the two sections go missing.
+    NamedList<Object> lukeIndexSection = new NamedList<>();
+    lukeIndexSection.add("numDocs", 42);
+    NamedList<Object> lukeRaw = new NamedList<>();
+    lukeRaw.add("index", lukeIndexSection);
+    when(solrClient.request(any(LukeRequest.class), eq("test_collection"))).thenReturn(lukeRaw);
+    SolrDocumentList docList = new SolrDocumentList();
+    docList.setNumFound(42);
+    when(solrClient.query(eq("test_collection"), any())).thenReturn(queryResponse);
+    when(queryResponse.getResults()).thenReturn(docList);
+    when(solrClient.request(argThat(request -> request instanceof GenericSolrRequest)))
+        .thenThrow(new SolrException(SolrException.ErrorCode.NOT_FOUND, "no /admin/mbeans"));
+
+    CollectionMetrics result = collectionService.getCollectionStats("test_collection");
+
+    assertNull(result.caches());
+    assertNull(result.handlers());
+    String json = jsonMapper.writeValueAsString(result);
+    assertFalse(json.contains("\"caches\""), json);
+    assertFalse(json.contains("\"handlers\""), json);
+  }
+
+  @Test
+  void healthStatus_RejectsStatesAHealthCheckCannotProduce() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new HealthStatus("books", true, 3L, 10L, HealthStatus.Reason.PING_FAILED));
+    assertThrows(
+        IllegalArgumentException.class, () -> new HealthStatus("books", false, 3L, null, null));
+  }
+
+  @Test
+  void createCollection_RejectedBySolr_Propagates() throws Exception {
+    when(solrClient.request(any(), isNull()))
+        .thenThrow(
+            new SolrException(SolrException.ErrorCode.BAD_REQUEST, "collection already exists"));
+
+    assertThrows(
+        SolrException.class, () -> collectionService.createCollection("books", null, null, null));
   }
 
   // createCollection tests

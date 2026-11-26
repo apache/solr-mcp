@@ -105,7 +105,6 @@ public record CollectionMetrics(
    * @param timeouts the number of requests that timed out
    * @param totalTime the total time spent, in milliseconds
    * @param avgTimePerRequest the mean time per request, in milliseconds
-   * @param avgRequestsPerSecond the mean request rate
    */
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record HandlerInfo(
@@ -113,6 +112,5 @@ public record CollectionMetrics(
       @Nullable Long errors,
       @Nullable Long timeouts,
       @Nullable Long totalTime,
-      @Nullable Float avgTimePerRequest,
-      @Nullable Float avgRequestsPerSecond) {}
+      @Nullable Float avgTimePerRequest) {}
 }

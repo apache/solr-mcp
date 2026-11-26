@@ -65,7 +65,7 @@ class ConferenceEndToEndIntegrationTest {
   void createAndIndexConferences() throws Exception {
     CollectionCreationResult result =
         collectionService.createCollection(COLLECTION, null, null, null);
-    assertNotNull(result.configSet(), "Collection creation should report its configset");
+    assertEquals(COLLECTION + ".AUTOCREATED", result.configSet());
 
     String json = Files.readString(Path.of("mydata/devnexus-2026.json"));
     indexingService.indexJsonDocuments(COLLECTION, TestDocuments.json(json));
@@ -78,7 +78,7 @@ class ConferenceEndToEndIntegrationTest {
         collectionService.listCollections().stream().map(Collection::name).toList();
     boolean found =
         collections.contains(COLLECTION)
-            || collections.stream().anyMatch(c -> c.startsWith(COLLECTION + "_shard"));
+            || collections.stream().anyMatch(name -> name.startsWith(COLLECTION + "_shard"));
     assertTrue(found, "conferences collection should be listed, found: " + collections);
   }
 
