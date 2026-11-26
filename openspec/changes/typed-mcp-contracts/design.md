@@ -140,9 +140,12 @@ The docs' remedy for a tool that wants the model to see a failure is to convert 
 |---|---|
 | `RemoteSolrException` 404 | the tool's own hint, e.g. call `list-collections` |
 | `RemoteSolrException` 401/403 | Solr denied access |
-| other `RemoteSolrException` | Solr's reason, after its `Error from server at <host>:` prefix (`RemoteSolrException`'s constructor in SolrJ 10.0.0) |
+| other `RemoteSolrException` built from Solr's JSON `error` | Solr's reason, without the `Error from server at <host>:` prefix (`RemoteSolrException`'s constructors in SolrJ 10.0.0) |
+| other `RemoteSolrException` | a fixed message naming the HTTP status |
 | `SolrServerException` for a timeout | Solr did not answer in time |
 | other `SolrServerException`, `IOException` | Solr could not be reached |
+
+Solr's reason is passed only when SolrJ parsed it from Solr's JSON `error` object. Otherwise SolrJ's message holds the raw response body (`HttpSolrClientBase.checkContentType` in SolrJ 10.0.0), and on Solr 9.9 that body is an HTML page. A missing collection's 404 reads "Searching for Solr? You must type the correct path.", and a 401 is a Jetty error page that quotes the request path. Neither tells the model what to do next, which is why 404 and 401/403 get fixed text.
 
 Rejected: an AOP aspect around every `@McpTool` (#273, closed). It does the same conversion from outside the method, which Spring AI does not document. The conformance tests check every tool over the wire instead, both against a missing collection and with Solr unreachable.
 

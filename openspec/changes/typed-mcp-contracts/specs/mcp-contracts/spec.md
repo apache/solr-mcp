@@ -62,7 +62,7 @@ Results SHALL NOT include timestamps taken from the MCP server's clock. A time v
 - **THEN** the result has no creation-time property
 
 ### Requirement: Error text does not carry Solr internals
-Error text and result properties that describe a failure SHALL NOT include the Solr host, URL or credentials, or SolrJ's own wording around a failure, such as `Error from server at <host>:` or `Timeout occurred while waiting response from server at: <url>`. When Solr reports why it rejected a request, the error text SHALL include that reason as Solr wrote it, so the client can correct its next call.
+Error text and result properties that describe a failure SHALL NOT include the Solr host, URL or credentials, or SolrJ's own wording around a failure, such as `Error from server at <host>:` or `Timeout occurred while waiting response from server at: <url>`. When Solr reports in its JSON error response why it rejected a request, the error text SHALL include that reason as Solr wrote it, so the client can correct its next call. Error text SHALL NOT include an HTML or other non-JSON response body.
 
 #### Scenario: A health check fails
 - **WHEN** `check-health` is called on a collection whose ping fails
@@ -71,6 +71,10 @@ Error text and result properties that describe a failure SHALL NOT include the S
 #### Scenario: Solr rejects a request
 - **WHEN** `search` sorts on a field the collection does not have
 - **THEN** the client receives `isError: true` with text that includes Solr's reason, and no host name or URL
+
+#### Scenario: A collection does not exist
+- **WHEN** a tool is called on a collection Solr does not have, and Solr answers with an HTML 404 page
+- **THEN** the error text is the server's own hint to call `list-collections`, with no HTML from Solr's page
 
 #### Scenario: Solr times out
 - **WHEN** a tool's request to Solr times out
