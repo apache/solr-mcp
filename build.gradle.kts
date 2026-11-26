@@ -197,7 +197,7 @@ dependencies {
     errorprone(libs.nullaway)
 
     testImplementation(libs.bundles.test)
-    testImplementation(libs.bundles.eval)
+    testImplementation(libs.typesafe.spring.ai)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
@@ -426,9 +426,23 @@ changelog {
 // Opt-in: checks whether a model, given only the server's tool descriptions, picks the
 // right tool and arguments (https://github.com/apache/solr-mcp/issues/256). Needs Docker
 // and OPENAI_API_KEY; ./gradlew build never runs it. The agent uses Spring AI's OpenAI
-// defaults, so nothing is configured here.
+// defaults, so no model settings are configured here.
 //
 //   ./gradlew eval
+//
+// The evals are test classes, but only this task runs them with the OpenAI model and MCP
+// client starters on the classpath. Those starters auto-configure in every Spring context
+// that can see them, and the OpenAI client fails to start without an API key, so on the
+// test runtime classpath they would fail every @SpringBootTest in build and nativeTest.
+// The `eval` source set has no sources of its own: it resolves the test dependencies plus
+// the starters into the classpath below.
+val eval: SourceSet by sourceSets.creating
+configurations[eval.implementationConfigurationName].extendsFrom(configurations.testImplementation.get())
+configurations[eval.runtimeOnlyConfigurationName].extendsFrom(configurations.testRuntimeOnly.get())
+dependencies {
+    eval.implementationConfigurationName(libs.bundles.eval)
+}
+
 tasks.register<Test>("eval") {
     description = "Runs the LLM tool-selection evals (needs OPENAI_API_KEY)"
     group = "verification"
@@ -438,7 +452,7 @@ tasks.register<Test>("eval") {
     }
 
     testClassesDirs = sourceSets["test"].output.classesDirs
-    classpath = sourceSets["test"].runtimeClasspath
+    classpath = sourceSets["test"].output + sourceSets["main"].output + eval.runtimeClasspath
 
     // Model output varies between runs, so never reuse a previous result
     outputs.upToDateWhen { false }

@@ -73,7 +73,8 @@ spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-te
 spring-ai-starter-mcp-server-webmvc = { module = "org.springframework.ai:spring-ai-starter-mcp-server-webmvc" }
 spring-ai-spring-boot-docker-compose = { module = "org.springframework.ai:spring-ai-spring-boot-docker-compose" }
 spring-ai-spring-boot-testcontainers = { module = "org.springframework.ai:spring-ai-spring-boot-testcontainers" }
-# Opt-in tool-selection evals (./gradlew eval); test classpath only
+# Opt-in tool-selection evals (./gradlew eval); test classpath only. The two starters are only
+# on the eval task's runtime classpath (build.gradle.kts); typesafe-spring-ai auto-configures nothing.
 spring-ai-starter-model-openai = { module = "org.springframework.ai:spring-ai-starter-model-openai" }
 spring-ai-starter-mcp-client = { module = "org.springframework.ai:spring-ai-starter-mcp-client" }
 typesafe-spring-ai = { module = "org.springaicommunity:typesafe-spring-ai", version.ref = "typesafe" }
@@ -151,8 +152,7 @@ test = [
 
 eval = [
     "spring-ai-starter-model-openai",
-    "spring-ai-starter-mcp-client",
-    "typesafe-spring-ai"
+    "spring-ai-starter-mcp-client"
 ]
 
 errorprone = [
