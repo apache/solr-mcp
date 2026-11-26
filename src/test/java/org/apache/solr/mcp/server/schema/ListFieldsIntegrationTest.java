@@ -162,7 +162,7 @@ class ListFieldsIntegrationTest {
   }
 
   /** The listing keyed by field name, after checking it is ordered by name. */
-  private Map<String, IndexedField> fields(String collection) throws Exception {
+  private Map<String, IndexedField> fields(String collection) {
     List<IndexedField> listing = schemaService.listFields(collection);
     List<String> names = listing.stream().map(IndexedField::name).toList();
     assertEquals(names.stream().sorted().toList(), names, "list-fields is ordered by name");

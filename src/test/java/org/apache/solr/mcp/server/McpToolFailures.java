@@ -19,6 +19,7 @@ package org.apache.solr.mcp.server;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -193,7 +194,7 @@ public final class McpToolFailures {
       String expectedHealthReason,
       List<String> expectedText) {
     if (CHECK_HEALTH.equals(tool)) {
-      assertFalse(Boolean.TRUE.equals(result.get(IS_ERROR)), () -> tool + ": " + result);
+      assertNotEquals(Boolean.TRUE, result.get(IS_ERROR), () -> tool + ": " + result);
       Map<?, ?> health =
           assertInstanceOf(Map.class, result.get("structuredContent"), () -> tool + ": " + result);
       assertEquals(Boolean.FALSE, health.get("healthy"), () -> tool + ": " + result);

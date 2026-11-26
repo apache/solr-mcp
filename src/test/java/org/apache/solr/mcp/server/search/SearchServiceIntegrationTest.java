@@ -23,13 +23,11 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
 import java.util.Set;
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.mcp.server.TestDocuments;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
@@ -210,7 +208,7 @@ class SearchServiceIntegrationTest {
   }
 
   @Test
-  void testBasicSearch() throws SolrServerException, IOException {
+  void testBasicSearch() {
     SearchResponse result =
         searchService.search(COLLECTION_NAME, null, null, null, null, null, null);
     assertNotNull(result);
@@ -230,8 +228,7 @@ class SearchServiceIntegrationTest {
    * emits {@code []} for a zero-hit facet, which is the premise the unit tests assume.
    */
   @Test
-  void facetingAQueryThatMatchesNothingReturnsEmptyFacets()
-      throws SolrServerException, IOException {
+  void facetingAQueryThatMatchesNothingReturnsEmptyFacets() {
     SearchResponse result =
         searchService.search(
             COLLECTION_NAME,
@@ -251,7 +248,7 @@ class SearchServiceIntegrationTest {
   }
 
   @Test
-  void searchWithBlankOptionsPreservesFiltersFacetsAndSort() throws Exception {
+  void searchWithBlankOptionsPreservesFiltersFacetsAndSort() {
     SearchResponse result =
         searchService.search(
             COLLECTION_NAME,
@@ -372,7 +369,7 @@ class SearchServiceIntegrationTest {
   }
 
   @Test
-  void searchWithQueryFieldsSearchesOnlyThoseFields() throws Exception {
+  void searchWithQueryFieldsSearchesOnlyThoseFields() {
     SearchResponse byName =
         searchService.search(
             COLLECTION_NAME, "kings", null, null, null, null, null, null, List.of("name"));
@@ -385,7 +382,7 @@ class SearchServiceIntegrationTest {
   }
 
   @Test
-  void searchWithFieldsReturnsOnlyThoseFieldsAndScore() throws Exception {
+  void searchWithFieldsReturnsOnlyThoseFieldsAndScore() {
     SearchResponse result =
         searchService.search(
             COLLECTION_NAME, "name:kings", null, null, null, null, null, List.of("id"), null);
@@ -453,8 +450,7 @@ class SearchServiceIntegrationTest {
    * populates them when {@code score} is in the field list, which this service never set.
    */
   @Test
-  void testSearchWithQueryPopulatesMaxScoreAndDocumentScore()
-      throws SolrServerException, IOException {
+  void testSearchWithQueryPopulatesMaxScoreAndDocumentScore() {
     SearchResponse result =
         searchService.search(COLLECTION_NAME, "genre_s:fantasy", null, null, null, null, null);
     assertNotNull(result);
@@ -468,7 +464,7 @@ class SearchServiceIntegrationTest {
   }
 
   @Test
-  void testSearchWithQuery() throws SolrServerException, IOException {
+  void testSearchWithQuery() {
     SearchResponse result =
         searchService.search(
             COLLECTION_NAME, "name:\"Game of Thrones\"", null, null, null, null, null);
@@ -480,7 +476,7 @@ class SearchServiceIntegrationTest {
   }
 
   @Test
-  void testSearchReturnsAuthor() throws Exception {
+  void testSearchReturnsAuthor() {
     SearchResponse result =
         searchService.search(
             COLLECTION_NAME, "author_ss:\"George R.R. Martin\"", null, null, null, null, null);
@@ -492,7 +488,7 @@ class SearchServiceIntegrationTest {
   }
 
   @Test
-  void testSearchWithFacets() throws Exception {
+  void testSearchWithFacets() {
     SearchResponse result =
         searchService.search(COLLECTION_NAME, null, null, List.of("genre_s"), null, null, null);
     assertNotNull(result);
@@ -503,7 +499,7 @@ class SearchServiceIntegrationTest {
   }
 
   @Test
-  void testSearchWithPrice() throws Exception {
+  void testSearchWithPrice() {
     SearchResponse result =
         searchService.search(COLLECTION_NAME, null, null, null, null, null, null);
     assertNotNull(result);
@@ -518,7 +514,7 @@ class SearchServiceIntegrationTest {
   }
 
   @Test
-  void testSortByPriceAscending() throws Exception {
+  void testSortByPriceAscending() {
     List<SortClause> sortClauses = List.of(new SortClause("price", "asc"));
     SearchResponse result =
         searchService.search(COLLECTION_NAME, null, null, null, sortClauses, null, null);
@@ -537,7 +533,7 @@ class SearchServiceIntegrationTest {
   }
 
   @Test
-  void testSortByPriceDescending() throws Exception {
+  void testSortByPriceDescending() {
     List<SortClause> sortClauses = List.of(new SortClause("price", "desc"));
     SearchResponse result =
         searchService.search(COLLECTION_NAME, null, null, null, sortClauses, null, null);
@@ -556,7 +552,7 @@ class SearchServiceIntegrationTest {
   }
 
   @Test
-  void testSortBySequence() throws Exception {
+  void testSortBySequence() {
     List<SortClause> sortClauses = List.of(new SortClause("sequence_i", "asc"));
     List<String> filterQueries = List.of("series_s:\"A Song of Ice and Fire\"");
     SearchResponse result =
@@ -575,7 +571,7 @@ class SearchServiceIntegrationTest {
   }
 
   @Test
-  void testFilterByGenre() throws Exception {
+  void testFilterByGenre() {
     List<String> filterQueries = List.of("genre_s:fantasy");
     SearchResponse result =
         searchService.search(COLLECTION_NAME, null, filterQueries, null, null, null, null);
@@ -589,7 +585,7 @@ class SearchServiceIntegrationTest {
   }
 
   @Test
-  void testFilterByPriceRange() throws Exception {
+  void testFilterByPriceRange() {
     List<String> filterQueries = List.of("price:[6.0 TO 7.0]");
     SearchResponse result =
         searchService.search(COLLECTION_NAME, null, filterQueries, null, null, null, null);
@@ -606,7 +602,7 @@ class SearchServiceIntegrationTest {
   }
 
   @Test
-  void testCombinedSortingAndFiltering() throws Exception {
+  void testCombinedSortingAndFiltering() {
     List<SortClause> sortClauses = List.of(new SortClause("price", "desc"));
     List<String> filterQueries = List.of("genre_s:fantasy");
     SearchResponse result =
@@ -640,7 +636,7 @@ class SearchServiceIntegrationTest {
   }
 
   @Test
-  void testPagination() throws Exception {
+  void testPagination() {
     SearchResponse allResults =
         searchService.search(COLLECTION_NAME, null, null, null, null, null, null);
     assertNotNull(allResults);
@@ -792,7 +788,7 @@ class SearchServiceIntegrationTest {
   // ===== typed search contract (spec: search) =====
 
   @Test
-  void pagedSearchReportsNumFoundStartAndAtMostRowsHits() throws Exception {
+  void pagedSearchReportsNumFoundStartAndAtMostRowsHits() {
     SearchResponse result =
         searchService.search(COLLECTION_NAME, null, BOOKS_ONLY, null, null, 5, 3);
     assertEquals(10, result.numFound());
@@ -801,7 +797,7 @@ class SearchServiceIntegrationTest {
   }
 
   @Test
-  void scoresRequestedInFieldsAreReportedOnEachHit() throws Exception {
+  void scoresRequestedInFieldsAreReportedOnEachHit() {
     SearchResponse result =
         searchService.search(
             COLLECTION_NAME,
@@ -819,7 +815,7 @@ class SearchServiceIntegrationTest {
   }
 
   @Test
-  void fieldsWithoutTheUniqueKeyStillReturnItAsId() throws Exception {
+  void fieldsWithoutTheUniqueKeyStillReturnItAsId() {
     SearchResponse result =
         searchService.search(
             COLLECTION_NAME, "name:kings", null, null, null, null, null, List.of("name"), null);
@@ -829,7 +825,7 @@ class SearchServiceIntegrationTest {
   }
 
   @Test
-  void fieldValuesKeepTheirTypes() throws Exception {
+  void fieldValuesKeepTheirTypes() {
     SearchResponse result =
         searchService.search(COLLECTION_NAME, "id:book001", null, null, null, null, null);
     Map<String, Object> fields = result.documents().getFirst().fields();
@@ -839,7 +835,7 @@ class SearchServiceIntegrationTest {
   }
 
   @Test
-  void facetValuesKeepSolrsCountOrder() throws Exception {
+  void facetValuesKeepSolrsCountOrder() {
     SearchResponse result =
         searchService.search(COLLECTION_NAME, null, BOOKS_ONLY, List.of("genre_s"), null, null, 0);
     assertEquals(
@@ -853,7 +849,7 @@ class SearchServiceIntegrationTest {
   }
 
   @Test
-  void searchWithoutFacetFieldsReturnsAnEmptyFacetList() throws Exception {
+  void searchWithoutFacetFieldsReturnsAnEmptyFacetList() {
     SearchResponse result = searchService.search(COLLECTION_NAME, null, null, null, null, null, 0);
     assertEquals(List.of(), result.facets());
   }

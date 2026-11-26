@@ -72,7 +72,7 @@ class ConferenceEndToEndIntegrationTest {
 
   @Test
   @Order(1)
-  void collectionAppearsInList() throws Exception {
+  void collectionAppearsInList() {
     List<String> collections =
         collectionService.listCollections().stream().map(Collection::name).toList();
     boolean found =
@@ -92,14 +92,14 @@ class ConferenceEndToEndIntegrationTest {
 
   @Test
   @Order(3)
-  void searchAllDocumentsReturns116() throws Exception {
+  void searchAllDocumentsReturns116() {
     SearchResponse response = searchService.search(COLLECTION, "*:*", null, null, null, 0, 0);
     assertEquals(TOTAL_SESSIONS, response.numFound(), "Total results should be 116");
   }
 
   @Test
   @Order(4)
-  void searchByTrackReturnsFilteredResults() throws Exception {
+  void searchByTrackReturnsFilteredResults() {
     SearchResponse response =
         searchService.search(COLLECTION, "*:*", List.of("track:Workshop"), null, null, 0, 10);
     assertTrue(response.numFound() > 0, "Should find workshop sessions");
@@ -113,7 +113,7 @@ class ConferenceEndToEndIntegrationTest {
 
   @Test
   @Order(5)
-  void searchByKeywordFindsMatchingSessions() throws Exception {
+  void searchByKeywordFindsMatchingSessions() {
     SearchResponse response =
         searchService.search(COLLECTION, "title:Spring", null, null, null, 0, 50);
     assertTrue(response.numFound() > 0, "Should find sessions with 'Spring' in the title");
@@ -129,7 +129,7 @@ class ConferenceEndToEndIntegrationTest {
 
   @Test
   @Order(6)
-  void facetByIdReturnsResults() throws Exception {
+  void facetByIdReturnsResults() {
     // Facet on 'id' which is always a string type in Solr's _default configset;
     // schema-less text fields (track, day) are tokenized and return empty facets.
     SearchResponse response =
@@ -147,7 +147,7 @@ class ConferenceEndToEndIntegrationTest {
 
   @Test
   @Order(7)
-  void paginationWorks() throws Exception {
+  void paginationWorks() {
     SearchResponse page1 = searchService.search(COLLECTION, "*:*", null, null, null, 0, 10);
     SearchResponse page2 = searchService.search(COLLECTION, "*:*", null, null, null, 10, 10);
 
@@ -162,7 +162,7 @@ class ConferenceEndToEndIntegrationTest {
 
   @Test
   @Order(8)
-  void collectionStatsShowIndexedDocuments() throws Exception {
+  void collectionStatsShowIndexedDocuments() {
     CollectionMetrics metrics = collectionService.getCollectionStats(COLLECTION);
     assertNotNull(metrics, "Metrics should not be null");
     assertNotNull(metrics.index(), "Index stats should not be null");

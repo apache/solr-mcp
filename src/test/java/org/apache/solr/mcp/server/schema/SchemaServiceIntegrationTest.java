@@ -78,7 +78,7 @@ class SchemaServiceIntegrationTest {
   }
 
   @Test
-  void testGetSchema_ValidCollection() throws Exception {
+  void testGetSchema_ValidCollection() {
     // When
     CollectionSchema schema = schemaService.getSchema(TEST_COLLECTION);
 
@@ -124,7 +124,7 @@ class SchemaServiceIntegrationTest {
   }
 
   @Test
-  void testGetSchema_ValidatesSchemaContent() throws Exception {
+  void testGetSchema_ValidatesSchemaContent() {
     // When
     CollectionSchema schema = schemaService.getSchema(TEST_COLLECTION);
 
@@ -152,7 +152,7 @@ class SchemaServiceIntegrationTest {
   }
 
   @Test
-  void testGetSchema_ChecksDynamicFields() throws Exception {
+  void testGetSchema_ChecksDynamicFields() {
     // When
     CollectionSchema schema = schemaService.getSchema(TEST_COLLECTION);
 
@@ -175,7 +175,7 @@ class SchemaServiceIntegrationTest {
   }
 
   @Test
-  void testGetSchema_ChecksCopyFields() throws Exception {
+  void testGetSchema_ChecksCopyFields() {
     // When
     CollectionSchema schema = schemaService.getSchema(TEST_COLLECTION);
 
@@ -237,7 +237,7 @@ class SchemaServiceIntegrationTest {
   }
 
   @Test
-  void getSchema_keepsDeclaredFalse() throws Exception {
+  void getSchema_keepsDeclaredFalse() {
     CollectionSchema schema = schemaService.getSchema(TEST_COLLECTION);
 
     CollectionSchema.Field id = field(schema, "id");
@@ -255,7 +255,7 @@ class SchemaServiceIntegrationTest {
   }
 
   @Test
-  void schemaObjectsRoundTripThroughTheAddTools() throws Exception {
+  void schemaObjectsRoundTripThroughTheAddTools() {
     // A field type and a field taken from get-schema, renamed, and passed back to the add tools
     // must come out of get-schema again unchanged apart from the name.
     CollectionSchema before = schemaService.getSchema(TEST_COLLECTION);
@@ -275,7 +275,7 @@ class SchemaServiceIntegrationTest {
   }
 
   @Test
-  void testGetSchema_ReturnsUniqueKey() throws Exception {
+  void testGetSchema_ReturnsUniqueKey() {
     // When
     CollectionSchema schema = schemaService.getSchema(TEST_COLLECTION);
 
@@ -288,7 +288,7 @@ class SchemaServiceIntegrationTest {
   }
 
   @Test
-  void addFields_endToEnd_persistsToSchema() throws Exception {
+  void addFields_endToEnd_persistsToSchema() {
     List<CollectionSchema.Field> fields =
         fields(
             Map.of("name", "addf_title", "type", "text_general", "stored", true, "indexed", true),
@@ -409,7 +409,7 @@ class SchemaServiceIntegrationTest {
   }
 
   @Test
-  void addFieldTypes_denseVectorField_schemaRoundTrip() throws Exception {
+  void addFieldTypes_denseVectorField_schemaRoundTrip() {
     schemaService.addFieldTypes(
         TEST_COLLECTION,
         fieldTypes(
@@ -430,7 +430,7 @@ class SchemaServiceIntegrationTest {
   }
 
   @Test
-  void addFields_duplicateField_throws() throws Exception {
+  void addFields_duplicateField_throws() {
     List<CollectionSchema.Field> field =
         fields(Map.of("name", "addf_dup_field", "type", "string", "stored", true, "indexed", true));
     schemaService.addFields(TEST_COLLECTION, field);

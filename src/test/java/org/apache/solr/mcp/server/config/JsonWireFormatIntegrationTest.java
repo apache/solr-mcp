@@ -112,7 +112,7 @@ class JsonWireFormatIntegrationTest {
     assertNotNull(fields.get("docs"), "fields: " + fields);
   }
 
-  private SearchResponse search(List<String> facetFields) throws Exception {
+  private SearchResponse search(List<String> facetFields) {
     return searchService.search(DOCS, "*:*", null, facetFields, null, null, null);
   }
 }

@@ -66,12 +66,12 @@ class AliasServiceIntegrationTest {
   @Autowired private SolrClient solrClient;
 
   @BeforeAll
-  void setupCollection() throws Exception {
+  void setupCollection() {
     collectionService.createCollection(TEST_COLLECTION, null, null, null);
     collectionService.createCollection(TEST_COLLECTION_2, null, null, null);
   }
 
-  private Optional<Alias> alias(String name) throws Exception {
+  private Optional<Alias> alias(String name) {
     return aliasService.listAliases().stream()
         .filter(alias -> alias.name().equals(name))
         .findFirst();

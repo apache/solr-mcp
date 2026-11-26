@@ -88,7 +88,7 @@ class CollectionServiceIntegrationTest {
   @Autowired private JsonMapper jsonMapper;
 
   @BeforeAll
-  void setupCollectionWithData() throws Exception {
+  void setupCollectionWithData() {
     // 1. Create collection via CollectionService MCP tool
     CollectionCreationResult created =
         collectionService.createCollection(TEST_COLLECTION, null, null, null);
@@ -119,7 +119,7 @@ class CollectionServiceIntegrationTest {
   }
 
   @Test
-  void testListCollections() throws Exception {
+  void testListCollections() {
     List<String> collections =
         collectionService.listCollections().stream().map(Collection::name).toList();
 
@@ -329,7 +329,7 @@ class CollectionServiceIntegrationTest {
   }
 
   @Test
-  void createCollection_createsAndListable() throws Exception {
+  void createCollection_createsAndListable() {
     String name = "mcp_test_create_" + System.currentTimeMillis();
 
     CollectionCreationResult result = collectionService.createCollection(name, null, null, null);
@@ -411,7 +411,7 @@ class CollectionServiceIntegrationTest {
   }
 
   @Test
-  void testSearchVerifiesIndexedDocuments() throws Exception {
+  void testSearchVerifiesIndexedDocuments() {
     // Verify the documents we indexed are actually searchable via SearchService
     SearchResponse all =
         searchService.search(TEST_COLLECTION, "*:*", null, null, null, 0, DOC_COUNT);
