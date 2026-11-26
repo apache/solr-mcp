@@ -36,10 +36,12 @@ import tools.jackson.databind.json.JsonMapper;
  * solr://{collection}/schema} resource.
  *
  * <p>Every record holds only the properties the contract names. An attribute Solr sends that the
- * contract does not name is not passed on, with one exception: the scalar settings of a field type,
- * an analyzer or an analyzer component, such as {@code positionIncrementGap} or {@code
+ * contract does not name is not passed on, with two exceptions: the scalar settings of a field
+ * type, an analyzer or an analyzer component, such as {@code positionIncrementGap} or {@code
  * luceneMatchVersion}, go into its {@code parameters}, because which settings exist depends on the
- * Solr class the user chose.
+ * Solr class the user chose; and a field's or field type's {@code metadata}, the key-value
+ * descriptions a schema attaches for people and agents (SOLR-18678), is passed on whole, because
+ * its keys and values are the schema author's.
  *
  * <p>{@link Field} and {@link FieldType} report each schema property the schema declares as a
  * {@code Boolean}, and leave out the ones it does not, so a declared {@code false} is kept. The
@@ -81,6 +83,12 @@ public record CollectionSchema(
    * The contract's key for class-specific settings, which the Schema API sends as top-level keys.
    */
   private static final String PARAMETERS = "parameters";
+
+  /**
+   * The key, in the Schema API and the contract alike, for a field's or field type's key-value
+   * metadata. It follows SOLR-18678, which has not settled the name yet, so it may change.
+   */
+  private static final String METADATA = "metadata";
 
   /** The keys, in the Schema API and the contract alike, for an analyzer's chain. */
   private static final String CHAR_FILTERS = "charFilters";
@@ -157,6 +165,8 @@ public record CollectionSchema(
    * @param name the field name, or the pattern for a dynamic field
    * @param type the field type name
    * @param defaultValue the default value, when set
+   * @param metadata the schema author's key-value metadata for the field, such as {@code
+   *     dc:description}, when the schema declares any
    */
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record Field(
@@ -179,10 +189,20 @@ public record CollectionSchema(
       @Nullable Boolean sortMissingFirst,
       @Nullable Boolean sortMissingLast,
       @Nullable Boolean useDocValuesAsStored,
-      @Nullable Boolean large) {
+      @Nullable Boolean large,
+      @Nullable Map<String, Object> metadata) {
+
+    /**
+     * Copies the metadata so the record cannot change after it is built. Empty metadata means none.
+     */
+    public Field {
+      metadata = copyMetadata(metadata);
+    }
 
     static Field fromSolr(Map<String, Object> field) {
-      return SOLR_JSON.convertValue(field, Field.class);
+      Map<String, Object> contract = new LinkedHashMap<>(field);
+      contract.put(METADATA, metadataFromSolr(field.get(METADATA)));
+      return SOLR_JSON.convertValue(contract, Field.class);
     }
 
     /** The field as Schema API {@code add-field} attributes. */
@@ -201,6 +221,8 @@ public record CollectionSchema(
    * @param queryAnalyzer the analyzer used when querying, when declared separately
    * @param multiTermAnalyzer the analyzer used for multi-term queries, when declared
    * @param parameters the class-specific settings, such as {@code positionIncrementGap}
+   * @param metadata the schema author's key-value metadata for the field type, when the schema
+   *     declares any
    */
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record FieldType(
@@ -227,7 +249,8 @@ public record CollectionSchema(
       @Nullable Analyzer indexAnalyzer,
       @Nullable Analyzer queryAnalyzer,
       @Nullable Analyzer multiTermAnalyzer,
-      @Nullable Map<String, String> parameters) {
+      @Nullable Map<String, String> parameters,
+      @Nullable Map<String, Object> metadata) {
 
     /** The attributes that are not class-specific {@code parameters}. */
     private static final Set<String> NAMED = named();
@@ -237,15 +260,17 @@ public record CollectionSchema(
       named.addAll(ANALYZER_SLOTS);
       named.add(NAME);
       named.add(CLASS);
+      named.add(METADATA);
       return Set.copyOf(named);
     }
 
     /**
-     * Copies the parameters, ordered by name, so the record cannot change after it is built. A
-     * client may leave them out; that means none.
+     * Copies the parameters, ordered by name, and the metadata, so the record cannot change after
+     * it is built. A client may leave either out; that means none.
      */
     public FieldType {
       parameters = sorted(parameters);
+      metadata = copyMetadata(metadata);
     }
 
     static FieldType fromSolr(Map<String, Object> type) {
@@ -267,6 +292,7 @@ public record CollectionSchema(
         }
       }
       contract.put(PARAMETERS, scalarParameters(type, NAMED));
+      contract.put(METADATA, metadataFromSolr(type.get(METADATA)));
       return SOLR_JSON.convertValue(contract, FieldType.class);
     }
 
@@ -419,6 +445,48 @@ public record CollectionSchema(
           }
         });
     return parameters;
+  }
+
+  /**
+   * Solr's metadata for a field or field type, as a map in the schema's order, or {@code null} when
+   * there is none. SOLR-18678 may send it as a JSON object, or as a NamedList's flat {@code [key,
+   * value, key, value]} array; both become a map. A key the array repeats keeps every value, as a
+   * list. Values are passed on as Solr sends them, nested ones included.
+   */
+  private static @Nullable Map<String, Object> metadataFromSolr(@Nullable Object metadata) {
+    Map<String, Object> map = new LinkedHashMap<>();
+    if (metadata instanceof Map<?, ?> object) {
+      object.forEach((key, value) -> map.put(String.valueOf(key), value));
+    } else if (metadata instanceof List<?> pairs && isFlatNamedList(pairs)) {
+      Map<String, List<@Nullable Object>> values = new LinkedHashMap<>();
+      for (int i = 0; i < pairs.size(); i += 2) {
+        values
+            .computeIfAbsent((String) pairs.get(i), key -> new ArrayList<>())
+            .add(pairs.get(i + 1));
+      }
+      values.forEach((key, all) -> map.put(key, all.size() == 1 ? all.getFirst() : all));
+    }
+    return copyMetadata(map);
+  }
+
+  /** Whether {@code list} is a NamedList rendered flat: an even run of string keys and values. */
+  private static boolean isFlatNamedList(List<?> list) {
+    if (list.size() % 2 != 0) {
+      return false;
+    }
+    for (int i = 0; i < list.size(); i += 2) {
+      if (!(list.get(i) instanceof String)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static @Nullable Map<String, Object> copyMetadata(
+      @Nullable Map<String, Object> metadata) {
+    return metadata == null || metadata.isEmpty()
+        ? null
+        : Collections.unmodifiableMap(new LinkedHashMap<>(metadata));
   }
 
   private static Map<String, String> sorted(@Nullable Map<String, String> parameters) {

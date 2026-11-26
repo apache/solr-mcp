@@ -169,6 +169,111 @@ class SchemaServiceTest {
   }
 
   @Test
+  void getSchema_passesFieldAndFieldTypeMetadataThroughAsAnObject() throws Exception {
+    // SOLR-18678: a schema can describe fields and field types for agents. With unique keys Solr
+    // renders the metadata as a JSON object, which SolrJ parses into a SimpleOrderedMap.
+    SimpleOrderedMap<Object> idMeta = new SimpleOrderedMap<>();
+    idMeta.add("dc:description", "unique document identifier");
+    idMeta.add("ext:internal", false);
+    idMeta.add("ext:tags", List.of("key", "required"));
+    SimpleOrderedMap<Object> id = new SimpleOrderedMap<>();
+    id.add("name", "id");
+    id.add("type", "string");
+    id.add("metadata", idMeta);
+    SimpleOrderedMap<Object> dynamic = new SimpleOrderedMap<>();
+    dynamic.add("name", "*_s");
+    dynamic.add("type", "string");
+    dynamic.add("metadata", Map.of("dc:description", "short exact-match strings"));
+    SimpleOrderedMap<Object> type = new SimpleOrderedMap<>();
+    type.add("name", "string");
+    type.add("class", "solr.StrField");
+    type.add("metadata", Map.of("dc:description", "untokenized text"));
+    SimpleOrderedMap<Object> schema = new SimpleOrderedMap<>();
+    schema.add("fieldTypes", List.of(type));
+    schema.add("fields", List.of(id));
+    schema.add("dynamicFields", List.of(dynamic));
+    NamedList<Object> response = new NamedList<>();
+    response.add("schema", schema);
+    when(solrClient.request(any(SchemaRequest.class), eq("c"))).thenReturn(response);
+
+    CollectionSchema result = new SchemaService(solrClient, JSON).getSchema("c");
+
+    CollectionSchema.Field idField = result.fields().getFirst();
+    assertEquals(
+        Map.of(
+            "dc:description",
+            "unique document identifier",
+            "ext:internal",
+            false,
+            "ext:tags",
+            List.of("key", "required")),
+        idField.metadata());
+    assertEquals(
+        Map.of("dc:description", "short exact-match strings"),
+        result.dynamicFields().getFirst().metadata());
+    CollectionSchema.FieldType stringType = result.fieldTypes().getFirst();
+    assertEquals(Map.of("dc:description", "untokenized text"), stringType.metadata());
+    assertEquals(Map.of(), stringType.parameters(), "metadata is not a class parameter");
+    assertEquals(
+        "{\"name\":\"id\",\"type\":\"string\",\"metadata\":{\"dc:description\":"
+            + "\"unique document identifier\",\"ext:internal\":false,\"ext:tags\":[\"key\","
+            + "\"required\"]}}",
+        JSON.writeValueAsString(idField),
+        "metadata keeps the schema's key order and value types");
+  }
+
+  @Test
+  void getSchema_readsFlatNamedListMetadataAsAnObject() throws Exception {
+    // A NamedList renders as a flat [key, value, ...] array by default; a repeated key keeps
+    // every value.
+    SimpleOrderedMap<Object> field = new SimpleOrderedMap<>();
+    field.add("name", "title");
+    field.add("type", "text_general");
+    field.add(
+        "metadata",
+        List.of("dc:description", "the title", "ext:alias", "headline", "ext:alias", "name"));
+    SimpleOrderedMap<Object> schema = new SimpleOrderedMap<>();
+    schema.add("fields", List.of(field));
+    NamedList<Object> response = new NamedList<>();
+    response.add("schema", schema);
+    when(solrClient.request(any(SchemaRequest.class), eq("c"))).thenReturn(response);
+
+    CollectionSchema.Field title =
+        new SchemaService(solrClient, JSON).getSchema("c").fields().getFirst();
+
+    assertEquals(
+        Map.of("dc:description", "the title", "ext:alias", List.of("headline", "name")),
+        title.metadata());
+  }
+
+  @Test
+  void getSchema_leavesMetadataOutWhenSolrSendsNoneOrSomethingElse() throws Exception {
+    SimpleOrderedMap<Object> none = new SimpleOrderedMap<>();
+    none.add("name", "a");
+    none.add("type", "string");
+    SimpleOrderedMap<Object> empty = new SimpleOrderedMap<>();
+    empty.add("name", "b");
+    empty.add("type", "string");
+    empty.add("metadata", Map.of());
+    SimpleOrderedMap<Object> notPairs = new SimpleOrderedMap<>();
+    notPairs.add("name", "c");
+    notPairs.add("type", "string");
+    notPairs.add("metadata", List.of("odd", "number", "of"));
+    SimpleOrderedMap<Object> schema = new SimpleOrderedMap<>();
+    schema.add("fields", List.of(none, empty, notPairs));
+    NamedList<Object> response = new NamedList<>();
+    response.add("schema", schema);
+    when(solrClient.request(any(SchemaRequest.class), eq("c"))).thenReturn(response);
+
+    CollectionSchema result = new SchemaService(solrClient, JSON).getSchema("c");
+
+    for (CollectionSchema.Field field : result.fields()) {
+      assertNull(field.metadata(), field.name());
+      assertFalse(JSON.writeValueAsString(field).contains("metadata"), field.name());
+    }
+  }
+
+  @Test
   void testGetSchema_CollectionNotFound() throws Exception {
     // Given
     final String nonExistentCollection = "non_existent_collection";
@@ -317,6 +422,38 @@ class SchemaServiceTest {
   }
 
   @Test
+  void addFields_sendsMetadataToTheSchemaApi() throws Exception {
+    List<CollectionSchema.Field> fields =
+        fields(
+            Map.of(
+                "name",
+                "id",
+                "type",
+                "string",
+                "metadata",
+                Map.of("dc:description", "unique document identifier")));
+    when(solrClient.request(any(SolrRequest.class), eq("col"))).thenReturn(new NamedList<>());
+
+    schemaService.addFields("col", fields);
+
+    String body = capturedBody();
+    assertTrue(
+        body.contains("\"metadata\":{\"dc:description\":\"unique document identifier\"}"), body);
+  }
+
+  @Test
+  void addFields_withoutMetadata_sendsNoMetadataKey() throws Exception {
+    List<CollectionSchema.Field> fields =
+        fields(Map.of("name", "x", "type", "string", "metadata", Map.of()));
+    when(solrClient.request(any(SolrRequest.class), eq("col"))).thenReturn(new NamedList<>());
+
+    schemaService.addFields("col", fields);
+
+    String body = capturedBody();
+    assertFalse(body.contains("metadata"), body);
+  }
+
+  @Test
   void addFields_solrThrows_propagates() throws Exception {
     when(solrClient.request(any(SolrRequest.class), eq("col")))
         .thenThrow(new SolrServerException("simulated"));
@@ -364,6 +501,53 @@ class SchemaServiceTest {
     assertTrue(body.contains("\"class\":\"solr.KeywordTokenizerFactory\""), body);
     assertTrue(body.contains("\"class\":\"solr.LowerCaseFilterFactory\""), body);
     assertFalse(body.contains("className"), "the contract's names must not reach Solr: " + body);
+  }
+
+  @Test
+  void addFieldTypes_sendsMetadataBesideTheClassNotAsAParameter() throws Exception {
+    List<CollectionSchema.FieldType> types =
+        fieldTypes(
+            Map.of(
+                "name",
+                "string_exact",
+                "className",
+                "solr.StrField",
+                "metadata",
+                Map.of("dc:description", "untokenized text", "ext:internal", true)));
+    when(solrClient.request(any(SolrRequest.class), eq("col"))).thenReturn(new NamedList<>());
+
+    schemaService.addFieldTypes("col", types);
+
+    String body = capturedBody();
+    assertTrue(body.contains("\"class\":\"solr.StrField\""), body);
+    assertTrue(body.contains("\"dc:description\":\"untokenized text\""), body);
+    assertTrue(body.contains("\"ext:internal\":true"), "a boolean stays a boolean: " + body);
+    assertFalse(body.contains("parameters"), body);
+  }
+
+  @Test
+  void getSchemaMetadata_roundTripsThroughAddFields() throws Exception {
+    SimpleOrderedMap<Object> field = new SimpleOrderedMap<>();
+    field.add("name", "id");
+    field.add("type", "string");
+    field.add("metadata", Map.of("dc:description", "unique document identifier"));
+    SimpleOrderedMap<Object> schema = new SimpleOrderedMap<>();
+    schema.add("fields", List.of(field));
+    NamedList<Object> response = new NamedList<>();
+    response.add("schema", schema);
+    when(solrClient.request(any(SchemaRequest.class), eq("src"))).thenReturn(response);
+    when(solrClient.request(any(MultiUpdate.class), eq("col"))).thenReturn(new NamedList<>());
+    SchemaService service = new SchemaService(solrClient, JSON);
+
+    // What an MCP client sees, sent back as add-fields input.
+    String json = JSON.writeValueAsString(service.getSchema("src").fields());
+    List<CollectionSchema.Field> copied = JSON.readValue(json, new TypeReference<>() {});
+    service.addFields("col", copied);
+
+    assertEquals(service.getSchema("src").fields(), copied);
+    String body = capturedBody();
+    assertTrue(
+        body.contains("\"metadata\":{\"dc:description\":\"unique document identifier\"}"), body);
   }
 
   @Test
