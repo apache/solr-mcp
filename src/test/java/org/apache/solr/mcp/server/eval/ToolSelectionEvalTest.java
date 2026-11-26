@@ -45,10 +45,9 @@ import org.springframework.test.context.aot.DisabledInAotMode;
     webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles("integration-test")
 @DisabledInAotMode
-// Named *Eval, not *Test: the suffix says which task runs a class (*Test and *IntegrationTest
-// run in ./gradlew build), and only ./gradlew eval runs this one, against a hosted model.
-@SuppressWarnings("java:S3577")
-class ToolSelectionEval {
+// The llm-eval tag, not the class name, decides where this runs: every Test task except
+// ./gradlew eval excludes the tag, so ./gradlew build never calls the hosted model.
+class ToolSelectionEvalTest {
 
   @Autowired ChatClient chatClient;
 
