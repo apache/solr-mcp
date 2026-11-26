@@ -218,10 +218,12 @@ class IndexingServiceIntegrationTest {
 				]
 				""";
 
+    List<Map<String, Object>> documents = TestDocuments.json(json);
+
     IllegalArgumentException failure =
         assertThrows(
             IllegalArgumentException.class,
-            () -> indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json)));
+            () -> indexingService.indexJsonDocuments(COLLECTION_NAME, documents));
 
     assertEquals(IndexingService.EVERY_DOCUMENT_REJECTED, failure.getMessage());
   }
