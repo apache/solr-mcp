@@ -17,7 +17,8 @@ Every indexing tool SHALL return an object with `collection` and `format` (`json
 For JSON and Markdown, which the server parses itself, the result SHALL include:
 - `documentsSubmitted`: the number of documents the input produced.
 - `documentsIndexed`: the number Solr accepted.
-- `fieldNames`: the field names used.
+- `fieldNames`: the field names of the documents Solr accepted, at most 50 in sort order.
+- `fieldCount`: how many distinct field names those documents have, so a client can tell when `fieldNames` was cut short.
 
 #### Scenario: Every document accepted
 - **WHEN** a client indexes 3 JSON documents and Solr accepts all of them
@@ -26,6 +27,18 @@ For JSON and Markdown, which the server parses itself, the result SHALL include:
 #### Scenario: Some documents rejected
 - **WHEN** a client indexes 5 JSON documents and Solr rejects 2 of them individually
 - **THEN** `documentsSubmitted` is 5 and `documentsIndexed` is 3
+
+#### Scenario: Field names come from the accepted documents
+- **WHEN** 2 of 5 JSON documents are rejected, and only the rejected ones have a field `colour`
+- **THEN** `fieldNames` does not contain `colour`
+
+#### Scenario: More than 50 field names
+- **WHEN** the accepted documents have 60 distinct field names
+- **THEN** `fieldNames` holds the first 50 in sort order and `fieldCount` is 60
+
+#### Scenario: Every document rejected
+- **WHEN** Solr rejects every document of a JSON or Markdown input
+- **THEN** the call fails with `isError: true`
 
 #### Scenario: Markdown split into sections
 - **WHEN** one Markdown input yields 4 documents
