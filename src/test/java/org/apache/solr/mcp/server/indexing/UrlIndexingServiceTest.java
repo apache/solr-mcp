@@ -323,7 +323,7 @@ class UrlIndexingServiceTest {
             inv -> {
               try {
                 inv.getArgument(2, InputStream.class).transferTo(OutputStream.nullOutputStream());
-              } catch (IOException swallowed) {
+              } catch (IOException _) {
                 // as SolrJ does
               }
               throw new SolrException(
@@ -423,7 +423,7 @@ class UrlIndexingServiceTest {
             inv -> {
               try {
                 inv.getArgument(2, InputStream.class).transferTo(OutputStream.nullOutputStream());
-              } catch (IOException swallowed) {
+              } catch (IOException _) {
                 // SolrJ logs "Cannot write Content Stream" and ends the upload
               }
               return null;

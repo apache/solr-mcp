@@ -284,7 +284,7 @@ public class UrlIndexingService {
     }
     try {
       return URI.create(url.trim());
-    } catch (IllegalArgumentException e) {
+    } catch (IllegalArgumentException _) {
       throw new IllegalArgumentException(UrlTargetPolicy.INVALID_URL);
     }
   }
@@ -309,7 +309,7 @@ public class UrlIndexingService {
       if (extension != null) {
         try {
           return IndexFormats.normalize(extension);
-        } catch (IllegalArgumentException ignored) {
+        } catch (IllegalArgumentException _) {
           // not a supported extension; fall through to the next source
         }
       }

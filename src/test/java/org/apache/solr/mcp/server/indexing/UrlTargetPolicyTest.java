@@ -36,6 +36,7 @@ class UrlTargetPolicyTest {
   private static final List<String> GITHUB =
       List.of("raw.githubusercontent.com", "*.githubusercontent.com", "github.com");
   private static final List<InetAddress> PUBLIC = addresses("93.184.216.34");
+  private static final URI EXAMPLE = uri("http://example.invalid/x.json");
 
   @Test
   void exactHostMatchesCaseInsensitivelyAndIgnoresATrailingDot() {
@@ -49,11 +50,11 @@ class UrlTargetPolicyTest {
     assertDoesNotThrow(
         () ->
             UrlTargetPolicy.check(uri("https://gist.githubusercontent.com/x.csv"), GITHUB, PUBLIC));
+    URI bareSuffix = uri("https://githubusercontent.com/x.csv");
     var e =
         assertThrows(
             IllegalArgumentException.class,
-            () ->
-                UrlTargetPolicy.check(uri("https://githubusercontent.com/x.csv"), GITHUB, PUBLIC));
+            () -> UrlTargetPolicy.check(bareSuffix, GITHUB, PUBLIC));
     assertEquals(UrlTargetPolicy.HOST_NOT_ALLOWED, e.getMessage());
   }
 
@@ -69,21 +70,22 @@ class UrlTargetPolicyTest {
 
   @Test
   void anEmptyAllowListRejectsEveryHost() {
+    URI github = uri("https://raw.githubusercontent.com/x.json");
+    List<String> noHosts = List.of();
     var e =
         assertThrows(
-            IllegalArgumentException.class,
-            () ->
-                UrlTargetPolicy.check(
-                    uri("https://raw.githubusercontent.com/x.json"), List.of(), PUBLIC));
+            IllegalArgumentException.class, () -> UrlTargetPolicy.check(github, noHosts, PUBLIC));
     assertEquals(UrlTargetPolicy.HOST_NOT_ALLOWED, e.getMessage());
   }
 
   @Test
   void aHostNotOnTheListIsRejectedBeforeAddressesAreConsidered() {
+    URI offList = uri("https://example.invalid/x.json");
+    List<InetAddress> unresolved = List.of();
     var e =
         assertThrows(
             IllegalArgumentException.class,
-            () -> UrlTargetPolicy.check(uri("https://example.invalid/x.json"), GITHUB, List.of()));
+            () -> UrlTargetPolicy.check(offList, GITHUB, unresolved));
     assertEquals(UrlTargetPolicy.HOST_NOT_ALLOWED, e.getMessage());
   }
 
@@ -98,25 +100,20 @@ class UrlTargetPolicyTest {
         "168.63.129.16"
       })
   void refusesLinkLocalAndCloudMetadataAddressesEvenWithStar(String literal) {
+    List<InetAddress> refused = addresses(literal);
     var e =
         assertThrows(
-            IllegalArgumentException.class,
-            () ->
-                UrlTargetPolicy.check(
-                    uri("http://example.invalid/x.json"), ANY, addresses(literal)));
+            IllegalArgumentException.class, () -> UrlTargetPolicy.check(EXAMPLE, ANY, refused));
     assertEquals(UrlTargetPolicy.REFUSED_ADDRESS, e.getMessage());
   }
 
   @Test
   void refusesWhenAnyOfSeveralAddressesIsLinkLocal() {
+    List<InetAddress> oneLinkLocal = addresses("93.184.216.34", "169.254.169.254");
     var e =
         assertThrows(
             IllegalArgumentException.class,
-            () ->
-                UrlTargetPolicy.check(
-                    uri("http://example.invalid/x.json"),
-                    ANY,
-                    addresses("93.184.216.34", "169.254.169.254")));
+            () -> UrlTargetPolicy.check(EXAMPLE, ANY, oneLinkLocal));
     assertEquals(UrlTargetPolicy.REFUSED_ADDRESS, e.getMessage());
   }
 
@@ -131,20 +128,20 @@ class UrlTargetPolicyTest {
         "http://user@/data.json"
       })
   void rejectsNonHttpSchemesRelativeUrlsAndMissingHosts(String url) {
+    URI rejected = uri(url);
     var e =
         assertThrows(
-            IllegalArgumentException.class, () -> UrlTargetPolicy.check(uri(url), ANY, PUBLIC));
+            IllegalArgumentException.class, () -> UrlTargetPolicy.check(rejected, ANY, PUBLIC));
     assertEquals(UrlTargetPolicy.INVALID_URL, e.getMessage());
   }
 
   @Test
   void rejectsAPortOutOfRangeBeforeConnecting() {
+    URI portOutOfRange = uri("https://raw.githubusercontent.com:99999/x.json");
     var e =
         assertThrows(
             IllegalArgumentException.class,
-            () ->
-                UrlTargetPolicy.check(
-                    uri("https://raw.githubusercontent.com:99999/x.json"), GITHUB, PUBLIC));
+            () -> UrlTargetPolicy.check(portOutOfRange, GITHUB, PUBLIC));
     assertEquals(UrlTargetPolicy.INVALID_URL, e.getMessage());
   }
 
@@ -158,12 +155,11 @@ class UrlTargetPolicyTest {
 
   @Test
   void rejectsEmbeddedCredentialsBeforeTheAllowList() {
+    URI credentialed = uri("http://user:pw@raw.githubusercontent.com/x.json");
     var e =
         assertThrows(
             IllegalArgumentException.class,
-            () ->
-                UrlTargetPolicy.check(
-                    uri("http://user:pw@raw.githubusercontent.com/x.json"), GITHUB, PUBLIC));
+            () -> UrlTargetPolicy.check(credentialed, GITHUB, PUBLIC));
     assertEquals(UrlTargetPolicy.EMBEDDED_CREDENTIALS, e.getMessage());
   }
 

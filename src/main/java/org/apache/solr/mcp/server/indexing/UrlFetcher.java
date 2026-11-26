@@ -27,7 +27,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.charset.UnsupportedCharsetException;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
@@ -143,19 +145,19 @@ final class UrlFetcher {
       UrlTargetPolicy.check(
           current, allowedHosts, List.of(InetAddress.getAllByName(current.getHost())));
       switch (send(current, deadline)) {
-        case Redirect redirect -> {
+        case Redirect(String location) -> {
           if (++redirects > MAX_REDIRECTS) {
             throw new IllegalArgumentException(TOO_MANY_REDIRECTS);
           }
-          current = redirectTarget(current, redirect.location());
+          current = redirectTarget(current, location);
         }
-        case Status status ->
+        case Status(int code) ->
             throw new IllegalArgumentException(
                 "The URL returned HTTP "
-                    + status.code()
+                    + code
                     + "; nothing was indexed. Check that it is public and points at a raw document, not a web page.");
-        case Body body -> {
-          return new FetchedBody(current, body.mediaType(), body.charset(), body.stream());
+        case Body(String mediaType, Charset charset, TransferStream stream) -> {
+          return new FetchedBody(current, mediaType, charset, stream);
         }
       }
     }
@@ -169,7 +171,7 @@ final class UrlFetcher {
     URI target;
     try {
       target = current.resolve(location);
-    } catch (IllegalArgumentException e) {
+    } catch (IllegalArgumentException _) {
       throw new IllegalArgumentException(INVALID_REDIRECT); // never the JDK's parse message
     }
     if ("https".equalsIgnoreCase(current.getScheme())
@@ -186,46 +188,9 @@ final class UrlFetcher {
       return restClient
           .get()
           .uri(uri)
-          .header("Accept", ACCEPT)
-          .header("User-Agent", USER_AGENT)
-          .exchange(
-              (request, response) -> {
-                try {
-                  int status = response.getStatusCode().value();
-                  if (isRedirect(status)) {
-                    String location = response.getHeaders().getFirst("Location");
-                    if (location != null) {
-                      release(response);
-                      return new Redirect(location);
-                    }
-                  }
-                  if (status / 100 != 2) {
-                    release(response);
-                    return new Status(status);
-                  }
-                  String contentType = response.getHeaders().getFirst("Content-Type");
-                  if (contentType == null) {
-                    contentType = "";
-                  }
-                  Charset charset;
-                  try {
-                    charset = charsetOf(contentType);
-                  } catch (IllegalCharsetNameException | UnsupportedCharsetException e) {
-                    throw new IllegalArgumentException(UNSUPPORTED_CHARSET);
-                  }
-                  var body =
-                      new TransferStream(
-                          response.getBody(),
-                          contentLengthOf(response.getHeaders()),
-                          deadline,
-                          () -> release(response));
-                  return new Body(mediaTypeOf(contentType), charset, body);
-                } catch (IOException | RuntimeException e) {
-                  release(response);
-                  throw e;
-                }
-              },
-              false);
+          .header(HttpHeaders.ACCEPT, ACCEPT)
+          .header(HttpHeaders.USER_AGENT, USER_AGENT)
+          .exchange((request, response) -> classify(response, deadline), false);
     } catch (ResourceAccessException e) {
       if (e.getCause() instanceof IOException io) {
         throw io;
@@ -235,16 +200,55 @@ final class UrlFetcher {
   }
 
   /**
+   * Classifies one response, releasing it on every outcome except a 2xx, whose body is handed back
+   * open.
+   */
+  private static Exchange classify(ClientHttpResponse response, long deadline) throws IOException {
+    try {
+      return toExchange(response, deadline);
+    } catch (IOException | RuntimeException e) {
+      release(response);
+      throw e;
+    }
+  }
+
+  private static Exchange toExchange(ClientHttpResponse response, long deadline)
+      throws IOException {
+    int status = response.getStatusCode().value();
+    if (isRedirect(status)) {
+      String location = response.getHeaders().getFirst(HttpHeaders.LOCATION);
+      if (location != null) {
+        release(response);
+        return new Redirect(location);
+      }
+    }
+    if (status / 100 != 2) {
+      release(response);
+      return new Status(status);
+    }
+    String contentType =
+        Objects.requireNonNullElse(response.getHeaders().getFirst(HttpHeaders.CONTENT_TYPE), "");
+    Charset charset = declaredCharset(contentType);
+    var body =
+        new TransferStream(
+            response.getBody(),
+            contentLengthOf(response.getHeaders()),
+            deadline,
+            () -> release(response));
+    return new Body(mediaTypeOf(contentType), charset, body);
+  }
+
+  /**
    * Closes the body stream, then the response. Spring's {@code close()} drains an unread body to
    * keep the connection reusable, which would download a refused or abandoned response in full;
    * closing the stream first makes the JDK drop the connection (or hand at most a small remainder
    * to its keep-alive cleaner) and turns Spring's drain into a no-op on a closed stream. Safe to
    * call twice.
    */
-  private static void release(org.springframework.http.client.ClientHttpResponse response) {
+  private static void release(ClientHttpResponse response) {
     try {
       response.getBody().close();
-    } catch (IOException ignored) {
+    } catch (IOException _) {
       // nothing to abandon
     }
     response.close();
@@ -258,7 +262,7 @@ final class UrlFetcher {
     }
     try {
       return Long.parseLong(value.trim());
-    } catch (NumberFormatException e) {
+    } catch (NumberFormatException _) {
       return -1;
     }
   }
@@ -271,6 +275,17 @@ final class UrlFetcher {
     int semicolon = contentType.indexOf(';');
     String type = semicolon < 0 ? contentType : contentType.substring(0, semicolon);
     return type.trim().toLowerCase(Locale.ROOT);
+  }
+
+  /**
+   * The declared charset, or UTF-8; an unknown or malformed name is {@link #UNSUPPORTED_CHARSET}.
+   */
+  private static Charset declaredCharset(String contentType) {
+    try {
+      return charsetOf(contentType);
+    } catch (IllegalCharsetNameException | UnsupportedCharsetException _) {
+      throw new IllegalArgumentException(UNSUPPORTED_CHARSET);
+    }
   }
 
   private static Charset charsetOf(String contentType) {

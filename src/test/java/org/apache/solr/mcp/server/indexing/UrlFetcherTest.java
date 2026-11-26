@@ -32,8 +32,10 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -60,6 +62,7 @@ class UrlFetcherTest {
   private UrlFetcher dripping;
   private final Map<String, List<String>> lastRequestHeaders = new ConcurrentHashMap<>();
   private final AtomicInteger requests = new AtomicInteger();
+  private final CountDownLatch stopped = new CountDownLatch(1);
 
   @BeforeEach
   void setUp() throws IOException {
@@ -88,7 +91,7 @@ class UrlFetcherTest {
     server.createContext(
         "/no-location",
         ex -> {
-          record(ex);
+          recordRequest(ex);
           ex.sendResponseHeaders(302, -1);
           ex.close();
         });
@@ -100,23 +103,25 @@ class UrlFetcherTest {
     server.createContext(
         "/drip",
         ex -> {
-          record(ex);
+          recordRequest(ex);
           ex.getResponseHeaders().add("Content-Type", "text/csv");
           ex.sendResponseHeaders(200, 0);
           try (OutputStream out = ex.getResponseBody()) {
             for (int i = 0; i < 100; i++) {
               out.write('x'); // one byte every 200 ms: never idle, never finishing soon
               out.flush();
-              sleep(200);
+              if (testFinishedWithin(200)) {
+                return;
+              }
             }
-          } catch (IOException ignored) {
+          } catch (IOException _) {
             // the client gave up, as expected
           }
         });
     server.createContext(
         "/slow-big",
         ex -> {
-          record(ex);
+          recordRequest(ex);
           ex.getResponseHeaders().add("Content-Type", "text/csv");
           ex.sendResponseHeaders(200, 2 * 1024 * 1024);
           try (OutputStream out = ex.getResponseBody()) {
@@ -124,9 +129,11 @@ class UrlFetcherTest {
               out.write(
                   new byte[1024]); // steady 10 KB/s: never idle, so a drain would run for minutes
               out.flush();
-              sleep(100);
+              if (testFinishedWithin(100)) {
+                return;
+              }
             }
-          } catch (IOException ignored) {
+          } catch (IOException _) {
             // the client dropped the connection, as expected
           }
         });
@@ -139,7 +146,7 @@ class UrlFetcherTest {
     server.createContext(
         "/short",
         ex -> {
-          record(ex);
+          recordRequest(ex);
           ex.getResponseHeaders().add("Content-Type", "text/csv");
           ex.sendResponseHeaders(200, 2048); // declares 2048 bytes, then hangs up after 10
           ex.getResponseBody().write(new byte[10]);
@@ -149,7 +156,7 @@ class UrlFetcherTest {
     server.createContext(
         "/chunked-big",
         ex -> {
-          record(ex);
+          recordRequest(ex);
           ex.getResponseHeaders().add("Content-Type", "text/csv");
           ex.sendResponseHeaders(200, 0);
           try (OutputStream out = ex.getResponseBody()) {
@@ -161,14 +168,16 @@ class UrlFetcherTest {
     server.createContext(
         "/stall",
         ex -> {
-          record(ex);
+          recordRequest(ex);
           ex.getResponseHeaders().add("Content-Type", "text/csv");
           ex.sendResponseHeaders(200, 0);
           try (OutputStream out = ex.getResponseBody()) {
             out.write("id,n\n1,1\n\n".getBytes(StandardCharsets.UTF_8));
             out.flush();
-            sleep(3000);
-          } catch (IOException ignored) {
+            if (!testFinishedWithin(3000)) {
+              out.write("2,2\n".getBytes(StandardCharsets.UTF_8)); // too late for a 1 s timeout
+            }
+          } catch (IOException _) {
             // the client aborted, as expected
           }
         });
@@ -186,6 +195,7 @@ class UrlFetcherTest {
 
   @AfterEach
   void tearDown() {
+    stopped.countDown();
     server.stop(0);
     handlers.shutdownNow();
   }
@@ -224,16 +234,16 @@ class UrlFetcherTest {
 
   @Test
   void aRedirectStatusWithoutLocationIsAStatusError() {
-    var e =
-        assertThrows(
-            IllegalArgumentException.class, () -> open.fetch(URI.create(base + "/no-location")));
+    URI noLocation = url("/no-location");
+    var e = assertThrows(IllegalArgumentException.class, () -> open.fetch(noLocation));
     assertTrue(e.getMessage().startsWith("The URL returned HTTP 302;"), e.getMessage());
   }
 
   @ParameterizedTest
   @ValueSource(strings = {"/to-mailto", "/to-userinfo"})
   void aRedirectToANonHttpOrCredentialedLocationIsARedirectError(String path) {
-    var e = assertThrows(IllegalArgumentException.class, () -> open.fetch(URI.create(base + path)));
+    URI redirecting = url(path);
+    var e = assertThrows(IllegalArgumentException.class, () -> open.fetch(redirecting));
     assertEquals(UrlFetcher.INVALID_REDIRECT, e.getMessage());
   }
 
@@ -292,17 +302,15 @@ class UrlFetcherTest {
 
   @Test
   void rejectsAnUnsupportedCharset() {
-    var e =
-        assertThrows(
-            IllegalArgumentException.class, () -> open.fetch(URI.create(base + "/bad-charset")));
+    URI badCharset = url("/bad-charset");
+    var e = assertThrows(IllegalArgumentException.class, () -> open.fetch(badCharset));
     assertEquals(UrlFetcher.UNSUPPORTED_CHARSET, e.getMessage());
   }
 
   @Test
   void nonTwoHundredIsAnErrorBeforeAnyBodyIsExposed() {
-    var e =
-        assertThrows(
-            IllegalArgumentException.class, () -> open.fetch(URI.create(base + "/missing")));
+    URI missing = url("/missing");
+    var e = assertThrows(IllegalArgumentException.class, () -> open.fetch(missing));
     assertEquals(
         "The URL returned HTTP 404; nothing was indexed. "
             + "Check that it is public and points at a raw document, not a web page.",
@@ -318,26 +326,25 @@ class UrlFetcherTest {
   @Test
   void followsFiveRedirectsButNotSix() throws Exception {
     assertEquals(URI.create(base + "/shows.json"), fetched(open, base + "/chain5").finalUri());
-    var e =
-        assertThrows(
-            IllegalArgumentException.class, () -> open.fetch(URI.create(base + "/chain6")));
+    URI sixHops = url("/chain6");
+    var e = assertThrows(IllegalArgumentException.class, () -> open.fetch(sixHops));
     assertEquals(UrlFetcher.TOO_MANY_REDIRECTS, e.getMessage());
   }
 
   @Test
   void aRedirectLoopIsAnError() {
-    var e =
-        assertThrows(IllegalArgumentException.class, () -> open.fetch(URI.create(base + "/loop")));
+    URI loop = url("/loop");
+    var e = assertThrows(IllegalArgumentException.class, () -> open.fetch(loop));
     assertEquals(UrlFetcher.TOO_MANY_REDIRECTS, e.getMessage());
   }
 
   @Test
   void refusesAnHttpsToHttpDowngradeOnRedirect() {
+    URI secure = URI.create("https://a.invalid/x");
     var e =
         assertThrows(
             IllegalArgumentException.class,
-            () ->
-                UrlFetcher.redirectTarget(URI.create("https://a.invalid/x"), "http://a.invalid/y"));
+            () -> UrlFetcher.redirectTarget(secure, "http://a.invalid/y"));
     assertEquals(UrlFetcher.DOWNGRADE, e.getMessage());
     assertEquals(
         URI.create("https://a.invalid/y"),
@@ -346,9 +353,8 @@ class UrlFetcherTest {
 
   @Test
   void aRedirectToAMetadataAddressIsRefused() {
-    var e =
-        assertThrows(
-            IllegalArgumentException.class, () -> open.fetch(URI.create(base + "/to-metadata")));
+    URI toMetadata = url("/to-metadata");
+    var e = assertThrows(IllegalArgumentException.class, () -> open.fetch(toMetadata));
     assertEquals(UrlTargetPolicy.REFUSED_ADDRESS, e.getMessage());
   }
 
@@ -358,28 +364,23 @@ class UrlFetcherTest {
    */
   @Test
   void aRedirectToAHostOffTheAllowListIsRefusedBeforeDns() {
-    var e =
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> restricted.fetch(URI.create(base + "/to-invalid")));
+    URI toInvalid = url("/to-invalid");
+    var e = assertThrows(IllegalArgumentException.class, () -> restricted.fetch(toInvalid));
     assertEquals(UrlTargetPolicy.HOST_NOT_ALLOWED, e.getMessage());
   }
 
   @Test
   void aMalformedRedirectLocationIsAnError() {
-    var e =
-        assertThrows(
-            IllegalArgumentException.class, () -> open.fetch(URI.create(base + "/bad-location")));
+    URI badLocation = url("/bad-location");
+    var e = assertThrows(IllegalArgumentException.class, () -> open.fetch(badLocation));
     assertEquals(UrlFetcher.INVALID_REDIRECT, e.getMessage());
   }
 
   @Test
   void aMetadataAddressIsRefusedWithoutSendingARequest() {
     int before = requests.get();
-    var e =
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> open.fetch(URI.create("http://169.254.169.254/latest/meta-data/")));
+    URI metadata = URI.create("http://169.254.169.254/latest/meta-data/");
+    var e = assertThrows(IllegalArgumentException.class, () -> open.fetch(metadata));
     assertEquals(UrlTargetPolicy.REFUSED_ADDRESS, e.getMessage());
     assertEquals(before, requests.get());
   }
@@ -427,6 +428,11 @@ class UrlFetcherTest {
     assertNull(lastRequestHeaders.get("Cookie"));
   }
 
+  /** A URL on the test server. */
+  private URI url(String path) {
+    return URI.create(base + path);
+  }
+
   /** Fetches, reads the body to its end, and releases the connection. */
   private static UrlFetcher.FetchedBody fetched(UrlFetcher fetcher, String url) throws IOException {
     try (var fetched = fetcher.fetch(URI.create(url))) {
@@ -437,7 +443,7 @@ class UrlFetcherTest {
 
   private void respond(HttpExchange exchange, int status, String contentType, String body)
       throws IOException {
-    record(exchange);
+    recordRequest(exchange);
     byte[] bytes = body.getBytes(StandardCharsets.ISO_8859_1);
     if (contentType != null) {
       exchange.getResponseHeaders().add("Content-Type", contentType);
@@ -453,23 +459,34 @@ class UrlFetcherTest {
   }
 
   private void redirect(HttpExchange exchange, int status, String location) throws IOException {
-    record(exchange);
+    recordRequest(exchange);
     exchange.getResponseHeaders().add("Location", location);
     exchange.sendResponseHeaders(status, -1);
     exchange.close();
   }
 
-  private void record(HttpExchange exchange) {
+  private void recordRequest(HttpExchange exchange) {
     requests.incrementAndGet();
     lastRequestHeaders.clear();
-    exchange.getRequestHeaders().forEach((k, v) -> lastRequestHeaders.put(k, List.copyOf(v)));
+    exchange
+        .getRequestHeaders()
+        .forEach(
+            (headerName, headerValues) ->
+                lastRequestHeaders.put(headerName, List.copyOf(headerValues)));
   }
 
-  private static void sleep(long millis) {
+  /**
+   * Paces a handler like a slow host: waits up to {@code millis}, returning early once the test has
+   * finished.
+   *
+   * @return true once the test has finished, so the handler can stop writing
+   */
+  private boolean testFinishedWithin(long millis) {
     try {
-      Thread.sleep(millis);
-    } catch (InterruptedException e) {
+      return stopped.await(millis, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException _) {
       Thread.currentThread().interrupt();
+      return true;
     }
   }
 }

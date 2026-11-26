@@ -66,7 +66,7 @@ final class TransferStream extends FilterInputStream {
     try {
       n = super.read(buffer, offset, length);
     } catch (IOException e) {
-      throw record(e);
+      throw recordFailure(e);
     }
     if (n == -1) {
       ended = true;
@@ -74,7 +74,8 @@ final class TransferStream extends FilterInputStream {
       count += n;
     }
     if (System.nanoTime() - deadline > 0) {
-      throw record(new SocketTimeoutException("total timeout exceeded while reading the body"));
+      throw recordFailure(
+          new SocketTimeoutException("total timeout exceeded while reading the body"));
     }
     return n;
   }
@@ -129,7 +130,7 @@ final class TransferStream extends FilterInputStream {
     onClose.run();
   }
 
-  private IOException record(IOException e) {
+  private IOException recordFailure(IOException e) {
     if (failure == null) {
       failure = e;
     }

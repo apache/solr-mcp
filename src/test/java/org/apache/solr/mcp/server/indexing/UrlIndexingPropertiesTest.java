@@ -24,16 +24,15 @@ import org.junit.jupiter.api.Test;
 
 class UrlIndexingPropertiesTest {
 
+  private static final List<String> ANY_HOST = List.of("*");
+  private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
+  private static final Duration READ_TIMEOUT = Duration.ofSeconds(30);
+  private static final Duration TOTAL_TIMEOUT = Duration.ofMinutes(5);
+
   @Test
   void acceptsTheDefaults() {
     assertDoesNotThrow(
-        () ->
-            new UrlIndexingProperties(
-                List.of("*"),
-                Duration.ofSeconds(10),
-                Duration.ofSeconds(30),
-                Duration.ofMinutes(5),
-                4));
+        () -> new UrlIndexingProperties(ANY_HOST, CONNECT_TIMEOUT, READ_TIMEOUT, TOTAL_TIMEOUT, 4));
   }
 
   @Test
@@ -43,11 +42,7 @@ class UrlIndexingPropertiesTest {
             IllegalArgumentException.class,
             () ->
                 new UrlIndexingProperties(
-                    List.of("*"),
-                    Duration.ofSeconds(10),
-                    Duration.ofSeconds(30),
-                    Duration.ZERO,
-                    4));
+                    ANY_HOST, CONNECT_TIMEOUT, READ_TIMEOUT, Duration.ZERO, 4));
     assertEquals("solr.index-url.total-timeout must be positive", e.getMessage());
   }
 
@@ -58,11 +53,7 @@ class UrlIndexingPropertiesTest {
             IllegalArgumentException.class,
             () ->
                 new UrlIndexingProperties(
-                    List.of("*"),
-                    Duration.ofSeconds(10),
-                    Duration.ofSeconds(30),
-                    Duration.ofMinutes(5),
-                    0));
+                    ANY_HOST, CONNECT_TIMEOUT, READ_TIMEOUT, TOTAL_TIMEOUT, 0));
     assertEquals("solr.index-url.max-concurrent-fetches must be at least 1", e.getMessage());
   }
 }

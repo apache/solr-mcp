@@ -302,7 +302,7 @@ class UrlIndexingIntegrationTest {
     exchange.sendResponseHeaders(status, body.length);
     try (OutputStream out = exchange.getResponseBody()) {
       out.write(body);
-    } catch (IOException ignored) {
+    } catch (IOException _) {
       // the client may stop reading early
     }
   }

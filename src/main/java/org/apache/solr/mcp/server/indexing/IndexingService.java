@@ -115,6 +115,12 @@ public class IndexingService {
 
   private static final Logger logger = LoggerFactory.getLogger(IndexingService.class);
 
+  /** Solr's update handler, which parses a body by its content type. */
+  private static final String UPDATE_HANDLER = "/update";
+
+  /** Solr's JSON handler that reads every object as a document, never as an update command. */
+  private static final String JSON_DOCS_HANDLER = "/update/json/docs";
+
   /** SolrJ client for communicating with Solr server */
   private final SolrClient solrClient;
 
@@ -232,7 +238,7 @@ public class IndexingService {
       @McpToolParam(description = "Solr collection to index into") String collection,
       @McpToolParam(description = "CSV string containing documents to index") String csv)
       throws IOException, SolrServerException {
-    ContentStreamUpdateRequest request = new ContentStreamUpdateRequest("/update");
+    ContentStreamUpdateRequest request = new ContentStreamUpdateRequest(UPDATE_HANDLER);
     request.setParam("header", "true");
     request.addContentStream(new ContentStreamBase.StringStream(csv, "text/csv; charset=UTF-8"));
     return forward(collection, request, "CSV payload");
@@ -265,7 +271,7 @@ public class IndexingService {
       @McpToolParam(description = "Solr update XML: an <add> block of <doc> elements") String xml)
       throws IOException, SolrServerException {
     SolrUpdateXml.requireAddBlock(xml);
-    ContentStreamUpdateRequest request = new ContentStreamUpdateRequest("/update");
+    ContentStreamUpdateRequest request = new ContentStreamUpdateRequest(UPDATE_HANDLER);
     request.addContentStream(new ContentStreamBase.StringStream(xml, ClientUtils.TEXT_XML));
     return forward(collection, request, "XML <add> block");
   }
@@ -415,7 +421,7 @@ public class IndexingService {
   void sendUncommitted(String collection, String format, InputStream body, Charset charset)
       throws IOException, SolrServerException {
     InputStream content = body;
-    String path = "/update";
+    String handler = UPDATE_HANDLER;
     String mediaType;
     switch (format) {
       case "csv" -> mediaType = "text/csv";
@@ -424,12 +430,12 @@ public class IndexingService {
         mediaType = "application/xml";
       }
       case "json" -> {
-        path = "/update/json/docs";
+        handler = JSON_DOCS_HANDLER;
         mediaType = "application/json";
       }
       default -> throw new IllegalArgumentException("Unsupported streamed format: " + format);
     }
-    ContentStreamUpdateRequest request = new ContentStreamUpdateRequest(path);
+    ContentStreamUpdateRequest request = new ContentStreamUpdateRequest(handler);
     if ("csv".equals(format)) {
       request.setParam("header", "true");
     }
