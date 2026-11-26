@@ -449,7 +449,8 @@ class CollectionServiceTest {
   @Test
   void getCollectionStats_OtherSolrException_CarriesSolrsReason() throws Exception {
     RemoteSolrException serverError =
-        new RemoteSolrException("http://solr:8983/solr/test_collection", 500, "boom", null);
+        new RemoteSolrException(
+            "http://solr:8983/solr/test_collection", 500, Map.of("msg", "boom"));
     when(solrClient.request(any(LukeRequest.class), eq("test_collection"))).thenThrow(serverError);
 
     IllegalStateException exception =

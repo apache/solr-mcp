@@ -510,7 +510,9 @@ class IndexingServiceTest {
   @Test
   void indexXmlDocuments_WhenSolrRejectsThePayload_CarriesSolrsReason() throws Exception {
     when(solrClient.request(any(ContentStreamUpdateRequest.class), eq(COLLECTION)))
-        .thenThrow(BAD_REQUEST);
+        .thenThrow(
+            new RemoteSolrException(
+                "http://localhost:8983/solr", 400, Map.of("msg", "Bad doc", "code", 400)));
 
     IllegalArgumentException exception =
         assertThrows(

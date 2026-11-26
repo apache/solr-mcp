@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import org.apache.solr.client.solrj.RemoteSolrException;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.common.SolrException;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -50,6 +51,34 @@ class SolrCallsTest {
   private static final String HOST_NAME = "solr-node";
 
   private static final String UNDEFINED_FIELD = "undefined field bogus";
+
+  private static final String LIST_FIELDS_HINT = ". Hint: call list-fields.";
+
+  /** What {@code HttpSolrClientBase.checkContentType} writes before a non-JSON body. */
+  private static final String EXPECTED_JSON =
+      "Expected mime type in [application/json, text/plain] but got text/html. ";
+
+  /** Solr 9.9's body for a request to a collection that does not exist. */
+  private static final String SOLR_NOT_FOUND_PAGE =
+      "<p>Searching for Solr?<br/>You must type the correct path.<br/>Solr will respond.</p>";
+
+  /** Jetty's error page for a 401 from Solr's BasicAuth plugin. */
+  private static final String JETTY_401_PAGE =
+      """
+      <html>
+      <head>
+      <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+      <title>Error 401 Bad credentials</title>
+      </head>
+      <body><h2>HTTP ERROR 401 Bad credentials</h2>
+      <table>
+      <tr><th>URI:</th><td>/solr/admin/collections</td></tr>
+      <tr><th>STATUS:</th><td>401</td></tr>
+      <tr><th>MESSAGE:</th><td>Bad credentials</td></tr>
+      </table>
+      </body>
+      </html>
+      """;
 
   /** Throws {@code failure} from a Solr call and returns what the client would be told. */
   private static RuntimeException translated(Exception failure) {
@@ -77,7 +106,10 @@ class SolrCallsTest {
         .doesNotContain(SolrCalls.REMOTE_ERROR_PREFIX)
         .doesNotContain("http://")
         .doesNotContain("https://")
-        .doesNotContain(HOST_NAME);
+        .doesNotContain(HOST_NAME)
+        .doesNotContain("/solr/")
+        .doesNotContain("<html")
+        .doesNotContain("<p>");
     return thrown;
   }
 
@@ -111,16 +143,11 @@ class SolrCallsTest {
   }
 
   @Test
-  void notFoundReportsTheCallersText() {
-    // HttpSolrClientBase.checkContentType: Solr's 404 is an HTML page, not the JSON SolrJ expects.
+  void anHtmlNotFoundReportsTheCallersText() {
+    // HttpSolrClientBase.checkContentType: Solr 9.9 answers a missing collection with this HTML
+    // body, which SolrJ appends to its own text through the message constructor.
     final RemoteSolrException notFound =
-        new RemoteSolrException(
-            HOST,
-            404,
-            "Expected mime type in [application/json] but got text/html. <html><body>"
-                + HOST
-                + "</body></html>",
-            null);
+        new RemoteSolrException(HOST, 404, EXPECTED_JSON + SOLR_NOT_FOUND_PAGE, null);
 
     assertThat(translated(notFound))
         .isInstanceOf(IllegalArgumentException.class)
@@ -128,49 +155,91 @@ class SolrCallsTest {
   }
 
   @Test
-  void unauthorizedAndForbiddenSayAccessWasDenied() {
-    for (int statusCode : List.of(401, 403)) {
-      final RemoteSolrException denied =
-          new RemoteSolrException(HOST, statusCode, "non ok status: " + statusCode, null);
+  void anHtmlUnauthorizedPageSaysAccessWasDeniedWithoutThePage() {
+    // Jetty's error page for a 401, which names the request path.
+    final RemoteSolrException unauthorized =
+        new RemoteSolrException(HOST, 401, EXPECTED_JSON + JETTY_401_PAGE, null);
 
-      assertThat(translated(denied))
-          .isInstanceOf(IllegalStateException.class)
-          .hasMessage(OPERATION + ": " + SolrCalls.ACCESS_DENIED);
-    }
+    assertThat(translated(unauthorized))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage(OPERATION + ": " + SolrCalls.ACCESS_DENIED);
   }
 
   @Test
-  void aRefusalFromTheMessageConstructorCarriesSolrsReasonAndTheHint() {
+  void aForbiddenStatusWithoutABodySaysAccessWasDenied() {
+    // HttpSolrClientBase: a non-OK status with no response parser or content type.
+    final RemoteSolrException forbidden =
+        new RemoteSolrException(HOST, 403, "non ok status: 403, message:Forbidden", null);
+
+    assertThat(translated(forbidden))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage(OPERATION + ": " + SolrCalls.ACCESS_DENIED);
+  }
+
+  @Test
+  void aRefusalSolrJWroteItselfGetsTheFixedStatusTextAndTheHint() {
+    final List<String> seen = new ArrayList<>();
+    final SolrCalls.ReasonHint hint =
+        (statusCode, reason) -> {
+          seen.add(statusCode + "[" + reason + "]");
+          return LIST_FIELDS_HINT;
+        };
+    for (String solrJText :
+        List.of(
+            EXPECTED_JSON + "<html><body><h2>HTTP ERROR 400</h2>URI: /solr/books/select</body>",
+            // HttpSolrClientBase: a non-200 JSON response without an error object.
+            "Bad Request\nrequest: GET")) {
+      final RemoteSolrException refused = new RemoteSolrException(HOST, 400, solrJText, null);
+
+      final RuntimeException thrown = translated(refused, hint);
+
+      assertThat(thrown)
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessage(OPERATION + ": " + SolrCalls.STATUS_ERROR.formatted(400) + LIST_FIELDS_HINT);
+      assertThat(thrown.getMessage()).doesNotContain("<").doesNotContain("/solr/");
+    }
+    assertThat(seen).containsExactly("400[]", "400[]");
+  }
+
+  @Test
+  void anHtmlServerErrorGetsTheFixedStatusTextWithoutThePage() {
+    final RemoteSolrException failed =
+        new RemoteSolrException(
+            HOST, 503, EXPECTED_JSON + "<html><body>URI: /solr/books/update</body></html>", null);
+
+    assertThat(translated(failed))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage(
+            OPERATION + ": " + SolrCalls.STATUS_ERROR.formatted(503) + SolrCalls.SERVER_ERROR_HINT);
+  }
+
+  @Test
+  void aSolrExceptionThatSolrDidNotSendGetsTheFixedStatusText() {
+    final SolrException clientSide =
+        new SolrException(SolrException.ErrorCode.BAD_REQUEST, UNDEFINED_FIELD + " " + HOST);
+
+    assertThat(translated(clientSide))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage(OPERATION + ": " + SolrCalls.STATUS_ERROR.formatted(400));
+  }
+
+  @Test
+  void aRefusalFromSolrsErrorObjectCarriesSolrsReasonAndTheHint() {
+    // HttpSolrClientBase: a non-200 response whose body has an "error" object.
     final List<String> seen = new ArrayList<>();
     final SolrCalls.ReasonHint hint =
         (statusCode, reason) -> {
           seen.add(statusCode + " " + reason);
-          return ". Hint: call list-fields.";
+          return LIST_FIELDS_HINT;
         };
-
-    final RuntimeException thrown =
-        translated(new RemoteSolrException(HOST, 400, UNDEFINED_FIELD, null), hint);
-
-    assertThat(thrown)
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessage(
-            OPERATION
-                + ": "
-                + SolrCalls.SOLR_REASON_LEAD
-                + UNDEFINED_FIELD
-                + ". Hint: call list-fields.");
-    assertThat(seen).containsExactly("400 " + UNDEFINED_FIELD);
-  }
-
-  @Test
-  void aRefusalFromSolrsErrorObjectCarriesSolrsReason() {
-    // HttpSolrClientBase: a non-200 response whose body has an "error" object.
     final RemoteSolrException refused =
         new RemoteSolrException(HOST, 400, Map.of("msg", UNDEFINED_FIELD, "code", 400));
 
-    assertThat(translated(refused))
+    assertThat(translated(refused, hint))
         .isInstanceOf(IllegalArgumentException.class)
-        .hasMessage(OPERATION + ": " + SolrCalls.SOLR_REASON_LEAD + UNDEFINED_FIELD);
+        .hasMessage(
+            OPERATION + ": " + SolrCalls.SOLR_REASON_LEAD + UNDEFINED_FIELD + LIST_FIELDS_HINT);
+    assertThat(seen).containsExactly("400 " + UNDEFINED_FIELD);
   }
 
   @Test
@@ -189,11 +258,12 @@ class SolrCallsTest {
   }
 
   @Test
-  void anErrorObjectWithoutAMessageSaysSolrGaveNoReason() {
+  void anErrorObjectWithoutAMessageGetsTheFixedStatusText() {
     // RemoteSolrException keeps no suffix, so its message is "Error from server at <host>" alone.
     final RemoteSolrException refused = new RemoteSolrException(HOST, 400, Map.of("code", 400));
 
-    assertThat(translated(refused)).hasMessage(OPERATION + ": " + SolrCalls.NO_REASON);
+    assertThat(translated(refused))
+        .hasMessage(OPERATION + ": " + SolrCalls.STATUS_ERROR.formatted(400));
   }
 
   @Test
@@ -203,10 +273,11 @@ class SolrCallsTest {
         new RemoteSolrException(
             HOST,
             500,
-            "org.apache.solr.client.solrj.RemoteSolrException: Error from server at "
-                + OTHER_NODE
-                + ": Server error writing document",
-            null);
+            Map.of(
+                "msg",
+                "org.apache.solr.client.solrj.RemoteSolrException: Error from server at "
+                    + OTHER_NODE
+                    + ": Server error writing document"));
 
     assertThat(translated(failed))
         .isInstanceOf(IllegalStateException.class)
@@ -239,7 +310,9 @@ class SolrCallsTest {
   void anyOtherUrlInSolrsReasonIsReplaced() {
     final RemoteSolrException refused =
         new RemoteSolrException(
-            HOST, 400, "Could not fetch https://configs.internal/managed-schema.xml now", null);
+            HOST,
+            400,
+            Map.of("msg", "Could not fetch https://configs.internal/managed-schema.xml now"));
 
     assertThat(translated(refused).getMessage())
         .endsWith(SolrCalls.SOLR_REASON_LEAD + "Could not fetch <url> now");

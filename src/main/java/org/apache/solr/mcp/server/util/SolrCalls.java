@@ -21,6 +21,7 @@ import java.net.SocketTimeoutException;
 import java.net.http.HttpTimeoutException;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import org.apache.solr.client.solrj.RemoteSolrException;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrException;
 import org.jspecify.annotations.Nullable;
@@ -49,15 +50,21 @@ import org.slf4j.LoggerFactory;
  *       <td>{@link IllegalArgumentException}</td></tr>
  *   <tr><td>{@link SolrException} 401 or 403</td><td>{@link #ACCESS_DENIED}</td>
  *       <td>{@link IllegalStateException}</td></tr>
- *   <tr><td>other {@link SolrException} 4xx</td><td>Solr's reason, then the caller's hint</td>
+ *   <tr><td>other {@link SolrException} 4xx</td><td>Solr's reason, or {@link #STATUS_ERROR}
+ *       when there is none to pass on; then the caller's hint</td>
  *       <td>{@link IllegalArgumentException}</td></tr>
- *   <tr><td>other {@link SolrException}</td><td>Solr's reason, then {@link #SERVER_ERROR_HINT}</td>
- *       <td>{@link IllegalStateException}</td></tr>
+ *   <tr><td>other {@link SolrException}</td><td>Solr's reason, or {@link #STATUS_ERROR}; then
+ *       {@link #SERVER_ERROR_HINT}</td><td>{@link IllegalStateException}</td></tr>
  *   <tr><td>{@link SolrServerException} or {@link IOException} caused by a timeout</td>
  *       <td>{@link #TIMED_OUT}</td><td>{@link IllegalStateException}</td></tr>
  *   <tr><td>any other {@link SolrServerException} or {@link IOException}</td>
  *       <td>{@link #UNREACHABLE}</td><td>{@link IllegalStateException}</td></tr>
  * </table>
+ *
+ * <p>Solr's reason is passed on only when SolrJ built the exception from the {@code error} object
+ * of Solr's JSON response (see {@link #reason}). Every other message SolrJ writes, such as {@code
+ * "Expected mime type ... but got text/html. "} followed by the body of an HTML error page, which
+ * can name the request path, gets the fixed text for its status instead.
  *
  * <p>The two exception types are the standard ones (Effective Java, 3rd ed., Item 72): {@code
  * IllegalArgumentException} when Solr refused the request because of something in it, so the client
@@ -69,17 +76,16 @@ public final class SolrCalls {
   private static final Logger logger = LoggerFactory.getLogger(SolrCalls.class);
 
   /**
-   * Opens every message SolrJ 10's {@code RemoteSolrException} builds. Both of its constructors
-   * write {@code "Error from server at " + remoteHost}; the one that takes a message follows it
-   * with {@code ": " + msg}, the one that takes Solr's error object with {@code ": "} and the
-   * error's class and message, or with nothing when the error carries neither.
+   * Opens every message SolrJ 10's {@code RemoteSolrException} builds: both of its constructors
+   * write {@code "Error from server at " + remoteHost}. Solr's reason can quote another node's such
+   * message, when a node it forwarded the request to failed.
    */
   static final String REMOTE_ERROR_PREFIX = "Error from server at ";
 
   /**
-   * Separates {@code remoteHost} from the text that follows it. The host is a request URL, which
-   * cannot hold a literal space, so the first occurrence after {@link #REMOTE_ERROR_PREFIX} is the
-   * end of the host.
+   * Separates {@code remoteHost} from the text that follows it, and Solr's reason from the
+   * remote-host part of the message. The host is a request URL, which cannot hold a literal space,
+   * so the first occurrence after {@link #REMOTE_ERROR_PREFIX} is the end of the host.
    */
   private static final String REMOTE_HOST_SEPARATOR = ": ";
 
@@ -95,8 +101,14 @@ public final class SolrCalls {
   /** Leads Solr's own reason for a failed request. */
   static final String SOLR_REASON_LEAD = "Solr returned an error: ";
 
-  /** Stands in for Solr's reason when the error carries none. */
-  static final String NO_REASON = "Solr returned an error without a reason";
+  /**
+   * Error text, formatted with the HTTP status, for a Solr error whose reason is not passed on: one
+   * SolrJ wrote itself rather than read from Solr's {@code error} object, or one with no reason.
+   */
+  static final String STATUS_ERROR = "Solr returned an error (HTTP %d)";
+
+  /** Error text for a Solr error with no HTTP status, which SolrJ reports as code 0. */
+  static final String UNKNOWN_STATUS_ERROR = "Solr returned an error";
 
   /** Remediation hint naming the {@code list-collections} tool. */
   public static final String LIST_COLLECTIONS_HINT =
@@ -245,7 +257,8 @@ public final class SolrCalls {
       return new IllegalStateException(lead + ACCESS_DENIED);
     }
     final String reason = reason(solrFailure);
-    final String reasonText = reason.isEmpty() ? NO_REASON : SOLR_REASON_LEAD + reason;
+    final String reasonText =
+        reason.isEmpty() ? statusError(statusCode) : SOLR_REASON_LEAD + reason;
     if (statusCode >= FIRST_CLIENT_ERROR && statusCode <= LAST_CLIENT_ERROR) {
       return new IllegalArgumentException(lead + reasonText + hint.hintFor(statusCode, reason));
     }
@@ -253,20 +266,49 @@ public final class SolrCalls {
   }
 
   /**
-   * Solr's reason for {@code failure}: its message without SolrJ's {@code Error from server at
-   * <host>: } wording, wherever it occurs, and with any other URL replaced.
+   * Solr's reason for {@code failure}, or an empty string when there is none to pass on.
    *
-   * <p>A request that one Solr node forwards to another can fail with the second node's {@code
-   * RemoteSolrException} text inside the first one's reason, so every occurrence is removed, not
-   * only the leading one.
+   * <p>Only a {@code RemoteSolrException} that SolrJ built from Solr's parsed {@code error} object
+   * carries a reason Solr wrote. In SolrJ 10.0.0 only the constructors that take that object call
+   * {@code setDetails}, so {@code getRemoteErrorObject()} is non-null for them and null for the
+   * constructor that takes a message, which SolrJ uses for the text it writes itself: an HTML error
+   * page body, {@code "non ok status: ..."}, or the HTTP reason phrase and request method. For the
+   * former, {@code getMessage()} is {@code getResponseMessage()} ({@code "Error from server at " +
+   * remoteHost}) followed by {@code ": "} and the error's class and message, so the reason is
+   * exactly what follows the response message. Any other {@code SolrException}, such as one SolrJ
+   * raises before sending a request, carries no reason Solr wrote.
+   *
+   * <p>A node that forwarded the request to another can quote that node's {@code
+   * RemoteSolrException} text in its reason, so every {@code Error from server at <host>: } in the
+   * reason is removed as well, and any other URL is replaced.
    *
    * @param failure the Solr failure
-   * @return the reason, stripped; empty when Solr gave none
+   * @return Solr's reason, stripped; empty when there is none to pass on
    */
   static String reason(SolrException failure) {
-    final String message = Objects.requireNonNullElse(failure.getMessage(), "");
-    final String withoutRemoteHosts = withoutRemoteHosts(message);
-    return URL.matcher(withoutRemoteHosts).replaceAll(URL_REPLACEMENT).strip();
+    if (!(failure instanceof RemoteSolrException remote) || remote.getRemoteErrorObject() == null) {
+      return "";
+    }
+    final String message = Objects.requireNonNullElse(remote.getMessage(), "");
+    final String responseMessage = Objects.requireNonNullElse(remote.getResponseMessage(), "");
+    if (!message.startsWith(responseMessage)) {
+      return "";
+    }
+    String suffix = message.substring(responseMessage.length());
+    if (suffix.startsWith(REMOTE_HOST_SEPARATOR)) {
+      suffix = suffix.substring(REMOTE_HOST_SEPARATOR.length());
+    }
+    return URL.matcher(withoutRemoteHosts(suffix)).replaceAll(URL_REPLACEMENT).strip();
+  }
+
+  /**
+   * The fixed text for a Solr error whose reason is not passed on.
+   *
+   * @param statusCode the HTTP status, or 0 when SolrJ knows none
+   * @return the text, naming the status when there is one
+   */
+  private static String statusError(int statusCode) {
+    return statusCode > 0 ? STATUS_ERROR.formatted(statusCode) : UNKNOWN_STATUS_ERROR;
   }
 
   /**

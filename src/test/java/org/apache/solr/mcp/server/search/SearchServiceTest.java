@@ -279,7 +279,9 @@ class SearchServiceTest {
       SearchService localService =
           serviceThrowing(
               new RemoteSolrException(
-                  SOLR_HOST, statusCode, "Could not read https://internal-solr/x.xml", null));
+                  SOLR_HOST,
+                  statusCode,
+                  Map.of("msg", "Could not read https://internal-solr/x.xml")));
       Exception e =
           assertThrows(
               Exception.class,
@@ -351,7 +353,7 @@ class SearchServiceTest {
     SearchService localService =
         serviceThrowing(
             new RemoteSolrException(
-                SOLR_HOST, 400, "sort param field can't be found: bogus", null));
+                SOLR_HOST, 400, Map.of("msg", "sort param field can't be found: bogus")));
     List<SortClause> sort = List.of(new SortClause("bogus", "asc"));
     IllegalArgumentException e =
         assertThrows(
@@ -368,7 +370,9 @@ class SearchServiceTest {
     SearchService localService =
         serviceThrowing(
             new RemoteSolrException(
-                SOLR_HOST, 400, "org.apache.solr.search.SyntaxError: Cannot parse 'name:('", null));
+                SOLR_HOST,
+                400,
+                Map.of("msg", "org.apache.solr.search.SyntaxError: Cannot parse 'name:('")));
     IllegalArgumentException e =
         assertThrows(
             IllegalArgumentException.class,
@@ -404,7 +408,8 @@ class SearchServiceTest {
   @Test
   void search_WithOtherBadRequest_ShouldSuggestCheckingTheParameters() throws Exception {
     SearchService localService =
-        serviceThrowing(new RemoteSolrException(SOLR_HOST, 400, "rows must be >= 0", null));
+        serviceThrowing(
+            new RemoteSolrException(SOLR_HOST, 400, Map.of("msg", "rows must be >= 0")));
     IllegalArgumentException e =
         assertThrows(
             IllegalArgumentException.class,
@@ -414,11 +419,31 @@ class SearchServiceTest {
     assertNull(e.getCause(), "MCP must not unwrap a raw Solr failure");
   }
 
+  /** An HTML error body that SolrJ appended to its own text is never passed on. */
+  @Test
+  void search_WithHtmlErrorPage_ShouldReportTheStatusWithoutThePage() throws Exception {
+    SearchService localService =
+        serviceThrowing(
+            new RemoteSolrException(
+                SOLR_HOST,
+                400,
+                "Expected mime type in [application/json, text/plain] but got text/html."
+                    + " <html><body>URI: /solr/test_collection/select</body></html>",
+                null));
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> localService.search("test_collection", null, null, null, null, null, null));
+    assertTrue(e.getMessage().contains("HTTP 400"), e::getMessage);
+    assertTrue(e.getMessage().endsWith(SearchService.BAD_REQUEST_HINT), e::getMessage);
+    assertFalse(e.getMessage().contains("<html>"), e::getMessage);
+    assertFalse(e.getMessage().contains("/solr/"), e::getMessage);
+  }
+
   @Test
   void search_WithServerError_ShouldCarrySolrsReasonAndAskForTheOperator() throws Exception {
     SearchService localService =
-        serviceThrowing(
-            new SolrException(SolrException.ErrorCode.SERVER_ERROR, "internal failure"));
+        serviceThrowing(new RemoteSolrException(SOLR_HOST, 500, Map.of("msg", "internal failure")));
     IllegalStateException e =
         assertThrows(
             IllegalStateException.class,

@@ -130,7 +130,7 @@ Every tool, resource, prompt and completion accepts and returns types the server
 - **Solr calls** in a tool go through `util/SolrCalls.call(operation, notFound, call)`, which runs the call and translates SolrJ's failures (design D9 of `typed-mcp-contracts`). The error text is `operation` followed by:
   - a 404: the caller's `notFound` text, usually `SolrCalls.collectionNotFound(collection)`, which names `list-collections` (`SolrCalls.ADMIN_API_NOT_FOUND` for tools that name no collection);
   - a 401 or 403: that Solr denied access;
-  - any other `SolrException`: Solr's reason, after its `Error from server at <host>: ` prefix is removed wherever it occurs and any other URL is replaced, then the caller's `ReasonHint` for a 4xx or an operator hint otherwise;
+  - any other `SolrException`: Solr's reason, then the caller's `ReasonHint` for a 4xx or an operator hint otherwise. The reason is passed on only from a `RemoteSolrException` that SolrJ built from the `error` object of Solr's JSON response (`getRemoteErrorObject() != null`): it is what follows `getResponseMessage()` in `getMessage()`, with every quoted `Error from server at <host>: ` removed and any other URL replaced. Every other message, such as SolrJ's `Expected mime type ... but got text/html.` followed by an HTML error page that names the request path, gets the fixed `Solr returned an error (HTTP <code>)` instead;
   - a timeout (`HttpTimeoutException` in the cause chain): that Solr did not answer in time;
   - any other `SolrServerException` or `IOException`: that Solr could not be reached.
 
