@@ -253,6 +253,8 @@ public class SchemaService {
       description =
           "Get the full schema definition of a Solr collection: field types with their "
               + "analyzers, declared fields, dynamic-field patterns (such as *_s) and copy fields. "
+              + "A property a field does not declare is inherited from its field type; check that "
+              + "type in fieldTypes. "
               + "Use this before add-fields or add-field-types to see what is already defined. "
               + "It does not say which fields hold data or which dynamic fields are in use; to "
               + "choose fields for search, call list-fields instead.")
@@ -414,8 +416,10 @@ public class SchemaService {
               + "Each field type has the shape get-schema reports: required 'name' and 'className', "
               + "optional 'analyzer' (or 'indexAnalyzer'+'queryAnalyzer'), optional booleans such "
               + "as 'docValues', and class-specific settings as string 'parameters'. An analyzer "
-              + "has a 'tokenizer' and 'filters'; each component has 'name' (Solr's short name) or "
-              + "'className', plus its own string 'parameters'. "
+              + "has optional 'charFilters', a 'tokenizer' and 'filters', or is a single class "
+              + "such as {\"className\":\"solr.WhitespaceAnalyzer\"}; it may have its own string "
+              + "'parameters' too. Each component has 'name' (Solr's short name) or 'className', "
+              + "plus its own string 'parameters'. "
               + "Common recipes: "
               + "(1) case-insensitive exact match: className=solr.TextField with analyzer "
               + "{tokenizer:{className:solr.KeywordTokenizerFactory}, filters:[{className:solr.LowerCaseFilterFactory}]}; "
@@ -444,8 +448,8 @@ public class SchemaService {
     return new SchemaUpdateResult(collection, names);
   }
 
-  private static String requireName(@Nullable String name, String kind) {
-    if (name == null || name.isBlank()) {
+  private static String requireName(String name, String kind) {
+    if (name.isBlank()) {
       throw new IllegalArgumentException(
           "Each " + kind + " definition requires a non-empty 'name'; got: " + name);
     }
@@ -534,9 +538,11 @@ public class SchemaService {
 				   - Total field count.
 				   - Group fields by type (e.g. how many `text_general`, `string`, `strings`, `pint`,
 				     `pdouble`, `pdate`, etc.).
+				   - A property a field does not declare is inherited from its field type; check that
+				     type in `fieldTypes`.
 				   - Flag which fields are `indexed=true` (searchable / filterable), `stored=true`
 				     (retrievable in responses), `docValues=true` (sortable / facetable / range-
-				     filterable), and `multiValued=true`.
+				     filterable), and `multiValued=true`, counting the properties they inherit.
 				   - Call out the `uniqueKey` field — this is the primary identifier.
 
 				3. Summarize dynamic fields and copy fields.

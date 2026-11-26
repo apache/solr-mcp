@@ -71,14 +71,12 @@ public record IndexedField(
 
   /** One field from Luke's per-field map. */
   private static IndexedField fromLuke(String name, Map<?, ?> field) {
-    EnumSet<FieldProperty> flags =
-        field.get("schema") instanceof String letters
-            ? FieldProperty.fromLukeLetters(letters)
-            : null;
     return new IndexedField(
         name,
         field.get("type") instanceof String type ? type : null,
-        flags != null ? flags : EnumSet.noneOf(FieldProperty.class),
+        field.get("schema") instanceof String letters
+            ? FieldProperty.fromLukeLetters(letters)
+            : EnumSet.noneOf(FieldProperty.class),
         field.get("dynamicBase") instanceof String base ? base : null,
         field.get("docs") instanceof Number docs ? docs.longValue() : null);
   }

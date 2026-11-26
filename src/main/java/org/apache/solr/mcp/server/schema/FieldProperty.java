@@ -18,7 +18,8 @@ package org.apache.solr.mcp.server.schema;
 
 import java.util.EnumSet;
 import org.apache.solr.common.luke.FieldFlag;
-import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A field property in effect for an indexed field, as {@code list-fields} reports it.
@@ -52,6 +53,8 @@ public enum FieldProperty {
   sortMissingFirst,
   sortMissingLast;
 
+  private static final Logger logger = LoggerFactory.getLogger(FieldProperty.class);
+
   /** The property for one of SolrJ's Luke flags. */
   static FieldProperty of(FieldFlag flag) {
     return switch (flag) {
@@ -78,11 +81,12 @@ public enum FieldProperty {
 
   /**
    * Decodes Luke's per-field flag string, such as {@code I-S-M---OF-----l}, where {@code -} marks
-   * an absent flag.
+   * an absent flag. A letter SolrJ does not know, such as one a later Solr version adds, is
+   * skipped, so the known properties are still reported.
    *
-   * @return the properties, or {@code null} when a letter is not one SolrJ knows
+   * @return the properties; empty when no letter is known
    */
-  static @Nullable EnumSet<FieldProperty> fromLukeLetters(String letters) {
+  static EnumSet<FieldProperty> fromLukeLetters(String letters) {
     EnumSet<FieldProperty> properties = EnumSet.noneOf(FieldProperty.class);
     for (char letter : letters.toCharArray()) {
       if (letter == '-') {
@@ -90,9 +94,10 @@ public enum FieldProperty {
       }
       FieldFlag flag = FieldFlag.getFlag(letter);
       if (flag == null) {
-        return null;
+        logger.debug("Skipping unknown Luke flag letter '{}' in '{}'", letter, letters);
+      } else {
+        properties.add(of(flag));
       }
-      properties.add(of(flag));
     }
     return properties;
   }

@@ -18,13 +18,16 @@ package org.apache.solr.mcp.server.schema;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.lang.reflect.RecordComponent;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -123,9 +126,9 @@ class SchemaServiceTest {
   @ValueSource(classes = {CollectionSchema.Field.class, CollectionSchema.FieldType.class})
   void schemaPropertiesMatchTheRecordsBooleanComponents(Class<? extends Record> record) {
     List<String> booleans =
-        java.util.Arrays.stream(record.getRecordComponents())
+        Arrays.stream(record.getRecordComponents())
             .filter(component -> component.getType() == Boolean.class)
-            .map(java.lang.reflect.RecordComponent::getName)
+            .map(RecordComponent::getName)
             .toList();
 
     assertEquals(CollectionSchema.SCHEMA_PROPERTIES, booleans);
@@ -299,6 +302,25 @@ class SchemaServiceTest {
     ArgumentCaptor<SolrRequest> captor = ArgumentCaptor.forClass(SolrRequest.class);
     verify(solrClient).request(captor.capture(), eq("col"));
     assertInstanceOf(MultiUpdate.class, captor.getValue());
+  }
+
+  @Test
+  void addFields_defaultIsNamedDefaultInTheContractAndTheSchemaApiRequest() throws Exception {
+    List<CollectionSchema.Field> fields =
+        fields(Map.of("name", "status", "type", "string", "default", "active"));
+    when(solrClient.request(any(SolrRequest.class), eq("col"))).thenReturn(new NamedList<>());
+
+    CollectionSchema.Field status = fields.getFirst();
+    assertEquals("active", status.defaultValue());
+    String json = jsonMapper.writeValueAsString(status);
+    assertTrue(json.contains("\"default\":\"active\""), json);
+    assertFalse(json.contains("defaultValue"), json);
+
+    schemaService.addFields("col", fields);
+
+    String body = capturedBody();
+    assertTrue(body.contains("\"default\":\"active\""), body);
+    assertFalse(body.contains("defaultValue"), body);
   }
 
   @Test
@@ -582,8 +604,8 @@ class SchemaServiceTest {
   }
 
   @Test
-  void listFields_unknownFlagLetterYieldsNoFlagsAndNoLetters() throws Exception {
-    // A letter a later Solr version adds must not throw or yield a partial flag set, and Luke's
+  void listFields_unknownFlagLetterIsSkippedAndTheKnownFlagsKept() throws Exception {
+    // A letter a later Solr version adds must not throw or hide the flags SolrJ knows, and Luke's
     // letter encoding is not part of the contract.
     NamedList<Object> future = new SimpleOrderedMap<>();
     future.add("type", "string");
@@ -596,8 +618,10 @@ class SchemaServiceTest {
 
     IndexedField field = schemaService.listFields(COLLECTION).getFirst();
 
-    assertEquals(Set.of(), field.flags());
-    assertFalse(jsonMapper.writeValueAsString(field).contains("I-S"));
+    assertEquals(Set.of(FieldProperty.indexed, FieldProperty.stored), field.flags());
+    String json = jsonMapper.writeValueAsString(field);
+    assertFalse(json.contains("I-S"), json);
+    assertFalse(json.contains("\"Z\""), json);
   }
 
   @Test
@@ -633,8 +657,8 @@ class SchemaServiceTest {
   private String capturedBody() throws Exception {
     ArgumentCaptor<SolrRequest> captor = ArgumentCaptor.forClass(SolrRequest.class);
     verify(solrClient).request(captor.capture(), eq("col"));
-    java.io.ByteArrayOutputStream body = new java.io.ByteArrayOutputStream();
+    ByteArrayOutputStream body = new ByteArrayOutputStream();
     captor.getValue().getContentWriter("application/json").write(body);
-    return body.toString(java.nio.charset.StandardCharsets.UTF_8);
+    return body.toString(StandardCharsets.UTF_8);
   }
 }

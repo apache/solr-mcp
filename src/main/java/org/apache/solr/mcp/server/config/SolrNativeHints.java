@@ -125,8 +125,10 @@ class SolrNativeHints implements RuntimeHintsRegistrar {
             "org.springframework.ai.mcp.annotation.context.DefaultMetaProvider",
             categories);
 
-    // SolrJ schema request types (needed for Jackson's convertValue in native
-    // image when add-field-types deserializes analyzer trees)
+    // SolrJ schema request types. No current path reaches them reflectively:
+    // add-field-types builds both with setters, and SolrJ reads them back through
+    // getters into NamedLists before Utils.writeJson. They are kept so that a
+    // definition serialized or logged reflectively still works in native image.
     hints
         .reflection()
         .registerType(

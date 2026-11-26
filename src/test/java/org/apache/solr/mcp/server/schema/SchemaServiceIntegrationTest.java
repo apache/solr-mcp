@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
@@ -56,6 +57,13 @@ class SchemaServiceIntegrationTest {
   @Autowired private JsonMapper jsonMapper;
 
   private static final String TEST_COLLECTION = "schema_test_collection";
+
+  /**
+   * A collection with its own copy of {@code _default}. TEST_COLLECTION shares {@code _default}
+   * with other test classes, so a field default added there would fill their documents too.
+   */
+  private static final String OWN_CONFIGSET_COLLECTION = "schema_own_configset_collection";
+
   private static boolean initialized = false;
 
   @BeforeEach
@@ -178,8 +186,9 @@ class SchemaServiceIntegrationTest {
   @Test
   void getSchema_reportsEveryDeclaredPropertyOfTheSchemaApiResponse() throws Exception {
     // For every field, dynamic field and field type, each schema property Solr declares must come
-    // through with the same value, and an undeclared one must stay absent. Attributes outside the
-    // contract are dropped on purpose, so only the contract's own properties are compared.
+    // through with the same value, and an undeclared one must stay absent. A field keeps its type,
+    // a field type its class as className and every other scalar attribute in parameters. Other
+    // attributes outside the contract are dropped on purpose and not compared.
     NamedList<Object> raw = solrClient.request(new SchemaRequest(), TEST_COLLECTION);
     TypeReference<Map<String, Object>> asMap = new TypeReference<>() {};
     Map<String, Object> solr =
@@ -195,16 +204,36 @@ class SchemaServiceIntegrationTest {
       for (int i = 0; i < fromSolr.size(); i++) {
         Map<?, ?> expected = (Map<?, ?>) fromSolr.get(i);
         Map<?, ?> actual = (Map<?, ?>) fromTool.get(i);
+        String where = section + " " + expected.get("name");
         assertEquals(expected.get("name"), actual.get("name"), section);
         for (String property : CollectionSchema.SCHEMA_PROPERTIES) {
-          assertEquals(
-              expected.get(property),
-              actual.get(property),
-              () -> section + " " + expected.get("name") + "." + property);
+          assertEquals(expected.get(property), actual.get(property), where + "." + property);
+        }
+        if ("fieldTypes".equals(section)) {
+          assertEquals(expected.get("class"), actual.get("className"), where);
+          assertScalarAttributesAreParameters(expected, actual, where);
+        } else {
+          assertEquals(expected.get("type"), actual.get("type"), where);
         }
       }
     }
     assertEquals(solr.get("uniqueKey"), tool.get("uniqueKey"));
+  }
+
+  /** Each scalar attribute of a Solr field type that the contract does not name is a parameter. */
+  private static void assertScalarAttributesAreParameters(
+      Map<?, ?> solrType, Map<?, ?> toolType, String where) {
+    Set<String> named = Set.of("name", "class");
+    Map<?, ?> parameters = (Map<?, ?>) toolType.get("parameters");
+    for (Map.Entry<?, ?> attribute : solrType.entrySet()) {
+      Object key = attribute.getKey();
+      Object value = attribute.getValue();
+      boolean scalar =
+          value instanceof String || value instanceof Number || value instanceof Boolean;
+      if (scalar && !named.contains(key) && !CollectionSchema.SCHEMA_PROPERTIES.contains(key)) {
+        assertEquals(String.valueOf(value), parameters.get(key), where + "." + key);
+      }
+    }
   }
 
   @Test
@@ -212,8 +241,7 @@ class SchemaServiceIntegrationTest {
     CollectionSchema schema = schemaService.getSchema(TEST_COLLECTION);
 
     CollectionSchema.Field id = field(schema, "id");
-    CollectionSchema.Field root =
-        schema.fields().stream().filter(f -> "_root_".equals(f.name())).findFirst().orElseThrow();
+    CollectionSchema.Field root = field(schema, "_root_");
     CollectionSchema.FieldType strings = fieldType(schema, "strings");
 
     // _default declares id indexed and stored, _root_ indexed but stored=false
@@ -292,26 +320,44 @@ class SchemaServiceIntegrationTest {
     assertEquals(List.of("addf_title", "addf_platform", "addf_year"), result.addedNames());
 
     CollectionSchema schema = schemaService.getSchema(TEST_COLLECTION);
-    CollectionSchema.Field title =
-        schema.fields().stream()
-            .filter(f -> "addf_title".equals(f.name()))
-            .findFirst()
-            .orElseThrow();
-    CollectionSchema.Field platform =
-        schema.fields().stream()
-            .filter(f -> "addf_platform".equals(f.name()))
-            .findFirst()
-            .orElseThrow();
-    CollectionSchema.Field year =
-        schema.fields().stream()
-            .filter(f -> "addf_year".equals(f.name()))
-            .findFirst()
-            .orElseThrow();
+    CollectionSchema.Field title = field(schema, "addf_title");
+    CollectionSchema.Field platform = field(schema, "addf_platform");
+    CollectionSchema.Field year = field(schema, "addf_year");
 
     assertEquals("text_general", title.type());
     assertEquals("string", platform.type());
     assertEquals(true, platform.docValues(), platform::toString);
     assertEquals("pint", year.type());
+  }
+
+  @Test
+  void addFields_declaresOnlyThePropertiesTheClientSent() throws Exception {
+    SchemaUpdateResult result =
+        schemaService.addFields(
+            TEST_COLLECTION,
+            fields(Map.of("name", "year_contract", "type", "pint", "docValues", true)));
+
+    assertEquals(new SchemaUpdateResult(TEST_COLLECTION, List.of("year_contract")), result);
+    CollectionSchema.Field year = field(schemaService.getSchema(TEST_COLLECTION), "year_contract");
+    assertEquals(true, year.docValues(), year::toString);
+    assertNull(year.indexed(), "indexed is inherited from pint, not declared: " + year);
+    assertNull(year.stored(), "stored is inherited from pint, not declared: " + year);
+    assertEquals(
+        "{\"name\":\"year_contract\",\"type\":\"pint\",\"docValues\":true}",
+        jsonMapper.writeValueAsString(year));
+  }
+
+  @Test
+  void addFields_defaultReadsBackFromGetSchema() throws Exception {
+    CollectionAdminRequest.createCollection(OWN_CONFIGSET_COLLECTION, 1, 1).process(solrClient);
+
+    schemaService.addFields(
+        OWN_CONFIGSET_COLLECTION,
+        fields(Map.of("name", "status_contract", "type", "string", "default", "active")));
+
+    CollectionSchema.Field status =
+        field(schemaService.getSchema(OWN_CONFIGSET_COLLECTION), "status_contract");
+    assertEquals("active", status.defaultValue(), status::toString);
   }
 
   @Test

@@ -36,9 +36,10 @@ import tools.jackson.databind.json.JsonMapper;
  * solr://{collection}/schema} resource.
  *
  * <p>Every record holds only the properties the contract names. An attribute Solr sends that the
- * contract does not name is not passed on, with one exception: a field type's or analyzer
- * component's class-specific settings, such as {@code positionIncrementGap}, go into its {@code
- * parameters}, because which settings exist depends on the Solr class the user chose.
+ * contract does not name is not passed on, with one exception: the scalar settings of a field type,
+ * an analyzer or an analyzer component, such as {@code positionIncrementGap} or {@code
+ * luceneMatchVersion}, go into its {@code parameters}, because which settings exist depends on the
+ * Solr class the user chose.
  *
  * <p>{@link Field} and {@link FieldType} report each schema property the schema declares as a
  * {@code Boolean}, and leave out the ones it does not, so a declared {@code false} is kept. The
@@ -69,6 +70,23 @@ public record CollectionSchema(
 
   /** The Schema API's key for a field type's, analyzer's or component's class. */
   private static final String CLASS = "class";
+
+  /** The key for a schema's, field's, field type's or component's name. */
+  private static final String NAME = "name";
+
+  /** The contract's key for a Solr class, which the Schema API spells {@link #CLASS}. */
+  private static final String CLASS_NAME = "className";
+
+  /**
+   * The contract's key for class-specific settings, which the Schema API sends as top-level keys.
+   */
+  private static final String PARAMETERS = "parameters";
+
+  /** The keys, in the Schema API and the contract alike, for an analyzer's chain. */
+  private static final String CHAR_FILTERS = "charFilters";
+
+  private static final String TOKENIZER = "tokenizer";
+  private static final String FILTERS = "filters";
 
   /** The Schema API's keys for a field type's four analyzer slots. */
   private static final String ANALYZER = "analyzer";
@@ -121,7 +139,7 @@ public record CollectionSchema(
    */
   static CollectionSchema fromSolr(Map<String, Object> schema) {
     return new CollectionSchema(
-        string(schema, "name"),
+        string(schema, NAME),
         schema.get("version") instanceof Number version ? version.floatValue() : null,
         string(schema, "uniqueKey"),
         maps(schema.get("fieldTypes")).stream().map(FieldType::fromSolr).toList(),
@@ -217,7 +235,7 @@ public record CollectionSchema(
     private static Set<String> named() {
       Set<String> named = new HashSet<>(SCHEMA_PROPERTIES);
       named.addAll(ANALYZER_SLOTS);
-      named.add("name");
+      named.add(NAME);
       named.add(CLASS);
       return Set.copyOf(named);
     }
@@ -235,8 +253,8 @@ public record CollectionSchema(
       // record, as for Field: the Schema API's "class" becomes className, the analyzers and
       // parameters are parsed first because their own attributes are collected, not dropped.
       Map<String, Object> contract = new LinkedHashMap<>();
-      contract.put("name", type.get("name"));
-      contract.put("className", type.get(CLASS));
+      contract.put(NAME, type.get(NAME));
+      contract.put(CLASS_NAME, type.get(CLASS));
       for (String property : SCHEMA_PROPERTIES) {
         if (type.get(property) instanceof Boolean value) {
           contract.put(property, value);
@@ -248,7 +266,7 @@ public record CollectionSchema(
           contract.put(slot, analyzer);
         }
       }
-      contract.put("parameters", scalarParameters(type, NAMED));
+      contract.put(PARAMETERS, scalarParameters(type, NAMED));
       return SOLR_JSON.convertValue(contract, FieldType.class);
     }
 
@@ -258,7 +276,7 @@ public record CollectionSchema(
       Map<String, Object> declared = SOLR_JSON.convertValue(this, ATTRIBUTES);
       // The analyzers go to SolrJ's typed AnalyzerDefinition slots; className and parameters are
       // this record's names for what the Schema API spells as "class" and as top-level keys.
-      declared.keySet().removeAll(Set.of("className", "parameters"));
+      declared.keySet().removeAll(Set.of(CLASS_NAME, PARAMETERS));
       declared.keySet().removeAll(ANALYZER_SLOTS);
       attributes.putAll(declared);
       attributes.put(CLASS, className);
@@ -284,7 +302,7 @@ public record CollectionSchema(
       @Nullable List<AnalyzerComponent> filters,
       @Nullable Map<String, String> parameters) {
 
-    private static final Set<String> NAMED = Set.of(CLASS, "charFilters", "tokenizer", "filters");
+    private static final Set<String> NAMED = Set.of(CLASS, CHAR_FILTERS, TOKENIZER, FILTERS);
 
     /**
      * Copies the collections so the record cannot change after it is built. A client may leave any
@@ -303,11 +321,11 @@ public record CollectionSchema(
       Map<String, Object> map = cast(raw);
       return new Analyzer(
           string(map, CLASS),
-          maps(map.get("charFilters")).stream().map(AnalyzerComponent::fromSolr).toList(),
-          map.get("tokenizer") instanceof Map<?, ?> tokenizer
+          maps(map.get(CHAR_FILTERS)).stream().map(AnalyzerComponent::fromSolr).toList(),
+          map.get(TOKENIZER) instanceof Map<?, ?> tokenizer
               ? AnalyzerComponent.fromSolr(cast(tokenizer))
               : null,
-          maps(map.get("filters")).stream().map(AnalyzerComponent::fromSolr).toList(),
+          maps(map.get(FILTERS)).stream().map(AnalyzerComponent::fromSolr).toList(),
           scalarParameters(map, NAMED));
     }
 
@@ -342,7 +360,7 @@ public record CollectionSchema(
   public record AnalyzerComponent(
       @Nullable String name, @Nullable String className, @Nullable Map<String, String> parameters) {
 
-    private static final Set<String> NAMED = Set.of("name", CLASS);
+    private static final Set<String> NAMED = Set.of(NAME, CLASS);
 
     /**
      * Copies the parameters, ordered by name, so the record cannot change after it is built. A
@@ -354,14 +372,14 @@ public record CollectionSchema(
 
     static AnalyzerComponent fromSolr(Map<String, Object> component) {
       return new AnalyzerComponent(
-          string(component, "name"), string(component, CLASS), scalarParameters(component, NAMED));
+          string(component, NAME), string(component, CLASS), scalarParameters(component, NAMED));
     }
 
     /** The component as the Schema API names its attributes. */
     Map<String, Object> toSolr() {
       Map<String, Object> attributes = new LinkedHashMap<>();
       if (name != null) {
-        attributes.put("name", name);
+        attributes.put(NAME, name);
       }
       if (className != null) {
         attributes.put(CLASS, className);
