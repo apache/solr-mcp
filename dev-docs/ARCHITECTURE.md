@@ -6,17 +6,28 @@ This document describes the architecture and design decisions of the Solr MCP Se
 
 The codebase follows a clean, modular architecture organized by functionality:
 
+Each direct sub-package of `server/` is a Spring Modulith module; `ModularityTests`
+fails the build on a cycle between them or on use of another module's internal
+sub-package (such as `indexing/documentcreator/`).
+
 ```
 src/main/java/org/apache/solr/mcp/server/
 ├── Main.java                           # Application entry point
-├── config/                             # Configuration classes
-│   ├── SolrConfig.java                # Solr client bean configuration
-│   └── SolrConfigurationProperties.java # Solr connection properties
-├── search/                             # Search functionality
-│   ├── SearchService.java             # MCP tool for searching Solr
-│   └── SearchResponse.java            # Search result DTOs
-├── indexing/                           # Document indexing functionality
-│   ├── IndexingService.java           # MCP tools for indexing documents
+├── collection/                         # Collection and alias management
+│   ├── CollectionService.java         # MCP tools: list, stats, health, create; every @McpComplete handler
+│   ├── AliasService.java              # MCP tools: list, create, delete aliases
+│   ├── AliasResult.java               # Alias operation result
+│   ├── CollectionUtils.java           # Typed reads from Solr NamedList responses
+│   └── Dtos.java                      # Collection metrics records
+├── config/                             # Wiring for SolrJ, observability and transports
+│   ├── SolrConfig.java                # SolrJ client: JSON responses, XML update requests
+│   ├── SolrConfigurationProperties.java # solr.* connection properties
+│   ├── JsonResponseParser.java        # Solr JSON response → SolrJ NamedList
+│   ├── SolrNativeHints.java           # GraalVM reflection/resource hints
+│   ├── InstallOpenTelemetryAppender.java # Hands OpenTelemetry to the Logback appender
+│   └── ModernStdioTransportConfiguration.java # STDIO under MCP_PROTOCOL=modern
+├── indexing/                           # Document indexing
+│   ├── IndexingService.java           # MCP tools: JSON, CSV, XML, Markdown
 │   ├── SolrUpdateXml.java             # Rejects anything but an <add> block before XML is forwarded to Solr
 │   └── documentcreator/               # Parsers for the formats Solr cannot parse itself
 │       ├── IndexingDocumentCreator.java    # Orchestrator that delegates to format-specific creators
@@ -24,11 +35,22 @@ src/main/java/org/apache/solr/mcp/server/
 │       ├── MarkdownDocumentCreator.java    # Markdown document parser (implements SolrDocumentCreator)
 │       ├── SolrDocumentCreator.java        # Common interface for document creators
 │       └── DocumentProcessingException.java # Indexing exceptions
-└── collection/                           # Collection management functionality
-    ├── CollectionService.java         # MCP tools for collection operations
-    ├── SchemaService.java             # MCP tool for schema retrieval
-    ├── CollectionUtils.java           # Collection utility methods
-    └── Dtos.java                      # Collection-related DTOs (records)
+├── schema/                             # Schema introspection and additive changes
+│   ├── SchemaService.java             # MCP tools: get-schema, list-fields, add-fields, add-field-types
+│   ├── CollectionSchema.java          # get-schema result
+│   ├── FieldListing.java              # list-fields result (Luke)
+│   ├── FieldFlags.java                # Luke flag letters → SolrJ FieldFlag
+│   └── SchemaUpdateResult.java        # add-fields / add-field-types result
+├── search/                             # Search
+│   ├── SearchService.java             # MCP tool: search
+│   ├── SearchResponse.java            # Search result record
+│   └── SortClause.java                # One sort clause of a search
+├── security/                           # HTTP profile only
+│   ├── HttpSecurityConfiguration.java # OAuth2 resource server; /mcp open at the URL level
+│   └── MethodSecurityConfiguration.java # Enables the @PreAuthorize checks on tool methods
+└── util/                               # Shared prompt definitions
+    ├── PromptNames.java               # Prompt names shared by @McpPrompt and @McpComplete
+    └── PromptText.java                # Prompt bodies
 ```
 
 ## Key Components
@@ -37,10 +59,11 @@ src/main/java/org/apache/solr/mcp/server/
 
 Service classes annotated with `@McpTool` expose functionality to AI assistants:
 
-- **SearchService** - Search queries with filtering, faceting, and pagination
-- **IndexingService** - Document indexing with support for JSON, CSV, and XML formats
-- **CollectionService** - Collection management (list, stats, health checks)
-- **SchemaService** - Schema introspection
+- **SearchService** - Search queries with filtering, faceting, sorting and pagination
+- **IndexingService** - Document indexing for JSON, CSV, XML and Markdown
+- **CollectionService** - Collection management (list, stats, health checks, create)
+- **AliasService** - Alias management (list, create, delete)
+- **SchemaService** - Schema introspection, field listing and additive changes
 
 ### Configuration
 
@@ -141,42 +164,22 @@ The document creator pattern allows for:
 - Verify Docker image functionality
 
 ### Test Structure
+Test packages mirror the main ones; each holds `<Class>Test` unit tests and
+`<Class>IntegrationTest` Testcontainers tests for that package. The top level and the
+test-only packages:
+
 ```
 src/test/java/org/apache/solr/mcp/server/
-├── MainTest.java                      # Application bootstrap
-├── McpToolRegistrationTest.java       # MCP tool registration tests
+├── MainTest.java, McpToolRegistrationTest.java
 ├── McpClientIntegrationTest.java      # MCP workflow over the in-process client
 ├── McpClientStdioIntegrationTest.java # MCP workflow against `java -jar` over STDIO
-├── BuildInfoReader.java               # Test utility for build metadata
-├── SampleClient.java                  # Example MCP client
-├── search/
-│   ├── SearchServiceTest.java             # Unit tests
-│   └── SearchServiceIntegrationTest.java  # Testcontainers
-├── indexing/
-│   ├── IndexingServiceTest.java
-│   ├── IndexingServiceIntegrationTest.java
-│   ├── SolrUpdateXmlTest.java             # <add>-only gate
-│   ├── MarkdownIndexingTest.java
-│   └── ShowsSampleDataIntegrationTest.java  # JSON/CSV/XML parity
-├── collection/
-│   ├── CollectionServiceTest.java
-│   ├── CollectionUtilsTest.java
-│   ├── CollectionServiceIntegrationTest.java
-│   └── ConferenceEndToEndIntegrationTest.java
-├── schema/
-│   ├── SchemaServiceTest.java
-│   └── SchemaServiceIntegrationTest.java
-├── config/
-│   ├── JsonResponseParserTest.java
-│   ├── SolrConfigUrlNormalizationTest.java
-│   └── SolrConfigIntegrationTest.java
-├── observability/
-│   ├── DistributedTracingTest.java
-│   └── OtlpExportIntegrationTest.java
-└── containerization/                  # @Tag("docker-integration") only
-    ├── DockerImageStdioIntegrationTest.java
-    ├── DockerImageMcpClientStdioIntegrationTest.java
-    └── DockerImageHttpIntegrationTest.java
+├── ModularityTests.java               # Spring Modulith module boundaries
+├── LoggingConfigurationTest.java      # Guards the single logback-spring.xml rule
+├── TestcontainersConfiguration.java   # Shared Solr container
+├── collection/ config/ indexing/ schema/ search/ security/
+├── modern/                            # MCP_PROTOCOL=modern over HTTP and STDIO
+├── observability/                     # Tracing and OTLP export (LGTM container)
+└── containerization/                  # @Tag("docker-integration") only, run by dockerIntegrationTest
 ```
 
 ## Dependency Management
