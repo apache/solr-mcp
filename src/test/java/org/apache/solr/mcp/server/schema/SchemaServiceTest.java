@@ -40,6 +40,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -108,6 +110,18 @@ class SchemaServiceTest {
             + "\"type\":\"string\",\"indexed\":true,\"stored\":false}],\"dynamicFields\":[],"
             + "\"copyFields\":[]}",
         JSON.writeValueAsString(result));
+  }
+
+  @ParameterizedTest
+  @ValueSource(classes = {CollectionSchema.Field.class, CollectionSchema.FieldType.class})
+  void schemaPropertiesMatchTheRecordsBooleanComponents(Class<? extends Record> record) {
+    List<String> booleans =
+        java.util.Arrays.stream(record.getRecordComponents())
+            .filter(component -> component.getType() == Boolean.class)
+            .map(java.lang.reflect.RecordComponent::getName)
+            .toList();
+
+    assertEquals(CollectionSchema.SCHEMA_PROPERTIES, booleans);
   }
 
   @Test

@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +76,34 @@ public record CollectionSchema(
   private static final String INDEX_ANALYZER = "indexAnalyzer";
   private static final String QUERY_ANALYZER = "queryAnalyzer";
   private static final String MULTI_TERM_ANALYZER = "multiTermAnalyzer";
+
+  /** A field type's analyzer slots, as the Schema API and the contract both name them. */
+  private static final List<String> ANALYZER_SLOTS =
+      List.of(ANALYZER, INDEX_ANALYZER, QUERY_ANALYZER, MULTI_TERM_ANALYZER);
+
+  /**
+   * The schema properties the contract names, in the order {@link Field} and {@link FieldType}
+   * declare them as {@code Boolean} components. A test checks the two stay in step.
+   */
+  static final List<String> SCHEMA_PROPERTIES =
+      List.of(
+          "indexed",
+          "stored",
+          "docValues",
+          "multiValued",
+          "required",
+          "uninvertible",
+          "omitNorms",
+          "omitTermFreqAndPositions",
+          "omitPositions",
+          "termVectors",
+          "termPositions",
+          "termOffsets",
+          "termPayloads",
+          "sortMissingFirst",
+          "sortMissingLast",
+          "useDocValuesAsStored",
+          "large");
 
   /** Copies the lists so the record cannot change after it is built. */
   public CollectionSchema {
@@ -183,31 +212,15 @@ public record CollectionSchema(
       @Nullable Map<String, String> parameters) {
 
     /** The attributes that are not class-specific {@code parameters}. */
-    private static final Set<String> NAMED =
-        Set.of(
-            "name",
-            CLASS,
-            "indexed",
-            "stored",
-            "docValues",
-            "multiValued",
-            "required",
-            "uninvertible",
-            "omitNorms",
-            "omitTermFreqAndPositions",
-            "omitPositions",
-            "termVectors",
-            "termPositions",
-            "termOffsets",
-            "termPayloads",
-            "sortMissingFirst",
-            "sortMissingLast",
-            "useDocValuesAsStored",
-            "large",
-            ANALYZER,
-            INDEX_ANALYZER,
-            QUERY_ANALYZER,
-            MULTI_TERM_ANALYZER);
+    private static final Set<String> NAMED = named();
+
+    private static Set<String> named() {
+      Set<String> named = new HashSet<>(SCHEMA_PROPERTIES);
+      named.addAll(ANALYZER_SLOTS);
+      named.add("name");
+      named.add(CLASS);
+      return Set.copyOf(named);
+    }
 
     /**
      * Copies the parameters, ordered by name, so the record cannot change after it is built. A
@@ -218,35 +231,25 @@ public record CollectionSchema(
     }
 
     static FieldType fromSolr(Map<String, Object> type) {
-      return new FieldType(
-          String.valueOf(type.get("name")),
-          String.valueOf(type.get(CLASS)),
-          bool(type, "indexed"),
-          bool(type, "stored"),
-          bool(type, "docValues"),
-          bool(type, "multiValued"),
-          bool(type, "required"),
-          bool(type, "uninvertible"),
-          bool(type, "omitNorms"),
-          bool(type, "omitTermFreqAndPositions"),
-          bool(type, "omitPositions"),
-          bool(type, "termVectors"),
-          bool(type, "termPositions"),
-          bool(type, "termOffsets"),
-          bool(type, "termPayloads"),
-          bool(type, "sortMissingFirst"),
-          bool(type, "sortMissingLast"),
-          bool(type, "useDocValuesAsStored"),
-          bool(type, "large"),
-          Analyzer.fromSolr(type.get(ANALYZER)),
-          Analyzer.fromSolr(type.get(INDEX_ANALYZER)),
-          Analyzer.fromSolr(type.get(QUERY_ANALYZER)),
-          Analyzer.fromSolr(type.get(MULTI_TERM_ANALYZER)),
-          scalarParameters(type, NAMED));
-    }
-
-    private static @Nullable Boolean bool(Map<String, Object> map, String key) {
-      return map.get(key) instanceof Boolean value ? value : null;
+      // Collect what the contract names under the contract's keys, then let Jackson build the
+      // record, as for Field: the Schema API's "class" becomes className, the analyzers and
+      // parameters are parsed first because their own attributes are collected, not dropped.
+      Map<String, Object> contract = new LinkedHashMap<>();
+      contract.put("name", type.get("name"));
+      contract.put("className", type.get(CLASS));
+      for (String property : SCHEMA_PROPERTIES) {
+        if (type.get(property) instanceof Boolean value) {
+          contract.put(property, value);
+        }
+      }
+      for (String slot : ANALYZER_SLOTS) {
+        Analyzer analyzer = Analyzer.fromSolr(type.get(slot));
+        if (analyzer != null) {
+          contract.put(slot, analyzer);
+        }
+      }
+      contract.put("parameters", scalarParameters(type, NAMED));
+      return SOLR_JSON.convertValue(contract, FieldType.class);
     }
 
     /** The field type's own attributes, without its analyzers, as the Schema API names them. */
@@ -256,9 +259,7 @@ public record CollectionSchema(
       // The analyzers go to SolrJ's typed AnalyzerDefinition slots; className and parameters are
       // this record's names for what the Schema API spells as "class" and as top-level keys.
       declared.keySet().removeAll(Set.of("className", "parameters"));
-      declared
-          .keySet()
-          .removeAll(Set.of(ANALYZER, INDEX_ANALYZER, QUERY_ANALYZER, MULTI_TERM_ANALYZER));
+      declared.keySet().removeAll(ANALYZER_SLOTS);
       attributes.putAll(declared);
       attributes.put(CLASS, className);
       return attributes;

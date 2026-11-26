@@ -196,7 +196,7 @@ class SchemaServiceIntegrationTest {
         Map<?, ?> expected = (Map<?, ?>) fromSolr.get(i);
         Map<?, ?> actual = (Map<?, ?>) fromTool.get(i);
         assertEquals(expected.get("name"), actual.get("name"), section);
-        for (String property : SCHEMA_PROPERTIES) {
+        for (String property : CollectionSchema.SCHEMA_PROPERTIES) {
           assertEquals(
               expected.get(property),
               actual.get(property),
@@ -404,27 +404,6 @@ class SchemaServiceIntegrationTest {
         fields(Map.of("name", "addf_broken", "type", "totally_not_a_real_type"));
     assertThrows(Exception.class, () -> schemaService.addFields(TEST_COLLECTION, field));
   }
-
-  /** The schema properties the contract names for fields and field types. */
-  private static final List<String> SCHEMA_PROPERTIES =
-      List.of(
-          "indexed",
-          "stored",
-          "docValues",
-          "multiValued",
-          "required",
-          "uninvertible",
-          "omitNorms",
-          "omitTermFreqAndPositions",
-          "omitPositions",
-          "termVectors",
-          "termPositions",
-          "termOffsets",
-          "termPayloads",
-          "sortMissingFirst",
-          "sortMissingLast",
-          "useDocValuesAsStored",
-          "large");
 
   /** Fields as an MCP client sends them: JSON objects in the shape get-schema reports. */
   @SafeVarargs
