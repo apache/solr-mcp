@@ -137,6 +137,6 @@ class McpModernProtocolStdioIntegrationTest {
 
     List<Map<String, Object>> tools =
         (List<Map<String, Object>>) send("tools/list", Map.of()).get("tools");
-    assertTrue(tools.stream().anyMatch(t -> "search".equals(t.get("name"))));
+    assertTrue(tools.stream().anyMatch(tool -> "search".equals(tool.get("name"))));
   }
 }
