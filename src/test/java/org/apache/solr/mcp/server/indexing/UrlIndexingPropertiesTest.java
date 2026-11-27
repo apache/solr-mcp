@@ -85,7 +85,7 @@ class UrlIndexingPropertiesTest {
   }
 
   @Test
-  void parsesTheBlockedLiteralsAndSkipsBlankEntries() throws Exception {
+  void parsesTheBlockedLiteralsAndSkipsBlankEntries() {
     var parsed = properties(List.of(" 168.63.129.16 ", "", "fd00:ec2::254")).blockedInetAddresses();
     assertEquals(
         Set.of(InetAddress.ofLiteral("168.63.129.16"), InetAddress.ofLiteral("fd00:ec2::254")),
