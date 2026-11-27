@@ -428,6 +428,13 @@ See [infra.apache.org/licensing-howto](https://infra.apache.org/licensing-howto.
 - **Docker tests** (`containerization/`): Tagged `@Tag("docker-integration")`, only
   run via `./gradlew dockerIntegrationTest`. They drive a built Docker image as a
   black-box subject under test.
+- **JSON assertions** go through JsonPath, using Spring Framework's
+  `org.springframework.test.json.JsonContent` (json-path ships with
+  `spring-boot-starter-test`): `assertThat(new JsonContent(text)).extractingPath("$.a.b").isEqualTo(...)`,
+  `hasPath` / `doesNotHavePath`, and `isStrictlyEqualTo(...)` for a whole document. Do not match
+  substrings of serialized JSON or walk it through `Map` casts. A deep scan or wildcard
+  (`$..other`, `$.x.*.y`) returns a list and never throws `PathNotFoundException`, so
+  `doesNotHavePath("$..other")` always fails: use `extractingPath("$..other").asArray().isEmpty()`.
 
 ### Module boundaries (`ModularityTests`)
 

@@ -16,8 +16,10 @@
  */
 package org.apache.solr.mcp.server;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.jayway.jsonpath.JsonPath;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.spec.McpError;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
@@ -51,8 +53,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestMethodOrder;
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.json.JsonMapper;
+import org.springframework.test.json.JsonContent;
 
 /**
  * Base class for MCP client integration tests. Exercises the full create-collection → index →
@@ -72,8 +73,6 @@ public abstract class McpClientIntegrationTestBase {
    * workflow tests (orders 19–27) to assert indexing and search results.
    */
   protected static final int SHOWS_DOC_COUNT = 61;
-
-  protected static final JsonMapper OBJECT_MAPPER = JsonMapper.builder().build();
 
   @AutoClose
   @SuppressWarnings("NotNullFieldNotInitialized") // set by beforeAll()
@@ -191,10 +190,7 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    String text = extractText(result);
-    assertTrue(
-        text.contains("success") || text.contains("true"),
-        "Collection creation should succeed: " + text);
+    assertThat(json(result)).extractingPath("$.success").isEqualTo(true);
   }
 
   @Test
@@ -204,8 +200,7 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    String text = extractText(result);
-    assertTrue(text.contains(COLLECTION), "Created collection should appear in list: " + text);
+    assertThat(json(result)).extractingPath("$").asArray().contains(COLLECTION);
   }
 
   @Test
@@ -240,10 +235,8 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    String text = extractText(result);
-    assertTrue(
-        text.contains("true") || text.contains("healthy"), "Collection should be healthy: " + text);
-    assertTrue(text.contains("5"), "Should report 5 documents: " + text);
+    assertThat(json(result)).extractingPath("$.isHealthy").isEqualTo(true);
+    assertThat(json(result)).extractingPath("$.totalDocuments").isEqualTo(5);
   }
 
   @Test
@@ -256,10 +249,7 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    String text = extractText(result);
-
-    Map<String, Object> response = OBJECT_MAPPER.readValue(text, new TypeReference<>() {});
-    assertEquals(5, getNumFound(response), "Should find all 5 documents");
+    assertEquals(5, getNumFound(result), "Should find all 5 documents");
   }
 
   @Test
@@ -279,10 +269,7 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    String text = extractText(result);
-
-    Map<String, Object> response = OBJECT_MAPPER.readValue(text, new TypeReference<>() {});
-    assertEquals(2, getNumFound(response), "Should find 2 search-category documents");
+    assertEquals(2, getNumFound(result), "Should find 2 search-category documents");
   }
 
   @Test
@@ -294,10 +281,7 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    String text = extractText(result);
-
-    Map<String, Object> response = OBJECT_MAPPER.readValue(text, new TypeReference<>() {});
-    int numFound = getNumFound(response);
+    int numFound = getNumFound(result);
     assertTrue(numFound >= 1, "Should find at least 1 document with 'Solr' in title: " + numFound);
   }
 
@@ -313,18 +297,11 @@ public abstract class McpClientIntegrationTestBase {
             new CallToolRequest(
                 "search", Map.of("collection", COLLECTION, "query", "*:*", "start", 2, "rows", 2)));
 
-    Map<String, Object> response1 =
-        OBJECT_MAPPER.readValue(extractText(page1), new TypeReference<>() {});
-    Map<String, Object> response2 =
-        OBJECT_MAPPER.readValue(extractText(page2), new TypeReference<>() {});
+    List<String> ids1 = read(page1, "$.documents[*].id");
+    List<String> ids2 = read(page2, "$.documents[*].id");
 
-    List<Map<String, Object>> docs1 = getDocuments(response1);
-    List<Map<String, Object>> docs2 = getDocuments(response2);
-
-    assertEquals(2, docs1.size(), "Page 1 should have 2 documents");
-    assertEquals(2, docs2.size(), "Page 2 should have 2 documents");
-    assertNotEquals(
-        docs1.get(0).get("id"), docs2.get(0).get("id"), "Pages should return different documents");
+    assertThat(ids1).as("page 1").hasSize(2);
+    assertThat(ids2).as("page 2").hasSize(2).doesNotContainAnyElementsOf(ids1);
   }
 
   @Test
@@ -336,10 +313,7 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    String text = extractText(result);
-    assertTrue(
-        text.contains("5") || text.contains("numDocs"),
-        "Stats should reference indexed documents: " + text);
+    assertThat(json(result)).extractingPath("$.indexStats.numDocs").isEqualTo(5);
   }
 
   @Test
@@ -357,28 +331,23 @@ public abstract class McpClientIntegrationTestBase {
     // properties sit at the top level (no SolrJ "attributes" wrapper), the catch-all is merged
     // in rather than emitted as "other", and the arrays are present (they go missing in a
     // native image when the records lack reflection hints).
-    Map<String, Object> schema = OBJECT_MAPPER.readValue(text, new TypeReference<>() {});
-    assertFalse(schema.containsKey("other"), text);
-    List<?> fields = (List<?>) schema.get("fields");
-    Map<?, ?> id =
-        fields.stream()
-            .map(Map.class::cast)
-            .filter(f -> "id".equals(f.get("name")))
-            .findFirst()
-            .orElseThrow();
+    JsonContent schema = json(result);
+    String id = "$.fields[?(@.name == 'id')]";
+    String textGeneral = "$.fieldTypes[?(@.name == 'text_general')]";
+    // A deep scan never throws PathNotFoundException, so doesNotHavePath would always fail on it
+    assertThat(schema).extractingPath("$..other").asArray().isEmpty();
     // flags are SolrJ FieldFlag constant names, not Luke legend text ("I - Indexed")
-    assertTrue(((List<?>) id.get("flags")).containsAll(List.of("INDEXED", "STORED")), text);
-    assertFalse(id.containsKey("indexed"), text);
-    Map<?, ?> textGeneral =
-        ((List<?>) schema.get("fieldTypes"))
-            .stream()
-                .map(Map.class::cast)
-                .filter(t -> "text_general".equals(t.get("name")))
-                .findFirst()
-                .orElseThrow();
-    assertEquals("solr.TextField", textGeneral.get("class"), text);
-    assertEquals("100", textGeneral.get("positionIncrementGap"), text);
-    assertFalse(textGeneral.containsKey("attributes"), text);
+    assertThat(schema).extractingPath(id + ".flags[*]").asArray().contains("INDEXED", "STORED");
+    assertThat(schema).extractingPath(id + ".indexed").asArray().isEmpty();
+    assertThat(schema)
+        .extractingPath(textGeneral + ".class")
+        .asArray()
+        .containsExactly("solr.TextField");
+    assertThat(schema)
+        .extractingPath(textGeneral + ".positionIncrementGap")
+        .asArray()
+        .containsExactly("100");
+    assertThat(schema).extractingPath(textGeneral + ".attributes").asArray().isEmpty();
   }
 
   @Test
@@ -400,13 +369,7 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    String text = extractText(result);
-
-    Map<String, Object> response = OBJECT_MAPPER.readValue(text, new TypeReference<>() {});
-    @SuppressWarnings("unchecked")
-    Map<String, Object> facets = (Map<String, Object>) response.get("facets");
-    assertNotNull(facets, "Should have facets in response");
-    assertTrue(facets.containsKey("id"), "Should have id facet");
+    assertThat(json(result)).hasPath("$.facets.id");
   }
 
   @Test
@@ -436,9 +399,7 @@ public abstract class McpClientIntegrationTestBase {
             new CallToolRequest(
                 "search", Map.of("collection", COLLECTION, "query", "*:*", "rows", 0)));
 
-    Map<String, Object> response =
-        OBJECT_MAPPER.readValue(extractText(result), new TypeReference<>() {});
-    assertEquals(7, getNumFound(response), "Should find 7 documents (5 JSON + 2 CSV)");
+    assertEquals(7, getNumFound(result), "Should find 7 documents (5 JSON + 2 CSV)");
   }
 
   @Test
@@ -486,11 +447,10 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    String text = extractText(result);
-    assertTrue(text.contains("platform"), "Result should mention added 'platform': " + text);
-    assertTrue(
-        text.contains("release_year"), "Result should mention added 'release_year': " + text);
-    assertTrue(text.contains("genres"), "Result should mention added 'genres': " + text);
+    assertThat(json(result))
+        .extractingPath("$.addedNames")
+        .asArray()
+        .contains("platform", "release_year", "genres");
   }
 
   @Test
@@ -529,9 +489,7 @@ public abstract class McpClientIntegrationTestBase {
                     "*:*",
                     "filterQueries",
                     List.of("platform:Netflix"))));
-    Map<String, Object> r1 =
-        OBJECT_MAPPER.readValue(extractText(byPlatform), new TypeReference<>() {});
-    assertEquals(1, getNumFound(r1), "Should find exactly 1 doc with platform=Netflix");
+    assertEquals(1, getNumFound(byPlatform), "Should find exactly 1 doc with platform=Netflix");
 
     CallToolResult byGenre =
         mcpClient.callTool(
@@ -544,9 +502,7 @@ public abstract class McpClientIntegrationTestBase {
                     "*:*",
                     "filterQueries",
                     List.of("genres:crime"))));
-    Map<String, Object> r2 =
-        OBJECT_MAPPER.readValue(extractText(byGenre), new TypeReference<>() {});
-    assertEquals(1, getNumFound(r2), "Multi-valued 'genres' should match on 'crime'");
+    assertEquals(1, getNumFound(byGenre), "Multi-valued 'genres' should match on 'crime'");
   }
 
   // Self-contained markdown round-trip: independent of the other order-18 test
@@ -583,10 +539,8 @@ public abstract class McpClientIntegrationTestBase {
         mcpClient.callTool(
             new CallToolRequest(
                 "search", Map.of("collection", COLLECTION, "query", "id:md-doc-1")));
-    Map<String, Object> response =
-        OBJECT_MAPPER.readValue(extractText(searchResult), new TypeReference<>() {});
     assertEquals(
-        1, getNumFound(response), "Should find the markdown document by its front matter id");
+        1, getNumFound(searchResult), "Should find the markdown document by its front matter id");
   }
 
   // ===== End-to-end shows workflow (orders 19–27) =====
@@ -607,10 +561,7 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    String text = extractText(result);
-    assertTrue(
-        text.contains("success") || text.contains("true"),
-        "Shows collection creation should succeed: " + text);
+    assertThat(json(result)).extractingPath("$.success").isEqualTo(true);
   }
 
   @Test
@@ -767,7 +718,7 @@ public abstract class McpClientIntegrationTestBase {
                 "docValues",
                 true));
 
-    java.util.Set<String> existingFieldNames = fetchExistingFieldNames(SHOWS_COLLECTION);
+    Set<String> existingFieldNames = fetchExistingFieldNames(SHOWS_COLLECTION);
 
     List<Map<String, Object>> fieldsToAdd =
         desiredFields.stream()
@@ -788,33 +739,20 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    String text = extractText(result);
-    // Spot-check at least one shows-specific field name appears (these won't
+    // Spot-check that at least one shows-specific field was added (these won't
     // have leaked from any earlier collection's schema).
-    assertTrue(
-        text.contains("seasons") || text.contains("episodes") || text.contains("imdb_rating"),
-        "Result should mention at least one shows-specific field that was added: " + text);
+    assertThat(json(result))
+        .extractingPath("$.addedNames")
+        .asArray()
+        .containsAnyOf("seasons", "episodes", "imdb_rating");
   }
 
-  private java.util.Set<String> fetchExistingFieldNames(String collection) {
+  private Set<String> fetchExistingFieldNames(String collection) {
     CallToolResult schemaResult =
         mcpClient.callTool(new CallToolRequest("get-schema", Map.of("collection", collection)));
     assertNotError(schemaResult);
-    Map<String, Object> schema =
-        OBJECT_MAPPER.readValue(extractText(schemaResult), new TypeReference<>() {});
-    Object fields = schema.get("fields");
-    java.util.Set<String> names = new java.util.HashSet<>();
-    if (fields instanceof List<?> fieldList) {
-      for (Object f : fieldList) {
-        if (f instanceof Map<?, ?> fieldMap) {
-          Object name = fieldMap.get("name");
-          if (name instanceof String s) {
-            names.add(s);
-          }
-        }
-      }
-    }
-    return names;
+    List<String> names = read(schemaResult, "$.fields[*].name");
+    return Set.copyOf(names);
   }
 
   @Test
@@ -844,11 +782,9 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    Map<String, Object> response =
-        OBJECT_MAPPER.readValue(extractText(result), new TypeReference<>() {});
     assertEquals(
         SHOWS_DOC_COUNT,
-        getNumFound(response),
+        getNumFound(result),
         "Should find all " + SHOWS_DOC_COUNT + " shows after indexing");
   }
 
@@ -871,34 +807,11 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    Map<String, Object> response =
-        OBJECT_MAPPER.readValue(extractText(result), new TypeReference<>() {});
-
-    @SuppressWarnings("unchecked")
-    Map<String, Object> facets = (Map<String, Object>) response.get("facets");
-    assertNotNull(facets, "Response should contain facets: " + response);
-
-    @SuppressWarnings("unchecked")
-    Map<String, Object> platformFacet = (Map<String, Object>) facets.get("platform");
-    assertNotNull(platformFacet, "facets.platform should be present: " + facets);
-
+    JsonContent response = json(result);
     // The dataset has 20 Netflix shows and 20 Amazon Prime Video shows.
-    Object netflixCount = platformFacet.get("Netflix");
-    assertNotNull(netflixCount, "Netflix facet count should be present: " + platformFacet);
-    assertEquals(
-        20,
-        ((Number) netflixCount).intValue(),
-        "Netflix should facet to 20 shows: " + platformFacet);
-
-    Object primeCount = platformFacet.get("Amazon Prime Video");
-    assertNotNull(primeCount, "Amazon Prime Video facet count should be present: " + platformFacet);
-    assertEquals(
-        20,
-        ((Number) primeCount).intValue(),
-        "Amazon Prime Video should facet to 20 shows: " + platformFacet);
-
-    assertTrue(
-        platformFacet.containsKey("HBO Max"), "HBO Max should appear in facet: " + platformFacet);
+    assertThat(response).extractingPath("$.facets.platform.Netflix").isEqualTo(20);
+    assertThat(response).extractingPath("$.facets.platform['Amazon Prime Video']").isEqualTo(20);
+    assertThat(response).hasPath("$.facets.platform['HBO Max']");
   }
 
   @Test
@@ -921,13 +834,10 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    Map<String, Object> response =
-        OBJECT_MAPPER.readValue(extractText(result), new TypeReference<>() {});
     // "Fallout" on Amazon Prime Video has "post-apocalyptic" in its description.
-    assertTrue(
-        getNumFound(response) >= 1,
-        "Should find at least one apocalyptic show on Amazon Prime Video: "
-            + getNumFound(response));
+    assertThat(getNumFound(result))
+        .as("apocalyptic shows on Amazon Prime Video")
+        .isGreaterThanOrEqualTo(1);
   }
 
   @Test
@@ -950,15 +860,11 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    Map<String, Object> response =
-        OBJECT_MAPPER.readValue(extractText(result), new TypeReference<>() {});
     // At least Stranger Things, Dark, Black Mirror, The Umbrella Academy, The
     // Boys, The Expanse, Fallout, Upload, The Last of Us, Westworld, WandaVision,
     // The Mandalorian, Andor, Loki, Severance, Foundation, Star Trek SNW — well
     // over 10 docs.
-    assertTrue(
-        getNumFound(response) >= 10,
-        "Should find at least 10 Sci-Fi shows across the dataset, got " + getNumFound(response));
+    assertThat(getNumFound(result)).as("Sci-Fi shows").isGreaterThanOrEqualTo(10);
   }
 
   @Test
@@ -970,17 +876,14 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    String text = extractText(result);
     // All 16 user-defined fields must appear in the schema response. Spot-check a
     // representative selection across types: text_general, string, strings,
     // pint, pdouble.
-    for (String name :
-        List.of(
-            "title", "platform", "genres", "release_year", "imdb_rating", "description", "tags")) {
-      assertTrue(
-          text.contains("\"" + name + "\""),
-          "get-schema response should include field '" + name + "'");
-    }
+    assertThat(json(result))
+        .extractingPath("$.fields[*].name")
+        .asArray()
+        .contains(
+            "title", "platform", "genres", "release_year", "imdb_rating", "description", "tags");
   }
 
   @Test
@@ -992,12 +895,7 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    String text = extractText(result);
-    // Stats response is a JSON-serialized SolrMetrics. The indexStats.numDocs
-    // field carries the count.
-    assertTrue(
-        text.contains(String.valueOf(SHOWS_DOC_COUNT)),
-        "Stats should report " + SHOWS_DOC_COUNT + " docs somewhere in the payload: " + text);
+    assertThat(json(result)).extractingPath("$.indexStats.numDocs").isEqualTo(SHOWS_DOC_COUNT);
   }
 
   // ===== Prompt workflow (orders 28–34) =====
@@ -1248,12 +1146,8 @@ public abstract class McpClientIntegrationTestBase {
                     "sortClauses",
                     List.of(Map.of("field", "", "order", "")))));
     assertNotError(result);
-    Map<String, Object> response =
-        OBJECT_MAPPER.readValue(extractText(result), new TypeReference<>() {});
-    assertEquals(SHOWS_DOC_COUNT, getNumFound(response));
-    Map<?, ?> facets = (Map<?, ?>) response.get("facets");
-    Map<?, ?> platforms = (Map<?, ?>) facets.get("platform");
-    assertEquals(20, ((Number) platforms.get("Netflix")).intValue());
+    assertEquals(SHOWS_DOC_COUNT, getNumFound(result));
+    assertThat(json(result)).extractingPath("$.facets.platform.Netflix").isEqualTo(20);
   }
 
   @Test
@@ -1283,19 +1177,17 @@ public abstract class McpClientIntegrationTestBase {
             new CallToolRequest("list-fields", Map.of("collection", SHOWS_COLLECTION)));
 
     assertNotError(result);
-    Map<String, Object> listing =
-        OBJECT_MAPPER.readValue(extractText(result), new TypeReference<>() {});
-    java.util.Set<String> names = fieldNames(listing);
-    assertTrue(
-        names.containsAll(List.of("id", "title", "platform", "genres", "release_year")),
-        "list-fields should list the indexed shows fields: " + names);
+    JsonContent listing = json(result);
+    assertThat(listing)
+        .extractingPath("$.fields")
+        .asMap()
+        .containsKeys("id", "title", "platform", "genres", "release_year");
 
     // Through Spring AI's serialization: Luke's flag letters arrive decoded as FieldFlag
     // constant names, with neither the letters nor Luke's info legend left over.
-    assertFalse(listing.containsKey("info"), "" + listing.keySet());
-    Map<?, ?> id = (Map<?, ?>) ((Map<?, ?>) listing.get("fields")).get("id");
-    assertTrue(((List<?>) id.get("flags")).containsAll(List.of("INDEXED", "STORED")), "" + id);
-    assertFalse(id.containsKey("schema"), "" + id);
+    assertThat(listing).doesNotHavePath("$.info");
+    assertThat(listing).extractingPath("$.fields.id.flags").asArray().contains("INDEXED", "STORED");
+    assertThat(listing).doesNotHavePath("$.fields.id.schema");
   }
 
   @Test
@@ -1309,9 +1201,9 @@ public abstract class McpClientIntegrationTestBase {
 
     assertInstanceOf(TextResourceContents.class, resource.contents().getFirst());
     String resourceText = ((TextResourceContents) resource.contents().getFirst()).text();
-    assertEquals(
-        fieldNames(OBJECT_MAPPER.readValue(extractText(tool), new TypeReference<>() {})),
-        fieldNames(OBJECT_MAPPER.readValue(resourceText, new TypeReference<>() {})));
+    Map<String, Object> toolFields = read(tool, "$.fields");
+    Map<String, Object> resourceFields = JsonPath.read(resourceText, "$.fields");
+    assertEquals(toolFields.keySet(), resourceFields.keySet());
   }
 
   @Test
@@ -1327,11 +1219,6 @@ public abstract class McpClientIntegrationTestBase {
     assertTrue(
         values.contains(COLLECTION),
         "Fields-resource completion should include the created collection: " + values);
-  }
-
-  @SuppressWarnings("unchecked")
-  private static java.util.Set<String> fieldNames(Map<String, Object> listing) {
-    return ((Map<String, Object>) listing.get("fields")).keySet();
   }
 
   @Test
@@ -1354,16 +1241,12 @@ public abstract class McpClientIntegrationTestBase {
                     "rows",
                     5)));
     assertNotError(result);
-    Map<String, Object> response =
-        OBJECT_MAPPER.readValue(extractText(result), new TypeReference<>() {});
     // "Fallout" has "post-apocalyptic" in its description.
-    assertTrue(getNumFound(response) >= 1, "Should find an apocalyptic show: " + response);
-    for (Object document : (List<?>) response.get("documents")) {
-      assertEquals(
-          Set.of("title", "score"),
-          ((Map<?, ?>) document).keySet(),
-          "fields must limit each document to title plus score: " + document);
-    }
+    assertThat(getNumFound(result)).as("apocalyptic shows").isGreaterThanOrEqualTo(1);
+    List<Map<String, Object>> documents = read(result, "$.documents[*]");
+    // fields limits each document to title plus score
+    assertThat(documents)
+        .allSatisfy(document -> assertThat(document).containsOnlyKeys("title", "score"));
   }
 
   @Test
@@ -1424,16 +1307,17 @@ public abstract class McpClientIntegrationTestBase {
     }
   }
 
-  protected static int getNumFound(Map<String, Object> response) {
-    Object value = response.get("numFound");
-    assertNotNull(value, "numFound should be present in response");
-    return ((Number) value).intValue();
+  /** The tool result's text as JSON, for JsonPath assertions. */
+  protected static JsonContent json(CallToolResult result) {
+    return new JsonContent(extractText(result));
   }
 
-  @SuppressWarnings("unchecked")
-  protected static List<Map<String, Object>> getDocuments(Map<String, Object> response) {
-    Object value = response.get("documents");
-    assertNotNull(value, "documents should be present in response");
-    return (List<Map<String, Object>>) value;
+  /** The value at a JsonPath in the tool result's JSON text. */
+  protected static <T> T read(CallToolResult result, String path) {
+    return JsonPath.read(extractText(result), path);
+  }
+
+  protected static int getNumFound(CallToolResult result) {
+    return read(result, "$.numFound");
   }
 }

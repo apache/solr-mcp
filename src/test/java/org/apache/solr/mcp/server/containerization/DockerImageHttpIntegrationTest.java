@@ -16,6 +16,7 @@
  */
 package org.apache.solr.mcp.server.containerization;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -35,6 +36,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.test.json.JsonContent;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.SolrContainer;
@@ -207,9 +209,7 @@ class DockerImageHttpIntegrationTest {
     HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
     assertEquals(200, response.statusCode(), "Health endpoint should return 200 OK");
-    assertTrue(
-        response.body().contains("UP") || response.body().contains("\"status\""),
-        "Health endpoint should return UP status or status field");
+    assertThat(new JsonContent(response.body())).extractingPath("$.status").isEqualTo("UP");
 
     log.info("HTTP endpoint responded successfully with status: {}", response.statusCode());
   }

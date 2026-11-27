@@ -16,6 +16,7 @@
  */
 package org.apache.solr.mcp.server.schema;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -43,6 +44,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.json.JsonContent;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -105,11 +107,12 @@ class SchemaServiceTest {
     assertFalse(result.fields().getFirst().other().containsKey("indexed"));
     assertFalse(result.fields().getFirst().other().containsKey("stored"));
     assertEquals(Map.of("k", "v"), result.other().get("futureSection"));
-    String json = realMapper.writeValueAsString(result);
-    assertTrue(json.contains("\"futureFlag\":true"), json);
-    assertTrue(json.contains("\"futureSection\":{\"k\":\"v\"}"), json);
-    assertFalse(json.contains("\"other\""), json);
-    assertTrue(json.contains("\"flags\":[\"INDEXED\"]"), json);
+    JsonContent json = new JsonContent(realMapper.writeValueAsString(result));
+    assertThat(json).extractingPath("$.fields[0].futureFlag").isEqualTo(true);
+    assertThat(json).extractingPath("$.futureSection").isEqualTo(Map.of("k", "v"));
+    assertThat(json).extractingPath("$.fields[0].flags").asArray().containsExactly("INDEXED");
+    // A deep scan never throws PathNotFoundException, so doesNotHavePath would always fail on it
+    assertThat(json).extractingPath("$..other").asArray().isEmpty();
   }
 
   @Test
@@ -505,12 +508,16 @@ class SchemaServiceTest {
     assertEquals("*_s", field.dynamicBase());
     assertEquals(5L, field.docs());
     assertEquals(Map.of(), field.other(), "the schema letters are decoded, not kept");
-    String json = realMapper.writeValueAsString(listing);
-    assertEquals(
-        "{\"fields\":{\"genre_s\":{\"type\":\"string\",\"flags\":[\"INDEXED\",\"STORED\","
-            + "\"DOC_VALUES\",\"MULTI_VALUED\",\"OMIT_NORMS\",\"OMIT_TF\",\"SORT_MISSING_LAST\"],"
-            + "\"dynamicBase\":\"*_s\",\"docs\":5}}}",
-        json);
+    assertThat(new JsonContent(realMapper.writeValueAsString(listing)))
+        .isStrictlyEqualTo(
+            """
+            {"fields": {"genre_s": {
+              "type": "string",
+              "flags": ["INDEXED", "STORED", "DOC_VALUES", "MULTI_VALUED", "OMIT_NORMS",
+                        "OMIT_TF", "SORT_MISSING_LAST"],
+              "dynamicBase": "*_s",
+              "docs": 5}}}
+            """);
   }
 
   @Test
