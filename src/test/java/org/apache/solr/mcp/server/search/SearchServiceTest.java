@@ -17,6 +17,7 @@
 package org.apache.solr.mcp.server.search;
 
 import static org.apache.solr.mcp.server.McpResultAssertions.promptText;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -49,10 +50,13 @@ import org.apache.solr.common.util.NamedList;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
 import org.mockito.ArgumentCaptor;
-import tools.jackson.core.type.TypeReference;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.json.JsonTest;
+import org.springframework.test.json.JsonContent;
 import tools.jackson.databind.json.JsonMapper;
 
 /** Unit tests for SearchService with mocked SolrClient. */
+@JsonTest
 @DisabledInNativeImage
 class SearchServiceTest {
 
@@ -62,7 +66,7 @@ class SearchServiceTest {
 
   private static final String COLLECTION = "test_collection";
 
-  private static final JsonMapper JSON = JsonMapper.builder().build();
+  @Autowired private JsonMapper jsonMapper;
 
   /**
    * A mocked client whose Schema API reports {@code uniqueKey} for every collection. Every search
@@ -95,9 +99,9 @@ class SearchServiceTest {
     return documents;
   }
 
-  /** Serializes a result the way the MCP layer does and reads it back as plain JSON values. */
-  private static Map<String, Object> toJson(Object result) {
-    return JSON.readValue(JSON.writeValueAsString(result), new TypeReference<>() {});
+  /** Serializes a result with the application's mapper, the way the MCP layer does. */
+  private JsonContent json(Object result) {
+    return new JsonContent(jsonMapper.writeValueAsString(result));
   }
 
   private static SolrDocument document(Map<String, Object> fields) {
@@ -860,10 +864,11 @@ class SearchServiceTest {
     assertNull(result.maxScore());
     assertNull(result.documents().getFirst().score());
 
-    Map<String, Object> json = toJson(result);
-    assertFalse(json.containsKey("maxScore"), json::toString);
-    Map<?, ?> hit = (Map<?, ?>) ((List<?>) json.get("documents")).getFirst();
-    assertEquals(Map.of(ID, "doc1", "fields", Map.of("name", "x")), hit);
+    JsonContent json = json(result);
+    assertThat(json).doesNotHavePath("$.maxScore");
+    assertThat(json)
+        .extractingPath("$.documents[0]")
+        .isEqualTo(Map.of(ID, "doc1", "fields", Map.of("name", "x")));
   }
 
   @Test
@@ -915,12 +920,13 @@ class SearchServiceTest {
         serviceReturning(ID, documentList(1, 0, doc), null)
             .search(COLLECTION, null, null, null, null, null, null);
 
-    Map<String, Object> json = toJson(result);
-    Map<?, ?> fields =
-        (Map<?, ?>) ((Map<?, ?>) ((List<?>) json.get("documents")).getFirst()).get("fields");
-    assertEquals(1965, ((Number) fields.get("year")).intValue());
-    assertInstanceOf(Number.class, fields.get("year"));
-    assertEquals(List.of("drama", "war"), fields.get("genres"));
+    JsonContent json = json(result);
+    // A JSON number, not the string "1965".
+    assertThat(json).extractingPath("$.documents[0].fields.year").isEqualTo(1965);
+    assertThat(json)
+        .extractingPath("$.documents[0].fields.genres")
+        .asArray()
+        .containsExactly("drama", "war");
   }
 
   @Test
@@ -955,10 +961,13 @@ class SearchServiceTest {
         serviceReturning(ID, documentList(19, 0), List.of(genre))
             .search(COLLECTION, null, null, List.of("genre"), null, null, 0);
 
-    assertEquals(
-        "[{\"field\":\"genre\",\"values\":[{\"value\":\"drama\",\"count\":12},"
-            + "{\"value\":\"comedy\",\"count\":7}]}]",
-        JSON.writeValueAsString(result.facets()));
+    // Strict: the values keep Solr's order, most frequent first.
+    assertThat(json(result.facets()))
+        .isStrictlyEqualTo(
+            """
+            [{"field": "genre",
+              "values": [{"value": "drama", "count": 12}, {"value": "comedy", "count": 7}]}]
+            """);
   }
 
   @Test
@@ -967,8 +976,7 @@ class SearchServiceTest {
         serviceReturning(ID, documentList(0, 0), null)
             .search(COLLECTION, null, null, null, null, null, null);
     assertEquals(List.of(), result.facets());
-    Map<String, Object> json = toJson(result);
-    assertEquals(List.of(), json.get("facets"));
+    assertThat(json(result)).extractingPath("$.facets").asArray().isEmpty();
   }
 
   @Test

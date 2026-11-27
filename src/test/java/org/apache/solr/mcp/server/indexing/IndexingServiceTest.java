@@ -17,6 +17,7 @@
 package org.apache.solr.mcp.server.indexing;
 
 import static org.apache.solr.mcp.server.McpResultAssertions.promptText;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -44,9 +45,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.json.JsonTest;
+import org.springframework.test.json.JsonContent;
 import tools.jackson.databind.json.JsonMapper;
 
 /** Unit tests for IndexingService with mocked SolrClient. */
+@JsonTest
 @ExtendWith(MockitoExtension.class)
 @DisabledInNativeImage
 class IndexingServiceTest {
@@ -59,6 +64,8 @@ class IndexingServiceTest {
   @Mock private SolrClient solrClient;
 
   @Mock private IndexingDocumentCreator indexingDocumentCreator;
+
+  @Autowired private JsonMapper jsonMapper;
 
   private IndexingService indexingService;
 
@@ -454,10 +461,13 @@ class IndexingServiceTest {
         new IndexingResult(COLLECTION, Format.csv, null, null, null, null),
         result,
         "no document count or field names are claimed: Solr does not report them");
-    assertEquals(
-        "{\"collection\":\"test_collection\",\"format\":\"csv\"}",
-        JsonMapper.builder().build().writeValueAsString(result),
-        "the absent counts are left out of the JSON, not sent as null");
+    // The absent counts are left out of the JSON, not sent as null.
+    assertThat(new JsonContent(jsonMapper.writeValueAsString(result)))
+        .isStrictlyEqualTo(
+            """
+            {"collection": "%s", "format": "csv"}
+            """
+                .formatted(COLLECTION));
   }
 
   @Test

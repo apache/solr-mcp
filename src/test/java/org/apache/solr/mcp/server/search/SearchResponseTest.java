@@ -16,17 +16,19 @@
  */
 package org.apache.solr.mcp.server.search;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.JsonNode;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.json.JsonTest;
+import org.springframework.test.json.JsonContent;
 import tools.jackson.databind.json.JsonMapper;
 
+@JsonTest
 class SearchResponseTest {
 
-  private static final JsonMapper JSON = JsonMapper.builder().build();
+  @Autowired private JsonMapper jsonMapper;
 
   /**
    * The {@code search} tool's output schema types {@code maxScore} as a number and does not require
@@ -37,9 +39,9 @@ class SearchResponseTest {
   void nullMaxScoreIsLeftOutOfTheJson() {
     SearchResponse response = new SearchResponse(0, 0, null, List.of(), List.of());
 
-    JsonNode json = JSON.valueToTree(response);
+    JsonContent json = new JsonContent(jsonMapper.writeValueAsString(response));
 
-    assertFalse(json.has("maxScore"), () -> "maxScore must be absent: " + json);
-    assertEquals(0, json.get("numFound").asLong());
+    assertThat(json).doesNotHavePath("$.maxScore");
+    assertThat(json).extractingPath("$.numFound").isEqualTo(0);
   }
 }
