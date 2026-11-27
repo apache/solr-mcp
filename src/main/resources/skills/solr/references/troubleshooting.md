@@ -1,52 +1,92 @@
 # Troubleshooting tool errors
 
-The server rewrites most Solr failures into short messages that say what to do next. Match the
-message and make the call it names.
+A failed call returns a result with `isError: true`. Its text starts with the server's message,
+`<what failed>: <what happened>`, for example `Getting the schema failed: Solr could not be
+reached. ...`. The text names no Solr host or URL. Match the part after the colon and make the call
+it names.
 
-## No message at all
+## Any tool that calls Solr
 
-A call that fails with a protocol-level error and no text, from `search`, the `index-*` tools or
-`get-schema`, is a failure to reach Solr or to talk to it (connection refused, I/O error), not a
-problem with your arguments. Retry once; if it persists, tell the user the operator must check the
-Solr URL, network and credentials. The `Search failed: unable to communicate with Solr` message is
-written for this case but may not reach you.
+| After the colon | Meaning | Next call |
+|---|---|---|
+| `collection '<name>' was not found. Hint: call list-collections ...` | Solr answered 404 for the named collection | `list-collections`, then retry with a listed name |
+| `Solr answered that its admin API was not found. ...` | `list-collections`, `create-collection` or an alias tool got a 404 | Not fixable from the tool; the operator must point the Solr URL at the root of a SolrCloud cluster |
+| `Solr denied access. ...` | Solr answered 401 or 403 | Not fixable from the tool; the operator must check Solr credentials and permissions |
+| `Solr returned an error: <reason>` | Solr refused the request, or failed, and gave its reason | Fix the argument the reason names. If the text ends `If it persists, ask the operator to check Solr's health and logs.`, Solr itself failed: retry later |
+| `Solr returned an error (HTTP <code>)` | Solr answered with an error but no reason to pass on | For a 4xx code re-check the arguments; otherwise retry later, then tell the user |
+| `Solr did not answer in time. ...` | The request timed out | Retry later; if it persists, the operator must check Solr's load |
+| `Solr could not be reached. ...` | Connection refused or another I/O failure | Retry once; if it persists, the operator must check that Solr is running and the Solr URL |
 
 ## `search`
 
+After `Search failed: Solr returned an error: <reason>` for a 400, the server adds a hint:
+
+| Hint | Meaning | Next call |
+|---|---|---|
+| `Hint: call list-fields on collection '...'` | `query`, `queryFields`, `filterQueries`, `facetFields` or `sortClauses` names a field the collection lacks | `list-fields`; fields Solr created while indexing may carry suffixes such as `name_s` |
+| `Hint: the q parameter uses Lucene query syntax; ...` | Lucene syntax error, or a bad `{!...}` local param | Quote or escape special characters; check local params |
+| `Check query syntax, query fields, filter queries, ...` | Another 400 | Re-check the parameters the hint lists; `list-fields` to verify fields |
+
+The server also writes these itself:
+
 | Message starts with | Meaning | Next call |
 |---|---|---|
-| `Search failed: the collection was not found` | The `collection` does not exist | `list-collections`, then retry with a listed name |
-| `Search failed: a referenced field is not defined` | `query`, `queryFields`, `filterQueries`, `facetFields` or `sortClauses` names a field the collection lacks | `list-fields`; fields Solr created while indexing may carry suffixes such as `name_s` |
-| `Search failed: Solr could not parse the query or filters` | Lucene syntax error, or a bad `{!...}` local param | Quote or escape special characters; check local params |
 | `Search failed: queryFields cannot be combined with {!...} local params` | `queryFields` was set and `query` starts with `{!...}` | Put `qf` inside the local params, or drop the prefix |
-| `Search failed: Solr rejected the request` | Another 400 | Re-check syntax, query fields, filters, facets, sort, pagination; `list-fields` to verify fields |
-| `Search failed: Solr denied access` | Solr returned 401 or 403 | Not fixable from the tool; the operator must check Solr credentials and permissions |
-| `Search failed: unable to process the Solr response` | Any unexpected failure reading the response | If `facetFields` were set, `list-fields` to check them or retry without; else tell the user the operator must check server logs |
-| `Search failed: Solr could not complete the request` | Any other Solr error | Retry later; if it persists, the operator must check Solr health and logs |
+| `Search failed: fields cannot rename another field to the unique key` | A `fields` entry such as `id:name_s` targets the unique key, which every hit reports as `id` | Choose another name for the renamed field |
+| `Search failed: the collection's schema changed since its unique key was read` | The collection was recreated with another schema | Retry the search once |
+| `Search failed: the collection's schema has no unique key` | The collection cannot be searched with this server | Tell the user |
+| `Search failed: unable to process the Solr response` | The server could not read Solr's answer | If `facetFields` were set, `list-fields` to check them or retry without; else tell the user the operator must check server logs |
 
-## `get-collection-stats`, `check-health`
+`search` reads the collection's unique key through the Schema API, so `Search failed: Solr denied
+access` can appear for an account that may read documents but lacks Solr's `schema-read`
+permission. The operator must grant it.
 
-- `Collection not found: <name>. Hint: call list-collections ...`: use a name from `list-collections`.
+## `check-health`, `get-collection-stats`
+
+- `check-health` never returns an error for a Solr failure. Its result has `healthy: false` and a
+  `reason`, and no `pingMillis` or `numDocs`:
+  - `COLLECTION_NOT_FOUND`: use a name from `list-collections`.
+  - `SOLR_UNREACHABLE`: the server could not reach Solr; the operator must check Solr and its URL.
+  - `PING_FAILED`: Solr answered the ping with an error.
+  - `QUERY_FAILED`: the ping succeeded but a match-all query failed.
 - Both accept a shard-style name such as `films_shard1_replica_n1` and resolve it to the collection.
-- `check-health` does not raise an error for a down or unknown collection; it returns an unhealthy
-  status with the failure message. Read the result.
-- `get-collection-stats` returns `null` for `cacheStats` and `handlerStats` in several situations.
-  This is expected, not an error (see `references/solr-versions.md`).
+- `get-collection-stats` can leave out `caches`, `handlers` and `metricsCore`. This is expected
+  (see `references/solr-versions.md`).
 
 ## Indexing
 
-- `Successfully indexed N of M` with N < M: some documents were rejected individually. See
-  "Partial failures" in `references/indexing.md`.
+- `documentsIndexed` lower than `documentsSubmitted`: Solr rejected some documents individually.
+  See "Partial failures" in `references/indexing.md`.
+- `Solr rejected every document; check the field names and types against get-schema`: every JSON or
+  Markdown document failed with a 400. Run `get-schema`, fix the data or add the fields, re-send.
+- `Indexing failed: Solr returned an error ...` from the CSV or XML tool: Solr rejected the payload.
+  Fix it and re-send all of it.
 - `XML input must be a Solr <add> block containing <doc> elements ...`: the payload is not a Solr
   `<add>` block. Send documents only.
 - `Failed to parse XML document`: the XML is malformed, or carries a DOCTYPE, which is refused.
-- `Markdown input cannot be empty`: one of the array elements is blank.
-- A CSV or XML payload that Solr rejects returns Solr's error text. Fix the payload and re-send.
+- `JSON input cannot be empty`, `XML input cannot be empty`, `Markdown input cannot be empty`:
+  the payload, or one Markdown element, is empty or blank.
+- `Failed to parse YAML front matter`: a Markdown document's front matter is not valid YAML.
 
-## Schema and collections
+## Schema, collections and aliases
 
-- `add-fields` fails with an "already exists" message when the field is already in the schema,
-  including when it was added or guessed through another collection that shares a named configset.
-  Collections created without a `configSet` have their own copy and do not affect each other.
-- `Each field definition requires a non-empty string 'name'`: a field map has no `name`.
-- `Collection name must not be blank`, `Alias name must not be blank`: an argument was empty.
+- `Adding fields failed: Solr returned an error: ...` with a reason that says a field already
+  exists: the field is already in the schema, including when it was added or guessed through another
+  collection that shares a named configset. Collections created without a `configSet` have their own
+  copy and do not affect each other.
+- `Each field definition requires a non-empty 'name'` (or `Each field type definition ...`): a
+  definition has a blank `name`. `fields must not be empty`, `fieldTypes must not be empty`: the
+  list was empty.
+- `Creating the collection failed: Solr returned an error: ...` naming the configset: that
+  `configSet` does not exist. Omit it to get a private copy of `_default`.
+- `Creating the alias failed: Solr returned an error: ...` naming a collection: that collection
+  does not exist. Check with `list-collections`.
+- `Alias '<name>' does not exist`: `delete-alias` was given an unknown alias. Check `list-aliases`.
+- `Collection name must not be blank`, `Alias name must not be blank`, `Collections must name at
+  least one collection, and no name may be blank`: an argument was empty.
+
+## Resources
+
+Reading `solr://collections`, `solr://{collection}/schema` or `solr://{collection}/fields` fails
+with fixed text that does not include Solr's reason, such as `Failed to retrieve the schema. Hint:
+...`. Call the matching tool (`list-collections`, `get-schema`, `list-fields`) to see the reason.

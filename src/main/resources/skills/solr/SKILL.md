@@ -25,7 +25,7 @@ web search, or a documentation-lookup tool, and match the guide version to the S
 | Add fields or field types | `add-fields`, `add-field-types` |
 | Create a collection | `create-collection` |
 | Point a name at collections | `list-aliases`, `create-alias`, `delete-alias` |
-| Size, query timings, cache and handler metrics | `get-collection-stats` |
+| Document and segment counts, cache and handler metrics | `get-collection-stats` |
 | Is the collection reachable | `check-health` |
 
 Pick the index tool by input format; do not convert JSON or CSV to Markdown to index it.
@@ -52,10 +52,17 @@ Pick the index tool by input format; do not convert JSON or CSV to Markdown to i
 
 ## Reading results
 
-- `check-health` reports an unhealthy or unknown collection in its result, not as a tool error.
-- `get-collection-stats` can return `null` for `cacheStats` and `handlerStats`. That is expected.
-- A tool call that fails with a protocol-level error and no message usually means Solr could not be
-  reached or is misconfigured, not that the request was wrong.
+- A tool returns a JSON object in `structuredContent`, and the same JSON as a text block.
+  `list-collections`, `list-fields` and `list-aliases` return a JSON array, as text only.
+- A property that has no value is left out of the result. For example, `get-collection-stats`
+  leaves out `caches`, `handlers` and `metricsCore` when Solr reports no metrics for the
+  collection (see `references/solr-versions.md`). That is expected.
+- A failed call returns a result with `isError: true`. Its text starts with the server's
+  message: what failed, then what happened, such as `Search failed: collection 'films' was not
+  found. Hint: call list-collections to see available collections.` The text never holds Solr's
+  URL. `references/troubleshooting.md` lists the messages and the next call for each.
+- `check-health` does not fail when the collection is down or unknown. It returns
+  `healthy: false` and a `reason`; read the result.
 
 ## References
 

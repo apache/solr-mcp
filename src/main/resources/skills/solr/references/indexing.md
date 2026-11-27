@@ -18,9 +18,7 @@ see the Solr Reference Guide.
   `author_name`.
 - Inside an array, only scalar items are kept. Objects and arrays nested in an array are dropped
   without a warning, and an array left with no scalars produces no field.
-- The response ends with the indexed field names (at most 50, then a count of the rest). The list is
-  built from every submitted document, including any that Solr then rejected, so a listed name may
-  not exist in the schema.
+- An empty `documents` array fails with `JSON input cannot be empty`.
 
 ## CSV and XML
 
@@ -28,36 +26,48 @@ Forwarded to Solr's own update handlers; the server does not parse the content.
 
 - `index-xml-documents` takes Solr `<add>` blocks of `<doc>` elements only: send
   `<add><doc><field name="...">` content and nothing else.
-- Solr's response carries no document count, so none is reported. Confirm with `search` or
-  `get-collection-stats`.
-- When Solr rejects a payload, fix it and re-send. The server does not retry these individually.
+- Solr accepts or rejects the payload as a whole. A rejected payload fails the call with a message
+  that starts `Indexing failed: Solr returned an error` and quotes Solr's reason when Solr gave one.
+  Fix the payload and re-send all of it.
 
 ## Markdown
 
 - A single string that begins with `---` and contains several front-matter blocks, each preceded by a
-  blank line, is split into several documents. The `M` in the response counts documents after
-  splitting, not array elements.
-- An empty or blank element fails the whole call with `Markdown input cannot be empty`.
+  blank line, is split into several documents. `documentsSubmitted` counts the documents after
+  splitting, so it can be larger than the number of array elements.
+- An empty or blank element fails the whole call with `Markdown input cannot be empty`, and front
+  matter that is not valid YAML fails it with `Failed to parse YAML front matter`.
 - Front matter values are indexed as text, whatever YAML would infer: `2024` and `true` arrive as
   strings. Sequences become multi-valued fields and nested mappings are flattened with underscores.
 - Extracted fields: `title` (front matter `title`, else the first level-1 heading), `headings`
   (every heading), `content` (body without front matter).
-- Unlike the JSON tool, the response does not list the indexed field names.
 
-## Reading the response
+## Reading the result
 
-- JSON and Markdown: `Successfully indexed N of M documents into collection '...'`.
-- CSV and XML: `Solr accepted the ... and committed it (status S, T ms)`.
+Every result names the `collection` and the `format` (`json`, `csv`, `xml` or `markdown`).
+
+- JSON and Markdown add `documentsSubmitted`, `documentsIndexed`, `fieldNames` and `fieldCount`.
+  `fieldNames` holds up to 50 field names, sorted, taken from the documents Solr accepted, so it
+  shows names after flattening. `fieldCount` is the total number of those names.
+- CSV and XML add nothing more, because Solr's update response carries no document count. Confirm
+  the count with `search` (`query=*:*`, `rows=0`, read `numFound`) or with `check-health`
+  (`numDocs`).
 
 ## Partial failures (JSON and Markdown)
 
 If Solr rejects the batch with a 400 (usually an unknown field or a value of the wrong type), the
-server retries the documents one at a time so the valid ones are indexed, then commits. The response
-gives only the count; it does not say which documents failed or why. If `N` is less than `M`, run
-`get-schema`, compare the failing fields with the schema, fix the data or add the missing field, and
-re-send. Documents without an `id` that were already accepted before the failure may be indexed
-again on the retry, so unique ids matter most here. Failures other than a 400 (unknown collection,
-authorisation, Solr unreachable) are not retried and are returned as errors.
+server retries the documents one at a time so the valid ones are indexed, then commits. A
+`documentsIndexed` lower than `documentsSubmitted` means Solr rejected the difference. The result
+does not say which documents failed or why. When `fieldCount` is 50 or less, `fieldNames` is the
+full list, so a field you sent that is missing from it had no value or was only in rejected
+documents. Run `get-schema`, compare the failing fields with the schema, fix the data or add the
+missing field, and re-send. The retry sends every document of the batch again, including any that
+Solr took before the batch failed, so documents without an `id` can be indexed twice.
+
+If Solr rejects every document, the call fails with
+`Solr rejected every document; check the field names and types against get-schema`. Failures other
+than a 400 (unknown collection, authorisation, Solr unreachable) are not retried and fail the call
+with an `Indexing failed: ` message.
 
 ## Fields you did not create
 
