@@ -111,12 +111,13 @@ docker run -p 8080:8080 --rm -e PROFILES=http \
 
 ### MCP Tools (src/main/java/org/apache/solr/mcp/server/)
 
-Four service classes expose MCP tools via `@McpTool` annotations:
+Five service classes expose MCP tools via `@McpTool` annotations:
 
 - **SearchService** (`search/`) - Full-text search with filtering, faceting, sorting, pagination
 - **IndexingService** (`indexing/`) - Document indexing supporting JSON, CSV, XML, and markdown formats
 - **CollectionService** (`collection/`) - List collections, get stats, health checks
 - **SchemaService** (`schema/`) - Schema introspection and additive modification (add-fields, add-field-types)
+- **UrlIndexingService** (`indexing/`) - `index-url`: fetches an allow-listed http(s) URL (GitHub raw content by default, `SOLR_INDEX_URL_ALLOWED_HOSTS`) with no size limit. JSON, CSV and XML stream straight into Solr's update handlers (`IndexingService.sendUncommitted`; JSON via `/update/json/docs`, which flattens nested objects to dotted field names) and are committed only once `TransferStream` confirms the whole body arrived; Markdown is read whole and parsed by the server
 
 ### Document Creators and pass-throughs
 
@@ -524,6 +525,9 @@ Environment variables:
   STDIO); `modern` = 2026-07-28. Sets `spring.ai.mcp.server.protocol`; fixed at build time in
   native images.
 - `OAUTH2_ISSUER_URI`: OAuth2 issuer URL (HTTP mode only)
+- `SOLR_INDEX_URL_ALLOWED_HOSTS`: hosts `index-url` may fetch (default `raw.githubusercontent.com,*.githubusercontent.com,github.com`; `*` = any)
+- `SOLR_INDEX_URL_BLOCKED_ADDRESSES`: IP literals `index-url` refuses on every hop, on top of all link-local addresses (default `fd00:ec2::254,100.100.100.200,168.63.129.16`, the AWS IPv6, Alibaba Cloud and Azure metadata addresses, set in `application.properties`). A host name or range fails startup, and so does a missing property; an empty value blocks only link-local addresses
+- `SOLR_INDEX_URL_CONNECT_TIMEOUT`, `SOLR_INDEX_URL_READ_TIMEOUT`, `SOLR_INDEX_URL_TOTAL_TIMEOUT`, `SOLR_INDEX_URL_MAX_CONCURRENT_FETCHES`: `index-url` timeouts and concurrency limit (defaults `10s`, `30s`, `5m`, `4`); there is no size limit
 - `OTEL_SAMPLING_PROBABILITY`: trace sampling rate (default `1.0`)
 - `OTEL_TRACES_URL` / `OTEL_METRICS_URL` / `OTEL_LOGS_URL`: OTLP/HTTP endpoints
   (default `http://localhost:4318/v1/{traces,metrics,logs}`). Each is a complete

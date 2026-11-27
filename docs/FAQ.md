@@ -72,7 +72,7 @@ Anthropic puts it, *"tool descriptions occupy more context window
 space"*, and at scale agents *"need to process hundreds of thousands of
 tokens before reading a request."*[code-execution]
 
-For this server (11 tools across search, indexing, schema, and
+For this server (13 tools across search, indexing, schema, and
 collections), the upfront overhead is a few thousand tokens — real but
 bounded.
 
