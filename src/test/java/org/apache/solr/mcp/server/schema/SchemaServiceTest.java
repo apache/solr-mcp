@@ -42,6 +42,7 @@ import org.apache.solr.client.solrj.request.schema.SchemaRequest.MultiUpdate;
 import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
@@ -65,6 +66,9 @@ import tools.jackson.databind.json.JsonMapper;
 @ExtendWith(MockitoExtension.class)
 @DisabledInNativeImage
 class SchemaServiceTest {
+
+  /** Where an add-field-types request body holds its one field type. */
+  private static final String FIELD_TYPE = "$['add-field-type']";
 
   @Mock private SolrClient solrClient;
 
@@ -317,15 +321,15 @@ class SchemaServiceTest {
 
     CollectionSchema.Field status = fields.getFirst();
     assertEquals("active", status.defaultValue());
-    String json = jsonMapper.writeValueAsString(status);
-    assertTrue(json.contains("\"default\":\"active\""), json);
-    assertFalse(json.contains("defaultValue"), json);
+    JsonContent json = new JsonContent(jsonMapper.writeValueAsString(status));
+    assertThat(json).extractingPath("$.default").isEqualTo("active");
+    assertThat(json).doesNotHavePath("$.defaultValue");
 
     schemaService.addFields("col", fields);
 
-    String body = capturedBody();
-    assertTrue(body.contains("\"default\":\"active\""), body);
-    assertFalse(body.contains("defaultValue"), body);
+    JsonContent body = capturedBody();
+    assertThat(body).extractingPath("$['add-field'].default").isEqualTo("active");
+    assertThat(body).extractingPath("$..defaultValue").asArray().isEmpty();
   }
 
   @Test
@@ -371,11 +375,17 @@ class SchemaServiceTest {
     SchemaUpdateResult result = schemaService.addFieldTypes("col", types);
 
     assertEquals(List.of("text_lowercase"), result.addedNames());
-    String body = capturedBody();
-    assertTrue(body.contains("\"class\":\"solr.TextField\""), body);
-    assertTrue(body.contains("\"class\":\"solr.KeywordTokenizerFactory\""), body);
-    assertTrue(body.contains("\"class\":\"solr.LowerCaseFilterFactory\""), body);
-    assertFalse(body.contains("className"), "the contract's names must not reach Solr: " + body);
+    JsonContent body = capturedBody();
+    assertThat(body).extractingPath(FIELD_TYPE + ".class").isEqualTo("solr.TextField");
+    assertThat(body)
+        .extractingPath(FIELD_TYPE + ".analyzer.tokenizer.class")
+        .isEqualTo("solr.KeywordTokenizerFactory");
+    assertThat(body)
+        .extractingPath(FIELD_TYPE + ".analyzer.filters[*].class")
+        .asArray()
+        .containsExactly("solr.LowerCaseFilterFactory");
+    // The contract's names must not reach Solr.
+    assertThat(body).extractingPath("$..className").asArray().isEmpty();
   }
 
   @Test
@@ -412,11 +422,21 @@ class SchemaServiceTest {
     SchemaUpdateResult result = schemaService.addFieldTypes("col", types);
 
     assertEquals(List.of("text_autocomplete"), result.addedNames());
-    String body = capturedBody();
-    assertTrue(body.contains("\"positionIncrementGap\":\"100\""), body);
-    assertTrue(body.contains("\"minGramSize\":\"2\""), body);
-    assertTrue(body.contains("indexAnalyzer") && body.contains("queryAnalyzer"), body);
-    assertFalse(body.contains("parameters"), "parameters are flattened for Solr: " + body);
+    JsonContent body = capturedBody();
+    assertThat(body).extractingPath(FIELD_TYPE + ".positionIncrementGap").isEqualTo("100");
+    assertThat(body)
+        .extractingPath(
+            FIELD_TYPE + ".indexAnalyzer.filters[?(@.class == 'solr.EdgeNGramFilterFactory')]")
+        .asArray()
+        .singleElement()
+        .asInstanceOf(InstanceOfAssertFactories.MAP)
+        .containsEntry("minGramSize", "2")
+        .containsEntry("maxGramSize", "20");
+    assertThat(body)
+        .extractingPath(FIELD_TYPE + ".queryAnalyzer.tokenizer.class")
+        .isEqualTo("solr.KeywordTokenizerFactory");
+    // Parameters are flattened into the object they belong to.
+    assertThat(body).extractingPath("$..parameters").asArray().isEmpty();
   }
 
   @Test
@@ -441,7 +461,10 @@ class SchemaServiceTest {
     SchemaUpdateResult result = schemaService.addFieldTypes("col", types);
 
     assertEquals(List.of("openai_embedding"), result.addedNames());
-    assertTrue(capturedBody().contains("\"vectorDimension\":\"1536\""));
+    JsonContent body = capturedBody();
+    assertThat(body).extractingPath(FIELD_TYPE + ".class").isEqualTo("solr.DenseVectorField");
+    assertThat(body).extractingPath(FIELD_TYPE + ".vectorDimension").isEqualTo("1536");
+    assertThat(body).doesNotHavePath(FIELD_TYPE + ".analyzer");
   }
 
   @Test
@@ -474,9 +497,11 @@ class SchemaServiceTest {
 
     schemaService.addFieldTypes("col", types);
 
-    String body = capturedBody();
-    assertTrue(body.contains("solr.WhitespaceAnalyzer"), body);
-    assertTrue(body.contains("solr.TextField"), body);
+    JsonContent body = capturedBody();
+    assertThat(body).extractingPath(FIELD_TYPE + ".class").isEqualTo("solr.TextField");
+    assertThat(body)
+        .extractingPath(FIELD_TYPE + ".analyzer.class")
+        .isEqualTo("solr.WhitespaceAnalyzer");
   }
 
   @Test
@@ -625,9 +650,12 @@ class SchemaServiceTest {
     IndexedField field = schemaService.listFields(COLLECTION).getFirst();
 
     assertEquals(Set.of(FieldProperty.indexed, FieldProperty.stored), field.flags());
-    String json = jsonMapper.writeValueAsString(field);
-    assertFalse(json.contains("I-S"), json);
-    assertFalse(json.contains("\"Z\""), json);
+    // Neither Luke's letter string nor the unknown letter reaches the contract.
+    assertThat(new JsonContent(jsonMapper.writeValueAsString(field)))
+        .isStrictlyEqualTo(
+            """
+            {"name": "future_s", "type": "string", "flags": ["indexed", "stored"]}
+            """);
   }
 
   @Test
@@ -660,11 +688,12 @@ class SchemaServiceTest {
   }
 
   /** The JSON body of the single Schema API request the service sent. */
-  private String capturedBody() throws Exception {
+  /** The Schema API request body sent to Solr, as JSON. */
+  private JsonContent capturedBody() throws Exception {
     ArgumentCaptor<SolrRequest> captor = ArgumentCaptor.forClass(SolrRequest.class);
     verify(solrClient).request(captor.capture(), eq("col"));
     ByteArrayOutputStream body = new ByteArrayOutputStream();
     captor.getValue().getContentWriter("application/json").write(body);
-    return body.toString(StandardCharsets.UTF_8);
+    return new JsonContent(body.toString(StandardCharsets.UTF_8));
   }
 }

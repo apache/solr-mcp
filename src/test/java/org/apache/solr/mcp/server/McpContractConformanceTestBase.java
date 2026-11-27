@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.api.TestInstance;
+import org.springframework.beans.factory.annotation.Autowired;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -62,7 +63,8 @@ public abstract class McpContractConformanceTestBase {
   /** The alias {@code delete-alias} deletes, created up front so that test can run alone. */
   private static final String ALIAS_TO_DELETE = "contract-alias-to-delete";
 
-  protected static final JsonMapper JSON = JsonMapper.builder().build();
+  /** The application's mapper, from the {@code @SpringBootTest} context each subclass starts. */
+  @Autowired protected JsonMapper jsonMapper;
 
   /**
    * Arguments for calling each tool that publishes an output schema. A tool that starts publishing
@@ -179,8 +181,8 @@ public abstract class McpContractConformanceTestBase {
     Map<String, Object> first = content.getFirst();
     assertEquals("text", first.get("type"), () -> tool + ": first content block must be text");
     assertEquals(
-        JSON.valueToTree(structured),
-        JSON.readTree((String) first.get("text")),
+        jsonMapper.valueToTree(structured),
+        jsonMapper.readTree((String) first.get("text")),
         () -> tool + ": the text block must hold the same JSON as structuredContent");
   }
 

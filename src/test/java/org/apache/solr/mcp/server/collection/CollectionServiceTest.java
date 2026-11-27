@@ -19,6 +19,7 @@ package org.apache.solr.mcp.server.collection;
 import static org.apache.solr.mcp.server.McpResultAssertions.completionValues;
 import static org.apache.solr.mcp.server.McpResultAssertions.promptText;
 import static org.apache.solr.mcp.server.McpResultAssertions.resourceJson;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -64,6 +65,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.json.JsonTest;
+import org.springframework.test.json.JsonContent;
 import tools.jackson.databind.json.JsonMapper;
 
 @JsonTest
@@ -939,9 +941,9 @@ class CollectionServiceTest {
 
     assertNull(result.caches());
     assertNull(result.handlers());
-    String json = jsonMapper.writeValueAsString(result);
-    assertFalse(json.contains("\"caches\""), json);
-    assertFalse(json.contains("\"handlers\""), json);
+    assertThat(new JsonContent(jsonMapper.writeValueAsString(result)))
+        .doesNotHavePath("$.caches")
+        .doesNotHavePath("$.handlers");
   }
 
   @Test

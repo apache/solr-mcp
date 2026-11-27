@@ -76,12 +76,12 @@ class McpContractConformanceIntegrationTest extends McpContractConformanceTestBa
 
   @Override
   protected List<Map<String, Object>> listTools() {
-    return JSON.convertValue(client().listTools().tools(), new TypeReference<>() {});
+    return jsonMapper.convertValue(client().listTools().tools(), new TypeReference<>() {});
   }
 
   @Override
   protected Map<String, Object> callTool(String name, Map<String, Object> arguments) {
-    return JSON.convertValue(
+    return jsonMapper.convertValue(
         client().callTool(new CallToolRequest(name, arguments)), new TypeReference<>() {});
   }
 }

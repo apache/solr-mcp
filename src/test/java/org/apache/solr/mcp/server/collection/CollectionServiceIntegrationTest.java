@@ -84,6 +84,8 @@ class CollectionServiceIntegrationTest {
 
   @Autowired private SolrClient solrClient;
 
+  @Autowired private JsonMapper jsonMapper;
+
   @BeforeAll
   void setupCollectionWithData() throws Exception {
     // 1. Create collection via CollectionService MCP tool
@@ -375,10 +377,9 @@ class CollectionServiceIntegrationTest {
             .addFields(
                 second,
                 List.of(
-                    JsonMapper.shared()
-                        .convertValue(
-                            Map.of("name", "leak183_platform", "type", "string"),
-                            CollectionSchema.Field.class)))
+                    jsonMapper.convertValue(
+                        Map.of("name", "leak183_platform", "type", "string"),
+                        CollectionSchema.Field.class)))
             .addedNames());
 
     assertEquals(first + ".AUTOCREATED", configNameOf(first));
