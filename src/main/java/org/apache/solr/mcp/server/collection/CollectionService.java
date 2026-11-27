@@ -51,9 +51,12 @@ import org.apache.solr.mcp.server.collection.CollectionMetrics.HandlerInfo;
 import org.apache.solr.mcp.server.collection.CollectionMetrics.HandlerStats;
 import org.apache.solr.mcp.server.collection.CollectionMetrics.IndexStats;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
+import org.apache.solr.mcp.server.indexing.IndexingService;
+import org.apache.solr.mcp.server.schema.SchemaService;
+import org.apache.solr.mcp.server.search.SearchService;
 import org.apache.solr.mcp.server.security.McpAuthorities;
 import org.apache.solr.mcp.server.util.McpResults;
-import org.apache.solr.mcp.server.util.PromptNames;
+import org.apache.solr.mcp.server.util.PromptArguments;
 import org.apache.solr.mcp.server.util.ResourceUris;
 import org.apache.solr.mcp.server.util.SolrCalls;
 import org.apache.solr.mcp.server.util.SolrQueries;
@@ -142,6 +145,26 @@ import tools.jackson.databind.json.JsonMapper;
 public class CollectionService {
 
   private static final Logger logger = LoggerFactory.getLogger(CollectionService.class);
+
+  /** Name of the {@code explore-collections} prompt. */
+  private static final String EXPLORE_COLLECTIONS_PROMPT = "explore-collections";
+
+  /**
+   * Description of the {@code explore-collections} prompt, shared by its {@code @McpPrompt} and its
+   * result.
+   */
+  private static final String EXPLORE_COLLECTIONS_PROMPT_DESCRIPTION =
+      "Read-only walkthrough: list collections and characterise each by stats and health.";
+
+  /** Name of the {@code setup-collection} prompt. */
+  private static final String SETUP_COLLECTION_PROMPT = "setup-collection";
+
+  /**
+   * Description of the {@code setup-collection} prompt, shared by its {@code @McpPrompt} and its
+   * result.
+   */
+  private static final String SETUP_COLLECTION_PROMPT_DESCRIPTION =
+      "Guided workflow: validate a name, pick configset / shards / replication factor, create the collection, and verify it.";
 
   static final String COLLECTIONS_RESOURCE_ERROR =
       "Failed to list Solr collections. Retry later; if it persists,"
@@ -378,7 +401,7 @@ public class CollectionService {
   @PreAuthorize(McpAuthorities.READ)
   @McpComplete(uri = ResourceUris.COLLECTION_SCHEMA)
   public CompleteResult completeCollection(CompleteRequest.CompleteArgument argument) {
-    if (!PromptNames.COLLECTION_ARG.equals(argument.name())) {
+    if (!PromptArguments.COLLECTION.equals(argument.name())) {
       return McpResults.completion(List.of(), MAX_COMPLETION_RESULTS);
     }
     String prefix = argument.value().toLowerCase(Locale.ROOT);
@@ -424,7 +447,7 @@ public class CollectionService {
    * @return up to {@link #MAX_COMPLETION_RESULTS} matching names, with the total match count
    */
   @PreAuthorize(McpAuthorities.READ)
-  @McpComplete(prompt = PromptNames.SEARCH_COLLECTION)
+  @McpComplete(prompt = SearchService.SEARCH_COLLECTION_PROMPT)
   public CompleteResult completeSearchCollectionPromptArg(
       CompleteRequest.CompleteArgument argument) {
     return completeCollection(argument);
@@ -437,7 +460,7 @@ public class CollectionService {
    * @return up to {@link #MAX_COMPLETION_RESULTS} matching names, with the total match count
    */
   @PreAuthorize(McpAuthorities.READ)
-  @McpComplete(prompt = PromptNames.INDEX_DATA)
+  @McpComplete(prompt = IndexingService.INDEX_DATA_PROMPT)
   public CompleteResult completeIndexDataPromptArg(CompleteRequest.CompleteArgument argument) {
     return completeCollection(argument);
   }
@@ -449,7 +472,7 @@ public class CollectionService {
    * @return up to {@link #MAX_COMPLETION_RESULTS} matching names, with the total match count
    */
   @PreAuthorize(McpAuthorities.READ)
-  @McpComplete(prompt = PromptNames.VIEW_SCHEMA)
+  @McpComplete(prompt = SchemaService.VIEW_SCHEMA_PROMPT)
   public CompleteResult completeViewSchemaPromptArg(CompleteRequest.CompleteArgument argument) {
     return completeCollection(argument);
   }
@@ -461,7 +484,7 @@ public class CollectionService {
    * @return up to {@link #MAX_COMPLETION_RESULTS} matching names, with the total match count
    */
   @PreAuthorize(McpAuthorities.READ)
-  @McpComplete(prompt = PromptNames.DESIGN_SCHEMA)
+  @McpComplete(prompt = SchemaService.DESIGN_SCHEMA_PROMPT)
   public CompleteResult completeDesignSchemaPromptArg(CompleteRequest.CompleteArgument argument) {
     return completeCollection(argument);
   }
@@ -1061,12 +1084,12 @@ public class CollectionService {
    */
   @PreAuthorize(McpAuthorities.READ)
   @McpPrompt(
-      name = PromptNames.EXPLORE_COLLECTIONS,
+      name = EXPLORE_COLLECTIONS_PROMPT,
       title = "Explore Solr collections",
-      description = PromptNames.EXPLORE_COLLECTIONS_DESCRIPTION)
+      description = EXPLORE_COLLECTIONS_PROMPT_DESCRIPTION)
   public GetPromptResult exploreCollectionsPrompt() {
     return McpResults.prompt(
-        PromptNames.EXPLORE_COLLECTIONS_DESCRIPTION,
+        EXPLORE_COLLECTIONS_PROMPT_DESCRIPTION,
         Role.USER,
         """
 				You are exploring an Apache Solr cluster through MCP tools. Goal: produce a concise,
@@ -1104,9 +1127,9 @@ public class CollectionService {
    */
   @PreAuthorize(McpAuthorities.READ)
   @McpPrompt(
-      name = PromptNames.SETUP_COLLECTION,
+      name = SETUP_COLLECTION_PROMPT,
       title = "Set up a new Solr collection",
-      description = PromptNames.SETUP_COLLECTION_DESCRIPTION)
+      description = SETUP_COLLECTION_PROMPT_DESCRIPTION)
   public GetPromptResult setupCollectionPrompt(
       @McpArg(
               name = "name",
@@ -1123,7 +1146,7 @@ public class CollectionService {
     String purposeLine =
         (purpose == null || purpose.isBlank()) ? "" : "\nPurpose: " + purpose.strip() + "\n";
     return McpResults.prompt(
-        PromptNames.SETUP_COLLECTION_DESCRIPTION,
+        SETUP_COLLECTION_PROMPT_DESCRIPTION,
         Role.USER,
         """
 				You are setting up a new Solr collection named `%s` through MCP tools.%s

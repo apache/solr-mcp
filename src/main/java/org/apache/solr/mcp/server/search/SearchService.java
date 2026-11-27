@@ -37,7 +37,7 @@ import org.apache.solr.common.params.FacetParams;
 import org.apache.solr.common.util.JsonTextWriter;
 import org.apache.solr.mcp.server.security.McpAuthorities;
 import org.apache.solr.mcp.server.util.McpResults;
-import org.apache.solr.mcp.server.util.PromptNames;
+import org.apache.solr.mcp.server.util.PromptArguments;
 import org.apache.solr.mcp.server.util.SolrCalls;
 import org.apache.solr.mcp.server.util.SolrQueries;
 import org.jspecify.annotations.Nullable;
@@ -104,6 +104,20 @@ import org.springframework.util.StringUtils;
 public class SearchService {
 
   private static final Logger logger = LoggerFactory.getLogger(SearchService.class);
+
+  /**
+   * Name of the {@code search-collection} prompt. Public because {@code CollectionService} binds
+   * its {@code @McpComplete} handler to this name, and MCP matches the two by exact string, so both
+   * sides must reference this constant.
+   */
+  public static final String SEARCH_COLLECTION_PROMPT = "search-collection";
+
+  /**
+   * Description of the {@code search-collection} prompt, shared by its {@code @McpPrompt} and its
+   * result.
+   */
+  private static final String SEARCH_COLLECTION_PROMPT_DESCRIPTION =
+      "Guides the assistant through inspecting the schema, translating a user question into a Solr query, running the search, and refining the result.";
 
   /**
    * Fragments of Solr's own error text that identify a failure we can advise on.
@@ -639,13 +653,13 @@ public class SearchService {
    */
   @PreAuthorize(McpAuthorities.READ)
   @McpPrompt(
-      name = PromptNames.SEARCH_COLLECTION,
+      name = SEARCH_COLLECTION_PROMPT,
       title = "Search a Solr collection from a natural-language question",
-      description = PromptNames.SEARCH_COLLECTION_DESCRIPTION)
+      description = SEARCH_COLLECTION_PROMPT_DESCRIPTION)
   public GetPromptResult searchCollectionPrompt(
       @McpArg(
-              name = PromptNames.COLLECTION_ARG,
-              description = PromptNames.COLLECTION_ARG_DESCRIPTION,
+              name = PromptArguments.COLLECTION,
+              description = PromptArguments.COLLECTION_DESCRIPTION,
               required = true)
           String collection,
       @McpArg(
@@ -654,7 +668,7 @@ public class SearchService {
               required = true)
           String question) {
     return McpResults.prompt(
-        PromptNames.SEARCH_COLLECTION_DESCRIPTION,
+        SEARCH_COLLECTION_PROMPT_DESCRIPTION,
         Role.USER,
         """
 				You are searching collection `%s` to answer:

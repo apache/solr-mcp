@@ -16,8 +16,6 @@
  */
 package org.apache.solr.mcp.server.schema;
 
-import static org.apache.solr.mcp.server.util.PromptText.optionalCodeBlock;
-
 import io.micrometer.observation.annotation.Observed;
 import io.modelcontextprotocol.spec.McpSchema.GetPromptResult;
 import io.modelcontextprotocol.spec.McpSchema.ReadResourceRequest;
@@ -34,7 +32,7 @@ import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.security.McpAuthorities;
 import org.apache.solr.mcp.server.util.McpResults;
-import org.apache.solr.mcp.server.util.PromptNames;
+import org.apache.solr.mcp.server.util.PromptArguments;
 import org.apache.solr.mcp.server.util.ResourceUris;
 import org.apache.solr.mcp.server.util.SolrCalls;
 import org.jspecify.annotations.Nullable;
@@ -127,6 +125,33 @@ public class SchemaService {
   private static final String COLLECTION_PARAM_DESCRIPTION = "Solr collection name";
 
   private static final Logger logger = LoggerFactory.getLogger(SchemaService.class);
+
+  /**
+   * Name of the {@code view-schema} prompt. Public because {@code CollectionService} binds its
+   * {@code @McpComplete} handler to this name, and MCP matches the two by exact string, so both
+   * sides must reference this constant.
+   */
+  public static final String VIEW_SCHEMA_PROMPT = "view-schema";
+
+  /**
+   * Description of the {@code view-schema} prompt, shared by its {@code @McpPrompt} and its result.
+   */
+  private static final String VIEW_SCHEMA_PROMPT_DESCRIPTION =
+      "Read-only walkthrough: fetch the schema and summarize fields, types, dynamic fields, copy fields, and the unique key.";
+
+  /**
+   * Name of the {@code design-schema} prompt. Public because {@code CollectionService} binds its
+   * {@code @McpComplete} handler to this name, and MCP matches the two by exact string, so both
+   * sides must reference this constant.
+   */
+  public static final String DESIGN_SCHEMA_PROMPT = "design-schema";
+
+  /**
+   * Description of the {@code design-schema} prompt, shared by its {@code @McpPrompt} and its
+   * result.
+   */
+  private static final String DESIGN_SCHEMA_PROMPT_DESCRIPTION =
+      "Guides the assistant through inspecting an existing Solr schema, choosing appropriate field types, and applying additive schema changes via the Schema API.";
 
   /** The section of a Schema API response that holds the schema. */
   private static final String SCHEMA_SECTION = "schema";
@@ -569,17 +594,17 @@ public class SchemaService {
    */
   @PreAuthorize(McpAuthorities.READ)
   @McpPrompt(
-      name = PromptNames.VIEW_SCHEMA,
+      name = VIEW_SCHEMA_PROMPT,
       title = "View a Solr collection schema",
-      description = PromptNames.VIEW_SCHEMA_DESCRIPTION)
+      description = VIEW_SCHEMA_PROMPT_DESCRIPTION)
   public GetPromptResult viewSchemaPrompt(
       @McpArg(
-              name = PromptNames.COLLECTION_ARG,
-              description = PromptNames.COLLECTION_ARG_DESCRIPTION,
+              name = PromptArguments.COLLECTION,
+              description = PromptArguments.COLLECTION_DESCRIPTION,
               required = true)
           String collection) {
     return McpResults.prompt(
-        PromptNames.VIEW_SCHEMA_DESCRIPTION,
+        VIEW_SCHEMA_PROMPT_DESCRIPTION,
         Role.USER,
         """
 				You are inspecting the schema of Solr collection `%s`. This prompt is read-only; do not
@@ -635,13 +660,13 @@ public class SchemaService {
    */
   @PreAuthorize(McpAuthorities.READ)
   @McpPrompt(
-      name = PromptNames.DESIGN_SCHEMA,
+      name = DESIGN_SCHEMA_PROMPT,
       title = "Design a Solr schema for a dataset",
-      description = PromptNames.DESIGN_SCHEMA_DESCRIPTION)
+      description = DESIGN_SCHEMA_PROMPT_DESCRIPTION)
   public GetPromptResult designSchemaPrompt(
       @McpArg(
-              name = PromptNames.COLLECTION_ARG,
-              description = PromptNames.COLLECTION_ARG_DESCRIPTION,
+              name = PromptArguments.COLLECTION,
+              description = PromptArguments.COLLECTION_DESCRIPTION,
               required = true)
           String collection,
       @McpArg(
@@ -656,12 +681,14 @@ public class SchemaService {
               required = false)
           @Nullable String sampleDocument) {
     String sampleSection =
-        optionalCodeBlock(
-            sampleDocument,
-            "A sample document was provided. Use it as ground truth for field names and value\n     shapes:",
-            "No sample document was provided; ask the user for one if the dataset description leaves field types ambiguous.");
+        sampleDocument == null || sampleDocument.isBlank()
+            ? "   - No sample document was provided; ask the user for one if the dataset description leaves field types ambiguous."
+            : "   - A sample document was provided. Use it as ground truth for field names and value\n"
+                + "     shapes:\n\n     ```\n"
+                + sampleDocument.strip().indent(5)
+                + "     ```";
     return McpResults.prompt(
-        PromptNames.DESIGN_SCHEMA_DESCRIPTION,
+        DESIGN_SCHEMA_PROMPT_DESCRIPTION,
         Role.USER,
         """
 				You are designing a Solr schema for collection `%s`. Dataset:

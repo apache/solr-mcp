@@ -148,9 +148,9 @@ Packages without tools:
   it does, and an entry in `McpToolRegistrationTest.EXPECTED_ENDPOINT_SCOPES`
 - `util/` - `SolrCalls`, which runs every tool's Solr calls and translates their failures (see
   "MCP contracts" below); `McpResults`, which builds the prompt, resource and completion results;
-  `PromptNames`, the prompt names and the `collection` argument name shared by `@McpPrompt` and
-  `@McpComplete` (they must match byte-for-byte or completion fails at runtime); `PromptText`, the
-  prompt bodies; `ResourceUris`, the resource URIs shared by `@McpResource` and `@McpComplete`; and
+  `PromptArguments`, the `collection` argument name shared by the collection-scoped prompts and
+  `CollectionService`'s `@McpComplete` handlers (they must match byte-for-byte or completion fails
+  at runtime); `ResourceUris`, the resource URIs shared by `@McpResource` and `@McpComplete`; and
   `SolrQueries`, the match-all query
 
 Why the project is built this way (Spring AI MCP, Jib): "Design Decisions" in
@@ -172,7 +172,7 @@ Every tool, resource, prompt and completion accepts and returns types the server
   - any other `SolrServerException` or `IOException`: that Solr could not be reached.
 
   The translated exception has no cause, because Spring AI appends the root cause's message and SolrJ's messages quote the Solr URL; `SolrCalls` logs the original at `warn`. It is an `IllegalArgumentException` when Solr refused the request because of something in it, and an `IllegalStateException` otherwise. `check-health` is the exception to the rule: it catches its failures and returns a fixed `HealthStatus.Reason`. Resources keep their own fixed error text.
-- **Prompts** return `GetPromptResult` through `McpResults.prompt(description, role, text)`. Pick the role by speaker: `Role.USER` for instructions or a request to the model, which is every current prompt; `Role.ASSISTANT` only for text the model should treat as its own earlier reply. The description is the `*_DESCRIPTION` constant in `PromptNames`, shared with the annotation.
+- **Prompts** return `GetPromptResult` through `McpResults.prompt(description, role, text)`. Pick the role by speaker: `Role.USER` for instructions or a request to the model, which is every current prompt; `Role.ASSISTANT` only for text the model should treat as its own earlier reply. The service that declares a prompt holds its name and description as `*_PROMPT` and `*_PROMPT_DESCRIPTION` constants, and the description is shared with the annotation. A prompt name that `CollectionService` completes is public, so its `@McpComplete` references the same constant.
 - **Resources** return `McpResults.jsonResource(request.uri(), json)`, with the same JSON as the matching tool. The method takes the `ReadResourceRequest` Spring AI injects next to any URI-template variables, so the content echoes the URI the client read.
 - **Completions** return `McpResults.completion(matches, limit)`, which reports `total` and `hasMore`.
 

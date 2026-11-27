@@ -39,8 +39,7 @@ import org.apache.solr.mcp.server.indexing.IndexingResult.Format;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
 import org.apache.solr.mcp.server.security.McpAuthorities;
 import org.apache.solr.mcp.server.util.McpResults;
-import org.apache.solr.mcp.server.util.PromptNames;
-import org.apache.solr.mcp.server.util.PromptText;
+import org.apache.solr.mcp.server.util.PromptArguments;
 import org.apache.solr.mcp.server.util.SolrCalls;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -119,6 +118,19 @@ public class IndexingService {
   private static final String COLLECTION_PARAM_DESCRIPTION = "Solr collection to index into";
 
   private static final Logger logger = LoggerFactory.getLogger(IndexingService.class);
+
+  /**
+   * Name of the {@code index-data} prompt. Public because {@code CollectionService} binds its
+   * {@code @McpComplete} handler to this name, and MCP matches the two by exact string, so both
+   * sides must reference this constant.
+   */
+  public static final String INDEX_DATA_PROMPT = "index-data";
+
+  /**
+   * Description of the {@code index-data} prompt, shared by its {@code @McpPrompt} and its result.
+   */
+  private static final String INDEX_DATA_PROMPT_DESCRIPTION =
+      "Guides the assistant through verifying the target schema, picking the right indexing tool for the input format, and confirming the result.";
 
   /** Solr's update handler, which reads CSV and update XML by their content type. */
   private static final String UPDATE_PATH = "/update";
@@ -592,13 +604,13 @@ public class IndexingService {
    */
   @PreAuthorize(McpAuthorities.READ)
   @McpPrompt(
-      name = PromptNames.INDEX_DATA,
+      name = INDEX_DATA_PROMPT,
       title = "Index documents into a Solr collection",
-      description = PromptNames.INDEX_DATA_DESCRIPTION)
+      description = INDEX_DATA_PROMPT_DESCRIPTION)
   public GetPromptResult indexDataPrompt(
       @McpArg(
-              name = PromptNames.COLLECTION_ARG,
-              description = PromptNames.COLLECTION_ARG_DESCRIPTION,
+              name = PromptArguments.COLLECTION,
+              description = PromptArguments.COLLECTION_DESCRIPTION,
               required = true)
           String collection,
       @McpArg(
@@ -614,12 +626,11 @@ public class IndexingService {
           @Nullable String sample) {
     IndexFormat indexFormat = IndexFormat.parse(format);
     String sampleSection =
-        PromptText.optionalCodeBlock(
-            sample,
-            "Sample input:",
-            "No sample was provided. If the user has not pasted the documents yet, ask for them (or a representative subset) before indexing.");
+        sample == null || sample.isBlank()
+            ? "   - No sample was provided. If the user has not pasted the documents yet, ask for them (or a representative subset) before indexing."
+            : "   - Sample input:\n\n     ```\n" + sample.strip().indent(5) + "     ```";
     return McpResults.prompt(
-        PromptNames.INDEX_DATA_DESCRIPTION,
+        INDEX_DATA_PROMPT_DESCRIPTION,
         Role.USER,
         """
 				You are indexing %s data into collection `%s` via MCP tools. Work incrementally and
