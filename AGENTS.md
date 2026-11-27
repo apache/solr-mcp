@@ -124,7 +124,7 @@ docker run -p 8080:8080 --rm -e PROFILES=http \
 
 ### Package map (src/main/java/org/apache/solr/mcp/server/)
 
-Five service classes expose MCP tools via `@McpTool`. Prompts (`@McpPrompt`), resources
+Six service classes expose MCP tools via `@McpTool`. Prompts (`@McpPrompt`), resources
 (`@McpResource`) and completions (`@McpComplete`) live on the same classes:
 
 - **SearchService** (`search/`) - `search`: full-text search with filtering, faceting, sorting, pagination
@@ -132,6 +132,7 @@ Five service classes expose MCP tools via `@McpTool`. Prompts (`@McpPrompt`), re
 - **CollectionService** (`collection/`) - `list-collections`, `get-collection-stats`, `check-health`, `create-collection`; the `solr://collections` resource and every `@McpComplete` handler
 - **AliasService** (`alias/`) - `list-aliases`, `create-alias`, `delete-alias`
 - **SchemaService** (`schema/`) - `get-schema`, `list-fields`, and the additive `add-fields`, `add-field-types`; the `solr://{collection}/schema` and `solr://{collection}/fields` resources
+- **ClusterService** (`cluster/`) - `get-cluster-status` (live nodes and every shard's and replica's state, mapped from Solr's CLUSTERSTATUS), `list-configsets`; the `solr://cluster/status` resource
 
 Packages without tools:
 
@@ -294,7 +295,8 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
   - **Solr API model types** used by `CoreAdminResponse.getCoreStatus()`:
     `SolrJerseyResponse`, `ErrorInfo`, `CoreStatusResponse` and their nested types
   - **MCP tool response records** (invisible to AOT because the MCP framework uses
-    generic `Object` dispatch): `Alias`, `AliasDeletion`, `Collection`,
+    generic `Object` dispatch): `Alias`, `AliasDeletion`, `ClusterStatus` and its nested
+    records, `ConfigSet`, `Collection`,
     `CollectionCreationResult`, `HealthStatus` and its `Reason`, `CollectionMetrics` and its
     nested stats records, `SearchResponse` and its nested `SearchHit`,
     `FacetField` and `FacetValue`, `SortClause`,

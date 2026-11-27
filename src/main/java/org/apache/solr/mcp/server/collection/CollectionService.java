@@ -945,7 +945,10 @@ public class CollectionService {
       name = "check-health",
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
       generateOutputSchema = true,
-      description = "Check health of a Solr collection")
+      description =
+          "Check that one collection answers queries: a ping plus its document count. It does not"
+              + " report replica state, so it can report healthy while a replica is down; use"
+              + " get-cluster-status for replicas and nodes.")
   public HealthStatus checkHealth(
       @McpToolParam(description = "Solr collection") String collection) {
     String actualCollection = extractCollectionName(collection);
@@ -1008,7 +1011,8 @@ public class CollectionService {
       description =
           "Create a new Solr collection. By default it gets its own copy of the _default configset,"
               + " so its schema is independent of other collections. Pass configSet only to share an existing"
-              + " configset. numShards and replicationFactor default to 1.",
+              + " configset; call list-configsets to see the available configsets. numShards and"
+              + " replicationFactor default to 1.",
       generateOutputSchema = true)
   public CollectionCreationResult createCollection(
       @McpToolParam(description = "Name of the collection to create") String name,

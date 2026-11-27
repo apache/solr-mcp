@@ -64,7 +64,7 @@ public final class McpToolFailures {
 
   /** The tools that name no collection, so a missing collection cannot make them fail. */
   public static final Set<String> TOOLS_WITHOUT_A_TARGET =
-      Set.of("list-aliases", "list-collections");
+      Set.of("list-aliases", "list-collections", "list-configsets");
 
   /**
    * Arguments that make each tool fail on a running Solr because what they name does not exist: a
@@ -95,6 +95,7 @@ public final class McpToolFailures {
               "create-collection",
               Map.of(NAME, "contract-failure-collection", "configSet", MISSING_CONFIGSET)),
           Map.entry("delete-alias", Map.of(NAME, MISSING_ALIAS)),
+          Map.entry("get-cluster-status", Map.of(COLLECTION_ARG, MISSING_COLLECTION)),
           Map.entry("get-collection-stats", Map.of(COLLECTION_ARG, MISSING_COLLECTION)),
           Map.entry("get-schema", Map.of(COLLECTION_ARG, MISSING_COLLECTION)),
           Map.entry(
@@ -128,7 +129,8 @@ public final class McpToolFailures {
    * What the error text of each tool must contain when what it names does not exist. Most tools get
    * the {@code list-collections} hint for a 404; {@code create-alias} and {@code create-collection}
    * carry Solr's reason, which names what is missing; {@code delete-alias} reports the alias
-   * itself.
+   * itself; {@code get-cluster-status}, which Solr refuses with a 400 that names the collection,
+   * carries Solr's reason and the hint.
    */
   private static final Map<String, List<String>> MISSING_TARGET_TEXT =
       Map.of(
@@ -137,7 +139,9 @@ public final class McpToolFailures {
           "create-collection",
           List.of(SolrCalls.SOLR_REASON_LEAD, MISSING_CONFIGSET),
           "delete-alias",
-          List.of("Alias '" + MISSING_ALIAS + "' does not exist"));
+          List.of("Alias '" + MISSING_ALIAS + "' does not exist"),
+          "get-cluster-status",
+          List.of(SolrCalls.SOLR_REASON_LEAD, MISSING_COLLECTION, SolrCalls.LIST_COLLECTIONS_HINT));
 
   private McpToolFailures() {}
 

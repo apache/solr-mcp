@@ -27,6 +27,8 @@ web search, or a documentation-lookup tool, and match the guide version to the S
 | Point a name at collections | `list-aliases`, `create-alias`, `delete-alias` |
 | Document and segment counts, cache and handler metrics | `get-collection-stats` |
 | Is the collection reachable | `check-health` |
+| Which nodes are live, which replicas are down or recovering | `get-cluster-status` (also the `solr://cluster/status` resource) |
+| See the configsets a collection can share | `list-configsets` |
 
 Pick the index tool by input format; do not convert JSON or CSV to Markdown to index it.
 

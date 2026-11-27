@@ -114,8 +114,10 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 | `index-markdown-documents` | Index markdown documents into a collection (one array element per document), extracting front matter, title, headings, and body text; returns `documentsSubmitted`, `documentsIndexed`, `fieldNames` (up to 50 names in sort order) and `fieldCount` (how many there are), and fails if Solr rejects every document |
 | `create-collection` | Create a collection (configSet, numShards, replicationFactor optional — default: a private copy of `_default`, `1`, `1`); reports the settings it used |
 | `list-collections` | List all available Solr collections |
-| `get-collection-stats` | Get statistics and metrics for a collection |
-| `check-health` | Check that a collection answers a ping and a query; an unhealthy result names a fixed `reason` such as `COLLECTION_NOT_FOUND` |
+| `get-collection-stats` | Size and performance of one collection: document and segment counts, cache and request handler statistics |
+| `check-health` | Check that a collection answers a ping and a query; an unhealthy result names a fixed `reason` such as `COLLECTION_NOT_FOUND`. It does not report replica state; use `get-cluster-status` for that |
+| `get-cluster-status` | Cluster-wide view from Solr's CLUSTERSTATUS: `liveNodes`, then each collection's shards and replicas with their `state`, `leader` and `nodeName` |
+| `list-configsets` | List the configsets in the cluster, to pick one for `create-collection` |
 | `add-fields` | Add fields to a collection schema (additive only; existing fields cannot be modified) |
 | `add-field-types` | Add field types — custom analyzers, `DenseVectorField` for semantic search, etc. |
 | `get-schema` | Retrieve the full schema: field types, analyzers, dynamic-field patterns, copy fields |
@@ -132,6 +134,7 @@ Every tool advertises MCP behavior hints (`readOnlyHint`, `destructiveHint`, `id
 |--------------|-------------|
 | `solr://collections` | List of all Solr collections in the cluster |
 | `solr://{collection}/schema` | Schema definition for a collection (supports autocompletion) |
+| `solr://cluster/status` | Live nodes and the state of every shard and replica, as `get-cluster-status` reports it |
 | `solr://{collection}/fields` | Fields that hold data in a collection, as `list-fields` returns them (supports autocompletion) |
 
 ### Prompts

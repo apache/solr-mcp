@@ -85,6 +85,12 @@ permission. The operator must grant it.
 - `Collection name must not be blank`, `Alias name must not be blank`, `Collections must name at
   least one collection, and no name may be blank`: an argument was empty.
 
+## `get-cluster-status`, `list-configsets`
+
+- Solr answers an unknown collection on `get-cluster-status` with a 400, not a 404, so the text is
+  `Getting the cluster status failed: Solr returned an error: ...` with Solr's reason, followed by
+  the `list-collections` hint. Use a name from `list-collections`.
+
 ## Resources
 
 Reading `solr://collections`, `solr://{collection}/schema` or `solr://{collection}/fields` fails

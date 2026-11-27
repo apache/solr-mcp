@@ -55,6 +55,11 @@ class SolrNativeHints implements RuntimeHintsRegistrar {
       List.of(
           "org.apache.solr.mcp.server.alias.Alias",
           "org.apache.solr.mcp.server.alias.AliasDeletion",
+          "org.apache.solr.mcp.server.cluster.ClusterStatus",
+          "org.apache.solr.mcp.server.cluster.ClusterStatus$Collection",
+          "org.apache.solr.mcp.server.cluster.ClusterStatus$Shard",
+          "org.apache.solr.mcp.server.cluster.ClusterStatus$Replica",
+          "org.apache.solr.mcp.server.cluster.ConfigSet",
           "org.apache.solr.mcp.server.collection.Collection",
           "org.apache.solr.mcp.server.collection.CollectionCreationResult",
           "org.apache.solr.mcp.server.collection.HealthStatus",

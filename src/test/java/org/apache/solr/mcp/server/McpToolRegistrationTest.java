@@ -24,6 +24,7 @@ import java.lang.reflect.Parameter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
+import org.apache.solr.mcp.server.cluster.ClusterService;
 import org.apache.solr.mcp.server.collection.CollectionService;
 import org.apache.solr.mcp.server.indexing.IndexingService;
 import org.apache.solr.mcp.server.schema.SchemaService;
@@ -191,6 +192,9 @@ class McpToolRegistrationTest {
     // SchemaService
     addToolNames(SchemaService.class, toolNames);
 
+    // ClusterService
+    addToolNames(ClusterService.class, toolNames);
+
     // Verify all tool names are unique
     long uniqueCount = toolNames.stream().distinct().count();
     assertEquals(
@@ -298,7 +302,8 @@ class McpToolRegistrationTest {
                 CollectionService.class,
                 SchemaService.class,
                 SearchService.class,
-                IndexingService.class)
+                IndexingService.class,
+                ClusterService.class)
             .flatMap(serviceClass -> Arrays.stream(serviceClass.getDeclaredMethods()))
             .filter(method -> mcpAnnotations.stream().anyMatch(method::isAnnotationPresent))
             .filter(method -> !method.isAnnotationPresent(PreAuthorize.class))

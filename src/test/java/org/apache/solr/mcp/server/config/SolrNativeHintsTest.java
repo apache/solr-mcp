@@ -125,6 +125,26 @@ class SolrNativeHintsTest {
   }
 
   @Test
+  void registersClusterRecordHints() {
+    for (String type :
+        List.of(
+            "org.apache.solr.mcp.server.cluster.ClusterStatus",
+            "org.apache.solr.mcp.server.cluster.ClusterStatus$Collection",
+            "org.apache.solr.mcp.server.cluster.ClusterStatus$Shard",
+            "org.apache.solr.mcp.server.cluster.ClusterStatus$Replica",
+            "org.apache.solr.mcp.server.cluster.ConfigSet")) {
+      assertTrue(
+          RuntimeHintsPredicates.reflection()
+              .onType(TypeReference.of(type))
+              .withMemberCategories(
+                  MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
+                  MemberCategory.INVOKE_DECLARED_METHODS)
+              .test(hints),
+          type);
+    }
+  }
+
+  @Test
   void registersIndexingResultHints() {
     for (String type :
         List.of(

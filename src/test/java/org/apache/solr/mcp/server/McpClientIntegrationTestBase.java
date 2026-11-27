@@ -125,6 +125,8 @@ public abstract class McpClientIntegrationTestBase {
     assertTrue(toolNames.contains("list-fields"), "Should have list-fields tool");
     assertTrue(toolNames.contains("add-fields"), "Should have add-fields tool");
     assertTrue(toolNames.contains("add-field-types"), "Should have add-field-types tool");
+    assertTrue(toolNames.contains("get-cluster-status"), "Should have get-cluster-status tool");
+    assertTrue(toolNames.contains("list-configsets"), "Should have list-configsets tool");
   }
 
   @Test
@@ -141,6 +143,10 @@ public abstract class McpClientIntegrationTestBase {
     assertReadOnly(tools, "check-health");
     assertReadOnly(tools, "get-schema");
     assertReadOnly(tools, "list-fields");
+    assertReadOnly(tools, "get-cluster-status");
+    assertReadOnly(tools, "list-configsets");
+    assertEquals(Boolean.TRUE, tools.get("get-cluster-status").annotations().idempotentHint());
+    assertEquals(Boolean.TRUE, tools.get("list-configsets").annotations().idempotentHint());
 
     // create-collection: additive write (provisions a new collection, not
     // idempotent because a second call with the same name errors).
@@ -1336,6 +1342,49 @@ public abstract class McpClientIntegrationTestBase {
     assertTrue(text.contains("Failed to retrieve the schema"), text);
     assertFalse(text.contains("Error from server"), text);
     assertFalse(text.contains("http://") || text.contains("https://"), text);
+  }
+
+  @Test
+  @Order(47)
+  void getClusterStatusReportsTheCollectionsReplicas() {
+    CallToolResult result =
+        mcpClient.callTool(
+            new CallToolRequest("get-cluster-status", Map.of("collection", COLLECTION)));
+
+    assertNotError(result);
+    JsonContent status = json(result);
+    String replicas = "$.collections[?(@.name == '" + COLLECTION + "')].shards[*].replicas[*]";
+    // Through Spring AI's serialization: the server's camelCase names, no catch-all, and leader as
+    // a boolean rather than Solr's "true" string. A deep scan never throws PathNotFoundException,
+    // so doesNotHavePath would always fail on it.
+    assertThat(status).extractingPath("$.liveNodes").asArray().isNotEmpty();
+    assertThat(status).extractingPath(replicas + ".leader").asArray().contains(true);
+    assertThat(status).extractingPath(replicas + ".nodeName").asArray().isNotEmpty();
+    for (String dropped : List.of("live_nodes", "node_name", "base_url", "other")) {
+      assertThat(status).extractingPath("$.." + dropped).asArray().as(dropped).isEmpty();
+    }
+  }
+
+  @Test
+  @Order(48)
+  void clusterStatusResourceMatchesGetClusterStatusTool() {
+    CallToolResult tool = mcpClient.callTool(new CallToolRequest("get-cluster-status", Map.of()));
+    ReadResourceResult resource =
+        mcpClient.readResource(new ReadResourceRequest("solr://cluster/status"));
+
+    assertNotError(tool);
+    assertThat(new JsonContent(McpResultAssertions.resourceJson(resource, "solr://cluster/status")))
+        .isStrictlyEqualTo(extractText(tool));
+  }
+
+  @Test
+  @Order(48)
+  void listConfigSetsReportsTheCreatedCollectionsPrivateCopy() {
+    CallToolResult result = mcpClient.callTool(new CallToolRequest("list-configsets", Map.of()));
+
+    assertNotError(result);
+    List<String> names = read(result, "$[*].name");
+    assertThat(names).contains("_default", COLLECTION + ".AUTOCREATED").isSorted();
   }
 
   private static String extractFirstMessageText(GetPromptResult result) {

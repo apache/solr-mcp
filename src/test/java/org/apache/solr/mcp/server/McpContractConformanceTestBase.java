@@ -82,7 +82,7 @@ public abstract class McpContractConformanceTestBase {
 
   /** The tools that return a list, so they publish no outputSchema. */
   private static final Set<String> LIST_TOOLS =
-      Set.of("list-aliases", "list-collections", "list-fields");
+      Set.of("list-aliases", "list-collections", "list-configsets", "list-fields");
 
   /**
    * Arguments for calling each tool that publishes an output schema. Every tool outside {@link
@@ -119,6 +119,7 @@ public abstract class McpContractConformanceTestBase {
               "create-alias", Map.of(NAME, "contract-alias", COLLECTIONS_ARG, List.of(COLLECTION))),
           Map.entry("create-collection", Map.of(NAME, COLLECTION + "-created")),
           Map.entry("delete-alias", Map.of(NAME, ALIAS_TO_DELETE)),
+          Map.entry("get-cluster-status", Map.of(COLLECTION_ARG, COLLECTION)),
           Map.entry("get-collection-stats", Map.of(COLLECTION_ARG, COLLECTION)),
           Map.entry("get-schema", Map.of(COLLECTION_ARG, COLLECTION)),
           Map.entry(
@@ -233,7 +234,7 @@ public abstract class McpContractConformanceTestBase {
   }
 
   /**
-   * Every tool but the two that name nothing has arguments for the missing-target check, so a new
+   * Every tool but those that name nothing has arguments for the missing-target check, so a new
    * tool cannot silently skip it.
    */
   @Test
