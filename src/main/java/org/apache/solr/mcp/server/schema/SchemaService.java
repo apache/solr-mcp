@@ -24,6 +24,7 @@ import io.modelcontextprotocol.spec.McpSchema.Role;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.LukeRequest;
 import org.apache.solr.client.solrj.request.schema.AnalyzerDefinition;
@@ -115,7 +116,7 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * @see CollectionSchema
  * @see org.apache.solr.client.solrj.request.schema.SchemaRequest
- * @see org.springframework.ai.tool.annotation.Tool
+ * @see McpTool
  */
 @Service
 @Observed
@@ -227,7 +228,7 @@ public class SchemaService {
     } catch (IllegalArgumentException | IllegalStateException _) {
       // SolrCalls' translation of a failed request; SolrCalls has already logged the cause.
       throw new IllegalStateException(SCHEMA_RESOURCE_ERROR);
-    } catch (Exception e) {
+    } catch (RuntimeException e) {
       // Deliberately no cause: MCP reports the root cause's message to the client,
       // and Solr and SolrJ failure text can carry internal host names, URLs and
       // paths. The log is the sole record of the cause.
@@ -285,12 +286,6 @@ public class SchemaService {
    * collection, Solr's reason for a refused request, or a fixed text when Solr denied access or
    * could not be reached.
    *
-   * <p><strong>Performance Considerations:</strong>
-   *
-   * <p>Schema information is typically cached by Solr and retrieval is generally fast. However, for
-   * applications that frequently access schema information, consider implementing client-side
-   * caching to reduce network overhead.
-   *
    * @param collection the name of the Solr collection to retrieve schema information for
    * @return the schema, with the properties the contract names
    * @throws IllegalArgumentException if the collection does not exist or Solr refused the request
@@ -321,9 +316,7 @@ public class SchemaService {
             GET_SCHEMA_FAILED,
             SolrCalls.collectionNotFound(collection),
             () -> solrClient.request(new SchemaRequest(), collection));
-    @SuppressWarnings("unchecked")
-    Map<String, Object> schema = (Map<String, Object>) response.get(SCHEMA_SECTION);
-    return CollectionSchema.fromSolr(schema);
+    return CollectionSchema.fromSolr(asStringKeyed((Map<?, ?>) response.get(SCHEMA_SECTION)));
   }
 
   /**
@@ -350,7 +343,7 @@ public class SchemaService {
     } catch (IllegalArgumentException | IllegalStateException _) {
       // SolrCalls' translation of a failed request; SolrCalls has already logged the cause.
       throw new IllegalStateException(FIELDS_RESOURCE_ERROR);
-    } catch (Exception e) {
+    } catch (RuntimeException e) {
       // No cause, for the same reason as getSchemaResource: Solr failure text can
       // carry internal host names and URLs.
       logger.error("Failed to list fields for collection: {}", collection, e);
@@ -414,7 +407,7 @@ public class SchemaService {
             SolrCalls.collectionNotFound(collection),
             () -> solrClient.request(lukeRequest, collection));
     return response.get(LUKE_FIELDS_SECTION) instanceof Map<?, ?> fields
-        ? IndexedField.fromLuke(castFields(fields))
+        ? IndexedField.fromLuke(asStringKeyed(fields))
         : List.of();
   }
 
@@ -452,19 +445,13 @@ public class SchemaService {
           List<CollectionSchema.Field> fields) {
     requireCollection(collection);
     requireNonEmpty(fields, "fields");
-
-    List<String> names = new ArrayList<>(fields.size());
-    List<SchemaRequest.Update> updates = new ArrayList<>(fields.size());
-    for (CollectionSchema.Field field : fields) {
-      names.add(requireName(field.name(), "field"));
-      updates.add(new SchemaRequest.AddField(field.toSolr()));
-    }
-
-    SolrCalls.call(
+    return applySchemaUpdates(
+        collection,
         ADD_FIELDS_FAILED,
-        SolrCalls.collectionNotFound(collection),
-        () -> new SchemaRequest.MultiUpdate(updates).process(solrClient, collection));
-    return new SchemaUpdateResult(collection, names);
+        fields,
+        "field",
+        CollectionSchema.Field::name,
+        field -> new SchemaRequest.AddField(field.toSolr()));
   }
 
   /**
@@ -508,16 +495,43 @@ public class SchemaService {
           List<CollectionSchema.FieldType> fieldTypes) {
     requireCollection(collection);
     requireNonEmpty(fieldTypes, "fieldTypes");
-
-    List<String> names = new ArrayList<>(fieldTypes.size());
-    List<SchemaRequest.Update> updates = new ArrayList<>(fieldTypes.size());
-    for (CollectionSchema.FieldType fieldType : fieldTypes) {
-      names.add(requireName(fieldType.name(), "field type"));
-      updates.add(new SchemaRequest.AddFieldType(toFieldTypeDefinition(fieldType)));
-    }
-
-    SolrCalls.call(
+    return applySchemaUpdates(
+        collection,
         ADD_FIELD_TYPES_FAILED,
+        fieldTypes,
+        "field type",
+        CollectionSchema.FieldType::name,
+        fieldType -> new SchemaRequest.AddFieldType(toFieldTypeDefinition(fieldType)));
+  }
+
+  /**
+   * Sends one update per definition as a single {@link SchemaRequest.MultiUpdate}, which Solr
+   * applies all-or-nothing. Every name is checked before anything is sent.
+   *
+   * @param collection target collection
+   * @param operation leads the error text if Solr rejects the batch
+   * @param definitions the caller-supplied definitions
+   * @param kind human-readable noun for the blank-name error
+   * @param nameOf reads a definition's name
+   * @param toUpdate builds the Schema API command for one definition
+   * @param <T> the definition type
+   * @return the collection and the names of the definitions applied
+   */
+  private <T> SchemaUpdateResult applySchemaUpdates(
+      String collection,
+      String operation,
+      List<T> definitions,
+      String kind,
+      Function<T, String> nameOf,
+      Function<T, SchemaRequest.Update> toUpdate) {
+    List<String> names = new ArrayList<>(definitions.size());
+    List<SchemaRequest.Update> updates = new ArrayList<>(definitions.size());
+    for (T definition : definitions) {
+      names.add(requireName(nameOf.apply(definition), kind));
+      updates.add(toUpdate.apply(definition));
+    }
+    SolrCalls.call(
+        operation,
         SolrCalls.collectionNotFound(collection),
         () -> new SchemaRequest.MultiUpdate(updates).process(solrClient, collection));
     return new SchemaUpdateResult(collection, names);
@@ -568,9 +582,10 @@ public class SchemaService {
     return definition;
   }
 
+  /** Solr's JSON objects arrive as maps keyed by property name; the one unchecked cast. */
   @SuppressWarnings("unchecked")
-  private static Map<String, ?> castFields(Map<?, ?> fields) {
-    return (Map<String, ?>) fields;
+  private static Map<String, Object> asStringKeyed(Map<?, ?> map) {
+    return (Map<String, Object>) map;
   }
 
   private static void requireCollection(String collection) {

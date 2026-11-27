@@ -49,7 +49,6 @@ import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 /**
@@ -176,6 +175,9 @@ public class SearchService {
   private static final String DEF_TYPE = "defType";
 
   private static final String EDISMAX = "edismax";
+
+  /** Facet values with no matching document are noise for an AI client. */
+  private static final int MIN_FACET_COUNT = 1;
 
   /**
    * Opens a local-params block. Under {@code defType=edismax} Solr searches such a prefix as
@@ -418,7 +420,6 @@ public class SearchService {
               required = false)
           @Nullable List<String> queryFields) {
 
-    // query
     final SolrQuery solrQuery = new SolrQuery(SolrQueries.MATCH_ALL);
     // Facet counts are a NamedList that Solr writes as a flat ["term", 5, ...] array by
     // default; map style writes it as an object, which JsonResponseParser reads as a NamedList.
@@ -426,85 +427,109 @@ public class SearchService {
     if (StringUtils.hasText(query)) {
       solrQuery.setQuery(query);
     }
-
-    // query fields — switch to eDisMax, which ignores local params in q
-    final List<String> nonBlankQueryFields = nonBlank(queryFields);
-    if (!nonBlankQueryFields.isEmpty()) {
-      if (query != null && query.startsWith(LOCAL_PARAMS_PREFIX)) {
-        throw new IllegalArgumentException(QUERY_FIELDS_WITH_LOCAL_PARAMS_ERROR);
-      }
-      solrQuery.set(DisMaxParams.QF, String.join(" ", nonBlankQueryFields));
-      solrQuery.set(DEF_TYPE, EDISMAX);
-    }
-
-    // fields — set before score, which setIncludeScore appends to the current fl
     final List<String> nonBlankFields = nonBlank(fields);
-    if (!nonBlankFields.isEmpty()) {
-      solrQuery.setFields(nonBlankFields.toArray(String[]::new));
-    }
-
-    // fl=*,score unless fields narrowed it — Solr only returns maxScore and per-document score
-    // when asked
-    solrQuery.setIncludeScore(true);
-
-    // filter queries
-    if (!CollectionUtils.isEmpty(filterQueries)) {
-      filterQueries.stream().filter(StringUtils::hasText).forEach(solrQuery::addFilterQuery);
-    }
-
-    // facets
-    if (!CollectionUtils.isEmpty(facetFields)) {
-      facetFields.stream().filter(StringUtils::hasText).forEach(solrQuery::addFacetField);
-    }
-    // addFacetField sets facet=true; getFacetFields() is null until the first one
-    if (solrQuery.getFacetFields() != null) {
-      solrQuery.setFacetMinCount(1);
-      solrQuery.setFacetSort(FacetParams.FACET_SORT_COUNT);
-    }
-
-    // sorting
-    if (!CollectionUtils.isEmpty(sortClauses)) {
-      sortClauses.stream()
-          .filter(clause -> StringUtils.hasText(clause.field()))
-          .map(SortClause::toSolrSortClause)
-          .forEach(solrQuery::addSort);
-    }
-
-    // pagination
+    applyQueryFields(solrQuery, query, nonBlank(queryFields));
+    applyReturnedFields(solrQuery, nonBlankFields);
+    nonBlank(filterQueries).forEach(solrQuery::addFilterQuery);
+    applyFacets(solrQuery, nonBlank(facetFields));
+    applySort(solrQuery, sortClauses);
     if (start != null) {
       solrQuery.setStart(start);
     }
-
     if (rows != null) {
       solrQuery.setRows(rows);
     }
 
-    final String uniqueKey =
-        callSolr(collection, () -> uniqueKeys.get(collection))
-            .orElseThrow(
-                () -> {
-                  logger.warn(
-                      "Collection {} has no uniqueKey, so it cannot be searched", collection);
-                  return new IllegalStateException(NO_UNIQUE_KEY_ERROR);
-                });
-
-    // Every hit reports its uniqueKey value as id, so a narrowed fl must still return it, and no
-    // other field may be renamed onto it.
-    if (!nonBlankFields.isEmpty()) {
-      if (nonBlankFields.stream().anyMatch(field -> renamesOnto(field, uniqueKey))) {
-        throw new IllegalArgumentException(RENAME_TO_UNIQUE_KEY_ERROR);
-      }
-      if (!nonBlankFields.contains(uniqueKey)) {
-        solrQuery.addField(uniqueKey);
-      }
-    }
+    final String uniqueKey = uniqueKey(collection);
+    requestUniqueKey(solrQuery, nonBlankFields, uniqueKey);
 
     final QueryResponse queryResponse =
         callSolr(collection, () -> solrClient.query(collection, solrQuery));
     final SolrDocumentList documents = readResponse(collection, queryResponse::getResults);
     final List<SearchResponse.FacetField> facets =
         readResponse(collection, () -> toFacets(queryResponse));
+    final List<SearchResponse.SearchHit> hits = toHits(collection, documents, uniqueKey);
 
+    logger.info(
+        "Search on collection {} matched {} documents", collection, documents.getNumFound());
+
+    return new SearchResponse(
+        documents.getNumFound(), documents.getStart(), documents.getMaxScore(), hits, facets);
+  }
+
+  /** Switches to eDisMax over {@code queryFields}; eDisMax would ignore local params in q. */
+  private static void applyQueryFields(
+      SolrQuery solrQuery, @Nullable String query, List<String> queryFields) {
+    if (queryFields.isEmpty()) {
+      return;
+    }
+    if (query != null && query.startsWith(LOCAL_PARAMS_PREFIX)) {
+      throw new IllegalArgumentException(QUERY_FIELDS_WITH_LOCAL_PARAMS_ERROR);
+    }
+    solrQuery.set(DisMaxParams.QF, String.join(" ", queryFields));
+    solrQuery.set(DEF_TYPE, EDISMAX);
+  }
+
+  /**
+   * Sets {@code fl} and always asks for the score: Solr only returns maxScore and per-document
+   * score when asked. The fields go first because setIncludeScore appends to the current fl, giving
+   * {@code fl=*,score} when no fields were requested.
+   */
+  private static void applyReturnedFields(SolrQuery solrQuery, List<String> fields) {
+    if (!fields.isEmpty()) {
+      solrQuery.setFields(fields.toArray(String[]::new));
+    }
+    solrQuery.setIncludeScore(true);
+  }
+
+  private static void applyFacets(SolrQuery solrQuery, List<String> facetFields) {
+    if (facetFields.isEmpty()) {
+      return;
+    }
+    facetFields.forEach(solrQuery::addFacetField);
+    solrQuery.setFacetMinCount(MIN_FACET_COUNT);
+    solrQuery.setFacetSort(FacetParams.FACET_SORT_COUNT);
+  }
+
+  private static void applySort(SolrQuery solrQuery, @Nullable List<SortClause> sortClauses) {
+    if (sortClauses == null) {
+      return;
+    }
+    sortClauses.stream()
+        .filter(clause -> StringUtils.hasText(clause.field()))
+        .map(SortClause::toSolrSortClause)
+        .forEach(solrQuery::addSort);
+  }
+
+  /** The collection's uniqueKey field, which every hit reports as its {@code id}. */
+  private String uniqueKey(String collection) {
+    return callSolr(collection, () -> uniqueKeys.get(collection))
+        .orElseThrow(
+            () -> {
+              logger.warn("Collection {} has no uniqueKey, so it cannot be searched", collection);
+              return new IllegalStateException(NO_UNIQUE_KEY_ERROR);
+            });
+  }
+
+  /**
+   * Every hit reports its uniqueKey value as id, so a narrowed fl must still return it, and no
+   * other field may be renamed onto it.
+   */
+  private static void requestUniqueKey(SolrQuery solrQuery, List<String> fields, String uniqueKey) {
+    if (fields.isEmpty()) {
+      return;
+    }
+    if (fields.stream().anyMatch(field -> renamesOnto(field, uniqueKey))) {
+      throw new IllegalArgumentException(RENAME_TO_UNIQUE_KEY_ERROR);
+    }
+    if (!fields.contains(uniqueKey)) {
+      solrQuery.addField(uniqueKey);
+    }
+  }
+
+  /** Maps each document to a hit, or fails if one has lost its remembered uniqueKey. */
+  private List<SearchResponse.SearchHit> toHits(
+      String collection, SolrDocumentList documents, String uniqueKey) {
     final List<SearchResponse.SearchHit> hits = new ArrayList<>(documents.size());
     for (SolrDocument document : documents) {
       final SearchResponse.SearchHit hit = toHit(document, uniqueKey);
@@ -520,12 +545,7 @@ public class SearchService {
       }
       hits.add(hit);
     }
-
-    logger.info(
-        "Search on collection {} matched {} documents", collection, documents.getNumFound());
-
-    return new SearchResponse(
-        documents.getNumFound(), documents.getStart(), documents.getMaxScore(), hits, facets);
+    return hits;
   }
 
   /**

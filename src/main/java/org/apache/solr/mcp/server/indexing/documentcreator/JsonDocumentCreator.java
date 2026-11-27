@@ -19,7 +19,6 @@ package org.apache.solr.mcp.server.indexing.documentcreator;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.apache.solr.common.SolrInputDocument;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
@@ -34,6 +33,11 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @Component
 public class JsonDocumentCreator implements SolrDocumentCreator {
+
+  private static final String EMPTY_INPUT_ERROR = "JSON input cannot be empty";
+
+  /** Joins a nested object's key to its parent's, so {@code user.name} indexes as user_name. */
+  private static final String NESTED_FIELD_SEPARATOR = "_";
 
   private final JsonMapper jsonMapper;
 
@@ -85,16 +89,16 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
    * @throws DocumentProcessingException if JSON parsing fails, input validation fails, or the
    *     structure is invalid
    * @see SolrInputDocument
-   * @see #addAllFieldsFlat(SolrInputDocument, JsonNode, String)
    */
+  @Override
   public List<SolrInputDocument> create(String json) throws DocumentProcessingException {
     if (json.isBlank()) {
-      throw new DocumentProcessingException("JSON input cannot be empty");
+      throw new DocumentProcessingException(EMPTY_INPUT_ERROR);
     }
 
     JsonNode rootNode;
     try {
-      rootNode = this.jsonMapper.readTree(json);
+      rootNode = jsonMapper.readTree(json);
     } catch (JacksonException e) {
       throw new DocumentProcessingException("Failed to parse JSON document", e);
     }
@@ -116,12 +120,12 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
    *
    * @param documents the documents, each a map of field name to value
    * @return list of SolrInputDocument objects ready for indexing
-   * @throws DocumentProcessingException if the list is {@code null} or empty
+   * @throws DocumentProcessingException if the list is empty
    */
   public List<SolrInputDocument> create(List<Map<String, Object>> documents)
       throws DocumentProcessingException {
     if (documents.isEmpty()) {
-      throw new DocumentProcessingException("JSON input cannot be empty");
+      throw new DocumentProcessingException(EMPTY_INPUT_ERROR);
     }
     return flatten(jsonMapper.valueToTree(documents));
   }
@@ -155,79 +159,46 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
    * @return the document, with nested objects flattened and arrays multi-valued
    */
   private SolrInputDocument toDocument(JsonNode node) {
-    SolrInputDocument doc = new SolrInputDocument();
-    addAllFieldsFlat(doc, node, "");
-    return doc;
+    SolrInputDocument document = new SolrInputDocument();
+    addAllFieldsFlat(document, node, "");
+    return document;
   }
 
   /**
-   * Recursively flattens JSON nodes and adds them as fields to a SolrInputDocument.
-   *
-   * <p>This method implements the core logic for converting nested JSON structures into flat field
-   * names that Solr can efficiently index and search. It handles various JSON node types
-   * appropriately while maintaining data integrity.
-   *
-   * <p><strong>Processing Logic:</strong>
-   *
-   * <ul>
-   *   <li><strong>Null Values</strong>: Skipped to avoid indexing empty fields
-   *   <li><strong>Arrays</strong>: Non-object items converted to multi-valued fields
-   *   <li><strong>Objects</strong>: Recursively flattened with prefix concatenation
-   *   <li><strong>Primitives</strong>: Directly added with appropriate type conversion
-   * </ul>
-   *
-   * @param doc the SolrInputDocument to add fields to
-   * @param node the JSON node to process
-   * @param prefix current field name prefix for nested object flattening
-   * @see #convertJsonValue(JsonNode)
+   * Adds every property of {@code node} to {@code document}, recursing into nested objects with
+   * {@code prefix} prepended to the field names.
    */
-  private void addAllFieldsFlat(SolrInputDocument doc, JsonNode node, String prefix) {
-    Set<Map.Entry<String, JsonNode>> fields = node.properties();
-    fields.forEach(field -> processFieldValue(doc, field.getValue(), prefix + field.getKey()));
+  private void addAllFieldsFlat(SolrInputDocument document, JsonNode node, String prefix) {
+    for (Map.Entry<String, JsonNode> property : node.properties()) {
+      addFieldValue(document, property.getValue(), prefix + property.getKey());
+    }
   }
 
-  /**
-   * Processes the provided field value and adds it to the given SolrInputDocument. Handles cases
-   * where the field value is an array, object, or a simple value.
-   *
-   * @param doc the SolrInputDocument to which the field value will be added
-   * @param value the JsonNode representing the field value to be processed
-   * @param fieldName the name of the field to be added to the SolrInputDocument
-   */
-  private void processFieldValue(SolrInputDocument doc, JsonNode value, String fieldName) {
+  /** Adds one value: nulls are skipped, arrays become multi-valued, objects are flattened. */
+  private void addFieldValue(SolrInputDocument document, JsonNode value, String fieldName) {
     if (value.isNull()) {
       return;
     }
-
     if (value.isArray()) {
-      processArrayField(doc, value, fieldName);
+      addArrayField(document, value, fieldName);
     } else if (value.isObject()) {
-      addAllFieldsFlat(doc, value, fieldName + "_");
+      addAllFieldsFlat(document, value, fieldName + NESTED_FIELD_SEPARATOR);
     } else {
-      doc.addField(fieldName, convertJsonValue(value));
+      document.addField(fieldName, convertJsonValue(value));
     }
   }
 
-  /**
-   * Processes a JSON array field and adds its non-object elements to the specified field in the
-   * given SolrInputDocument.
-   *
-   * @param doc the SolrInputDocument to which the processed field will be added
-   * @param arrayValue the JSON array node to process
-   * @param fieldName the name of the field in the SolrInputDocument to which the array values will
-   *     be added
-   */
-  private void processArrayField(SolrInputDocument doc, JsonNode arrayValue, String fieldName) {
+  private void addArrayField(SolrInputDocument document, JsonNode arrayValue, String fieldName) {
     // Skip objects and nested arrays alike: neither has a scalar
     // representation, and asString() on a container node throws.
     List<Object> values =
         arrayValue
             .valueStream()
             .filter(item -> !item.isContainer())
-            .map(this::convertJsonValue)
+            .map(JsonDocumentCreator::convertJsonValue)
             .toList();
     if (!values.isEmpty()) {
-      doc.addField(fieldName, values);
+      document.addField(fieldName, values);
     }
   }
 
@@ -252,11 +223,19 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
    * @return the converted Java object with appropriate type
    * @see JsonNode
    */
-  private Object convertJsonValue(JsonNode value) {
-    if (value.isBoolean()) return value.asBoolean();
-    if (value.isLong()) return value.asLong();
-    if (value.isDouble()) return value.asDouble();
-    if (value.isInt()) return value.asInt();
+  private static Object convertJsonValue(JsonNode value) {
+    if (value.isBoolean()) {
+      return value.asBoolean();
+    }
+    if (value.isLong()) {
+      return value.asLong();
+    }
+    if (value.isDouble()) {
+      return value.asDouble();
+    }
+    if (value.isInt()) {
+      return value.asInt();
+    }
     return value.asString();
   }
 }

@@ -151,9 +151,7 @@ public class AliasService {
       @McpToolParam(description = "Names of the collections the alias should point to")
           List<String> collections) {
 
-    if (name.isBlank()) {
-      throw new IllegalArgumentException(BLANK_ALIAS_NAME_ERROR);
-    }
+    requireAliasName(name);
     if (collections.isEmpty() || collections.stream().anyMatch(String::isBlank)) {
       throw new IllegalArgumentException(BLANK_COLLECTIONS_ERROR);
     }
@@ -193,9 +191,7 @@ public class AliasService {
   public AliasDeletion deleteAlias(
       @McpToolParam(description = "Name of the alias to delete") String name) {
 
-    if (name.isBlank()) {
-      throw new IllegalArgumentException(BLANK_ALIAS_NAME_ERROR);
-    }
+    requireAliasName(name);
     if (findAlias(name, DELETE_ALIAS_FAILED).isEmpty()) {
       throw new IllegalArgumentException("Alias '" + name + "' does not exist");
     }
@@ -205,6 +201,12 @@ public class AliasService {
         SolrCalls.ADMIN_API_NOT_FOUND,
         () -> CollectionAdminRequest.deleteAlias(name).process(solrClient));
     return new AliasDeletion(name);
+  }
+
+  private static void requireAliasName(String name) {
+    if (name.isBlank()) {
+      throw new IllegalArgumentException(BLANK_ALIAS_NAME_ERROR);
+    }
   }
 
   private Optional<Alias> findAlias(String name, String operation) {

@@ -95,6 +95,13 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
   /** Opens and closes a YAML front matter block. */
   private static final String DELIMITER = "---";
 
+  private static final String LINE_SEPARATOR = "\n";
+
+  private static final String CONTENT_HASH_ALGORITHM = "SHA-256";
+
+  /** Joins a nested front matter key to its parent's, as the JSON creator does. */
+  private static final String NESTED_FIELD_SEPARATOR = "_";
+
   /** A line that starts a YAML mapping entry, e.g. {@code id: netflix-001}. */
   private static final Pattern YAML_KEY = Pattern.compile("^[A-Za-z_][A-Za-z0-9_.-]*\\s*:");
 
@@ -170,40 +177,48 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
 
   /** Creates the single document described by one record. */
   private SolrInputDocument createOne(String markdown) throws DocumentProcessingException {
-    Node document;
-    try {
-      document = parser.parse(markdown);
-    } catch (RuntimeException e) {
-      throw new DocumentProcessingException("Failed to parse markdown document", e);
-    }
+    Node markdownTree = parse(markdown);
+    SolrInputDocument solrDocument = new SolrInputDocument();
 
-    SolrInputDocument doc = new SolrInputDocument();
-
-    addFrontMatterFields(markdown, document, doc);
+    addFrontMatterFields(markdown, markdownTree, solrDocument);
 
     // Solr's default schema requires a unique key. A content-derived id keeps
     // re-indexing of the same markdown idempotent (same input, same document)
-    if (doc.getFieldValue(FIELD_ID) == null) {
-      doc.addField(FIELD_ID, contentHash(markdown));
+    if (solrDocument.getFieldValue(FIELD_ID) == null) {
+      solrDocument.addField(FIELD_ID, contentHash(markdown));
     }
 
-    HeadingCollector headingCollector = new HeadingCollector();
-    document.accept(headingCollector);
-    for (String heading : headingCollector.headings) {
-      doc.addField(FIELD_HEADINGS, heading);
-    }
+    addHeadingFields(markdownTree, solrDocument);
 
-    // Front matter title wins; otherwise fall back to the first level-1 heading
-    if (doc.getFieldValue(FIELD_TITLE) == null && headingCollector.firstTopLevelHeading != null) {
-      doc.addField(FIELD_TITLE, headingCollector.firstTopLevelHeading);
-    }
-
-    String content = textContentRenderer.render(document).trim();
+    String content = textContentRenderer.render(markdownTree).trim();
     if (!content.isEmpty()) {
-      doc.addField(FIELD_CONTENT, content);
+      solrDocument.addField(FIELD_CONTENT, content);
     }
+    return solrDocument;
+  }
 
-    return doc;
+  private Node parse(String markdown) {
+    try {
+      return parser.parse(markdown);
+    } catch (RuntimeException e) {
+      throw new DocumentProcessingException("Failed to parse markdown document", e);
+    }
+  }
+
+  /**
+   * Adds every heading to {@value #FIELD_HEADINGS}, and the first level-1 heading as the title
+   * unless the front matter already set one.
+   */
+  private static void addHeadingFields(Node markdownTree, SolrInputDocument solrDocument) {
+    HeadingCollector headingCollector = new HeadingCollector();
+    markdownTree.accept(headingCollector);
+    for (String heading : headingCollector.headings) {
+      solrDocument.addField(FIELD_HEADINGS, heading);
+    }
+    if (solrDocument.getFieldValue(FIELD_TITLE) == null
+        && headingCollector.firstTopLevelHeading != null) {
+      solrDocument.addField(FIELD_TITLE, headingCollector.firstTopLevelHeading);
+    }
   }
 
   /**
@@ -230,17 +245,12 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
    *     several records
    */
   private static List<String> splitRecords(String markdown) {
-    String[] lines = markdown.split("\n", -1);
+    String[] lines = markdown.split(LINE_SEPARATOR, -1);
     if (lines.length == 0 || !DELIMITER.equals(lines[0].strip())) {
       return List.of(markdown);
     }
 
-    List<Integer> boundaries = new ArrayList<>();
-    for (int i = 1; i < lines.length; i++) {
-      if (isRecordStart(lines, i)) {
-        boundaries.add(i);
-      }
-    }
+    List<Integer> boundaries = findRecordBoundaries(lines);
     if (boundaries.isEmpty()) {
       return List.of(markdown);
     }
@@ -253,6 +263,17 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
     }
     records.add(join(lines, start, lines.length));
     return List.copyOf(records);
+  }
+
+  /** Line indexes, after the opening front matter, at which a further record starts. */
+  private static List<Integer> findRecordBoundaries(String[] lines) {
+    List<Integer> boundaries = new ArrayList<>();
+    for (int i = 1; i < lines.length; i++) {
+      if (isRecordStart(lines, i)) {
+        boundaries.add(i);
+      }
+    }
+    return boundaries;
   }
 
   /**
@@ -275,7 +296,7 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
   }
 
   private static String join(String[] lines, int from, int to) {
-    return String.join("\n", Arrays.asList(lines).subList(from, to));
+    return String.join(LINE_SEPARATOR, Arrays.asList(lines).subList(from, to));
   }
 
   /**
@@ -283,8 +304,9 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
    * text, sequences as multi-valued fields, nested mappings flattened with underscores. The block
    * is then unlinked so the rendered body contains only the document text.
    */
-  private void addFrontMatterFields(String markdown, Node document, SolrInputDocument doc) {
-    Node firstChild = document.getFirstChild();
+  private void addFrontMatterFields(
+      String markdown, Node markdownTree, SolrInputDocument solrDocument) {
+    Node firstChild = markdownTree.getFirstChild();
     if (!(firstChild instanceof YamlFrontMatterBlock block)) {
       return;
     }
@@ -296,7 +318,7 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
                         span.getInputIndex(), span.getInputIndex() + span.getLength()))
             .toList();
     // The first and last spans are the --- delimiters
-    String text = String.join("\n", lines.subList(1, Math.max(1, lines.size() - 1)));
+    String text = String.join(LINE_SEPARATOR, lines.subList(1, Math.max(1, lines.size() - 1)));
     Object data;
     try {
       data = yaml.load(text);
@@ -304,23 +326,27 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
       throw new DocumentProcessingException("Failed to parse YAML front matter", e);
     }
     if (data instanceof Map<?, ?> entries) {
-      entries.forEach((key, value) -> addValue(doc, String.valueOf(key), value));
+      entries.forEach((key, value) -> addValue(solrDocument, String.valueOf(key), value));
     }
     block.unlink();
   }
 
-  private static void addValue(SolrInputDocument doc, String fieldName, @Nullable Object value) {
+  private static void addValue(
+      SolrInputDocument solrDocument, String fieldName, @Nullable Object value) {
     switch (value) {
       case null -> {
         // A key with no value, such as `tags:`, adds no field.
       }
       case Map<?, ?> nested ->
-          nested.forEach((key, inner) -> addValue(doc, fieldName + "_" + key, inner));
-      case Iterable<?> values -> values.forEach(element -> addValue(doc, fieldName, element));
+          nested.forEach(
+              (key, inner) ->
+                  addValue(solrDocument, fieldName + NESTED_FIELD_SEPARATOR + key, inner));
+      case Iterable<?> values ->
+          values.forEach(element -> addValue(solrDocument, fieldName, element));
       default -> {
         String text = String.valueOf(value);
         if (!text.isEmpty()) {
-          doc.addField(fieldName, text);
+          solrDocument.addField(fieldName, text);
         }
       }
     }
@@ -328,7 +354,7 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
 
   private static String contentHash(String markdown) {
     try {
-      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      MessageDigest digest = MessageDigest.getInstance(CONTENT_HASH_ALGORITHM);
       return HexFormat.of().formatHex(digest.digest(markdown.getBytes(StandardCharsets.UTF_8)));
     } catch (NoSuchAlgorithmException e) {
       // SHA-256 is guaranteed to be available on every Java platform

@@ -108,7 +108,7 @@ import org.springframework.stereotype.Service;
  *
  * @see SolrInputDocument
  * @see SolrClient
- * @see org.springframework.ai.tool.annotation.Tool
+ * @see McpTool
  */
 @Service
 @Observed
@@ -135,6 +135,16 @@ public class IndexingService {
   /** Solr's update handler, which reads CSV and update XML by their content type. */
   private static final String UPDATE_PATH = "/update";
 
+  /** Solr's CSV handler parameter that reads the first row as the field names. */
+  private static final String CSV_HEADER_PARAM = "header";
+
+  private static final String CSV_CONTENT_TYPE = "text/csv; charset=UTF-8";
+
+  // Soft-commit flags, named so the setAction and commit calls read as what they request.
+  private static final boolean WAIT_FLUSH = false;
+  private static final boolean WAIT_SEARCHER = true;
+  private static final boolean SOFT_COMMIT = true;
+
   /** Maximum number of distinct field names listed in an indexing result. */
   static final int MAX_REPORTED_FIELDS = 50;
 
@@ -159,10 +169,8 @@ public class IndexingService {
   /** Leads the error text of a failed indexing tool. */
   static final String INDEXING_FAILED = "Indexing failed";
 
-  /** SolrJ client for communicating with Solr server */
   private final SolrClient solrClient;
 
-  /** Service for creating SolrInputDocument objects from various data formats */
   private final IndexingDocumentCreator indexingDocumentCreator;
 
   /**
@@ -274,8 +282,8 @@ public class IndexingService {
       @McpToolParam(description = COLLECTION_PARAM_DESCRIPTION) String collection,
       @McpToolParam(description = "CSV string containing documents to index") String csv) {
     ContentStreamUpdateRequest request = new ContentStreamUpdateRequest(UPDATE_PATH);
-    request.setParam("header", "true");
-    request.addContentStream(new ContentStreamBase.StringStream(csv, "text/csv; charset=UTF-8"));
+    request.setParam(CSV_HEADER_PARAM, Boolean.TRUE.toString());
+    request.addContentStream(new ContentStreamBase.StringStream(csv, CSV_CONTENT_TYPE));
     return forward(collection, request, Format.csv);
   }
 
@@ -326,11 +334,10 @@ public class IndexingService {
    */
   private IndexingResult forward(
       String collection, ContentStreamUpdateRequest request, Format format) {
-    request.setAction(AbstractUpdateRequest.ACTION.COMMIT, false, true, true);
     SolrCalls.call(
         INDEXING_FAILED,
         SolrCalls.collectionNotFound(collection),
-        () -> request.process(solrClient, collection));
+        () -> withSoftCommit(request).process(solrClient, collection));
     return IndexingResult.forwarded(collection, format);
   }
 
@@ -468,15 +475,20 @@ public class IndexingService {
       throws SolrServerException, IOException {
     UpdateRequest request = new UpdateRequest();
     request.add(documents);
-    request.setAction(AbstractUpdateRequest.ACTION.COMMIT, false, true, true);
     try {
-      request.process(solrClient, collection);
+      withSoftCommit(request).process(solrClient, collection);
       return List.copyOf(documents);
     } catch (SolrException e) {
       requireBadRequest(e);
       logger.warn("Solr rejected the batch, retrying documents individually", e);
     }
+    return indexIndividually(collection, documents);
+  }
 
+  /** Adds each document on its own, skipping the ones Solr rejects, then commits once. */
+  private List<SolrInputDocument> indexIndividually(
+      String collection, List<SolrInputDocument> documents)
+      throws SolrServerException, IOException {
     List<SolrInputDocument> accepted = new ArrayList<>();
     for (SolrInputDocument document : documents) {
       try {
@@ -487,8 +499,17 @@ public class IndexingService {
         logger.debug("Solr rejected an individual document", e);
       }
     }
-    solrClient.commit(collection, false, true, true);
+    solrClient.commit(collection, WAIT_FLUSH, WAIT_SEARCHER, SOFT_COMMIT);
     return List.copyOf(accepted);
+  }
+
+  /**
+   * Requests a soft commit on the update itself: {@code waitSearcher} makes the documents
+   * searchable when the call returns, while the segment fsync is left to Solr's {@code autoCommit}.
+   */
+  private static <T extends AbstractUpdateRequest> T withSoftCommit(T request) {
+    request.setAction(AbstractUpdateRequest.ACTION.COMMIT, WAIT_FLUSH, WAIT_SEARCHER, SOFT_COMMIT);
+    return request;
   }
 
   /**

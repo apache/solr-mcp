@@ -218,19 +218,7 @@ public class SolrConfig {
       SolrConfigurationProperties properties,
       JsonResponseParser jsonResponseParser,
       ExecutorService executor) {
-    // Normalise against the URL's *path* only. Testing the whole URL string
-    // would see the "/solr/" inside an authority such as http://solr/ and
-    // wrongly conclude the path was already present.
-    URI parsed = URI.create(properties.url());
-    String path = parsed.getPath() == null ? "" : parsed.getPath();
-    if (!path.endsWith("/")) {
-      // A URL path separator is '/' on every platform; it is not the file separator S1075 assumes.
-      path = path + "/"; // NOSONAR java:S1075
-    }
-    if (!path.contains("/" + SOLR_PATH)) {
-      path = path + SOLR_PATH;
-    }
-    String url = parsed.resolve(path).toString();
+    String url = normalizeSolrUrl(properties.url());
 
     // JSON responses and XML document batches, on the JVM and in the native image
     // alike. XMLRequestWriter only serializes UpdateRequests (index-json-documents,
@@ -257,5 +245,24 @@ public class SolrConfig {
     }
 
     return builder.build();
+  }
+
+  /**
+   * Ensures the URL's path ends in a trailing slash and contains the {@value #SOLR_PATH} segment.
+   */
+  private static String normalizeSolrUrl(String configuredUrl) {
+    // Normalise against the URL's *path* only. Testing the whole URL string
+    // would see the "/solr/" inside an authority such as http://solr/ and
+    // wrongly conclude the path was already present.
+    URI parsed = URI.create(configuredUrl);
+    String path = parsed.getPath() == null ? "" : parsed.getPath();
+    if (!path.endsWith("/")) {
+      // A URL path separator is '/' on every platform; it is not the file separator S1075 assumes.
+      path = path + "/"; // NOSONAR java:S1075
+    }
+    if (!path.contains("/" + SOLR_PATH)) {
+      path = path + SOLR_PATH;
+    }
+    return parsed.resolve(path).toString();
   }
 }

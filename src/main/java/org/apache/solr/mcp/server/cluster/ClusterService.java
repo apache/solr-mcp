@@ -187,7 +187,7 @@ public class ClusterService {
     } catch (IllegalArgumentException | IllegalStateException _) {
       // SolrCalls' translation of a failed request; SolrCalls has already logged the cause.
       throw new IllegalStateException(CLUSTER_STATUS_RESOURCE_ERROR);
-    } catch (Exception e) {
+    } catch (RuntimeException e) {
       // Deliberately no cause: MCP reports the root cause's message to the client,
       // and Solr and SolrJ failure text can carry internal host names, URLs and
       // paths. The log is the sole record of the cause.
