@@ -225,23 +225,13 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    Map<String, Object> indexed =
-        JSON_MAPPER.readValue(extractText(result), new TypeReference<>() {});
-    assertEquals(
-        Map.of(
-            "collection",
-            COLLECTION,
-            "format",
-            "json",
-            "documentsSubmitted",
-            5,
-            "documentsIndexed",
-            5,
-            "fieldNames",
-            List.of("author", "category", "id", "title"),
-            "fieldCount",
-            4),
-        indexed);
+    assertThat(json(result))
+        .isStrictlyEqualTo(
+            """
+            {"collection": "%s", "format": "json", "documentsSubmitted": 5, "documentsIndexed": 5,
+             "fieldNames": ["author", "category", "id", "title"], "fieldCount": 4}
+            """
+                .formatted(COLLECTION));
   }
 
   @Test
@@ -409,12 +399,13 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    Map<String, Object> indexed =
-        JSON_MAPPER.readValue(extractText(result), new TypeReference<>() {});
-    assertEquals(
-        Map.of("collection", COLLECTION, "format", "csv"),
-        indexed,
-        "CSV goes to Solr unchanged, so no counts or field names are reported");
+    // CSV goes to Solr unchanged, so no counts or field names are reported
+    assertThat(json(result))
+        .isStrictlyEqualTo(
+            """
+            {"collection": "%s", "format": "csv"}
+            """
+                .formatted(COLLECTION));
   }
 
   @Test
@@ -557,12 +548,10 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(indexResult);
     assertNotError(indexResult);
-    Map<String, Object> indexed =
-        JSON_MAPPER.readValue(extractText(indexResult), new TypeReference<>() {});
-    assertEquals("markdown", indexed.get("format"));
-    assertEquals(
-        1, indexed.get("documentsSubmitted"), "Markdown indexing should submit one document");
-    assertEquals(1, indexed.get("documentsIndexed"), "Markdown indexing should index one document");
+    JsonContent indexed = json(indexResult);
+    assertThat(indexed).extractingPath("$.format").isEqualTo("markdown");
+    assertThat(indexed).extractingPath("$.documentsSubmitted").isEqualTo(1);
+    assertThat(indexed).extractingPath("$.documentsIndexed").isEqualTo(1);
 
     CallToolResult searchResult =
         mcpClient.callTool(
