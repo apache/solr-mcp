@@ -26,6 +26,7 @@ import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.request.ConfigSetAdminRequest;
 import org.apache.solr.client.solrj.response.CollectionAdminResponse;
 import org.apache.solr.client.solrj.response.ConfigSetAdminResponse;
+import org.apache.solr.mcp.server.security.McpAuthorities;
 import org.apache.solr.mcp.server.util.McpResults;
 import org.apache.solr.mcp.server.util.SolrCalls;
 import org.jspecify.annotations.Nullable;
@@ -103,7 +104,7 @@ public class ClusterService {
    * @throws IllegalStateException if Solr failed or could not be reached
    * @see SolrCalls
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.READ)
   @McpTool(
       name = "get-cluster-status",
       annotations = @McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
@@ -144,7 +145,7 @@ public class ClusterService {
    * @throws IllegalStateException if Solr failed or could not be reached, as {@link SolrCalls}
    *     reports it
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.READ)
   @McpTool(
       name = "list-configsets",
       annotations = @McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
@@ -171,7 +172,7 @@ public class ClusterService {
    * @throws IllegalStateException with {@link #CLUSTER_STATUS_RESOURCE_ERROR} if the status cannot
    *     be read or serialized
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.READ)
   @McpResource(
       uri = "solr://cluster/status",
       name = "solr-cluster-status",

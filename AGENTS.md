@@ -142,7 +142,10 @@ Packages without tools:
 - `security/` - HTTP profile only, both off when `HTTP_SECURITY_ENABLED=false`:
   `HttpSecurityConfiguration` (OAuth2 resource server; `/mcp` is open at the URL level, `/actuator/**`
   other than health needs a token) and `MethodSecurityConfiguration`, which enables the
-  `@PreAuthorize` checks on the tool methods that actually gate `/mcp`
+  `@PreAuthorize` checks on the tool methods that actually gate `/mcp`; `McpAuthorities` holds the
+  three scope expressions (`READ`, `WRITE`, `ADMIN` for `solr:read`, `solr:write`, `solr:admin`)
+  that every tool, resource, prompt and completion declares. A new endpoint takes the scope of what
+  it does, and an entry in `McpToolRegistrationTest.EXPECTED_ENDPOINT_SCOPES`
 - `util/` - `SolrCalls`, which runs every tool's Solr calls and translates their failures (see
   "MCP contracts" below); `McpResults`, which builds the prompt, resource and completion results;
   `PromptNames`, the prompt names shared by `@McpPrompt` and `@McpComplete` (they must match

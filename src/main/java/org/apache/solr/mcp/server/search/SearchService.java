@@ -35,6 +35,7 @@ import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.DisMaxParams;
 import org.apache.solr.common.params.FacetParams;
 import org.apache.solr.common.util.JsonTextWriter;
+import org.apache.solr.mcp.server.security.McpAuthorities;
 import org.apache.solr.mcp.server.util.McpResults;
 import org.apache.solr.mcp.server.util.PromptNames;
 import org.apache.solr.mcp.server.util.SolrCalls;
@@ -291,7 +292,7 @@ public class SearchService {
    * @throws IllegalArgumentException if Solr refused the search, with Solr's reason and a hint
    * @throws IllegalStateException if Solr failed or could not be reached
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.READ)
   public SearchResponse search(
       String collection,
       @Nullable String query,
@@ -338,7 +339,7 @@ public class SearchService {
    *     uniqueKey was read, or Solr failed, denied access, timed out or could not be reached
    * @see SolrCalls
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.READ)
   // @formatter:off — keep this @McpTool wrapped like the others; the text block disguises the real
   // line length.
   @McpTool(
@@ -635,7 +636,7 @@ public class SearchService {
    * @param question the user's natural-language search question or information need
    * @return the prompt text instructing the model how to run the search
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.READ)
   @McpPrompt(
       name = PromptNames.SEARCH_COLLECTION,
       title = "Search a Solr collection from a natural-language question",

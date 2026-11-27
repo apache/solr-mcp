@@ -25,6 +25,7 @@ import java.util.TreeMap;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.response.CollectionAdminResponse;
+import org.apache.solr.mcp.server.security.McpAuthorities;
 import org.apache.solr.mcp.server.util.SolrCalls;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
@@ -86,7 +87,7 @@ public class AliasService {
    * @throws IllegalStateException if Solr failed or could not be reached, as {@link SolrCalls}
    *     reports it
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.READ)
   @McpTool(
       name = "list-aliases",
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
@@ -137,7 +138,7 @@ public class AliasService {
    * @throws IllegalStateException if Solr failed or could not be reached
    * @see SolrCalls
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.ADMIN)
   @McpTool(
       name = "create-alias",
       annotations = @McpTool.McpAnnotations(idempotentHint = true),
@@ -183,7 +184,7 @@ public class AliasService {
    * @throws IllegalStateException if Solr failed or could not be reached
    * @see SolrCalls
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.ADMIN)
   @McpTool(
       name = "delete-alias",
       annotations = @McpTool.McpAnnotations(destructiveHint = true),
