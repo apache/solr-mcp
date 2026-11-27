@@ -29,7 +29,7 @@ import tools.jackson.databind.json.JsonMapper;
  */
 public final class TestDocuments {
 
-  private static final JsonMapper OBJECT_MAPPER = JsonMapper.builder().build();
+  private static final JsonMapper JSON_MAPPER = JsonMapper.builder().build();
 
   private static final TypeReference<List<Map<String, Object>>> DOCUMENTS =
       new TypeReference<>() {};
@@ -44,7 +44,7 @@ public final class TestDocuments {
    */
   public static List<Map<String, Object>> json(String json) {
     try {
-      return OBJECT_MAPPER.readValue(json, DOCUMENTS);
+      return JSON_MAPPER.readValue(json, DOCUMENTS);
     } catch (JacksonException e) {
       throw new IllegalArgumentException("not a JSON array of objects: " + json, e);
     }

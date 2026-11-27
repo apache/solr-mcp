@@ -26,6 +26,8 @@ import java.util.Map;
 import java.util.TreeMap;
 import org.apache.solr.common.SolrInputDocument;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.json.JsonTest;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -34,11 +36,18 @@ import tools.jackson.databind.json.JsonMapper;
  * array so the model never has to escape JSON inside a string). Both must produce identical
  * documents.
  */
+@JsonTest
 class JsonDocumentCreatorTest {
 
-  private final JsonMapper objectMapper = JsonMapper.builder().build();
+  private final JsonMapper jsonMapper;
 
-  private final JsonDocumentCreator creator = new JsonDocumentCreator(objectMapper);
+  private final JsonDocumentCreator creator;
+
+  @Autowired
+  JsonDocumentCreatorTest(JsonMapper jsonMapper) {
+    this.jsonMapper = jsonMapper;
+    this.creator = new JsonDocumentCreator(jsonMapper);
+  }
 
   @Test
   void objectsAndStringProduceTheSameDocuments() {
@@ -46,7 +55,7 @@ class JsonDocumentCreatorTest {
         List.of(
             show("netflix-001", "Stranger Things", 8.7, true, "Sci-Fi", "Horror"),
             show("hbo-001", "Game of Thrones", 9.2, false, "Fantasy"));
-    String json = objectMapper.writeValueAsString(objects);
+    String json = jsonMapper.writeValueAsString(objects);
 
     List<SolrInputDocument> fromObjects = creator.create(objects);
     List<SolrInputDocument> fromString = creator.create(json);

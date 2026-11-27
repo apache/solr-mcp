@@ -20,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collection;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.json.JsonTest;
 import org.springframework.http.MediaType;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -31,11 +33,14 @@ import tools.jackson.databind.json.JsonMapper;
  * unless the configured {@link org.apache.solr.client.solrj.response.ResponseParser} advertises
  * that Content-Type, so the parser must tolerate both.
  */
+@JsonTest
 class JsonResponseParserContentTypesTest {
+
+  @Autowired private JsonMapper jsonMapper;
 
   @Test
   void advertisesJsonAndTextPlain() {
-    JsonResponseParser parser = new JsonResponseParser(JsonMapper.builder().build());
+    JsonResponseParser parser = new JsonResponseParser(jsonMapper);
 
     Collection<String> contentTypes = parser.getContentTypes();
 

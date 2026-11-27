@@ -276,7 +276,7 @@ public class CollectionService {
   /** SolrJ client for communicating with Solr server */
   private final SolrClient solrClient;
 
-  private final JsonMapper objectMapper;
+  private final JsonMapper jsonMapper;
 
   /**
    * Constructs a new CollectionService with the required dependencies.
@@ -285,13 +285,13 @@ public class CollectionService {
    * application startup.
    *
    * @param solrClient the SolrJ client instance for communicating with Solr
-   * @param objectMapper the Jackson JsonMapper for JSON serialization
+   * @param jsonMapper the Jackson JsonMapper for JSON serialization
    * @see SolrClient
    * @see SolrConfigurationProperties
    */
-  public CollectionService(SolrClient solrClient, JsonMapper objectMapper) {
+  public CollectionService(SolrClient solrClient, JsonMapper jsonMapper) {
     this.solrClient = solrClient;
-    this.objectMapper = objectMapper;
+    this.jsonMapper = jsonMapper;
   }
 
   /**
@@ -326,7 +326,7 @@ public class CollectionService {
       mimeType = "application/json")
   public String getCollectionsResource() {
     try {
-      return objectMapper.writeValueAsString(listCollections());
+      return jsonMapper.writeValueAsString(listCollections());
     } catch (Exception e) {
       // Deliberately no cause: MCP reports the root cause's message to the client,
       // and Solr and SolrJ failure text can carry internal host names, URLs and

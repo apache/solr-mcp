@@ -71,7 +71,7 @@ Test configuration that provides:
 #### `LgtmAssertions.java`
 Helper for querying LGTM stack (Tempo, Prometheus, Loki):
 ```java
-LgtmAssertions lgtm = new LgtmAssertions(lgtmContainer, objectMapper);
+LgtmAssertions lgtm = new LgtmAssertions(lgtmContainer, jsonMapper);
 
 // Fetch trace by ID
 Optional<JsonNode> trace = lgtm.getTraceById(traceId);

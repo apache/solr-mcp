@@ -157,13 +157,13 @@ public class SolrConfig {
    * Response parser used by {@link #solrClient}, requesting {@code wt=json} and converting the
    * response into SolrJ's {@link org.apache.solr.common.util.NamedList} tree.
    *
-   * @param objectMapper the application's Jackson mapper, reused so Solr responses are parsed with
+   * @param jsonMapper the application's Jackson mapper, reused so Solr responses are parsed with
    *     the same configuration as the rest of the app
    * @return the JSON response parser
    */
   @Bean
-  JsonResponseParser jsonResponseParser(JsonMapper objectMapper) {
-    return new JsonResponseParser(objectMapper);
+  JsonResponseParser jsonResponseParser(JsonMapper jsonMapper) {
+    return new JsonResponseParser(jsonMapper);
   }
 
   private static SolrClient buildSolrClient(

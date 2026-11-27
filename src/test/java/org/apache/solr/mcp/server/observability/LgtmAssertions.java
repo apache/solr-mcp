@@ -35,7 +35,7 @@ import tools.jackson.databind.json.JsonMapper;
  * <p>Example usage:
  *
  * <pre>
- * LgtmAssertions lgtm = new LgtmAssertions(lgtmContainer, objectMapper);
+ * LgtmAssertions lgtm = new LgtmAssertions(lgtmContainer, jsonMapper);
  *
  * // Search for traces
  * Optional&lt;JsonNode&gt; traces = lgtm.searchTraces("{.service.name=\"my-service\"}", 10);
@@ -53,13 +53,13 @@ public class LgtmAssertions {
 
   private final LgtmStackContainer lgtm;
 
-  private final JsonMapper objectMapper;
+  private final JsonMapper jsonMapper;
 
   private final RestClient restClient;
 
-  public LgtmAssertions(LgtmStackContainer lgtm, JsonMapper objectMapper) {
+  public LgtmAssertions(LgtmStackContainer lgtm, JsonMapper jsonMapper) {
     this.lgtm = lgtm;
-    this.objectMapper = objectMapper;
+    this.jsonMapper = jsonMapper;
     this.restClient = RestClient.create();
   }
 
@@ -91,7 +91,7 @@ public class LgtmAssertions {
       String response = restClient.get().uri(url).retrieve().body(String.class);
 
       if (response != null) {
-        return Optional.of(objectMapper.readTree(response));
+        return Optional.of(jsonMapper.readTree(response));
       }
     } catch (Exception _) {
       log.debug("Trace not found: {}", traceId);
@@ -113,7 +113,7 @@ public class LgtmAssertions {
       String response = restClient.get().uri(url).retrieve().body(String.class);
 
       if (response != null) {
-        return Optional.of(objectMapper.readTree(response));
+        return Optional.of(jsonMapper.readTree(response));
       }
     } catch (Exception e) {
       log.warn("Error searching traces: {}", e.getMessage());
@@ -134,7 +134,7 @@ public class LgtmAssertions {
       String response = restClient.get().uri(url).retrieve().body(String.class);
 
       if (response != null) {
-        JsonNode result = objectMapper.readTree(response);
+        JsonNode result = jsonMapper.readTree(response);
         JsonNode status = result.get("status");
         if (status != null && "success".equals(status.asText())) {
           return Optional.of(result.get("data"));
@@ -161,7 +161,7 @@ public class LgtmAssertions {
       String response = restClient.get().uri(url).retrieve().body(String.class);
 
       if (response != null) {
-        JsonNode result = objectMapper.readTree(response);
+        JsonNode result = jsonMapper.readTree(response);
         JsonNode status = result.get("status");
         if (status != null && "success".equals(status.asText())) {
           return Optional.of(result.get("data"));

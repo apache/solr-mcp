@@ -30,6 +30,8 @@ import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.indexing.documentcreator.JsonDocumentCreator;
 import org.apache.solr.mcp.server.indexing.documentcreator.MarkdownDocumentCreator;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.json.JsonTest;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -41,11 +43,17 @@ import tools.jackson.databind.json.JsonMapper;
  * {@link MarkdownDocumentCreator#create(String)} splits on front matter blocks; this test is what
  * pins that a whole dataset survives the round trip rather than only a document or two.
  */
+@JsonTest
 class ShowsSampleDataTest {
 
   private static final int SHOWS = 61;
 
-  private final JsonDocumentCreator json = new JsonDocumentCreator(JsonMapper.builder().build());
+  private final JsonDocumentCreator json;
+
+  @Autowired
+  ShowsSampleDataTest(JsonMapper jsonMapper) {
+    this.json = new JsonDocumentCreator(jsonMapper);
+  }
 
   @Test
   void jsonHas61ShowsWithUniqueIds() throws Exception {

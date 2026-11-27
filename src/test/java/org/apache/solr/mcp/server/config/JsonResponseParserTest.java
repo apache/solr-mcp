@@ -30,6 +30,8 @@ import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.util.NamedList;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.json.JsonTest;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -40,9 +42,15 @@ import tools.jackson.databind.json.JsonMapper;
  * every NamedList is a JSON object. SolrJ's {@link QueryResponse} casts every {@code
  * facet_counts/facet_fields} entry to a {@link NamedList}, including an empty one.
  */
+@JsonTest
 class JsonResponseParserTest {
 
-  private final JsonResponseParser parser = new JsonResponseParser(JsonMapper.builder().build());
+  private final JsonResponseParser parser;
+
+  @Autowired
+  JsonResponseParserTest(JsonMapper jsonMapper) {
+    this.parser = new JsonResponseParser(jsonMapper);
+  }
 
   private NamedList<Object> parse(String json) {
     return parser.processResponse(

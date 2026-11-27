@@ -141,7 +141,7 @@ public class SchemaService {
   /** SolrJ client for communicating with Solr server */
   private final SolrClient solrClient;
 
-  private final JsonMapper objectMapper;
+  private final JsonMapper jsonMapper;
 
   /**
    * Constructs a new SchemaService with the required dependencies.
@@ -151,12 +151,12 @@ public class SchemaService {
    * operations.
    *
    * @param solrClient the SolrJ client instance for communicating with Solr
-   * @param objectMapper the Jackson JsonMapper for JSON serialization
+   * @param jsonMapper the Jackson JsonMapper for JSON serialization
    * @see SolrClient
    */
-  public SchemaService(SolrClient solrClient, JsonMapper objectMapper) {
+  public SchemaService(SolrClient solrClient, JsonMapper jsonMapper) {
     this.solrClient = solrClient;
-    this.objectMapper = objectMapper;
+    this.jsonMapper = jsonMapper;
   }
 
   /**
@@ -180,7 +180,7 @@ public class SchemaService {
       mimeType = "application/json")
   public String getSchemaResource(String collection) {
     try {
-      return objectMapper.writeValueAsString(getSchema(collection));
+      return jsonMapper.writeValueAsString(getSchema(collection));
     } catch (Exception e) {
       // Deliberately no cause: MCP reports the root cause's message to the client,
       // and Solr and SolrJ failure text can carry internal host names, URLs and
@@ -268,7 +268,7 @@ public class SchemaService {
     // every unset analyzer slot as null. The Schema API's own JSON objects arrive as
     // SimpleOrderedMap, a java.util.Map, so Jackson converts them into the records directly.
     NamedList<Object> response = solrClient.request(new SchemaRequest(), collection);
-    return objectMapper.convertValue(response.get(SCHEMA_SECTION), CollectionSchema.class);
+    return jsonMapper.convertValue(response.get(SCHEMA_SECTION), CollectionSchema.class);
   }
 
   /**
@@ -289,7 +289,7 @@ public class SchemaService {
       mimeType = "application/json")
   public String getFieldsResource(String collection) {
     try {
-      return objectMapper.writeValueAsString(listFields(collection));
+      return jsonMapper.writeValueAsString(listFields(collection));
     } catch (Exception e) {
       // No cause, for the same reason as getSchemaResource: Solr failure text can
       // carry internal host names and URLs.
@@ -352,7 +352,7 @@ public class SchemaService {
     NamedList<Object> response = solrClient.request(lukeRequest, collection);
     Object fields = response.get(LUKE_FIELDS_SECTION);
     return new FieldListing(
-        fields == null ? Map.of() : objectMapper.convertValue(fields, INDEXED_FIELDS));
+        fields == null ? Map.of() : jsonMapper.convertValue(fields, INDEXED_FIELDS));
   }
 
   /**
@@ -497,8 +497,8 @@ public class SchemaService {
    * {@code "class":"solr.WhitespaceAnalyzer"}, {@code "luceneMatchVersion"}, {@code
    * "positionIncrementGap"}) must go through {@code setAttributes} or Solr never sees them.
    *
-   * <p>A naive {@code objectMapper.convertValue(raw, AnalyzerDefinition.class)} silently drops
-   * those unrecognized top-level keys, which breaks the valid single-class analyzer form {@code
+   * <p>A naive {@code jsonMapper.convertValue(raw, AnalyzerDefinition.class)} silently drops those
+   * unrecognized top-level keys, which breaks the valid single-class analyzer form {@code
    * {"analyzer":{"class":"solr.WhitespaceAnalyzer"}}}. This helper does the split manually so
    * unknown keys are preserved as attributes.
    */
@@ -506,7 +506,7 @@ public class SchemaService {
     if (!(raw instanceof Map<?, ?> rawMap)) {
       // Defensive: unexpected shape (e.g. analyzer specified as a bare class
       // name string). Let Jackson try its default conversion.
-      return objectMapper.convertValue(raw, AnalyzerDefinition.class);
+      return jsonMapper.convertValue(raw, AnalyzerDefinition.class);
     }
     @SuppressWarnings("unchecked")
     Map<String, Object> input = (Map<String, Object>) rawMap;

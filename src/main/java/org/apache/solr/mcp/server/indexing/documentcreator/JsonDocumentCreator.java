@@ -35,15 +35,15 @@ import tools.jackson.databind.json.JsonMapper;
 @Component
 public class JsonDocumentCreator implements SolrDocumentCreator {
 
-  private final JsonMapper objectMapper;
+  private final JsonMapper jsonMapper;
 
   /**
    * Constructs the creator with the Jackson {@link JsonMapper} used to parse incoming JSON.
    *
-   * @param objectMapper the JSON parser injected by Spring
+   * @param jsonMapper the JSON parser injected by Spring
    */
-  public JsonDocumentCreator(JsonMapper objectMapper) {
-    this.objectMapper = objectMapper;
+  public JsonDocumentCreator(JsonMapper jsonMapper) {
+    this.jsonMapper = jsonMapper;
   }
 
   /**
@@ -94,7 +94,7 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
 
     JsonNode rootNode;
     try {
-      rootNode = this.objectMapper.readTree(json);
+      rootNode = this.jsonMapper.readTree(json);
     } catch (JacksonException e) {
       throw new DocumentProcessingException("Failed to parse JSON document", e);
     }
@@ -123,7 +123,7 @@ public class JsonDocumentCreator implements SolrDocumentCreator {
     if (documents.isEmpty()) {
       throw new DocumentProcessingException("JSON input cannot be empty");
     }
-    return flatten(objectMapper.valueToTree(documents));
+    return flatten(jsonMapper.valueToTree(documents));
   }
 
   /**
