@@ -86,6 +86,16 @@ public final class PromptNames {
   public static final String DESIGN_SCHEMA_DESCRIPTION =
       "Guides the assistant through inspecting an existing Solr schema, choosing appropriate field types, and applying additive schema changes via the Schema API.";
 
+  /**
+   * The name of the {@code collection} argument the collection-scoped prompts take. The resource
+   * templates use the same name for their {@code {collection}} variable, so one completion handler
+   * serves both.
+   */
+  public static final String COLLECTION_ARG = "collection";
+
+  /** The description of {@link #COLLECTION_ARG} on every prompt that takes it. */
+  public static final String COLLECTION_ARG_DESCRIPTION = "Target Solr collection name";
+
   private PromptNames() {
     // Constants holder - prevent instantiation
   }

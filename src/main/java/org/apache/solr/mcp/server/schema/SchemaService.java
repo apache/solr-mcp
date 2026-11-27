@@ -35,6 +35,7 @@ import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.security.McpAuthorities;
 import org.apache.solr.mcp.server.util.McpResults;
 import org.apache.solr.mcp.server.util.PromptNames;
+import org.apache.solr.mcp.server.util.ResourceUris;
 import org.apache.solr.mcp.server.util.SolrCalls;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -46,6 +47,7 @@ import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
+import org.springframework.util.MimeTypeUtils;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -121,6 +123,9 @@ import tools.jackson.databind.json.JsonMapper;
 @Observed
 public class SchemaService {
 
+  /** The description of the {@code collection} parameter of the schema tools that take one. */
+  private static final String COLLECTION_PARAM_DESCRIPTION = "Solr collection name";
+
   private static final Logger logger = LoggerFactory.getLogger(SchemaService.class);
 
   /** The section of a Schema API response that holds the schema. */
@@ -185,11 +190,11 @@ public class SchemaService {
    */
   @PreAuthorize(McpAuthorities.READ)
   @McpResource(
-      uri = "solr://{collection}/schema",
+      uri = ResourceUris.COLLECTION_SCHEMA,
       name = "solr-collection-schema",
       description =
           "Full schema definition for a Solr collection: field types, declared fields, dynamic-field patterns and copy fields",
-      mimeType = "application/json")
+      mimeType = MimeTypeUtils.APPLICATION_JSON_VALUE)
   public ReadResourceResult getSchemaResource(ReadResourceRequest request, String collection) {
     try {
       return McpResults.jsonResource(
@@ -308,11 +313,11 @@ public class SchemaService {
    */
   @PreAuthorize(McpAuthorities.READ)
   @McpResource(
-      uri = "solr://{collection}/fields",
+      uri = ResourceUris.COLLECTION_FIELDS,
       name = "solr-collection-fields",
       description =
           "The fields that hold data in a Solr collection, with their types, flags and document counts",
-      mimeType = "application/json")
+      mimeType = MimeTypeUtils.APPLICATION_JSON_VALUE)
   public ReadResourceResult getFieldsResource(ReadResourceRequest request, String collection) {
     try {
       return McpResults.jsonResource(
@@ -368,7 +373,7 @@ public class SchemaService {
               + " empty. Before Solr 9.11 and 10.1, a collection with more than one shard lists the"
               + " fields and counts of one shard only.")
   public List<IndexedField> listFields(
-      @McpToolParam(description = "Solr collection name") String collection) {
+      @McpToolParam(description = COLLECTION_PARAM_DESCRIPTION) String collection) {
     requireCollection(collection);
 
     LukeRequest lukeRequest = new LukeRequest();
@@ -417,7 +422,7 @@ public class SchemaService {
               + "none are applied. On failure, fix the invalid field(s) and retry the whole batch.",
       generateOutputSchema = true)
   public SchemaUpdateResult addFields(
-      @McpToolParam(description = "Solr collection name") String collection,
+      @McpToolParam(description = COLLECTION_PARAM_DESCRIPTION) String collection,
       @McpToolParam(description = "The fields to add, in the shape get-schema reports")
           List<CollectionSchema.Field> fields) {
     requireCollection(collection);
@@ -473,7 +478,7 @@ public class SchemaService {
               + "Solr's Schema API is transactional — if any command in the batch fails, none are applied.",
       generateOutputSchema = true)
   public SchemaUpdateResult addFieldTypes(
-      @McpToolParam(description = "Solr collection name") String collection,
+      @McpToolParam(description = COLLECTION_PARAM_DESCRIPTION) String collection,
       @McpToolParam(description = "The field types to add, in the shape get-schema reports")
           List<CollectionSchema.FieldType> fieldTypes) {
     requireCollection(collection);
@@ -568,7 +573,10 @@ public class SchemaService {
       title = "View a Solr collection schema",
       description = PromptNames.VIEW_SCHEMA_DESCRIPTION)
   public GetPromptResult viewSchemaPrompt(
-      @McpArg(name = "collection", description = "Target Solr collection name", required = true)
+      @McpArg(
+              name = PromptNames.COLLECTION_ARG,
+              description = PromptNames.COLLECTION_ARG_DESCRIPTION,
+              required = true)
           String collection) {
     return McpResults.prompt(
         PromptNames.VIEW_SCHEMA_DESCRIPTION,
@@ -631,7 +639,10 @@ public class SchemaService {
       title = "Design a Solr schema for a dataset",
       description = PromptNames.DESIGN_SCHEMA_DESCRIPTION)
   public GetPromptResult designSchemaPrompt(
-      @McpArg(name = "collection", description = "Target Solr collection name", required = true)
+      @McpArg(
+              name = PromptNames.COLLECTION_ARG,
+              description = PromptNames.COLLECTION_ARG_DESCRIPTION,
+              required = true)
           String collection,
       @McpArg(
               name = "datasetDescription",

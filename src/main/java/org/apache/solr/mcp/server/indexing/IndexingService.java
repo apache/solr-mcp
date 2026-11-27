@@ -115,6 +115,9 @@ import org.springframework.stereotype.Service;
 @Observed
 public class IndexingService {
 
+  /** The description of the {@code collection} parameter of every indexing tool. */
+  private static final String COLLECTION_PARAM_DESCRIPTION = "Solr collection to index into";
+
   private static final Logger logger = LoggerFactory.getLogger(IndexingService.class);
 
   /** Solr's update handler, which reads CSV and update XML by their content type. */
@@ -223,7 +226,7 @@ public class IndexingService {
               + PARSED_RESULT_DESCRIPTION,
       generateOutputSchema = true)
   public IndexingResult indexJsonDocuments(
-      @McpToolParam(description = "Solr collection to index into") String collection,
+      @McpToolParam(description = COLLECTION_PARAM_DESCRIPTION) String collection,
       @McpToolParam(description = "Documents to index: a JSON array with one object per document")
           List<Map<String, Object>> documents) {
     List<SolrInputDocument> schemalessDocuments =
@@ -256,7 +259,7 @@ public class IndexingService {
               + " payload as a whole and reports no document count",
       generateOutputSchema = true)
   public IndexingResult indexCsvDocuments(
-      @McpToolParam(description = "Solr collection to index into") String collection,
+      @McpToolParam(description = COLLECTION_PARAM_DESCRIPTION) String collection,
       @McpToolParam(description = "CSV string containing documents to index") String csv) {
     ContentStreamUpdateRequest request = new ContentStreamUpdateRequest(UPDATE_PATH);
     request.setParam("header", "true");
@@ -291,7 +294,7 @@ public class IndexingService {
               + " reports no document count",
       generateOutputSchema = true)
   public IndexingResult indexXmlDocuments(
-      @McpToolParam(description = "Solr collection to index into") String collection,
+      @McpToolParam(description = COLLECTION_PARAM_DESCRIPTION) String collection,
       @McpToolParam(description = "Solr update XML: an <add> block of <doc> elements") String xml) {
     SolrUpdateXml.requireAddBlock(xml);
     ContentStreamUpdateRequest request = new ContentStreamUpdateRequest(UPDATE_PATH);
@@ -380,7 +383,7 @@ public class IndexingService {
               + PARSED_RESULT_DESCRIPTION,
       generateOutputSchema = true)
   public IndexingResult indexMarkdownDocuments(
-      @McpToolParam(description = "Solr collection to index into") String collection,
+      @McpToolParam(description = COLLECTION_PARAM_DESCRIPTION) String collection,
       @McpToolParam(
               description =
                   "Markdown documents to index, one string per document, each optionally starting with YAML front matter")
@@ -593,7 +596,10 @@ public class IndexingService {
       title = "Index documents into a Solr collection",
       description = PromptNames.INDEX_DATA_DESCRIPTION)
   public GetPromptResult indexDataPrompt(
-      @McpArg(name = "collection", description = "Target Solr collection name", required = true)
+      @McpArg(
+              name = PromptNames.COLLECTION_ARG,
+              description = PromptNames.COLLECTION_ARG_DESCRIPTION,
+              required = true)
           String collection,
       @McpArg(
               name = "format",

@@ -148,8 +148,10 @@ Packages without tools:
   it does, and an entry in `McpToolRegistrationTest.EXPECTED_ENDPOINT_SCOPES`
 - `util/` - `SolrCalls`, which runs every tool's Solr calls and translates their failures (see
   "MCP contracts" below); `McpResults`, which builds the prompt, resource and completion results;
-  `PromptNames`, the prompt names shared by `@McpPrompt` and `@McpComplete` (they must match
-  byte-for-byte or completion fails at runtime); and `PromptText`, the prompt bodies
+  `PromptNames`, the prompt names and the `collection` argument name shared by `@McpPrompt` and
+  `@McpComplete` (they must match byte-for-byte or completion fails at runtime); `PromptText`, the
+  prompt bodies; `ResourceUris`, the resource URIs shared by `@McpResource` and `@McpComplete`; and
+  `SolrQueries`, the match-all query
 
 Why the project is built this way (Spring AI MCP, Jib): "Design Decisions" in
 [dev-docs/ARCHITECTURE.md](dev-docs/ARCHITECTURE.md).

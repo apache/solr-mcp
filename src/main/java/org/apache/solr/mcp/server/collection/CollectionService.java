@@ -54,7 +54,9 @@ import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
 import org.apache.solr.mcp.server.security.McpAuthorities;
 import org.apache.solr.mcp.server.util.McpResults;
 import org.apache.solr.mcp.server.util.PromptNames;
+import org.apache.solr.mcp.server.util.ResourceUris;
 import org.apache.solr.mcp.server.util.SolrCalls;
+import org.apache.solr.mcp.server.util.SolrQueries;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,6 +69,7 @@ import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
+import org.springframework.util.MimeTypeUtils;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -147,9 +150,6 @@ public class CollectionService {
   // ========================================
   // Constants for API Parameters and Paths
   // ========================================
-
-  /** Universal Solr query pattern to match all documents in a collection */
-  private static final String ALL_DOCUMENTS_QUERY = "*:*";
 
   /**
    * Matches a SolrCloud shard/replica suffix at the end of a core name, e.g. {@code _shard1} or
@@ -340,10 +340,10 @@ public class CollectionService {
    */
   @PreAuthorize(McpAuthorities.READ)
   @McpResource(
-      uri = "solr://collections",
+      uri = ResourceUris.COLLECTIONS,
       name = "solr-collections",
       description = "List of all Solr collections available in the cluster",
-      mimeType = "application/json")
+      mimeType = MimeTypeUtils.APPLICATION_JSON_VALUE)
   public ReadResourceResult getCollectionsResource(ReadResourceRequest request) {
     try {
       return McpResults.jsonResource(
@@ -376,9 +376,9 @@ public class CollectionService {
    * @return up to {@link #MAX_COMPLETION_RESULTS} matching names, with the total match count
    */
   @PreAuthorize(McpAuthorities.READ)
-  @McpComplete(uri = "solr://{collection}/schema")
+  @McpComplete(uri = ResourceUris.COLLECTION_SCHEMA)
   public CompleteResult completeCollection(CompleteRequest.CompleteArgument argument) {
-    if (!"collection".equals(argument.name())) {
+    if (!PromptNames.COLLECTION_ARG.equals(argument.name())) {
       return McpResults.completion(List.of(), MAX_COMPLETION_RESULTS);
     }
     String prefix = argument.value().toLowerCase(Locale.ROOT);
@@ -405,7 +405,7 @@ public class CollectionService {
    * @return up to {@link #MAX_COMPLETION_RESULTS} matching names, with the total match count
    */
   @PreAuthorize(McpAuthorities.READ)
-  @McpComplete(uri = "solr://{collection}/fields")
+  @McpComplete(uri = ResourceUris.COLLECTION_FIELDS)
   public CompleteResult completeFieldsResourceCollection(
       CompleteRequest.CompleteArgument argument) {
     return completeCollection(argument);
@@ -916,7 +916,7 @@ public class CollectionService {
    *   <li><strong>Availability</strong>: Collection responds to ping requests
    *   <li><strong>Performance</strong>: Response time measurement
    *   <li><strong>Content</strong>: Document count verification using universal query ({@value
-   *       #ALL_DOCUMENTS_QUERY})
+   *       SolrQueries#MATCH_ALL})
    * </ul>
    *
    * <p><strong>Success Criteria:</strong>
@@ -969,7 +969,7 @@ public class CollectionService {
     }
     try {
       QueryResponse statsResponse =
-          solrClient.query(actualCollection, new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
+          solrClient.query(actualCollection, new SolrQuery(SolrQueries.MATCH_ALL).setRows(0));
       return HealthStatus.healthy(
           actualCollection,
           pingResponse.getElapsedTime(),

@@ -28,6 +28,7 @@ import org.apache.solr.client.solrj.response.CollectionAdminResponse;
 import org.apache.solr.client.solrj.response.ConfigSetAdminResponse;
 import org.apache.solr.mcp.server.security.McpAuthorities;
 import org.apache.solr.mcp.server.util.McpResults;
+import org.apache.solr.mcp.server.util.ResourceUris;
 import org.apache.solr.mcp.server.util.SolrCalls;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -37,6 +38,7 @@ import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
+import org.springframework.util.MimeTypeUtils;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -174,10 +176,10 @@ public class ClusterService {
    */
   @PreAuthorize(McpAuthorities.READ)
   @McpResource(
-      uri = "solr://cluster/status",
+      uri = ResourceUris.CLUSTER_STATUS,
       name = "solr-cluster-status",
       description = "Live nodes and the state of every shard and replica in the Solr cluster",
-      mimeType = "application/json")
+      mimeType = MimeTypeUtils.APPLICATION_JSON_VALUE)
   public ReadResourceResult getClusterStatusResource(ReadResourceRequest request) {
     try {
       return McpResults.jsonResource(

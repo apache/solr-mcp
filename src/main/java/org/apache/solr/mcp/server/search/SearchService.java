@@ -39,6 +39,7 @@ import org.apache.solr.mcp.server.security.McpAuthorities;
 import org.apache.solr.mcp.server.util.McpResults;
 import org.apache.solr.mcp.server.util.PromptNames;
 import org.apache.solr.mcp.server.util.SolrCalls;
+import org.apache.solr.mcp.server.util.SolrQueries;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -404,7 +405,7 @@ public class SearchService {
           @Nullable List<String> queryFields) {
 
     // query
-    final SolrQuery solrQuery = new SolrQuery("*:*");
+    final SolrQuery solrQuery = new SolrQuery(SolrQueries.MATCH_ALL);
     // Facet counts are a NamedList that Solr writes as a flat ["term", 5, ...] array by
     // default; map style writes it as an object, which JsonResponseParser reads as a NamedList.
     solrQuery.set(JsonTextWriter.JSON_NL_STYLE, JsonTextWriter.JSON_NL_MAP);
@@ -642,7 +643,10 @@ public class SearchService {
       title = "Search a Solr collection from a natural-language question",
       description = PromptNames.SEARCH_COLLECTION_DESCRIPTION)
   public GetPromptResult searchCollectionPrompt(
-      @McpArg(name = "collection", description = "Target Solr collection name", required = true)
+      @McpArg(
+              name = PromptNames.COLLECTION_ARG,
+              description = PromptNames.COLLECTION_ARG_DESCRIPTION,
+              required = true)
           String collection,
       @McpArg(
               name = "question",
