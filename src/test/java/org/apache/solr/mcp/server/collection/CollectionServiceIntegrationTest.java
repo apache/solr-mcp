@@ -142,7 +142,7 @@ class CollectionServiceIntegrationTest {
   }
 
   @Test
-  void testGetCollectionStats_reflectsIndexedData() throws Exception {
+  void testGetCollectionStats_reflectsIndexedData() {
     CollectionMetrics metrics = collectionService.getCollectionStats(TEST_COLLECTION);
 
     assertNotNull(metrics);

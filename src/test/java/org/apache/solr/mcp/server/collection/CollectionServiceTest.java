@@ -1207,7 +1207,7 @@ class CollectionServiceTest {
   }
 
   @Test
-  void completeCollection_WithWrongArgumentName_ReturnsEmpty() throws Exception {
+  void completeCollection_WithWrongArgumentName_ReturnsEmpty() {
     // Should not even attempt to list collections when the argument name does not
     // match the template variable.
     List<String> result =

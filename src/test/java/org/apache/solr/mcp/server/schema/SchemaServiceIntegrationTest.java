@@ -331,7 +331,7 @@ class SchemaServiceIntegrationTest {
   }
 
   @Test
-  void addFields_declaresOnlyThePropertiesTheClientSent() throws Exception {
+  void addFields_declaresOnlyThePropertiesTheClientSent() {
     SchemaUpdateResult result =
         schemaService.addFields(
             TEST_COLLECTION,

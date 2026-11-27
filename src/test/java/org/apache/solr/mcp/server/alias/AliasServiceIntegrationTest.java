@@ -79,13 +79,13 @@ class AliasServiceIntegrationTest {
 
   @Test
   @Order(1)
-  void listAliases_initiallyLacksTestAlias() throws Exception {
+  void listAliases_initiallyLacksTestAlias() {
     assertThat(alias(TEST_ALIAS)).isEmpty();
   }
 
   @Test
   @Order(2)
-  void createAlias_createsNewAlias() throws Exception {
+  void createAlias_createsNewAlias() {
     Alias result = aliasService.createAlias(TEST_ALIAS, List.of(TEST_COLLECTION));
 
     assertThat(result).isEqualTo(new Alias(TEST_ALIAS, List.of(TEST_COLLECTION), Map.of()));
@@ -94,7 +94,7 @@ class AliasServiceIntegrationTest {
 
   @Test
   @Order(3)
-  void createAlias_withTwoTargets_listsBothInOrder() throws Exception {
+  void createAlias_withTwoTargets_listsBothInOrder() {
     Alias result =
         aliasService.createAlias(TEST_ALIAS_3, List.of(TEST_COLLECTION, TEST_COLLECTION_2));
 
@@ -120,7 +120,7 @@ class AliasServiceIntegrationTest {
 
   @Test
   @Order(5)
-  void createAlias_withNoTargets_failsAndChangesNothing() throws Exception {
+  void createAlias_withNoTargets_failsAndChangesNothing() {
     assertThatThrownBy(() -> aliasService.createAlias(TEST_ALIAS, List.of()))
         .isInstanceOf(IllegalArgumentException.class);
     assertThat(alias(TEST_ALIAS).map(Alias::collections)).contains(List.of(TEST_COLLECTION_2));
@@ -128,7 +128,7 @@ class AliasServiceIntegrationTest {
 
   @Test
   @Order(6)
-  void listAliases_isOrderedByName() throws Exception {
+  void listAliases_isOrderedByName() {
     aliasService.createAlias(TEST_ALIAS_2, List.of(TEST_COLLECTION));
 
     List<String> names = aliasService.listAliases().stream().map(Alias::name).toList();
@@ -138,7 +138,7 @@ class AliasServiceIntegrationTest {
 
   @Test
   @Order(7)
-  void deleteAlias_removesAliasAndReturnsItsName() throws Exception {
+  void deleteAlias_removesAliasAndReturnsItsName() {
     assertThat(aliasService.deleteAlias(TEST_ALIAS)).isEqualTo(new AliasDeletion(TEST_ALIAS));
 
     assertThat(alias(TEST_ALIAS)).isEmpty();
@@ -155,7 +155,7 @@ class AliasServiceIntegrationTest {
 
   @Test
   @Order(9)
-  void deleteAlias_cleanupSecondAlias() throws Exception {
+  void deleteAlias_cleanupSecondAlias() {
     aliasService.deleteAlias(TEST_ALIAS_2);
 
     assertThat(alias(TEST_ALIAS_2)).isEmpty();

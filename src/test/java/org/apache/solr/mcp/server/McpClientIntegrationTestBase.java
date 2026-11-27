@@ -587,7 +587,7 @@ public abstract class McpClientIntegrationTestBase {
 
   @Test
   @Order(20)
-  void addShowsSchema() throws Exception {
+  void addShowsSchema() {
     // Mirrors the user's original curl example: 16 fields covering text_general,
     // string, strings (multi-valued), pint, and pdouble types — the schema the
     // JSON dataset is shaped for.

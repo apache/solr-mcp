@@ -145,7 +145,7 @@ class IndexingServiceIntegrationTest {
   }
 
   @Test
-  void indexJsonDocuments_reportsFieldNamesAsIndexed() throws Exception {
+  void indexJsonDocuments_reportsFieldNamesAsIndexed() {
     String json =
         """
 				[
@@ -267,7 +267,7 @@ class IndexingServiceIntegrationTest {
   }
 
   @Test
-  void testIndexJsonDocuments() throws Exception {
+  void testIndexJsonDocuments() {
 
     // Test JSON string with multiple documents
     String json =
@@ -374,7 +374,7 @@ class IndexingServiceIntegrationTest {
   }
 
   @Test
-  void testIndexJsonDocumentsWithNestedObjects() throws Exception {
+  void testIndexJsonDocumentsWithNestedObjects() {
 
     // Test JSON string with nested objects
     String json =
@@ -438,7 +438,7 @@ class IndexingServiceIntegrationTest {
   }
 
   @Test
-  void testFieldNamesAreUsedAsGiven() throws Exception {
+  void testFieldNamesAreUsedAsGiven() {
     String json =
         """
 				[
@@ -466,7 +466,7 @@ class IndexingServiceIntegrationTest {
   }
 
   @Test
-  void testDeeplyNestedJsonStructures() throws Exception {
+  void testDeeplyNestedJsonStructures() {
 
     // Test JSON string with deeply nested objects (3+ levels)
     String json =
@@ -558,7 +558,7 @@ class IndexingServiceIntegrationTest {
   }
 
   @Test
-  void testSpecialCharactersInFieldNames() throws Exception {
+  void testSpecialCharactersInFieldNames() {
 
     // Test JSON string with field names containing various special characters
     String json =
@@ -642,7 +642,7 @@ class IndexingServiceIntegrationTest {
   }
 
   @Test
-  void testArraysOfObjects() throws Exception {
+  void testArraysOfObjects() {
 
     // Test JSON string with arrays of objects
     String json =

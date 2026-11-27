@@ -78,7 +78,7 @@ class ListFieldsIntegrationTest {
   }
 
   @Test
-  void listsDynamicFieldInstancesWithTheirBase() throws Exception {
+  void listsDynamicFieldInstancesWithTheirBase() {
     Map<String, IndexedField> fields = fields(ONE_SHARD);
 
     IndexedField genre = fields.get("genre_s");
@@ -90,7 +90,7 @@ class ListFieldsIntegrationTest {
   }
 
   @Test
-  void pointFieldsHaveNoDocCount() throws Exception {
+  void pointFieldsHaveNoDocCount() {
     IndexedField year = fields(ONE_SHARD).get("year_i");
 
     assertNotNull(year, "year_i should be listed");
@@ -102,7 +102,7 @@ class ListFieldsIntegrationTest {
   }
 
   @Test
-  void decodesLukeFlagLettersIntoFieldProperties() throws Exception {
+  void decodesLukeFlagLettersIntoFieldProperties() {
     Map<String, IndexedField> fields = fields(ONE_SHARD);
 
     // _default: *_s is string (indexed, stored, docValues), *_i is pint (no multiValued)
