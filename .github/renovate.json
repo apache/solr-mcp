@@ -4,6 +4,9 @@
   "enabled": true,
   "gitIgnoredAuthors": ["renovate-bot <renovate-bot@noreply.github.com>"],
   "dependencyDashboard": false,
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
   "enabledManagers": ["gradle"],
   "includePaths": [
     "gradle/libs.versions.toml",
