@@ -107,21 +107,23 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 
 | Tool | Description |
 |------|-------------|
-| `search` | Full-text search with filtering, faceting, sorting, and pagination |
-| `index-json-documents` | Index documents passed as a JSON array of objects into a collection |
-| `index-csv-documents` | Index documents from a CSV string via Solr's CSV handler; repeat a column name for multi-valued fields |
-| `index-xml-documents` | Index documents from Solr update XML (`<add><doc><field name="...">`); only `<add>` blocks are accepted |
-| `index-markdown-documents` | Index markdown documents into a collection (one array element per document), extracting front matter, title, headings, and body text |
-| `create-collection` | Create a collection (configSet, numShards, replicationFactor optional — default: a private copy of `_default`, `1`, `1`) |
+| `search` | Full-text search with filtering, faceting, sorting, and pagination. Each hit has `id` (the uniqueKey value), `score` and its other `fields`; `facets` lists each field's value counts |
+| `index-json-documents` | Index documents passed as a JSON array of objects into a collection; returns `documentsSubmitted`, `documentsIndexed`, `fieldNames` (up to 50 names in sort order) and `fieldCount` (how many there are), and fails if Solr rejects every document |
+| `index-csv-documents` | Index documents from a CSV string via Solr's CSV handler; repeat a column name for multi-valued fields. Returns `collection` and `format` only: Solr reports no document count |
+| `index-xml-documents` | Index documents from Solr update XML (`<add><doc><field name="...">`); only `<add>` blocks are accepted. Returns `collection` and `format` only: Solr reports no document count |
+| `index-markdown-documents` | Index markdown documents into a collection (one array element per document), extracting front matter, title, headings, and body text; returns `documentsSubmitted`, `documentsIndexed`, `fieldNames` (up to 50 names in sort order) and `fieldCount` (how many there are), and fails if Solr rejects every document |
+| `create-collection` | Create a collection (configSet, numShards, replicationFactor optional — default: a private copy of `_default`, `1`, `1`); reports the settings it used |
 | `list-collections` | List all available Solr collections |
-| `get-collection-stats` | Get statistics and metrics for a collection |
-| `check-health` | Check the health status of a collection |
+| `get-collection-stats` | Size and performance of one collection: document and segment counts, cache and request handler statistics |
+| `check-health` | Check that a collection answers a ping and a query; an unhealthy result names a fixed `reason` such as `COLLECTION_NOT_FOUND`. It does not report replica state; use `get-cluster-status` for that |
+| `get-cluster-status` | Cluster-wide view from Solr's CLUSTERSTATUS: `liveNodes`, then each collection's shards and replicas with their `state`, `leader` and `nodeName` |
+| `list-configsets` | List the configsets in the cluster, to pick one for `create-collection` |
 | `add-fields` | Add fields to a collection schema (additive only; existing fields cannot be modified) |
 | `add-field-types` | Add field types — custom analyzers, `DenseVectorField` for semantic search, etc. |
 | `get-schema` | Retrieve the full schema: field types, analyzers, dynamic-field patterns, copy fields |
 | `list-fields` | List the fields that hold data in a collection, with types, flags and document counts |
-| `list-aliases` | List all Solr aliases and the collections they point to |
-| `create-alias` | Create or update a Solr alias pointing to one or more collections |
+| `list-aliases` | List all Solr aliases, the collections each points to, and their properties |
+| `create-alias` | Create or update a Solr alias pointing to a list of collections; returns the alias as Solr then holds it |
 | `delete-alias` | Delete a Solr alias (underlying collections are not affected) |
 
 Every tool advertises MCP behavior hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`) so clients can build sensible approval UX — `search` and the metadata tools are read-only, indexing is destructive but idempotent, schema modification is additive.
@@ -132,6 +134,7 @@ Every tool advertises MCP behavior hints (`readOnlyHint`, `destructiveHint`, `id
 |--------------|-------------|
 | `solr://collections` | List of all Solr collections in the cluster |
 | `solr://{collection}/schema` | Schema definition for a collection (supports autocompletion) |
+| `solr://cluster/status` | Live nodes and the state of every shard and replica, as `get-cluster-status` reports it |
 | `solr://{collection}/fields` | Fields that hold data in a collection, as `list-fields` returns them (supports autocompletion) |
 
 ### Prompts
@@ -146,6 +149,18 @@ Slash-command-style workflow templates that walk the assistant through a canonic
 | `design-schema` | `collection`, `datasetDescription`, `sampleDocument` (optional) | Choose field types and apply additive schema changes |
 | `index-data` | `collection`, `format` (`json` / `csv` / `xml`), `sample` (optional) | Pick the right indexing tool and confirm the result |
 | `search-collection` | `collection`, `question` | Translate a natural-language question into a Solr query |
+
+### Skill
+
+`src/main/resources/skills/solr/` is an [Agent Skill](https://agentskills.io/specification) for this
+server's tools: what to know before writing data (which configsets are shared, document ids, how field
+names and values are stored), how the indexing tools respond, how to read the server's errors, and
+what differs across Solr versions. It does not teach Solr itself; the Solr Reference Guide covers that.
+
+To use it today, copy the directory into your client's skills location, for example
+`cp -r src/main/resources/skills/solr ~/.claude/skills/`. Serving it to clients over MCP itself, once
+the protocol and SDK support the Skills extension, is tracked in
+[#280](https://github.com/apache/solr-mcp/issues/280).
 
 ### Completions
 

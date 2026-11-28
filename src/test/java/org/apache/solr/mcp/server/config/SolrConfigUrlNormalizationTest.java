@@ -18,6 +18,7 @@ package org.apache.solr.mcp.server.config;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.concurrent.ExecutorService;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -44,8 +45,9 @@ class SolrConfigUrlNormalizationTest {
         new SolrConfigurationProperties(inputUrl, null, null);
     SolrConfig solrConfig = new SolrConfig();
 
-    try (SolrClient client =
-        solrConfig.solrClient(testProperties, new JsonResponseParser(jsonMapper))) {
+    try (ExecutorService executor = solrConfig.solrClientExecutor();
+        SolrClient client =
+            solrConfig.solrClient(testProperties, new JsonResponseParser(jsonMapper), executor)) {
       assertNotNull(client);
 
       var httpClient = assertInstanceOf(HttpJdkSolrClient.class, client);
