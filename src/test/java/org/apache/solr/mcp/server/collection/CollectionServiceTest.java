@@ -16,14 +16,21 @@
  */
 package org.apache.solr.mcp.server.collection;
 
+import static org.apache.solr.mcp.server.McpResultAssertions.completionValues;
+import static org.apache.solr.mcp.server.McpResultAssertions.promptText;
+import static org.apache.solr.mcp.server.McpResultAssertions.resourceJson;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import io.modelcontextprotocol.spec.McpSchema.CompleteRequest;
+import io.modelcontextprotocol.spec.McpSchema.CompleteResult;
+import io.modelcontextprotocol.spec.McpSchema.ReadResourceRequest;
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.IntStream;
@@ -40,22 +47,33 @@ import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.CollectionAdminParams;
 import org.apache.solr.common.util.NamedList;
+import org.apache.solr.mcp.server.collection.CollectionMetrics.CacheInfo;
+import org.apache.solr.mcp.server.collection.CollectionMetrics.CacheStats;
+import org.apache.solr.mcp.server.collection.CollectionMetrics.HandlerInfo;
+import org.apache.solr.mcp.server.collection.CollectionMetrics.HandlerStats;
+import org.apache.solr.mcp.server.collection.CollectionMetrics.IndexStats;
+import org.apache.solr.mcp.server.collection.CollectionMetrics.QueryStats;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.json.JsonTest;
+import org.springframework.test.json.JsonContent;
 import tools.jackson.databind.json.JsonMapper;
 
 @JsonTest
 @ExtendWith(MockitoExtension.class)
 @DisabledInNativeImage
 class CollectionServiceTest {
+
+  private static final String COLLECTIONS_URI = "solr://collections";
 
   @Mock private SolrClient solrClient;
 
@@ -208,14 +226,14 @@ class CollectionServiceTest {
     when(queryResponse.getResults()).thenReturn(docList);
 
     // When
-    SolrHealthStatus result = collectionService.checkHealth("test_collection");
+    HealthStatus result = collectionService.checkHealth("test_collection");
 
     // Then
     assertNotNull(result);
-    assertTrue(result.isHealthy());
-    assertNull(result.errorMessage());
-    assertEquals(10L, result.responseTime());
-    assertEquals(100L, result.totalDocuments());
+    assertTrue(result.healthy());
+    assertNull(result.reason());
+    assertEquals(10L, result.pingMillis());
+    assertEquals(100L, result.numDocs());
     assertEquals("test_collection", result.collection());
   }
 
@@ -226,15 +244,14 @@ class CollectionServiceTest {
         .thenThrow(new SolrServerException("Connection failed"));
 
     // When
-    SolrHealthStatus result = collectionService.checkHealth("unhealthy_collection");
+    HealthStatus result = collectionService.checkHealth("unhealthy_collection");
 
     // Then
     assertNotNull(result);
-    assertFalse(result.isHealthy());
-    assertNotNull(result.errorMessage());
-    assertTrue(result.errorMessage().contains("Connection failed"));
-    assertNull(result.responseTime());
-    assertNull(result.totalDocuments());
+    assertFalse(result.healthy());
+    assertEquals(HealthStatus.Reason.SOLR_UNREACHABLE, result.reason());
+    assertNull(result.pingMillis());
+    assertNull(result.numDocs());
     assertEquals("unhealthy_collection", result.collection());
   }
 
@@ -245,13 +262,12 @@ class CollectionServiceTest {
     when(solrClient.query(eq("test_collection"), any())).thenThrow(new IOException("Query failed"));
 
     // When
-    SolrHealthStatus result = collectionService.checkHealth("test_collection");
+    HealthStatus result = collectionService.checkHealth("test_collection");
 
     // Then
     assertNotNull(result);
-    assertFalse(result.isHealthy());
-    assertNotNull(result.errorMessage());
-    assertTrue(result.errorMessage().contains("Query failed"));
+    assertFalse(result.healthy());
+    assertEquals(HealthStatus.Reason.QUERY_FAILED, result.reason());
   }
 
   @Test
@@ -266,13 +282,13 @@ class CollectionServiceTest {
     when(queryResponse.getResults()).thenReturn(emptyDocList);
 
     // When
-    SolrHealthStatus result = collectionService.checkHealth("empty_collection");
+    HealthStatus result = collectionService.checkHealth("empty_collection");
 
     // Then
     assertNotNull(result);
-    assertTrue(result.isHealthy());
-    assertEquals(0L, result.totalDocuments());
-    assertEquals(5, result.responseTime());
+    assertTrue(result.healthy());
+    assertEquals(0L, result.numDocs());
+    assertEquals(5, result.pingMillis());
   }
 
   @Test
@@ -287,24 +303,45 @@ class CollectionServiceTest {
     when(queryResponse.getResults()).thenReturn(docList);
 
     // When
-    SolrHealthStatus result = collectionService.checkHealth("slow_collection");
+    HealthStatus result = collectionService.checkHealth("slow_collection");
 
     // Then
     assertNotNull(result);
-    assertTrue(result.isHealthy());
-    assertEquals(5000, result.responseTime());
+    assertTrue(result.healthy());
+    assertEquals(5000, result.pingMillis());
+  }
+
+  @Test
+  void checkHealth_UnknownCollection_ReportsCollectionNotFoundWithoutSolrText() throws Exception {
+    when(solrClient.ping("missing"))
+        .thenThrow(
+            new SolrException(
+                SolrException.ErrorCode.NOT_FOUND, "Error from server at http://solr:8983/solr"));
+
+    HealthStatus result = collectionService.checkHealth("missing");
+
+    assertEquals(
+        HealthStatus.unhealthy("missing", HealthStatus.Reason.COLLECTION_NOT_FOUND), result);
+    assertFalse(jsonMapper.writeValueAsString(result).contains("http://"));
+  }
+
+  @Test
+  void checkHealth_PingRejectedBySolr_ReportsPingFailed() throws Exception {
+    when(solrClient.ping("broken"))
+        .thenThrow(new SolrException(SolrException.ErrorCode.SERVER_ERROR, "core is loading"));
+
+    assertEquals(HealthStatus.Reason.PING_FAILED, collectionService.checkHealth("broken").reason());
   }
 
   @Test
   void checkHealth_IOException() throws Exception {
     when(solrClient.ping("error_collection")).thenThrow(new IOException("Network error"));
 
-    SolrHealthStatus result = collectionService.checkHealth("error_collection");
+    HealthStatus result = collectionService.checkHealth("error_collection");
 
-    assertFalse(result.isHealthy());
-    assertNotNull(result.errorMessage());
-    assertTrue(result.errorMessage().contains("Network error"));
-    assertNull(result.responseTime());
+    assertFalse(result.healthy());
+    assertEquals(HealthStatus.Reason.SOLR_UNREACHABLE, result.reason());
+    assertNull(result.pingMillis());
   }
 
   // Query stats tests
@@ -426,12 +463,12 @@ class CollectionServiceTest {
     when(solrClient.request(argThat(r -> r instanceof GenericSolrRequest)))
         .thenReturn(metricsResponse);
 
-    SolrMetrics result = collectionService.getCollectionStats("test_collection");
+    CollectionMetrics result = collectionService.getCollectionStats("test_collection");
 
     assertNotNull(result);
-    assertEquals(42, result.indexStats().numDocs());
-    assertEquals(3, result.indexStats().segmentCount());
-    assertNotNull(result.cacheStats());
+    assertEquals(42, result.index().numDocs());
+    assertEquals(3, result.index().segmentCount());
+    assertNotNull(result.caches());
 
     // Exactly one metrics call (combined cache+handler prefixes), no
     // list-collections pre-flight, and exactly one Luke request.
@@ -704,7 +741,7 @@ class CollectionServiceTest {
     assertTrue((boolean) method.invoke(collectionService, emptyStats));
 
     HandlerStats nonEmptyStats =
-        new HandlerStats(new HandlerInfo(100L, null, null, null, null, null), null);
+        new HandlerStats(new HandlerInfo(100L, null, null, null, null), null);
     assertFalse((boolean) method.invoke(collectionService, nonEmptyStats));
   }
 
@@ -716,7 +753,8 @@ class CollectionServiceTest {
 
     when(solrClient.request(any(), any())).thenReturn(response);
 
-    List<String> result = collectionService.listCollections();
+    List<String> result =
+        collectionService.listCollections().stream().map(Collection::name).toList();
 
     assertNotNull(result);
     assertEquals(2, result.size());
@@ -731,7 +769,8 @@ class CollectionServiceTest {
 
     when(solrClient.request(any(), any())).thenReturn(response);
 
-    List<String> result = collectionService.listCollections();
+    List<String> result =
+        collectionService.listCollections().stream().map(Collection::name).toList();
 
     assertNotNull(result);
     assertTrue(result.isEmpty());
@@ -757,7 +796,11 @@ class CollectionServiceTest {
     response.add("collections", Arrays.asList("collection1", "collection2"));
     when(solrClient.request(any(), any())).thenReturn(response);
 
-    assertEquals("[\"collection1\",\"collection2\"]", collectionService.getCollectionsResource());
+    assertEquals(
+        "[{\"name\":\"collection1\"},{\"name\":\"collection2\"}]",
+        resourceJson(
+            collectionService.getCollectionsResource(new ReadResourceRequest(COLLECTIONS_URI)),
+            COLLECTIONS_URI));
   }
 
   @Test
@@ -767,8 +810,11 @@ class CollectionServiceTest {
             new SolrServerException(
                 "Server refused connection at: http://solr-internal.corp:8983/solr"));
 
+    ReadResourceRequest request = new ReadResourceRequest(COLLECTIONS_URI);
+
     IllegalStateException e =
-        assertThrows(IllegalStateException.class, () -> collectionService.getCollectionsResource());
+        assertThrows(
+            IllegalStateException.class, () -> collectionService.getCollectionsResource(request));
 
     assertEquals(CollectionService.COLLECTIONS_RESOURCE_ERROR, e.getMessage());
     assertNull(e.getCause());
@@ -876,6 +922,49 @@ class CollectionServiceTest {
     return response;
   }
 
+  @Test
+  void getCollectionStats_WithoutMetricsApi_LeavesCachesAndHandlersOutOfTheJson() throws Exception {
+    // Solr 10 removed /admin/mbeans; the metrics request fails and the two sections go missing.
+    NamedList<Object> lukeIndexSection = new NamedList<>();
+    lukeIndexSection.add("numDocs", 42);
+    NamedList<Object> lukeRaw = new NamedList<>();
+    lukeRaw.add("index", lukeIndexSection);
+    when(solrClient.request(any(LukeRequest.class), eq("test_collection"))).thenReturn(lukeRaw);
+    SolrDocumentList docList = new SolrDocumentList();
+    docList.setNumFound(42);
+    when(solrClient.query(eq("test_collection"), any())).thenReturn(queryResponse);
+    when(queryResponse.getResults()).thenReturn(docList);
+    when(solrClient.request(argThat(request -> request instanceof GenericSolrRequest)))
+        .thenThrow(new SolrException(SolrException.ErrorCode.NOT_FOUND, "no /admin/mbeans"));
+
+    CollectionMetrics result = collectionService.getCollectionStats("test_collection");
+
+    assertNull(result.caches());
+    assertNull(result.handlers());
+    assertThat(new JsonContent(jsonMapper.writeValueAsString(result)))
+        .doesNotHavePath("$.caches")
+        .doesNotHavePath("$.handlers");
+  }
+
+  @Test
+  void healthStatus_RejectsStatesAHealthCheckCannotProduce() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new HealthStatus("books", true, 3L, 10L, HealthStatus.Reason.PING_FAILED));
+    assertThrows(
+        IllegalArgumentException.class, () -> new HealthStatus("books", false, 3L, null, null));
+  }
+
+  @Test
+  void createCollection_RejectedBySolr_Propagates() throws Exception {
+    when(solrClient.request(any(), isNull()))
+        .thenThrow(
+            new SolrException(SolrException.ErrorCode.BAD_REQUEST, "collection already exists"));
+
+    assertThrows(
+        SolrException.class, () -> collectionService.createCollection("books", null, null, null));
+  }
+
   // createCollection tests
   @Test
   void createCollection_success() throws Exception {
@@ -884,10 +973,8 @@ class CollectionServiceTest {
     CollectionCreationResult result =
         collectionService.createCollection("new_collection", "_default", 1, 1);
 
-    assertNotNull(result);
-    assertTrue(result.success());
-    assertEquals("new_collection", result.name());
-    assertNotNull(result.createdAt());
+    assertEquals(
+        new CollectionCreationResult("new_collection", "new_collection.AUTOCREATED", 1, 1), result);
   }
 
   @Test
@@ -897,8 +984,10 @@ class CollectionServiceTest {
     CollectionCreationResult result =
         collectionService.createCollection("defaults_collection", null, null, null);
 
-    assertTrue(result.success());
-    assertEquals("defaults_collection", result.name());
+    assertEquals(
+        new CollectionCreationResult(
+            "defaults_collection", "defaults_collection.AUTOCREATED", 1, 1),
+        result);
   }
 
   @Test
@@ -985,7 +1074,7 @@ class CollectionServiceTest {
 
   @Test
   void exploreCollectionsPrompt_isReadOnlyAndReferencesKeyTools() {
-    String body = collectionService.exploreCollectionsPrompt();
+    String body = promptText(collectionService.exploreCollectionsPrompt());
 
     assertNotNull(body);
     assertTrue(body.contains("list-collections"), "Prompt should reference list-collections tool");
@@ -1002,7 +1091,8 @@ class CollectionServiceTest {
 
   @Test
   void setupCollectionPrompt_includesNameAndInterpolatedDefaults() {
-    String body = collectionService.setupCollectionPrompt("widgets", "Catalog of widgets");
+    String body =
+        promptText(collectionService.setupCollectionPrompt("widgets", "Catalog of widgets"));
 
     assertNotNull(body);
     assertTrue(body.contains("widgets"), "Prompt should embed the chosen collection name");
@@ -1018,7 +1108,7 @@ class CollectionServiceTest {
 
   @Test
   void setupCollectionPrompt_omitsPurposeLineWhenBlank() {
-    String body = collectionService.setupCollectionPrompt("widgets", null);
+    String body = promptText(collectionService.setupCollectionPrompt("widgets", null));
 
     assertFalse(
         body.contains("Purpose:"), "Purpose line should be omitted when no purpose is provided");
@@ -1028,10 +1118,14 @@ class CollectionServiceTest {
   @Test
   void completeCollection_WithMatchingPrefix_ReturnsMatches() throws Exception {
     CollectionService spyService = spy(collectionService);
-    doReturn(Arrays.asList("products", "prod-logs", "users")).when(spyService).listCollections();
+    doReturn(named(Arrays.asList("products", "prod-logs", "users")))
+        .when(spyService)
+        .listCollections();
 
     List<String> result =
-        spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "prod"));
+        completionValues(
+            spyService.completeCollection(
+                new CompleteRequest.CompleteArgument("collection", "prod")));
 
     assertEquals(List.of("prod-logs", "products"), result);
   }
@@ -1039,10 +1133,11 @@ class CollectionServiceTest {
   @Test
   void completeCollection_WithEmptyPrefix_ReturnsAllSorted() throws Exception {
     CollectionService spyService = spy(collectionService);
-    doReturn(Arrays.asList("zeta", "alpha", "mu")).when(spyService).listCollections();
+    doReturn(named(Arrays.asList("zeta", "alpha", "mu"))).when(spyService).listCollections();
 
     List<String> result =
-        spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", ""));
+        completionValues(
+            spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "")));
 
     assertEquals(List.of("alpha", "mu", "zeta"), result);
   }
@@ -1061,10 +1156,14 @@ class CollectionServiceTest {
   @Test
   void completeCollection_IsCaseInsensitive() throws Exception {
     CollectionService spyService = spy(collectionService);
-    doReturn(Arrays.asList("Products", "PROD_LOGS", "users")).when(spyService).listCollections();
+    doReturn(named(Arrays.asList("Products", "PROD_LOGS", "users")))
+        .when(spyService)
+        .listCollections();
 
     List<String> result =
-        spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "prod"));
+        completionValues(
+            spyService.completeCollection(
+                new CompleteRequest.CompleteArgument("collection", "prod")));
 
     assertEquals(List.of("PROD_LOGS", "Products"), result);
   }
@@ -1072,10 +1171,12 @@ class CollectionServiceTest {
   @Test
   void completeCollection_WithNoMatches_ReturnsEmpty() throws Exception {
     CollectionService spyService = spy(collectionService);
-    doReturn(Arrays.asList("alpha", "beta")).when(spyService).listCollections();
+    doReturn(named(Arrays.asList("alpha", "beta"))).when(spyService).listCollections();
 
     List<String> result =
-        spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "zzz"));
+        completionValues(
+            spyService.completeCollection(
+                new CompleteRequest.CompleteArgument("collection", "zzz")));
 
     assertTrue(result.isEmpty());
   }
@@ -1086,10 +1187,31 @@ class CollectionServiceTest {
     // Should not even attempt to list collections when the argument name does not
     // match the template variable.
     List<String> result =
-        spyService.completeCollection(new CompleteRequest.CompleteArgument("field", "prod"));
+        completionValues(
+            spyService.completeCollection(new CompleteRequest.CompleteArgument("field", "prod")));
 
     assertTrue(result.isEmpty());
     verify(spyService, never()).listCollections();
+  }
+
+  @ParameterizedTest(name = "{0} matches")
+  @ValueSource(ints = {0, 99, 100, 150})
+  void completeCollection_ReportsTotalAndWhetherMoreMatched(int matching) throws Exception {
+    CollectionService spyService = spy(collectionService);
+    List<String> collections = new ArrayList<>();
+    IntStream.range(0, matching)
+        .mapToObj(index -> String.format("c%04d", index))
+        .forEach(collections::add);
+    collections.add("other");
+    doReturn(named(collections)).when(spyService).listCollections();
+
+    CompleteResult result =
+        spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "c"));
+
+    int max = CollectionService.MAX_COMPLETION_RESULTS;
+    assertEquals(Math.min(matching, max), result.completion().values().size());
+    assertEquals(matching, result.completion().total());
+    assertEquals(matching > max, result.completion().hasMore());
   }
 
   @Test
@@ -1099,10 +1221,11 @@ class CollectionServiceTest {
         IntStream.range(0, CollectionService.MAX_COMPLETION_RESULTS + 25)
             .mapToObj(i -> String.format("c%04d", i))
             .toList();
-    doReturn(many).when(spyService).listCollections();
+    doReturn(named(many)).when(spyService).listCollections();
 
     List<String> result =
-        spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "c"));
+        completionValues(
+            spyService.completeCollection(new CompleteRequest.CompleteArgument("collection", "c")));
 
     assertEquals(CollectionService.MAX_COMPLETION_RESULTS, result.size());
     assertEquals("c0000", result.get(0));
@@ -1113,9 +1236,15 @@ class CollectionServiceTest {
     when(solrClient.request(any(), any())).thenThrow(new SolrServerException("connection refused"));
 
     List<String> result =
-        collectionService.completeCollection(
-            new CompleteRequest.CompleteArgument("collection", "prod"));
+        completionValues(
+            collectionService.completeCollection(
+                new CompleteRequest.CompleteArgument("collection", "prod")));
 
     assertTrue(result.isEmpty());
+  }
+
+  /** Collections with these names, as {@code listCollections} returns them. */
+  private static List<Collection> named(List<String> names) {
+    return names.stream().map(Collection::new).toList();
   }
 }

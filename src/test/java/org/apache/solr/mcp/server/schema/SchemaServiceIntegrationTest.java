@@ -28,7 +28,6 @@ import org.apache.solr.client.solrj.request.SolrQuery;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrInputDocument;
-import org.apache.solr.common.luke.FieldFlag;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,6 +57,13 @@ class SchemaServiceIntegrationTest {
   @Autowired private JsonMapper jsonMapper;
 
   private static final String TEST_COLLECTION = "schema_test_collection";
+
+  /**
+   * A collection with its own copy of {@code _default}. TEST_COLLECTION shares {@code _default}
+   * with other test classes, so a field default added there would fill their documents too.
+   */
+  private static final String OWN_CONFIGSET_COLLECTION = "schema_own_configset_collection";
+
   private static boolean initialized = false;
 
   @BeforeEach
@@ -178,60 +184,94 @@ class SchemaServiceIntegrationTest {
   }
 
   @Test
-  void getSchema_isTheSchemaApiResponseWithFlagPropertiesAsFlags() throws Exception {
-    // The records may change one thing about the Schema API's JSON: on every field, dynamic
-    // field and field type, the boolean flag properties become a "flags" list of the ones set to
-    // true. Everything else must come through unchanged. Both sides are written to JSON text and
-    // parsed back, so key order and Float-versus-Double for decimals such as version do not matter.
+  void getSchema_reportsEveryDeclaredPropertyOfTheSchemaApiResponse() throws Exception {
+    // For every field, dynamic field and field type, each schema property Solr declares must come
+    // through with the same value, and an undeclared one must stay absent. A field keeps its type,
+    // a field type its class as className and every other scalar attribute in parameters. Other
+    // attributes outside the contract are dropped on purpose and not compared.
     NamedList<Object> raw = solrClient.request(new SchemaRequest(), TEST_COLLECTION);
     TypeReference<Map<String, Object>> asMap = new TypeReference<>() {};
-    Map<String, Object> expected =
+    Map<String, Object> solr =
         jsonMapper.readValue(jsonMapper.writeValueAsString(raw.get("schema")), asMap);
-    for (String section : List.of("fields", "dynamicFields", "fieldTypes")) {
-      for (Object entry : (List<?>) expected.get(section)) {
-        @SuppressWarnings("unchecked")
-        Map<String, Object> properties = (Map<String, Object>) entry;
-        List<String> flags =
-            FieldFlags.SCHEMA_PROPERTIES.entrySet().stream()
-                .filter(property -> Boolean.TRUE.equals(properties.remove(property.getKey())))
-                .map(Map.Entry::getValue)
-                .sorted()
-                .map(Enum::name)
-                .toList();
-        properties.put("flags", flags);
-      }
-    }
-
-    Map<String, Object> fromTool =
+    Map<String, Object> tool =
         jsonMapper.readValue(
             jsonMapper.writeValueAsString(schemaService.getSchema(TEST_COLLECTION)), asMap);
 
-    assertEquals(expected, fromTool);
+    for (String section : List.of("fields", "dynamicFields", "fieldTypes")) {
+      List<?> fromSolr = (List<?>) solr.get(section);
+      List<?> fromTool = (List<?>) tool.get(section);
+      assertEquals(fromSolr.size(), fromTool.size(), section);
+      for (int i = 0; i < fromSolr.size(); i++) {
+        Map<?, ?> expected = (Map<?, ?>) fromSolr.get(i);
+        Map<?, ?> actual = (Map<?, ?>) fromTool.get(i);
+        String where = section + " " + expected.get("name");
+        assertEquals(expected.get("name"), actual.get("name"), section);
+        for (String property : CollectionSchema.SCHEMA_PROPERTIES) {
+          assertEquals(expected.get(property), actual.get(property), where + "." + property);
+        }
+        if ("fieldTypes".equals(section)) {
+          assertEquals(expected.get("class"), actual.get("className"), where);
+          assertScalarAttributesAreParameters(expected, actual, where);
+        } else {
+          assertEquals(expected.get("type"), actual.get("type"), where);
+        }
+      }
+    }
+    assertEquals(solr.get("uniqueKey"), tool.get("uniqueKey"));
+  }
+
+  /** Each scalar attribute of a Solr field type that the contract does not name is a parameter. */
+  private static void assertScalarAttributesAreParameters(
+      Map<?, ?> solrType, Map<?, ?> toolType, String where) {
+    Set<String> named = Set.of("name", "class");
+    Map<?, ?> parameters = (Map<?, ?>) toolType.get("parameters");
+    for (Map.Entry<?, ?> attribute : solrType.entrySet()) {
+      Object key = attribute.getKey();
+      Object value = attribute.getValue();
+      boolean scalar =
+          value instanceof String || value instanceof Number || value instanceof Boolean;
+      if (scalar && !named.contains(key) && !CollectionSchema.SCHEMA_PROPERTIES.contains(key)) {
+        assertEquals(String.valueOf(value), parameters.get(key), where + "." + key);
+      }
+    }
   }
 
   @Test
-  void getSchema_reportsFieldFlags() throws Exception {
+  void getSchema_keepsDeclaredFalse() throws Exception {
     CollectionSchema schema = schemaService.getSchema(TEST_COLLECTION);
 
-    CollectionSchema.Field id =
-        schema.fields().stream().filter(f -> "id".equals(f.name())).findFirst().orElseThrow();
-    CollectionSchema.Field root =
-        schema.fields().stream().filter(f -> "_root_".equals(f.name())).findFirst().orElseThrow();
-    CollectionSchema.FieldType strings =
-        schema.fieldTypes().stream()
-            .filter(t -> "strings".equals(t.name()))
-            .findFirst()
-            .orElseThrow();
+    CollectionSchema.Field id = field(schema, "id");
+    CollectionSchema.Field root = field(schema, "_root_");
+    CollectionSchema.FieldType strings = fieldType(schema, "strings");
 
     // _default declares id indexed and stored, _root_ indexed but stored=false
-    assertTrue(id.flags().containsAll(Set.of(FieldFlag.INDEXED, FieldFlag.STORED)), id::toString);
-    assertTrue(root.flags().contains(FieldFlag.INDEXED), root::toString);
-    assertFalse(root.flags().contains(FieldFlag.STORED), root::toString);
-    assertFalse(root.other().containsKey("stored"), root::toString);
-    // a type's flags are defaults for its fields
-    assertTrue(
-        strings.flags().containsAll(Set.of(FieldFlag.MULTI_VALUED, FieldFlag.SORT_MISSING_LAST)),
-        strings::toString);
+    assertEquals(true, id.indexed(), id::toString);
+    assertEquals(true, id.stored(), id::toString);
+    assertEquals(true, root.indexed(), root::toString);
+    assertEquals(false, root.stored(), "a declared false is kept: " + root);
+    // a type's properties are defaults for its fields
+    assertEquals(true, strings.multiValued(), strings::toString);
+    assertEquals(true, strings.sortMissingLast(), strings::toString);
+  }
+
+  @Test
+  void schemaObjectsRoundTripThroughTheAddTools() throws Exception {
+    // A field type and a field taken from get-schema, renamed, and passed back to the add tools
+    // must come out of get-schema again unchanged apart from the name.
+    CollectionSchema before = schemaService.getSchema(TEST_COLLECTION);
+    CollectionSchema.FieldType textGeneral = fieldType(before, "text_general");
+    // _root_ declares stored=false, so the copy also checks that a declared false survives. It is
+    // not required, which matters: test collections can share a configset, and a required field
+    // added here would reject other tests' documents.
+    CollectionSchema.Field root = field(before, "_root_");
+
+    schemaService.addFieldTypes(TEST_COLLECTION, List.of(renamed(textGeneral, "rt_text_general")));
+    schemaService.addFields(TEST_COLLECTION, List.of(renamed(root, "rt_root")));
+
+    CollectionSchema after = schemaService.getSchema(TEST_COLLECTION);
+    assertEquals(renamed(textGeneral, "rt_text_general"), fieldType(after, "rt_text_general"));
+    assertEquals(renamed(root, "rt_root"), field(after, "rt_root"));
+    assertEquals(false, field(after, "rt_root").stored());
   }
 
   @Test
@@ -249,8 +289,8 @@ class SchemaServiceIntegrationTest {
 
   @Test
   void addFields_endToEnd_persistsToSchema() throws Exception {
-    List<Map<String, Object>> fields =
-        List.of(
+    List<CollectionSchema.Field> fields =
+        fields(
             Map.of("name", "addf_title", "type", "text_general", "stored", true, "indexed", true),
             Map.of(
                 "name",
@@ -280,48 +320,66 @@ class SchemaServiceIntegrationTest {
     assertEquals(List.of("addf_title", "addf_platform", "addf_year"), result.addedNames());
 
     CollectionSchema schema = schemaService.getSchema(TEST_COLLECTION);
-    CollectionSchema.Field title =
-        schema.fields().stream()
-            .filter(f -> "addf_title".equals(f.name()))
-            .findFirst()
-            .orElseThrow();
-    CollectionSchema.Field platform =
-        schema.fields().stream()
-            .filter(f -> "addf_platform".equals(f.name()))
-            .findFirst()
-            .orElseThrow();
-    CollectionSchema.Field year =
-        schema.fields().stream()
-            .filter(f -> "addf_year".equals(f.name()))
-            .findFirst()
-            .orElseThrow();
+    CollectionSchema.Field title = field(schema, "addf_title");
+    CollectionSchema.Field platform = field(schema, "addf_platform");
+    CollectionSchema.Field year = field(schema, "addf_year");
 
     assertEquals("text_general", title.type());
     assertEquals("string", platform.type());
-    assertTrue(platform.flags().contains(FieldFlag.DOC_VALUES), platform::toString);
+    assertEquals(true, platform.docValues(), platform::toString);
     assertEquals("pint", year.type());
+  }
+
+  @Test
+  void addFields_declaresOnlyThePropertiesTheClientSent() throws Exception {
+    SchemaUpdateResult result =
+        schemaService.addFields(
+            TEST_COLLECTION,
+            fields(Map.of("name", "year_contract", "type", "pint", "docValues", true)));
+
+    assertEquals(new SchemaUpdateResult(TEST_COLLECTION, List.of("year_contract")), result);
+    CollectionSchema.Field year = field(schemaService.getSchema(TEST_COLLECTION), "year_contract");
+    assertEquals(true, year.docValues(), year::toString);
+    assertNull(year.indexed(), "indexed is inherited from pint, not declared: " + year);
+    assertNull(year.stored(), "stored is inherited from pint, not declared: " + year);
+    assertEquals(
+        "{\"name\":\"year_contract\",\"type\":\"pint\",\"docValues\":true}",
+        jsonMapper.writeValueAsString(year));
+  }
+
+  @Test
+  void addFields_defaultReadsBackFromGetSchema() throws Exception {
+    CollectionAdminRequest.createCollection(OWN_CONFIGSET_COLLECTION, 1, 1).process(solrClient);
+
+    schemaService.addFields(
+        OWN_CONFIGSET_COLLECTION,
+        fields(Map.of("name", "status_contract", "type", "string", "default", "active")));
+
+    CollectionSchema.Field status =
+        field(schemaService.getSchema(OWN_CONFIGSET_COLLECTION), "status_contract");
+    assertEquals("active", status.defaultValue(), status::toString);
   }
 
   @Test
   void addFieldTypes_customAnalyzer_appliesAtIndexAndQuery() throws Exception {
     schemaService.addFieldTypes(
         TEST_COLLECTION,
-        List.of(
+        fieldTypes(
             Map.of(
                 "name",
                 "aft_text_ci_keyword",
-                "class",
+                "className",
                 "solr.TextField",
                 "analyzer",
                 Map.of(
                     "tokenizer",
-                    Map.of("class", "solr.KeywordTokenizerFactory"),
+                    Map.of("className", "solr.KeywordTokenizerFactory"),
                     "filters",
-                    List.of(Map.of("class", "solr.LowerCaseFilterFactory"))))));
+                    List.of(Map.of("className", "solr.LowerCaseFilterFactory"))))));
 
     schemaService.addFields(
         TEST_COLLECTION,
-        List.of(
+        fields(
             Map.of(
                 "name",
                 "aft_ci_platform",
@@ -354,40 +412,27 @@ class SchemaServiceIntegrationTest {
   void addFieldTypes_denseVectorField_schemaRoundTrip() throws Exception {
     schemaService.addFieldTypes(
         TEST_COLLECTION,
-        List.of(
+        fieldTypes(
             Map.of(
                 "name",
                 "aft_test_vector",
-                "class",
+                "className",
                 "solr.DenseVectorField",
-                "vectorDimension",
-                4,
-                "similarityFunction",
-                "cosine")));
+                "parameters",
+                Map.of("vectorDimension", "4", "similarityFunction", "cosine"))));
 
-    CollectionSchema schema = schemaService.getSchema(TEST_COLLECTION);
     CollectionSchema.FieldType vt =
-        schema.fieldTypes().stream()
-            .filter(t -> "aft_test_vector".equals(t.name()))
-            .findFirst()
-            .orElseThrow();
+        fieldType(schemaService.getSchema(TEST_COLLECTION), "aft_test_vector");
 
     assertEquals("solr.DenseVectorField", vt.className());
-    // vectorDimension has no record component, so it is kept in the catch-all
-    Object vectorDimension = vt.other().get("vectorDimension");
-    int vectorDimensionInt =
-        vectorDimension instanceof Number n
-            ? n.intValue()
-            : Integer.parseInt(vectorDimension.toString());
-    assertEquals(4, vectorDimensionInt);
-    assertEquals("cosine", vt.other().get("similarityFunction"));
+    assertEquals("4", vt.parameters().get("vectorDimension"));
+    assertEquals("cosine", vt.parameters().get("similarityFunction"));
   }
 
   @Test
   void addFields_duplicateField_throws() throws Exception {
-    List<Map<String, Object>> field =
-        List.of(
-            Map.of("name", "addf_dup_field", "type", "string", "stored", true, "indexed", true));
+    List<CollectionSchema.Field> field =
+        fields(Map.of("name", "addf_dup_field", "type", "string", "stored", true, "indexed", true));
     schemaService.addFields(TEST_COLLECTION, field);
 
     // Second call with same name — Solr returns an error in the response body.
@@ -401,8 +446,43 @@ class SchemaServiceIntegrationTest {
 
   @Test
   void addFields_unknownType_throws() {
-    List<Map<String, Object>> field =
-        List.of(Map.of("name", "addf_broken", "type", "totally_not_a_real_type"));
+    List<CollectionSchema.Field> field =
+        fields(Map.of("name", "addf_broken", "type", "totally_not_a_real_type"));
     assertThrows(Exception.class, () -> schemaService.addFields(TEST_COLLECTION, field));
+  }
+
+  /** Fields as an MCP client sends them: JSON objects in the shape get-schema reports. */
+  @SafeVarargs
+  private List<CollectionSchema.Field> fields(Map<String, Object>... fields) {
+    return jsonMapper.convertValue(List.of(fields), new TypeReference<>() {});
+  }
+
+  /** Field types as an MCP client sends them: JSON objects in the shape get-schema reports. */
+  @SafeVarargs
+  private List<CollectionSchema.FieldType> fieldTypes(Map<String, Object>... types) {
+    return jsonMapper.convertValue(List.of(types), new TypeReference<>() {});
+  }
+
+  private static CollectionSchema.Field field(CollectionSchema schema, String name) {
+    return schema.fields().stream()
+        .filter(field -> name.equals(field.name()))
+        .findFirst()
+        .orElseThrow();
+  }
+
+  private static CollectionSchema.FieldType fieldType(CollectionSchema schema, String name) {
+    return schema.fieldTypes().stream()
+        .filter(fieldType -> name.equals(fieldType.name()))
+        .findFirst()
+        .orElseThrow();
+  }
+
+  /** A copy of {@code value} under another name, made the way a client would: through JSON. */
+  private <T> T renamed(T value, String name) {
+    Map<String, Object> json = jsonMapper.convertValue(value, new TypeReference<>() {});
+    json.put("name", name);
+    @SuppressWarnings("unchecked")
+    Class<T> type = (Class<T>) value.getClass();
+    return jsonMapper.convertValue(json, type);
   }
 }

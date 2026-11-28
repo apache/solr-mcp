@@ -14,12 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.solr.mcp.server.collection;
+package org.apache.solr.mcp.server.alias;
 
 import io.micrometer.observation.annotation.Observed;
 import java.io.IOException;
-import java.util.Date;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.TreeMap;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
@@ -36,14 +39,9 @@ import org.springframework.stereotype.Service;
  * enable zero-downtime reindexing, blue-green deployments, and read/write separation by allowing
  * applications to reference a stable name while the underlying collection is swapped transparently.
  *
- * <p><strong>Core Capabilities:</strong>
- *
- * <ul>
- *   <li><strong>List Aliases</strong>: Discover all aliases and their target collections
- *   <li><strong>Create/Update Alias</strong>: Point an alias to one or more collections (creates if
- *       new, updates if existing)
- *   <li><strong>Delete Alias</strong>: Remove an alias without affecting the underlying collections
- * </ul>
+ * <p>Every tool returns the server's own records ({@link Alias}, {@link AliasDeletion}), built from
+ * SolrJ's typed accessors: an alias's targets are a list, not Solr's comma-joined string, and
+ * failures are thrown rather than reported in the result.
  *
  * @see CollectionAdminRequest
  */
@@ -54,8 +52,9 @@ public class AliasService {
   /** Error message for blank alias name validation */
   private static final String BLANK_ALIAS_NAME_ERROR = "Alias name must not be blank";
 
-  /** Error message for blank collections validation */
-  private static final String BLANK_COLLECTIONS_ERROR = "Collections must not be blank";
+  /** Error message for an empty or blank list of target collections */
+  private static final String BLANK_COLLECTIONS_ERROR =
+      "Collections must name at least one collection, and no name may be blank";
 
   /** SolrJ client for communicating with Solr server */
   private final SolrClient solrClient;
@@ -72,16 +71,10 @@ public class AliasService {
   /**
    * Lists all aliases defined in the Solr cluster.
    *
-   * <p>Returns a map where each key is an alias name and the corresponding value is the
-   * comma-separated list of collection names that the alias points to.
-   *
-   * <p><strong>MCP Tool Usage:</strong>
-   *
    * <p>Invoked by AI clients with natural language requests like "list all aliases", "what aliases
    * exist?", or "show me alias mappings".
    *
-   * @return a map of alias names to their target collection(s); never null (returns an empty map
-   *     when no aliases are defined)
+   * @return every alias with its target collections and properties, ordered by name
    * @throws SolrServerException if there are errors communicating with Solr
    * @throws IOException if there are I/O errors during communication
    */
@@ -89,30 +82,35 @@ public class AliasService {
   @McpTool(
       name = "list-aliases",
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
-      description = "List all Solr aliases and the collections they point to")
-  public Map<String, String> listAliases() throws SolrServerException, IOException {
-    CollectionAdminRequest.ListAliases request = new CollectionAdminRequest.ListAliases();
-    CollectionAdminResponse response = request.process(solrClient);
-    Map<String, String> aliases = response.getAliases();
-    return aliases != null ? aliases : Map.of();
+      description = "List all Solr aliases, the collections they point to, and their properties")
+  public List<Alias> listAliases() throws SolrServerException, IOException {
+    CollectionAdminResponse response = new CollectionAdminRequest.ListAliases().process(solrClient);
+    Map<String, Map<String, String>> properties = response.getAliasProperties();
+    List<Alias> aliases = new ArrayList<>();
+    for (Map.Entry<String, List<String>> alias :
+        new TreeMap<>(response.getAliasesAsLists()).entrySet()) {
+      aliases.add(
+          new Alias(
+              alias.getKey(), alias.getValue(), properties.getOrDefault(alias.getKey(), Map.of())));
+    }
+    return List.copyOf(aliases);
   }
 
   /**
    * Creates or updates a Solr alias pointing to one or more collections.
    *
-   * <p>If the alias already exists, it is updated to point to the new collection(s). This is the
-   * mechanism for zero-downtime collection swaps: reindex into a new collection, then update the
-   * alias to point to it.
-   *
-   * <p><strong>MCP Tool Usage:</strong>
+   * <p>If the alias already exists, it is updated to point to the new collection(s) and keeps its
+   * properties. This is the mechanism for zero-downtime collection swaps: reindex into a new
+   * collection, then update the alias to point to it.
    *
    * <p>Invoked with requests like "create an alias ORDERS pointing to ORDERS_V2" or "swap the LIVE
    * alias to PRODUCTS_V3".
    *
-   * @param aliasName the name of the alias to create or update (must not be blank)
-   * @param collections comma-separated list of target collection names (must not be blank)
-   * @return result describing the outcome of the operation
-   * @throws IllegalArgumentException if aliasName or collections is blank
+   * @param name the name of the alias to create or update (must not be blank)
+   * @param collections the collections the alias should point to (at least one, none blank)
+   * @return the alias as Solr holds it after the call
+   * @throws IllegalArgumentException if {@code name} is blank or {@code collections} is empty or
+   *     holds a blank name
    * @throws SolrServerException if Solr returns an error
    * @throws IOException if there are I/O errors during communication
    */
@@ -122,48 +120,39 @@ public class AliasService {
       annotations = @McpTool.McpAnnotations(idempotentHint = true),
       description =
           "Create or update a Solr alias pointing to one or more collections. "
-              + "If the alias already exists, it is updated to point to the new collection(s).")
-  public AliasResult createAlias(
-      @McpToolParam(description = "Name of the alias to create or update") String aliasName,
-      @McpToolParam(
-              description = "Comma-separated list of collection names the alias should point to")
-          String collections)
+              + "If the alias already exists, it is updated to point to the new collection(s).",
+      generateOutputSchema = true)
+  public Alias createAlias(
+      @McpToolParam(description = "Name of the alias to create or update") String name,
+      @McpToolParam(description = "Names of the collections the alias should point to")
+          List<String> collections)
       throws SolrServerException, IOException {
 
-    if (aliasName.isBlank()) {
+    if (name.isBlank()) {
       throw new IllegalArgumentException(BLANK_ALIAS_NAME_ERROR);
     }
-    if (collections.isBlank()) {
+    if (collections.isEmpty() || collections.stream().anyMatch(String::isBlank)) {
       throw new IllegalArgumentException(BLANK_COLLECTIONS_ERROR);
     }
 
-    CollectionAdminRequest.CreateAlias request =
-        CollectionAdminRequest.createAlias(aliasName, collections);
-    CollectionAdminResponse response = request.process(solrClient);
-    boolean success = response.getStatus() == 0;
-
-    return new AliasResult(
-        aliasName,
-        collections,
-        success,
-        success ? "Alias created/updated successfully" : "Alias creation/update failed",
-        new Date());
+    CollectionAdminRequest.createAlias(name, String.join(",", collections)).process(solrClient);
+    return findAlias(name)
+        .orElseThrow(
+            () -> new IllegalStateException("Alias '" + name + "' is missing after creation"));
   }
 
   /**
    * Deletes an existing Solr alias.
    *
-   * <p>Removes the alias definition only — the underlying collection(s) are not affected. After
-   * deletion, the alias name is no longer resolvable.
-   *
-   * <p><strong>MCP Tool Usage:</strong>
+   * <p>Removes the alias definition only — the underlying collection(s) are not affected. The alias
+   * is looked up first, so deleting one that does not exist fails on every Solr version.
    *
    * <p>Invoked with requests like "delete the stale alias ORDERS_TEST" or "remove alias
    * OLD_PRODUCTS".
    *
-   * @param aliasName the name of the alias to delete (must not be blank)
-   * @return result describing the outcome of the operation
-   * @throws IllegalArgumentException if aliasName is blank
+   * @param name the name of the alias to delete (must not be blank)
+   * @return the name of the deleted alias
+   * @throws IllegalArgumentException if {@code name} is blank or no such alias exists
    * @throws SolrServerException if Solr returns an error
    * @throws IOException if there are I/O errors during communication
    */
@@ -171,24 +160,24 @@ public class AliasService {
   @McpTool(
       name = "delete-alias",
       annotations = @McpTool.McpAnnotations(destructiveHint = true),
-      description = "Delete a Solr alias. The underlying collection(s) are not affected.")
-  public AliasResult deleteAlias(
-      @McpToolParam(description = "Name of the alias to delete") String aliasName)
+      description = "Delete a Solr alias. The underlying collection(s) are not affected.",
+      generateOutputSchema = true)
+  public AliasDeletion deleteAlias(
+      @McpToolParam(description = "Name of the alias to delete") String name)
       throws SolrServerException, IOException {
 
-    if (aliasName.isBlank()) {
+    if (name.isBlank()) {
       throw new IllegalArgumentException(BLANK_ALIAS_NAME_ERROR);
     }
+    if (findAlias(name).isEmpty()) {
+      throw new IllegalArgumentException("Alias '" + name + "' does not exist");
+    }
 
-    CollectionAdminRequest.DeleteAlias request = CollectionAdminRequest.deleteAlias(aliasName);
-    CollectionAdminResponse response = request.process(solrClient);
-    boolean success = response.getStatus() == 0;
+    CollectionAdminRequest.deleteAlias(name).process(solrClient);
+    return new AliasDeletion(name);
+  }
 
-    return new AliasResult(
-        aliasName,
-        null,
-        success,
-        success ? "Alias deleted successfully" : "Alias deletion failed",
-        new Date());
+  private Optional<Alias> findAlias(String name) throws SolrServerException, IOException {
+    return listAliases().stream().filter(alias -> alias.name().equals(name)).findFirst();
   }
 }
