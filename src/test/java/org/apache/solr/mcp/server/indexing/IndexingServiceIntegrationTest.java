@@ -27,6 +27,7 @@ import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.request.SolrQuery;
+import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.mcp.server.TestDocuments;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
@@ -50,6 +51,10 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class IndexingServiceIntegrationTest {
 
   private static final String COLLECTION_NAME = "indexing_test_" + System.currentTimeMillis();
+
+  /** A {@code pint} field, so a non-numeric value makes Solr reject that one document. */
+  private static final String PAGES_FIELD = "pages";
+
   private static boolean initialized = false;
   @Autowired private IndexingDocumentCreator indexingDocumentCreator;
   @Autowired private IndexingService indexingService;
@@ -64,6 +69,9 @@ class IndexingServiceIntegrationTest {
       CollectionAdminRequest.Create createRequest =
           CollectionAdminRequest.createCollection(COLLECTION_NAME, "_default", 1, 1);
       createRequest.process(solrClient);
+      new SchemaRequest.AddField(
+              Map.of("name", PAGES_FIELD, "type", "pint", "stored", true, "indexed", true))
+          .process(solrClient, COLLECTION_NAME);
       initialized = true;
     }
   }
@@ -137,7 +145,7 @@ class IndexingServiceIntegrationTest {
   }
 
   @Test
-  void indexJsonDocuments_reportsFieldNamesAsIndexed() throws Exception {
+  void indexJsonDocuments_reportsFieldNamesAsIndexed() {
     String json =
         """
 				[
@@ -149,16 +157,117 @@ class IndexingServiceIntegrationTest {
 				]
 				""";
 
-    String result = indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
+    IndexingResult result =
+        indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
 
     // Names are kept as given; nested objects are flattened with underscores,
-    // which is why the response lists the indexed names.
-    assertTrue(result.contains("User-Name"), result);
-    assertTrue(result.contains("product_price"), result);
+    // which is why the result lists the indexed names.
+    assertEquals(
+        new IndexingResult(
+            COLLECTION_NAME,
+            IndexingResult.Format.json,
+            1,
+            1,
+            List.of("User-Name", "id", "product_price"),
+            3),
+        result);
   }
 
   @Test
-  void testIndexJsonDocuments() throws Exception {
+  void indexJsonDocuments_whenSolrRejectsSomeDocuments_reportsTheAcceptedOnes() throws Exception {
+    String json =
+        """
+				[
+				  {"id": "rejected-001", "title": "One", "pages": 120},
+				  {"id": "rejected-002", "title": "Two", "pages": "many", "colour": "red"},
+				  {"id": "rejected-003", "title": "Three", "pages": 90},
+				  {"id": "rejected-004", "title": "Four", "pages": "lots", "colour": "blue"},
+				  {"id": "rejected-005", "title": "Five"}
+				]
+				""";
+
+    IndexingResult result =
+        indexingService.indexJsonDocuments(COLLECTION_NAME, TestDocuments.json(json));
+
+    // the two documents with a non-numeric pint value are rejected, and only they carry
+    // `colour`, so it is not among the field names of the indexed documents
+    assertEquals(
+        new IndexingResult(
+            COLLECTION_NAME,
+            IndexingResult.Format.json,
+            5,
+            3,
+            List.of("id", PAGES_FIELD, "title"),
+            3),
+        result);
+    assertEquals(
+        3,
+        solrClient
+            .query(COLLECTION_NAME, new SolrQuery("id:rejected-*"))
+            .getResults()
+            .getNumFound());
+  }
+
+  @Test
+  void indexJsonDocuments_whenSolrRejectsEveryDocument_fails() {
+    String json =
+        """
+				[
+				  {"id": "all-rejected-001", "pages": "many"},
+				  {"id": "all-rejected-002", "pages": "lots"}
+				]
+				""";
+
+    List<Map<String, Object>> documents = TestDocuments.json(json);
+
+    IllegalArgumentException failure =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> indexingService.indexJsonDocuments(COLLECTION_NAME, documents));
+
+    assertEquals(IndexingService.EVERY_DOCUMENT_REJECTED, failure.getMessage());
+  }
+
+  @Test
+  void indexMarkdownDocuments_countsEveryDocumentOneInputSplitsInto() throws Exception {
+    String markdown =
+        """
+				---
+				id: split-001
+				---
+				# First
+
+				The first record.
+
+				---
+				id: split-002
+				---
+				# Second
+
+				The second record.
+
+				---
+				id: split-003
+				---
+				# Third
+
+				The third record.
+				""";
+    int created = indexingDocumentCreator.createSchemalessDocumentsFromMarkdown(markdown).size();
+
+    IndexingResult result =
+        indexingService.indexMarkdownDocuments(COLLECTION_NAME, List.of(markdown));
+
+    assertEquals(3, created, "the input holds three front matter records");
+    assertEquals(created, result.documentsSubmitted());
+    assertEquals(created, result.documentsIndexed());
+    assertEquals(
+        3,
+        solrClient.query(COLLECTION_NAME, new SolrQuery("id:split-*")).getResults().getNumFound());
+  }
+
+  @Test
+  void testIndexJsonDocuments() {
 
     // Test JSON string with multiple documents
     String json =
@@ -194,22 +303,16 @@ class IndexingServiceIntegrationTest {
             COLLECTION_NAME, "id:test002 OR id:test003", null, null, null, null, null);
 
     assertNotNull(result);
-    List<Map<String, Object>> documents = result.documents();
+    List<SearchResponse.SearchHit> documents = result.documents();
     assertEquals(2, documents.size());
 
     // Verify specific document fields
     boolean foundBook2 = false;
     boolean foundBook3 = false;
 
-    for (Map<String, Object> book : documents) {
-      // Get ID and handle both String and List cases
-      Object idValue = book.get("id");
-      String id;
-      if (idValue instanceof List) {
-        id = (String) ((List<?>) idValue).getFirst();
-      } else {
-        id = (String) idValue;
-      }
+    for (SearchResponse.SearchHit hit : documents) {
+      String id = hit.id();
+      Map<String, Object> book = hit.fields();
 
       if (id.equals("test002")) {
         foundBook2 = true;
@@ -271,7 +374,7 @@ class IndexingServiceIntegrationTest {
   }
 
   @Test
-  void testIndexJsonDocumentsWithNestedObjects() throws Exception {
+  void testIndexJsonDocumentsWithNestedObjects() {
 
     // Test JSON string with nested objects
     String json =
@@ -300,18 +403,11 @@ class IndexingServiceIntegrationTest {
         searchService.search(COLLECTION_NAME, "id:test004", null, null, null, null, null);
 
     assertNotNull(result);
-    List<Map<String, Object>> documents = result.documents();
+    List<SearchResponse.SearchHit> documents = result.documents();
     assertEquals(1, documents.size());
 
-    Map<String, Object> book = documents.getFirst();
-
-    // Handle ID field
-    Object idValue = book.get("id");
-    if (idValue instanceof List) {
-      assertEquals("test004", ((List<?>) idValue).getFirst());
-    } else {
-      assertEquals("test004", idValue);
-    }
+    assertEquals("test004", documents.getFirst().id());
+    Map<String, Object> book = documents.getFirst().fields();
 
     // Handle name field
     Object nameValue = book.get("name");
@@ -342,7 +438,7 @@ class IndexingServiceIntegrationTest {
   }
 
   @Test
-  void testFieldNamesAreUsedAsGiven() throws Exception {
+  void testFieldNamesAreUsedAsGiven() {
     String json =
         """
 				[
@@ -360,7 +456,7 @@ class IndexingServiceIntegrationTest {
     SearchResponse result =
         searchService.search(COLLECTION_NAME, "id:test005", null, null, null, null, null);
     assertEquals(1, result.documents().size());
-    Map<String, Object> doc = result.documents().getFirst();
+    Map<String, Object> doc = result.documents().getFirst().fields();
 
     // Solr accepts these names as they are; field names are case-sensitive
     assertEquals("Value with hyphen", getFieldValue(doc, "first-name"));
@@ -370,7 +466,7 @@ class IndexingServiceIntegrationTest {
   }
 
   @Test
-  void testDeeplyNestedJsonStructures() throws Exception {
+  void testDeeplyNestedJsonStructures() {
 
     // Test JSON string with deeply nested objects (3+ levels)
     String json =
@@ -422,10 +518,10 @@ class IndexingServiceIntegrationTest {
         searchService.search(COLLECTION_NAME, "id:nested001", null, null, null, null, null);
 
     assertNotNull(result);
-    List<Map<String, Object>> documents = result.documents();
+    List<SearchResponse.SearchHit> documents = result.documents();
     assertEquals(1, documents.size());
 
-    Map<String, Object> doc = documents.getFirst();
+    Map<String, Object> doc = documents.getFirst().fields();
 
     // Check that deeply nested fields were flattened with underscore prefix
     // Level 1
@@ -462,7 +558,7 @@ class IndexingServiceIntegrationTest {
   }
 
   @Test
-  void testSpecialCharactersInFieldNames() throws Exception {
+  void testSpecialCharactersInFieldNames() {
 
     // Test JSON string with field names containing various special characters
     String json =
@@ -507,10 +603,10 @@ class IndexingServiceIntegrationTest {
             COLLECTION_NAME, "id:special_fields_001", null, null, null, null, null);
 
     assertNotNull(result);
-    List<Map<String, Object>> documents = result.documents();
+    List<SearchResponse.SearchHit> documents = result.documents();
     assertEquals(1, documents.size());
 
-    Map<String, Object> doc = documents.getFirst();
+    Map<String, Object> doc = documents.getFirst().fields();
 
     // The server sends these names as given; Solr's schemaless update chain
     // (the _default configset) replaces the special characters with underscores
@@ -546,7 +642,7 @@ class IndexingServiceIntegrationTest {
   }
 
   @Test
-  void testArraysOfObjects() throws Exception {
+  void testArraysOfObjects() {
 
     // Test JSON string with arrays of objects
     String json =
@@ -597,13 +693,13 @@ class IndexingServiceIntegrationTest {
         searchService.search(COLLECTION_NAME, "id:array_objects_001", null, null, null, null, null);
 
     assertNotNull(result);
-    List<Map<String, Object>> documents = result.documents();
+    List<SearchResponse.SearchHit> documents = result.documents();
     assertEquals(1, documents.size());
 
-    Map<String, Object> doc = documents.getFirst();
+    Map<String, Object> doc = documents.getFirst().fields();
 
     // Check that the document was indexed correctly
-    assertEquals("array_objects_001", getFieldValue(doc, "id"));
+    assertEquals("array_objects_001", documents.getFirst().id());
     assertEquals("Document with arrays of objects", getFieldValue(doc, "title"));
 
     // Check that the arrays of primitive values were indexed correctly
@@ -723,7 +819,7 @@ class IndexingServiceIntegrationTest {
 
   @Test
   void indexCsvDocuments_goesThroughSolrsCsvHandlerWithColumnNamesAsGiven() throws Exception {
-    String result =
+    IndexingResult result =
         indexingService.indexCsvDocuments(
             COLLECTION_NAME,
             """
@@ -732,7 +828,9 @@ class IndexingServiceIntegrationTest {
 				csv-002,Beta,Horror,,7.1
 				""");
 
-    assertTrue(result.contains("Solr accepted the CSV payload"), result);
+    assertEquals(
+        new IndexingResult(COLLECTION_NAME, IndexingResult.Format.csv, null, null, null, null),
+        result);
     var alpha =
         solrClient.query(COLLECTION_NAME, new SolrQuery("id:csv-001")).getResults().getFirst();
     assertEquals(
@@ -745,7 +843,7 @@ class IndexingServiceIntegrationTest {
 
   @Test
   void indexXmlDocuments_forwardsSolrUpdateXmlAndRejectsCommands() throws Exception {
-    String result =
+    IndexingResult result =
         indexingService.indexXmlDocuments(
             COLLECTION_NAME,
             """
@@ -755,7 +853,9 @@ class IndexingServiceIntegrationTest {
 				</add>
 				""");
 
-    assertTrue(result.contains("Solr accepted the XML <add> block"), result);
+    assertEquals(
+        new IndexingResult(COLLECTION_NAME, IndexingResult.Format.xml, null, null, null, null),
+        result);
     var gamma =
         solrClient.query(COLLECTION_NAME, new SolrQuery("id:xml-001")).getResults().getFirst();
     assertEquals("Gamma", gamma.getFirstValue("title"));

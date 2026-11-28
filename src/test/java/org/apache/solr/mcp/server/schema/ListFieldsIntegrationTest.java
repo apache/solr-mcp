@@ -18,6 +18,7 @@ package org.apache.solr.mcp.server.schema;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.solr.client.solrj.SolrClient;
@@ -25,11 +26,10 @@ import org.apache.solr.client.solrj.SolrRequest;
 import org.apache.solr.client.solrj.request.CollectionAdminRequest;
 import org.apache.solr.client.solrj.request.GenericSolrRequest;
 import org.apache.solr.client.solrj.request.UpdateRequest;
-import org.apache.solr.common.SolrException;
 import org.apache.solr.common.SolrInputDocument;
-import org.apache.solr.common.luke.FieldFlag;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.mcp.server.TestcontainersConfiguration;
+import org.apache.solr.mcp.server.util.SolrCalls;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -78,10 +78,10 @@ class ListFieldsIntegrationTest {
   }
 
   @Test
-  void listsDynamicFieldInstancesWithTheirBase() throws Exception {
-    Map<String, FieldListing.IndexedField> fields = fields(ONE_SHARD);
+  void listsDynamicFieldInstancesWithTheirBase() {
+    Map<String, IndexedField> fields = fields(ONE_SHARD);
 
-    FieldListing.IndexedField genre = fields.get("genre_s");
+    IndexedField genre = fields.get("genre_s");
     assertNotNull(genre, "genre_s should be listed: " + fields.keySet());
     assertEquals("*_s", genre.dynamicBase());
     assertEquals("string", genre.type());
@@ -90,8 +90,8 @@ class ListFieldsIntegrationTest {
   }
 
   @Test
-  void pointFieldsHaveNoDocCount() throws Exception {
-    FieldListing.IndexedField year = fields(ONE_SHARD).get("year_i");
+  void pointFieldsHaveNoDocCount() {
+    IndexedField year = fields(ONE_SHARD).get("year_i");
 
     assertNotNull(year, "year_i should be listed");
     assertEquals("pint", year.type());
@@ -102,24 +102,24 @@ class ListFieldsIntegrationTest {
   }
 
   @Test
-  void decodesLukeFlagLettersIntoFieldFlags() throws Exception {
-    Map<String, FieldListing.IndexedField> fields = fields(ONE_SHARD);
+  void decodesLukeFlagLettersIntoFieldProperties() {
+    Map<String, IndexedField> fields = fields(ONE_SHARD);
 
     // _default: *_s is string (indexed, stored, docValues), *_i is pint (no multiValued)
-    FieldListing.IndexedField genre = fields.get("genre_s");
+    IndexedField genre = fields.get("genre_s");
     assertTrue(
         genre
             .flags()
-            .containsAll(Set.of(FieldFlag.INDEXED, FieldFlag.STORED, FieldFlag.DOC_VALUES)),
+            .containsAll(
+                Set.of(FieldProperty.indexed, FieldProperty.stored, FieldProperty.docValues)),
         genre::toString);
-    assertFalse(genre.other().containsKey("schema"), "letters are decoded, not kept: " + genre);
-    assertFalse(fields.get("year_i").flags().contains(FieldFlag.MULTI_VALUED), "" + fields);
-    assertTrue(fields.get("year_i").flags().contains(FieldFlag.DOC_VALUES), "" + fields);
+    assertFalse(fields.get("year_i").flags().contains(FieldProperty.multiValued), "" + fields);
+    assertTrue(fields.get("year_i").flags().contains(FieldProperty.docValues), "" + fields);
   }
 
   @Test
   void twoShardListingCoversBothShardsOnlyWhereSolrDistributesLuke() throws Exception {
-    Map<String, FieldListing.IndexedField> fields = fields(TWO_SHARDS);
+    Map<String, IndexedField> fields = fields(TWO_SHARDS);
 
     // Worked out from the server's version, not from the tool's answer.
     if (solrDistributesLuke()) {
@@ -135,9 +135,16 @@ class ListFieldsIntegrationTest {
 
   @Test
   void unknownCollectionFailsWithNotFound() {
-    SolrException e =
-        assertThrows(SolrException.class, () -> schemaService.listFields("no_such_collection_xyz"));
-    assertEquals(SolrException.ErrorCode.NOT_FOUND.code, e.code());
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> schemaService.listFields("no_such_collection_xyz"));
+    assertEquals(
+        SchemaService.LIST_FIELDS_FAILED
+            + ": "
+            + SolrCalls.collectionNotFound("no_such_collection_xyz"),
+        e.getMessage());
+    assertNull(e.getCause(), "Spring AI would append the cause's URL-bearing message");
   }
 
   private void indexToShard(String shard, SolrInputDocument document) throws Exception {
@@ -154,8 +161,14 @@ class ListFieldsIntegrationTest {
     return document;
   }
 
-  private Map<String, FieldListing.IndexedField> fields(String collection) throws Exception {
-    return schemaService.listFields(collection).fields();
+  /** The listing keyed by field name, after checking it is ordered by name. */
+  private Map<String, IndexedField> fields(String collection) {
+    List<IndexedField> listing = schemaService.listFields(collection);
+    List<String> names = listing.stream().map(IndexedField::name).toList();
+    assertEquals(names.stream().sorted().toList(), names, "list-fields is ordered by name");
+    Map<String, IndexedField> byName = new java.util.LinkedHashMap<>();
+    listing.forEach(field -> byName.put(field.name(), field));
+    return byName;
   }
 
   /** SOLR-8127 shipped in 9.11 and 10.1; 10.0 does not have it. */
