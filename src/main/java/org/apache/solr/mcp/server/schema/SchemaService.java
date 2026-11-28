@@ -19,19 +19,22 @@ package org.apache.solr.mcp.server.schema;
 import static org.apache.solr.mcp.server.util.PromptText.optionalCodeBlock;
 
 import io.micrometer.observation.annotation.Observed;
-import java.io.IOException;
+import io.modelcontextprotocol.spec.McpSchema.GetPromptResult;
+import io.modelcontextprotocol.spec.McpSchema.ReadResourceRequest;
+import io.modelcontextprotocol.spec.McpSchema.ReadResourceResult;
+import io.modelcontextprotocol.spec.McpSchema.Role;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.solr.client.solrj.SolrClient;
-import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.LukeRequest;
 import org.apache.solr.client.solrj.request.schema.AnalyzerDefinition;
 import org.apache.solr.client.solrj.request.schema.FieldTypeDefinition;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.common.util.NamedList;
+import org.apache.solr.mcp.server.util.McpResults;
 import org.apache.solr.mcp.server.util.PromptNames;
+import org.apache.solr.mcp.server.util.SolrCalls;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,7 +45,6 @@ import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
-import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -134,9 +136,17 @@ public class SchemaService {
   /** The section of a Luke response that lists the fields, one entry per field in the index. */
   private static final String LUKE_FIELDS_SECTION = "fields";
 
-  /** Keeps Luke's field order, which is alphabetical. */
-  private static final TypeReference<LinkedHashMap<String, FieldListing.IndexedField>>
-      INDEXED_FIELDS = new TypeReference<>() {};
+  /** Leads the error text of a failed {@code get-schema}. */
+  static final String GET_SCHEMA_FAILED = "Getting the schema failed";
+
+  /** Leads the error text of a failed {@code list-fields}. */
+  static final String LIST_FIELDS_FAILED = "Listing fields failed";
+
+  /** Leads the error text of a failed {@code add-fields}. */
+  static final String ADD_FIELDS_FAILED = "Adding fields failed";
+
+  /** Leads the error text of a failed {@code add-field-types}. */
+  static final String ADD_FIELD_TYPES_FAILED = "Adding field types failed";
 
   /** SolrJ client for communicating with Solr server */
   private final SolrClient solrClient;
@@ -166,8 +176,9 @@ public class SchemaService {
    * the {@code @McpComplete} endpoint in CollectionService. The returned JSON contains the complete
    * schema definition including fields, field types, dynamic fields, and copy fields.
    *
+   * @param request the read request, whose URI the result echoes
    * @param collection the name of the collection to retrieve schema for
-   * @return JSON string containing the schema representation
+   * @return the schema as one {@code application/json} resource content
    * @throws IllegalStateException with {@link #SCHEMA_RESOURCE_ERROR} if the schema cannot be
    *     retrieved or serialized
    */
@@ -178,9 +189,13 @@ public class SchemaService {
       description =
           "Full schema definition for a Solr collection: field types, declared fields, dynamic-field patterns and copy fields",
       mimeType = "application/json")
-  public String getSchemaResource(String collection) {
+  public ReadResourceResult getSchemaResource(ReadResourceRequest request, String collection) {
     try {
-      return jsonMapper.writeValueAsString(getSchema(collection));
+      return McpResults.jsonResource(
+          request.uri(), jsonMapper.writeValueAsString(getSchema(collection)));
+    } catch (IllegalArgumentException | IllegalStateException _) {
+      // SolrCalls' translation of a failed request; SolrCalls has already logged the cause.
+      throw new IllegalStateException(SCHEMA_RESOURCE_ERROR);
     } catch (Exception e) {
       // Deliberately no cause: MCP reports the root cause's message to the client,
       // and Solr and SolrJ failure text can carry internal host names, URLs and
@@ -234,9 +249,10 @@ public class SchemaService {
    *
    * <p><strong>Error Handling:</strong>
    *
-   * <p>If the collection does not exist or schema retrieval fails, the method will throw an
-   * exception with details about the failure reason. Common issues include collection name typos,
-   * permission problems, or Solr connectivity issues.
+   * <p>If the collection does not exist or schema retrieval fails, the method throws an exception
+   * whose message {@link SolrCalls} writes: a hint to call {@code list-collections} for an unknown
+   * collection, Solr's reason for a refused request, or a fixed text when Solr denied access or
+   * could not be reached.
    *
    * <p><strong>Performance Considerations:</strong>
    *
@@ -245,10 +261,9 @@ public class SchemaService {
    * caching to reduce network overhead.
    *
    * @param collection the name of the Solr collection to retrieve schema information for
-   * @return the schema as the Schema API reports it, every property Solr sends included
-   * @throws SolrServerException if the Solr server returns an error; a missing collection surfaces
-   *     as an unchecked {@code SolrException} (404)
-   * @throws IOException if communication with Solr fails
+   * @return the schema, with the properties the contract names
+   * @throws IllegalArgumentException if the collection does not exist or Solr refused the request
+   * @throws IllegalStateException if Solr failed or could not be reached
    * @see CollectionSchema
    * @see SchemaRequest
    */
@@ -259,24 +274,34 @@ public class SchemaService {
       description =
           "Get the full schema definition of a Solr collection: field types with their "
               + "analyzers, declared fields, dynamic-field patterns (such as *_s) and copy fields. "
+              + "A property a field does not declare is inherited from its field type; check that "
+              + "type in fieldTypes. "
               + "Use this before add-fields or add-field-types to see what is already defined. "
               + "It does not say which fields hold data or which dynamic fields are in use; to "
-              + "choose fields for search, call list-fields instead.")
-  public CollectionSchema getSchema(String collection) throws SolrServerException, IOException {
+              + "choose fields for search, call list-fields instead.",
+      generateOutputSchema = true)
+  public CollectionSchema getSchema(String collection) {
     // request(), not schemaRequest.process(): process() parses into SolrJ's SchemaRepresentation,
     // whose FieldTypeDefinition nests each type's properties under "attributes" and serializes
     // every unset analyzer slot as null. The Schema API's own JSON objects arrive as
-    // SimpleOrderedMap, a java.util.Map, so Jackson converts them into the records directly.
-    NamedList<Object> response = solrClient.request(new SchemaRequest(), collection);
-    return jsonMapper.convertValue(response.get(SCHEMA_SECTION), CollectionSchema.class);
+    // SimpleOrderedMap, a java.util.Map, which CollectionSchema.fromSolr maps into the contract.
+    NamedList<Object> response =
+        SolrCalls.call(
+            GET_SCHEMA_FAILED,
+            SolrCalls.collectionNotFound(collection),
+            () -> solrClient.request(new SchemaRequest(), collection));
+    @SuppressWarnings("unchecked")
+    Map<String, Object> schema = (Map<String, Object>) response.get(SCHEMA_SECTION);
+    return CollectionSchema.fromSolr(schema);
   }
 
   /**
    * MCP Resource endpoint that returns the fields holding data in a collection, the same JSON as
    * {@link #listFields(String)}.
    *
+   * @param request the read request, whose URI the result echoes
    * @param collection the collection to list fields for
-   * @return JSON string containing the field listing
+   * @return the field listing as one {@code application/json} resource content
    * @throws IllegalStateException with {@link #FIELDS_RESOURCE_ERROR} if the fields cannot be
    *     listed or serialized
    */
@@ -287,9 +312,13 @@ public class SchemaService {
       description =
           "The fields that hold data in a Solr collection, with their types, flags and document counts",
       mimeType = "application/json")
-  public String getFieldsResource(String collection) {
+  public ReadResourceResult getFieldsResource(ReadResourceRequest request, String collection) {
     try {
-      return jsonMapper.writeValueAsString(listFields(collection));
+      return McpResults.jsonResource(
+          request.uri(), jsonMapper.writeValueAsString(listFields(collection)));
+    } catch (IllegalArgumentException | IllegalStateException _) {
+      // SolrCalls' translation of a failed request; SolrCalls has already logged the cause.
+      throw new IllegalStateException(FIELDS_RESOURCE_ERROR);
     } catch (Exception e) {
       // No cause, for the same reason as getSchemaResource: Solr failure text can
       // carry internal host names and URLs.
@@ -304,21 +333,21 @@ public class SchemaService {
    *
    * <p>Unlike {@link #getSchema(String)}, Luke reports the dynamic-field instances in the index
    * ({@code genre_s}, not just {@code *_s}) and, per field, how many documents have terms in it.
-   * Each field's {@code schema} flag letters are decoded into {@link
-   * org.apache.solr.common.luke.FieldFlag}s, so Luke's {@code info} legend is not needed and is
-   * left out. The {@code index} section is left out too: {@code get-collection-stats} reports index
-   * statistics, and its {@code directory} entry names a path on the Solr host.
+   * Each field's {@code schema} flag letters are decoded into {@link FieldProperty} values, so
+   * Luke's letter encoding and its {@code info} legend stay out of the result. The {@code index}
+   * section is left out too: {@code get-collection-stats} reports index statistics, and its {@code
+   * directory} entry names a path on the Solr host.
    *
    * <p>One collection-level request is made. Solr 9.11 and 10.1 distribute it across shards in
    * SolrCloud (SOLR-8127); older versions answer from one core, which the tool description tells
    * the model about.
    *
    * @param collection the collection to list fields for
-   * @return the fields Luke reports, with their flags decoded
-   * @throws SolrServerException if the request cannot be sent or its response read; an error Solr
-   *     returns, an unknown collection's 404 included, surfaces as an unchecked {@code
-   *     SolrException}
-   * @throws IOException if communication with Solr fails
+   * @return the fields Luke reports, ordered by name, with their flags decoded
+   * @throws IllegalArgumentException if the collection name is blank, the collection does not
+   *     exist, or Solr refused the request
+   * @throws IllegalStateException if Solr failed or could not be reached
+   * @see SolrCalls
    */
   @PreAuthorize("isAuthenticated()")
   @McpTool(
@@ -326,10 +355,10 @@ public class SchemaService {
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
       description =
           "List the fields that hold data in a collection, from Solr's Luke handler: per field its"
-              + " type, flags (INDEXED, STORED, DOC_VALUES, MULTI_VALUED, ...), dynamicBase for a"
+              + " type, flags (indexed, stored, docValues, multiValued, ...), dynamicBase for a"
               + " dynamic-field instance (genre_s, not *_s), and docs, the number of documents with"
               + " terms in the field (deleted documents count until their segments merge). Facet"
-              + " only on fields with DOC_VALUES, and sort only on ones without MULTI_VALUED. Use"
+              + " only on fields with docValues, and sort only on ones without multiValued. Use"
               + " this before"
               + " search to decide which fields go in q, fq, facets and sorts. Unlike get-schema it"
               + " shows no analyzers or field-type definitions; use get-schema before changing the"
@@ -337,9 +366,8 @@ public class SchemaService {
               + " their docs is missing, or 0 on Solr 9.11+ and 10.1+: that means not counted, not"
               + " empty. Before Solr 9.11 and 10.1, a collection with more than one shard lists the"
               + " fields and counts of one shard only.")
-  public FieldListing listFields(
-      @McpToolParam(description = "Solr collection name") String collection)
-      throws SolrServerException, IOException {
+  public List<IndexedField> listFields(
+      @McpToolParam(description = "Solr collection name") String collection) {
     requireCollection(collection);
 
     LukeRequest lukeRequest = new LukeRequest();
@@ -347,22 +375,28 @@ public class SchemaService {
     lukeRequest.setIncludeIndexFieldFlags(false);
     // request(), not lukeRequest.process(): process() also builds SolrJ's typed LukeResponse,
     // which casts each field's docs to Integer and fails on a distributed sum past 2^31 (a Long),
-    // and drops dynamicBase. Luke's JSON objects arrive as SimpleOrderedMap, a java.util.Map, so
-    // Jackson converts the fields section into the records directly.
-    NamedList<Object> response = solrClient.request(lukeRequest, collection);
-    Object fields = response.get(LUKE_FIELDS_SECTION);
-    return new FieldListing(
-        fields == null ? Map.of() : jsonMapper.convertValue(fields, INDEXED_FIELDS));
+    // and drops dynamicBase. Luke's JSON objects arrive as SimpleOrderedMap, a java.util.Map,
+    // which IndexedField.fromLuke maps into the contract.
+    NamedList<Object> response =
+        SolrCalls.call(
+            LIST_FIELDS_FAILED,
+            SolrCalls.collectionNotFound(collection),
+            () -> solrClient.request(lukeRequest, collection));
+    return response.get(LUKE_FIELDS_SECTION) instanceof Map<?, ?> fields
+        ? IndexedField.fromLuke(castFields(fields))
+        : List.of();
   }
 
   /**
    * Adds one or more fields to a Solr collection schema as a single transactional batch.
    *
    * @param collection target Solr collection name
-   * @param fields field definitions in the Solr Schema API {@code add-field} shape
+   * @param fields the fields to add, in the shape {@link #getSchema(String)} reports
    * @return summary listing the collection and the names of the fields added
-   * @throws SolrServerException if there are errors communicating with Solr
-   * @throws IOException if there are I/O errors during communication
+   * @throws IllegalArgumentException if an argument is blank or empty, the collection does not
+   *     exist, or Solr refused the batch; the message carries Solr's reason
+   * @throws IllegalStateException if Solr failed or could not be reached
+   * @see SolrCalls
    */
   @PreAuthorize("isAuthenticated()")
   @McpTool(
@@ -371,30 +405,34 @@ public class SchemaService {
       description =
           "Add one or more fields to a Solr collection schema. "
               + "Call get-schema first to inspect existing field configuration before adding. "
-              + "Each field map follows the Solr Schema API add-field shape: required keys "
-              + "'name' and 'type', plus optional 'stored', 'indexed', 'docValues', "
-              + "'multiValued', 'required', 'omitNorms', etc. "
+              + "Each field has the shape get-schema reports: required 'name' and 'type', plus "
+              + "optional booleans such as 'stored', 'indexed', 'docValues', 'multiValued', "
+              + "'required' and 'omitNorms', and an optional 'default'. A property left out is "
+              + "inherited from the field type. "
               + "Example: {\"name\":\"platform\",\"type\":\"string\",\"stored\":true,\"indexed\":true,\"docValues\":true}. "
               + "Use 'strings' (not 'string') for multi-valued string fields. "
               + "Note: this only adds new fields; existing fields cannot be modified. "
               + "Solr's Schema API is transactional — if any command in the batch fails, "
-              + "none are applied. On failure, fix the invalid field(s) and retry the whole batch.")
+              + "none are applied. On failure, fix the invalid field(s) and retry the whole batch.",
+      generateOutputSchema = true)
   public SchemaUpdateResult addFields(
       @McpToolParam(description = "Solr collection name") String collection,
-      @McpToolParam(description = "List of field definitions (Solr add-field JSON shape)")
-          List<Map<String, Object>> fields)
-      throws SolrServerException, IOException {
+      @McpToolParam(description = "The fields to add, in the shape get-schema reports")
+          List<CollectionSchema.Field> fields) {
     requireCollection(collection);
     requireNonEmpty(fields, "fields");
 
     List<String> names = new ArrayList<>(fields.size());
     List<SchemaRequest.Update> updates = new ArrayList<>(fields.size());
-    for (Map<String, Object> field : fields) {
-      names.add(requireName(field, "field"));
-      updates.add(new SchemaRequest.AddField(field));
+    for (CollectionSchema.Field field : fields) {
+      names.add(requireName(field.name(), "field"));
+      updates.add(new SchemaRequest.AddField(field.toSolr()));
     }
 
-    new SchemaRequest.MultiUpdate(updates).process(solrClient, collection);
+    SolrCalls.call(
+        ADD_FIELDS_FAILED,
+        SolrCalls.collectionNotFound(collection),
+        () -> new SchemaRequest.MultiUpdate(updates).process(solrClient, collection));
     return new SchemaUpdateResult(collection, names);
   }
 
@@ -402,10 +440,12 @@ public class SchemaService {
    * Adds one or more field types to a Solr collection schema as a single transactional batch.
    *
    * @param collection target Solr collection name
-   * @param fieldTypes field-type definitions in the Solr Schema API {@code add-field-type} shape
+   * @param fieldTypes the field types to add, in the shape {@link #getSchema(String)} reports
    * @return summary listing the collection and the names of the field types added
-   * @throws SolrServerException if there are errors communicating with Solr
-   * @throws IOException if there are I/O errors during communication
+   * @throws IllegalArgumentException if an argument is blank or empty, the collection does not
+   *     exist, or Solr refused the batch; the message carries Solr's reason
+   * @throws IllegalStateException if Solr failed or could not be reached
+   * @see SolrCalls
    */
   @PreAuthorize("isAuthenticated()")
   @McpTool(
@@ -414,132 +454,92 @@ public class SchemaService {
       description =
           "Add one or more field types to a Solr collection schema. "
               + "Call get-schema first to inspect existing field types before adding. "
-              + "Each map follows the Solr Schema API add-field-type shape: required keys "
-              + "'name' and 'class', optional 'analyzer' (or 'indexAnalyzer'+'queryAnalyzer'), "
-              + "and class-specific attributes. "
+              + "Each field type has the shape get-schema reports: required 'name' and 'className', "
+              + "optional 'analyzer' (or 'indexAnalyzer'+'queryAnalyzer'), optional booleans such "
+              + "as 'docValues', and class-specific settings as string 'parameters'. An analyzer "
+              + "has optional 'charFilters', a 'tokenizer' and 'filters', or is a single class "
+              + "such as {\"className\":\"solr.WhitespaceAnalyzer\"}; it may have its own string "
+              + "'parameters' too. Each component has 'name' (Solr's short name) or 'className', "
+              + "plus its own string 'parameters'. "
               + "Common recipes: "
-              + "(1) case-insensitive exact match: class=solr.TextField with analyzer "
-              + "{tokenizer:{class:solr.KeywordTokenizerFactory}, filters:[{class:solr.LowerCaseFilterFactory}]}; "
-              + "(2) dense vector for semantic search: class=solr.DenseVectorField with "
+              + "(1) case-insensitive exact match: className=solr.TextField with analyzer "
+              + "{tokenizer:{className:solr.KeywordTokenizerFactory}, filters:[{className:solr.LowerCaseFilterFactory}]}; "
+              + "(2) dense vector for semantic search: className=solr.DenseVectorField with parameters "
               + "vectorDimension, similarityFunction (cosine/dot_product/euclidean), and knnAlgorithm=hnsw; "
-              + "(3) autocomplete: class=solr.TextField with separate indexAnalyzer using EdgeNGramFilterFactory "
+              + "(3) autocomplete: className=solr.TextField with separate indexAnalyzer using EdgeNGramFilterFactory "
               + "and queryAnalyzer without it. "
               + "After adding a type, use add-fields to create fields of that type. "
-              + "Solr's Schema API is transactional — if any command in the batch fails, none are applied.")
+              + "Solr's Schema API is transactional — if any command in the batch fails, none are applied.",
+      generateOutputSchema = true)
   public SchemaUpdateResult addFieldTypes(
       @McpToolParam(description = "Solr collection name") String collection,
-      @McpToolParam(description = "List of field type definitions (Solr add-field-type JSON shape)")
-          List<Map<String, Object>> fieldTypes)
-      throws SolrServerException, IOException {
+      @McpToolParam(description = "The field types to add, in the shape get-schema reports")
+          List<CollectionSchema.FieldType> fieldTypes) {
     requireCollection(collection);
     requireNonEmpty(fieldTypes, "fieldTypes");
 
     List<String> names = new ArrayList<>(fieldTypes.size());
     List<SchemaRequest.Update> updates = new ArrayList<>(fieldTypes.size());
-    for (Map<String, Object> fieldType : fieldTypes) {
-      names.add(requireName(fieldType, "field type"));
+    for (CollectionSchema.FieldType fieldType : fieldTypes) {
+      names.add(requireName(fieldType.name(), "field type"));
       updates.add(new SchemaRequest.AddFieldType(toFieldTypeDefinition(fieldType)));
     }
 
-    new SchemaRequest.MultiUpdate(updates).process(solrClient, collection);
+    SolrCalls.call(
+        ADD_FIELD_TYPES_FAILED,
+        SolrCalls.collectionNotFound(collection),
+        () -> new SchemaRequest.MultiUpdate(updates).process(solrClient, collection));
     return new SchemaUpdateResult(collection, names);
   }
 
-  /**
-   * Extracts and validates the {@code name} entry of a schema definition.
-   *
-   * <p>Casting {@code get("name")} directly would record a {@code null} name for a definition that
-   * omits it, or throw a bare {@link ClassCastException} if it is not a string - neither tells the
-   * caller which entry was malformed.
-   *
-   * @param definition the caller-supplied field or field-type definition
-   * @param kind human-readable noun used in the error message
-   * @return the validated name
-   */
-  private static String requireName(Map<String, Object> definition, String kind) {
-    Object name = definition.get("name");
-    if (!(name instanceof String s) || s.isBlank()) {
+  private static String requireName(String name, String kind) {
+    if (name.isBlank()) {
       throw new IllegalArgumentException(
-          "Each " + kind + " definition requires a non-empty string 'name'; got: " + name);
+          "Each " + kind + " definition requires a non-empty 'name'; got: " + name);
     }
-    return s;
+    return name;
   }
 
-  /**
-   * Builds a {@link FieldTypeDefinition} from a flat input map matching the Solr Schema API
-   * add-field-type JSON shape. SolrJ's {@code FieldTypeDefinition} stores name/class and other
-   * scalar attributes inside an attributes map, with analyzers pulled into typed sub-objects — so
-   * we can't deserialize the flat input directly via Jackson.
-   */
-  private FieldTypeDefinition toFieldTypeDefinition(Map<String, Object> input) {
-    FieldTypeDefinition def = new FieldTypeDefinition();
-    Map<String, Object> attributes = new LinkedHashMap<>(input);
-    Object analyzer = attributes.remove("analyzer");
-    Object indexAnalyzer = attributes.remove("indexAnalyzer");
-    Object queryAnalyzer = attributes.remove("queryAnalyzer");
-    def.setAttributes(attributes);
-    if (analyzer != null) {
-      def.setAnalyzer(toAnalyzerDefinition(analyzer));
-    }
-    if (indexAnalyzer != null) {
-      def.setIndexAnalyzer(toAnalyzerDefinition(indexAnalyzer));
-    }
-    if (queryAnalyzer != null) {
-      def.setQueryAnalyzer(toAnalyzerDefinition(queryAnalyzer));
-    }
-    return def;
+  /** The field type as SolrJ's Schema API definition: its attributes plus typed analyzers. */
+  private static FieldTypeDefinition toFieldTypeDefinition(CollectionSchema.FieldType fieldType) {
+    FieldTypeDefinition definition = new FieldTypeDefinition();
+    definition.setAttributes(fieldType.attributesToSolr());
+    definition.setAnalyzer(toAnalyzerDefinition(fieldType.analyzer()));
+    definition.setIndexAnalyzer(toAnalyzerDefinition(fieldType.indexAnalyzer()));
+    definition.setQueryAnalyzer(toAnalyzerDefinition(fieldType.queryAnalyzer()));
+    definition.setMultiTermAnalyzer(toAnalyzerDefinition(fieldType.multiTermAnalyzer()));
+    return definition;
   }
 
-  /**
-   * Builds an {@link AnalyzerDefinition} from a flat input map matching the Solr Schema API
-   * analyzer shape. SolrJ's {@code AnalyzerDefinition} only exposes typed setters for {@code
-   * charFilters}, {@code tokenizer}, and {@code filters}; every other analyzer-level key (e.g.
-   * {@code "class":"solr.WhitespaceAnalyzer"}, {@code "luceneMatchVersion"}, {@code
-   * "positionIncrementGap"}) must go through {@code setAttributes} or Solr never sees them.
-   *
-   * <p>A naive {@code jsonMapper.convertValue(raw, AnalyzerDefinition.class)} silently drops those
-   * unrecognized top-level keys, which breaks the valid single-class analyzer form {@code
-   * {"analyzer":{"class":"solr.WhitespaceAnalyzer"}}}. This helper does the split manually so
-   * unknown keys are preserved as attributes.
-   */
-  private AnalyzerDefinition toAnalyzerDefinition(Object raw) {
-    if (!(raw instanceof Map<?, ?> rawMap)) {
-      // Defensive: unexpected shape (e.g. analyzer specified as a bare class
-      // name string). Let Jackson try its default conversion.
-      return jsonMapper.convertValue(raw, AnalyzerDefinition.class);
+  private static @Nullable AnalyzerDefinition toAnalyzerDefinition(
+      CollectionSchema.@Nullable Analyzer analyzer) {
+    if (analyzer == null) {
+      return null;
     }
-    @SuppressWarnings("unchecked")
-    Map<String, Object> input = (Map<String, Object>) rawMap;
-
-    AnalyzerDefinition def = new AnalyzerDefinition();
-    Map<String, Object> attributes = new LinkedHashMap<>(input);
-
-    Object charFilters = attributes.remove("charFilters");
-    Object tokenizer = attributes.remove("tokenizer");
-    Object filters = attributes.remove("filters");
-
-    // Anything left (class, luceneMatchVersion, positionIncrementGap, ...)
-    // is an attribute and must be passed through; SolrJ emits these inside
-    // the analyzer JSON alongside the typed sub-objects.
+    AnalyzerDefinition definition = new AnalyzerDefinition();
+    Map<String, Object> attributes = analyzer.attributesToSolr();
     if (!attributes.isEmpty()) {
-      def.setAttributes(attributes);
+      definition.setAttributes(attributes);
     }
-    if (charFilters instanceof List<?> charFilterList) {
-      @SuppressWarnings("unchecked")
-      List<Map<String, Object>> typed = (List<Map<String, Object>>) charFilterList;
-      def.setCharFilters(typed);
+    if (!analyzer.charFilterList().isEmpty()) {
+      definition.setCharFilters(
+          analyzer.charFilterList().stream()
+              .map(CollectionSchema.AnalyzerComponent::toSolr)
+              .toList());
     }
-    if (tokenizer instanceof Map<?, ?> tokenizerMap) {
-      @SuppressWarnings("unchecked")
-      Map<String, Object> typed = (Map<String, Object>) tokenizerMap;
-      def.setTokenizer(typed);
+    if (analyzer.tokenizer() != null) {
+      definition.setTokenizer(analyzer.tokenizer().toSolr());
     }
-    if (filters instanceof List<?> filterList) {
-      @SuppressWarnings("unchecked")
-      List<Map<String, Object>> typed = (List<Map<String, Object>>) filterList;
-      def.setFilters(typed);
+    if (!analyzer.filterList().isEmpty()) {
+      definition.setFilters(
+          analyzer.filterList().stream().map(CollectionSchema.AnalyzerComponent::toSolr).toList());
     }
-    return def;
+    return definition;
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, ?> castFields(Map<?, ?> fields) {
+    return (Map<String, ?>) fields;
   }
 
   private static void requireCollection(String collection) {
@@ -565,12 +565,14 @@ public class SchemaService {
   @McpPrompt(
       name = PromptNames.VIEW_SCHEMA,
       title = "View a Solr collection schema",
-      description =
-          "Read-only walkthrough: fetch the schema and summarize fields, types, dynamic fields, copy fields, and the unique key.")
-  public String viewSchemaPrompt(
+      description = PromptNames.VIEW_SCHEMA_DESCRIPTION)
+  public GetPromptResult viewSchemaPrompt(
       @McpArg(name = "collection", description = "Target Solr collection name", required = true)
           String collection) {
-    return """
+    return McpResults.prompt(
+        PromptNames.VIEW_SCHEMA_DESCRIPTION,
+        Role.USER,
+        """
 				You are inspecting the schema of Solr collection `%s`. This prompt is read-only; do not
 				add or modify any fields.
 
@@ -582,16 +584,20 @@ public class SchemaService {
 				   - Total field count.
 				   - Group fields by type (e.g. how many `text_general`, `string`, `strings`, `pint`,
 				     `pdouble`, `pdate`, etc.).
+				   - A property a field does not declare is inherited from its field type; check that
+				     type in `fieldTypes`.
 				   - Flag which fields are `indexed=true` (searchable / filterable), `stored=true`
 				     (retrievable in responses), `docValues=true` (sortable / facetable / range-
-				     filterable), and `multiValued=true`.
+				     filterable), and `multiValued=true`, counting the properties they inherit.
 				   - Call out the `uniqueKey` field — this is the primary identifier.
 
 				3. Summarize dynamic fields and copy fields.
 				   - List dynamic-field patterns (e.g. `*_s`, `*_txt`) and their types — these accept
 				     fields whose names are not predeclared.
 				   - The schema shows only the patterns. To see which dynamic fields are actually in
-				     use (e.g. `genre_s`) and how many documents have each, call `list-fields`.
+				     use (e.g. `genre_s`) and how many documents have each, call `list-fields`. Its
+				     `docs` count is missing or 0 for numeric, date and docValues-only fields because
+				     Solr cannot count them, not because they are empty.
 				   - List copyField rules (source → destination) — these duplicate content into
 				     aggregator fields, often used for catch-all search fields.
 
@@ -604,7 +610,7 @@ public class SchemaService {
 				Next step suggestion: if the schema is missing fields the user needs, the
 				`design-schema` prompt drives the additive workflow.
 				"""
-        .formatted(collection, collection);
+            .formatted(collection, collection));
   }
 
   /**
@@ -622,9 +628,8 @@ public class SchemaService {
   @McpPrompt(
       name = PromptNames.DESIGN_SCHEMA,
       title = "Design a Solr schema for a dataset",
-      description =
-          "Guides the assistant through inspecting an existing Solr schema, choosing appropriate field types, and applying additive schema changes via the Schema API.")
-  public String designSchemaPrompt(
+      description = PromptNames.DESIGN_SCHEMA_DESCRIPTION)
+  public GetPromptResult designSchemaPrompt(
       @McpArg(name = "collection", description = "Target Solr collection name", required = true)
           String collection,
       @McpArg(
@@ -643,7 +648,10 @@ public class SchemaService {
             sampleDocument,
             "A sample document was provided. Use it as ground truth for field names and value\n     shapes:",
             "No sample document was provided; ask the user for one if the dataset description leaves field types ambiguous.");
-    return """
+    return McpResults.prompt(
+        PromptNames.DESIGN_SCHEMA_DESCRIPTION,
+        Role.USER,
+        """
 				You are designing a Solr schema for collection `%s`. Dataset:
 
 				    %s
@@ -670,7 +678,8 @@ public class SchemaService {
 				   - Dates: `pdate`.
 				   - Identifiers: `string` with `docValues=true`.
 				   - Semantic / vector search: a custom `DenseVectorField` type via `add-field-types`
-				     (specify `vectorDimension`, `similarityFunction`, `knnAlgorithm=hnsw`), then a field
+				     (put `vectorDimension`, `similarityFunction` and `knnAlgorithm=hnsw` in its
+				     `parameters`), then a field
 				     of that type via `add-fields`.
 				   - Case-insensitive exact match or autocomplete: a custom `solr.TextField` type with a
 				     `KeywordTokenizerFactory` + `LowerCaseFilterFactory` analyzer (or split
@@ -692,6 +701,6 @@ public class SchemaService {
 				Next step suggestion: once the schema is in place, the `index-data` prompt drives
 				indexing documents into the collection.
 				"""
-        .formatted(collection, datasetDescription, collection, sampleSection);
+            .formatted(collection, datasetDescription, collection, sampleSection));
   }
 }
