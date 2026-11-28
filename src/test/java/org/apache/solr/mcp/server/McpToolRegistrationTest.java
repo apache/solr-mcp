@@ -113,7 +113,7 @@ class McpToolRegistrationTest {
 
     // Find methods with @McpTool annotation
     List<Method> mcpToolMethods =
-        Arrays.stream(methods).filter(m -> m.isAnnotationPresent(McpTool.class)).toList();
+        Arrays.stream(methods).filter(method -> method.isAnnotationPresent(McpTool.class)).toList();
 
     // Verify at least one method has the annotation
     assertFalse(
@@ -137,7 +137,7 @@ class McpToolRegistrationTest {
 
     // Find methods with @McpTool annotation
     List<Method> mcpToolMethods =
-        Arrays.stream(methods).filter(m -> m.isAnnotationPresent(McpTool.class)).toList();
+        Arrays.stream(methods).filter(method -> method.isAnnotationPresent(McpTool.class)).toList();
 
     // Verify at least one method has the annotation
     assertFalse(
@@ -159,7 +159,7 @@ class McpToolRegistrationTest {
 
     // Find methods with @McpTool annotation
     List<Method> mcpToolMethods =
-        Arrays.stream(methods).filter(m -> m.isAnnotationPresent(McpTool.class)).toList();
+        Arrays.stream(methods).filter(method -> method.isAnnotationPresent(McpTool.class)).toList();
 
     // Verify at least one method has the annotation
     assertFalse(
@@ -239,13 +239,13 @@ class McpToolRegistrationTest {
     // disjoint maps keyed by reference type.
     List<McpComplete> completions =
         Arrays.stream(CollectionService.class.getDeclaredMethods())
-            .filter(m -> m.isAnnotationPresent(McpComplete.class))
-            .map(m -> m.getAnnotation(McpComplete.class))
+            .filter(method -> method.isAnnotationPresent(McpComplete.class))
+            .map(method -> method.getAnnotation(McpComplete.class))
             .toList();
 
     // One resource-template binding per collection-scoped resource.
     List<String> uriBindings =
-        completions.stream().map(McpComplete::uri).filter(s -> !s.isEmpty()).sorted().toList();
+        completions.stream().map(McpComplete::uri).filter(uri -> !uri.isEmpty()).sorted().toList();
     assertEquals(
         List.of("solr://{collection}/fields", "solr://{collection}/schema"),
         uriBindings,
@@ -255,7 +255,11 @@ class McpToolRegistrationTest {
     // Referenced via PromptNames so a rename or deletion breaks compilation
     // here, not silently at runtime.
     List<String> promptBindings =
-        completions.stream().map(McpComplete::prompt).filter(s -> !s.isEmpty()).sorted().toList();
+        completions.stream()
+            .map(McpComplete::prompt)
+            .filter(prompt -> !prompt.isEmpty())
+            .sorted()
+            .toList();
     assertEquals(
         Stream.of(
                 PromptNames.DESIGN_SCHEMA,
@@ -295,10 +299,10 @@ class McpToolRegistrationTest {
                 SchemaService.class,
                 SearchService.class,
                 IndexingService.class)
-            .flatMap(c -> Arrays.stream(c.getDeclaredMethods()))
-            .filter(m -> mcpAnnotations.stream().anyMatch(m::isAnnotationPresent))
-            .filter(m -> !m.isAnnotationPresent(PreAuthorize.class))
-            .map(m -> m.getDeclaringClass().getSimpleName() + "#" + m.getName())
+            .flatMap(serviceClass -> Arrays.stream(serviceClass.getDeclaredMethods()))
+            .filter(method -> mcpAnnotations.stream().anyMatch(method::isAnnotationPresent))
+            .filter(method -> !method.isAnnotationPresent(PreAuthorize.class))
+            .map(method -> method.getDeclaringClass().getSimpleName() + "#" + method.getName())
             .sorted()
             .toList();
 
@@ -327,7 +331,7 @@ class McpToolRegistrationTest {
 
   private static String toolDescription(Class<?> serviceClass, String toolName) {
     return Arrays.stream(serviceClass.getDeclaredMethods())
-        .map(m -> m.getAnnotation(McpTool.class))
+        .map(method -> method.getAnnotation(McpTool.class))
         .filter(tool -> tool != null && tool.name().equals(toolName))
         .map(McpTool::description)
         .findFirst()
@@ -337,12 +341,12 @@ class McpToolRegistrationTest {
   private void addToolNames(Class<?> serviceClass, List<String> toolNames) {
     Method[] methods = serviceClass.getDeclaredMethods();
     Arrays.stream(methods)
-        .filter(m -> m.isAnnotationPresent(McpTool.class))
+        .filter(method -> method.isAnnotationPresent(McpTool.class))
         .forEach(
-            m -> {
-              McpTool annotation = m.getAnnotation(McpTool.class);
+            method -> {
+              McpTool annotation = method.getAnnotation(McpTool.class);
               // Use name if provided, otherwise use method name
-              String toolName = annotation.name().isBlank() ? m.getName() : annotation.name();
+              String toolName = annotation.name().isBlank() ? method.getName() : annotation.name();
               toolNames.add(toolName);
             });
   }

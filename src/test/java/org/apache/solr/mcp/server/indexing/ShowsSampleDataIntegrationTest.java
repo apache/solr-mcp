@@ -17,7 +17,6 @@
 package org.apache.solr.mcp.server.indexing;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -67,18 +66,16 @@ class ShowsSampleDataIntegrationTest {
       CollectionAdminRequest.createCollection(collection, "_default", 1, 1).process(solrClient);
     }
 
-    assertTrue(
-        indexingService
-            .indexJsonDocuments(json, TestDocuments.json(resource("/shows.json")))
-            .contains(SHOWS + " of " + SHOWS));
-    assertTrue(
-        indexingService
-            .indexCsvDocuments(csv, resource("/shows.csv"))
-            .contains("Solr accepted the CSV payload"));
-    assertTrue(
-        indexingService
-            .indexXmlDocuments(xml, resource("/shows.xml"))
-            .contains("Solr accepted the XML <add> block"));
+    IndexingResult fromJsonResult =
+        indexingService.indexJsonDocuments(json, TestDocuments.json(resource("/shows.json")));
+    assertEquals(SHOWS, fromJsonResult.documentsSubmitted());
+    assertEquals(SHOWS, fromJsonResult.documentsIndexed());
+    assertEquals(
+        IndexingResult.Format.csv,
+        indexingService.indexCsvDocuments(csv, resource("/shows.csv")).format());
+    assertEquals(
+        IndexingResult.Format.xml,
+        indexingService.indexXmlDocuments(xml, resource("/shows.xml")).format());
 
     Map<String, Map<String, List<String>>> fromJson = documents(json);
     assertEquals(SHOWS, fromJson.size());
