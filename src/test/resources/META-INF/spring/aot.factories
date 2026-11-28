@@ -14,4 +14,5 @@
 # limitations under the License.
 
 org.springframework.test.context.aot.TestRuntimeHintsRegistrar=\
-org.apache.solr.mcp.server.SampleDataRuntimeHints
+org.apache.solr.mcp.server.SampleDataRuntimeHints,\
+org.apache.solr.mcp.server.eval.EvalRuntimeHints
