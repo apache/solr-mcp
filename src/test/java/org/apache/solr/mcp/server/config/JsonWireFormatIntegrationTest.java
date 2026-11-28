@@ -81,14 +81,14 @@ class JsonWireFormatIntegrationTest {
 
   @Test
   void doubleFieldKeepsFullPrecision() throws Exception {
-    Map<String, Object> doc = search(null).documents().getFirst();
+    Map<String, Object> doc = search(null).documents().getFirst().fields();
 
     assertEquals(1.1234567890123d, doc.get("price_d"));
   }
 
   @Test
   void singleValueOfMultiValuedFieldStaysList() throws Exception {
-    Map<String, Object> doc = search(null).documents().getFirst();
+    Map<String, Object> doc = search(null).documents().getFirst().fields();
 
     assertEquals(List.of("only"), doc.get("tags_ss"));
   }
@@ -97,7 +97,8 @@ class JsonWireFormatIntegrationTest {
   void facetWithNoMatchingValuesIsEmpty() throws Exception {
     SearchResponse response = search(List.of("no_such_values_s"));
 
-    assertEquals(Map.of(), response.facets().get("no_such_values_s"));
+    assertEquals(
+        List.of(new SearchResponse.FacetField("no_such_values_s", List.of())), response.facets());
   }
 
   @Test

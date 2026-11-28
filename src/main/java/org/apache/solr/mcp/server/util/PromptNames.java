@@ -34,20 +34,57 @@ public final class PromptNames {
   /** {@code @McpPrompt} on {@code CollectionService#exploreCollectionsPrompt}. */
   public static final String EXPLORE_COLLECTIONS = "explore-collections";
 
+  /**
+   * Description of {@link #EXPLORE_COLLECTIONS}, shared by its {@code @McpPrompt} and its prompt
+   * result.
+   */
+  public static final String EXPLORE_COLLECTIONS_DESCRIPTION =
+      "Read-only walkthrough: list collections and characterise each by stats and health.";
+
   /** {@code @McpPrompt} on {@code CollectionService#setupCollectionPrompt}. */
   public static final String SETUP_COLLECTION = "setup-collection";
+
+  /**
+   * Description of {@link #SETUP_COLLECTION}, shared by its {@code @McpPrompt} and its prompt
+   * result.
+   */
+  public static final String SETUP_COLLECTION_DESCRIPTION =
+      "Guided workflow: validate a name, pick configset / shards / replication factor, create the collection, and verify it.";
 
   /** {@code @McpPrompt} on {@code SearchService#searchCollectionPrompt}. */
   public static final String SEARCH_COLLECTION = "search-collection";
 
+  /**
+   * Description of {@link #SEARCH_COLLECTION}, shared by its {@code @McpPrompt} and its prompt
+   * result.
+   */
+  public static final String SEARCH_COLLECTION_DESCRIPTION =
+      "Guides the assistant through inspecting the schema, translating a user question into a Solr query, running the search, and refining the result.";
+
   /** {@code @McpPrompt} on {@code IndexingService#indexDataPrompt}. */
   public static final String INDEX_DATA = "index-data";
+
+  /** Description of {@link #INDEX_DATA}, shared by its {@code @McpPrompt} and its prompt result. */
+  public static final String INDEX_DATA_DESCRIPTION =
+      "Guides the assistant through verifying the target schema, picking the right indexing tool for the input format, and confirming the result.";
 
   /** {@code @McpPrompt} on {@code SchemaService#viewSchemaPrompt}. */
   public static final String VIEW_SCHEMA = "view-schema";
 
+  /**
+   * Description of {@link #VIEW_SCHEMA}, shared by its {@code @McpPrompt} and its prompt result.
+   */
+  public static final String VIEW_SCHEMA_DESCRIPTION =
+      "Read-only walkthrough: fetch the schema and summarize fields, types, dynamic fields, copy fields, and the unique key.";
+
   /** {@code @McpPrompt} on {@code SchemaService#designSchemaPrompt}. */
   public static final String DESIGN_SCHEMA = "design-schema";
+
+  /**
+   * Description of {@link #DESIGN_SCHEMA}, shared by its {@code @McpPrompt} and its prompt result.
+   */
+  public static final String DESIGN_SCHEMA_DESCRIPTION =
+      "Guides the assistant through inspecting an existing Solr schema, choosing appropriate field types, and applying additive schema changes via the Schema API.";
 
   private PromptNames() {
     // Constants holder - prevent instantiation
