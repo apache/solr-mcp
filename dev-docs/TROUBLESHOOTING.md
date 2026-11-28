@@ -43,7 +43,7 @@ Common issues and solutions when working with the Solr MCP Server.
 ### Collection not found
 
 **Symptoms:**
-- "Collection not found" errors
+- A tool error such as `Search failed: collection 'books' was not found. Hint: call list-collections to see available collections.`
 - 404 responses from Solr
 
 **Solutions:**
