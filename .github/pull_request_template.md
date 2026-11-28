@@ -9,6 +9,7 @@ Closes #
 <!-- Tick what applies; strike through or delete what does not, and say why. -->
 
 - [ ] `./gradlew build` passes locally (Spotless, Error Prone/NullAway, RAT, unit and integration tests)
+- [ ] The SonarCloud check passes, with no new issues on this PR
 - [ ] New or changed behaviour has a test that fails without the change
 - [ ] User-visible change: one line under `[Unreleased]` in `CHANGELOG.md` (see `dev-docs/CHANGELOG_GUIDE.md`)
 - [ ] New or changed MCP tool, prompt or resource: the README tables, `THREAT_MODEL.md` and the tool counts in `docs/clients/` are updated, and every new response record is registered in `config/SolrNativeHints.java`
