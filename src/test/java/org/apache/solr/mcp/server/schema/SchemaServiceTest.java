@@ -16,6 +16,7 @@
  */
 package org.apache.solr.mcp.server.schema;
 
+import static org.apache.solr.mcp.server.McpResultAssertions.promptText;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -23,7 +24,12 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.modelcontextprotocol.spec.McpSchema.ReadResourceRequest;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.lang.reflect.RecordComponent;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,20 +39,23 @@ import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.LukeRequest;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest;
 import org.apache.solr.client.solrj.request.schema.SchemaRequest.MultiUpdate;
-import org.apache.solr.common.luke.FieldFlag;
 import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.json.JsonTest;
 import org.springframework.test.json.JsonContent;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -57,6 +66,9 @@ import tools.jackson.databind.json.JsonMapper;
 @ExtendWith(MockitoExtension.class)
 @DisabledInNativeImage
 class SchemaServiceTest {
+
+  /** Where an add-field-types request body holds its one field type. */
+  private static final String FIELD_TYPE = "$['add-field-type']";
 
   @Mock private SolrClient solrClient;
 
@@ -79,9 +91,9 @@ class SchemaServiceTest {
   }
 
   @Test
-  void getSchema_keepsPropertiesTheRecordsDoNotDeclare() throws Exception {
-    // A property a later Solr version adds has no record component. It must reach the client
-    // at the same level Solr sent it, not be dropped and not be wrapped in an "other" object.
+  void getSchema_keepsDeclaredFalseAndDropsAttributesOutsideTheContract() throws Exception {
+    // The contract names each schema property. A declared false must survive, an undeclared
+    // property must stay absent, and anything else Solr sends must not reach the client.
     SimpleOrderedMap<Object> field = new SimpleOrderedMap<>();
     field.add("name", "genre");
     field.add("type", "string");
@@ -102,19 +114,71 @@ class SchemaServiceTest {
 
     CollectionSchema result = new SchemaService(solrClient, jsonMapper).getSchema("c");
 
-    assertEquals("genre", result.fields().getFirst().name());
-    assertEquals(true, result.fields().getFirst().other().get("futureFlag"));
-    // flag properties become FieldFlags (true only) and leave the catch-all
-    assertEquals(Set.of(FieldFlag.INDEXED), result.fields().getFirst().flags());
-    assertFalse(result.fields().getFirst().other().containsKey("indexed"));
-    assertFalse(result.fields().getFirst().other().containsKey("stored"));
-    assertEquals(Map.of("k", "v"), result.other().get("futureSection"));
-    JsonContent json = new JsonContent(jsonMapper.writeValueAsString(result));
-    assertThat(json).extractingPath("$.fields[0].futureFlag").isEqualTo(true);
-    assertThat(json).extractingPath("$.futureSection").isEqualTo(Map.of("k", "v"));
-    assertThat(json).extractingPath("$.fields[0].flags").asArray().containsExactly("INDEXED");
-    // A deep scan never throws PathNotFoundException, so doesNotHavePath would always fail on it
-    assertThat(json).extractingPath("$..other").asArray().isEmpty();
+    CollectionSchema.Field genre = result.fields().getFirst();
+    assertEquals("genre", genre.name());
+    assertEquals(true, genre.indexed());
+    assertEquals(false, genre.stored());
+    assertNull(genre.docValues(), "an undeclared property stays absent");
+    assertThat(new JsonContent(jsonMapper.writeValueAsString(result)))
+        .isStrictlyEqualTo(
+            """
+            {"name": "test", "uniqueKey": "id", "fieldTypes": [],
+             "fields": [{"name": "genre", "type": "string", "indexed": true, "stored": false}],
+             "dynamicFields": [], "copyFields": []}
+            """);
+  }
+
+  @ParameterizedTest
+  @ValueSource(classes = {CollectionSchema.Field.class, CollectionSchema.FieldType.class})
+  void schemaPropertiesMatchTheRecordsBooleanComponents(Class<? extends Record> recordType) {
+    List<String> booleans =
+        Arrays.stream(recordType.getRecordComponents())
+            .filter(component -> component.getType() == Boolean.class)
+            .map(RecordComponent::getName)
+            .toList();
+
+    assertEquals(CollectionSchema.SCHEMA_PROPERTIES, booleans);
+  }
+
+  @Test
+  void getSchema_putsClassSettingsInParametersAndTypesTheAnalyzerChain() throws Exception {
+    SimpleOrderedMap<Object> type = new SimpleOrderedMap<>();
+    type.add("name", "text_general");
+    type.add("class", "solr.TextField");
+    type.add("positionIncrementGap", "100");
+    type.add("multiValued", true);
+    type.add("similarity", Map.of("class", "solr.BM25SimilarityFactory"));
+    type.add(
+        "analyzer",
+        Map.of(
+            "tokenizer",
+            Map.of("name", "standard"),
+            "filters",
+            List.of(Map.of("name", "lowercase"), Map.of("name", "stop", "ignoreCase", "true"))));
+    SimpleOrderedMap<Object> schema = new SimpleOrderedMap<>();
+    schema.add("fieldTypes", List.of(type));
+    NamedList<Object> response = new NamedList<>();
+    response.add("schema", schema);
+    when(solrClient.request(any(SchemaRequest.class), eq("c"))).thenReturn(response);
+
+    CollectionSchema.FieldType result =
+        new SchemaService(solrClient, jsonMapper).getSchema("c").fieldTypes().getFirst();
+
+    assertEquals("solr.TextField", result.className());
+    assertEquals(true, result.multiValued());
+    assertEquals(
+        Map.of("positionIncrementGap", "100"),
+        result.parameters(),
+        "multiValued is a declared property, and a nested similarity is outside the contract");
+    CollectionSchema.Analyzer analyzer = result.analyzer();
+    assertNotNull(analyzer);
+    assertEquals(
+        new CollectionSchema.AnalyzerComponent("standard", null, Map.of()), analyzer.tokenizer());
+    assertEquals(
+        List.of(
+            new CollectionSchema.AnalyzerComponent("lowercase", null, Map.of()),
+            new CollectionSchema.AnalyzerComponent("stop", null, Map.of("ignoreCase", "true"))),
+        analyzer.filters());
   }
 
   @Test
@@ -126,12 +190,13 @@ class SchemaServiceTest {
     when(solrClient.request(any(SchemaRequest.class), eq(nonExistentCollection)))
         .thenThrow(new SolrServerException("Collection not found: " + nonExistentCollection));
 
-    // Then
-    assertThrows(
-        Exception.class,
-        () -> {
-          schemaService.getSchema(nonExistentCollection);
-        });
+    // Then - translated, without SolrJ's text or a cause
+    IllegalStateException exception =
+        assertThrows(
+            IllegalStateException.class, () -> schemaService.getSchema(nonExistentCollection));
+    assertTrue(
+        exception.getMessage().startsWith(SchemaService.GET_SCHEMA_FAILED), exception::getMessage);
+    assertNull(exception.getCause());
   }
 
   @Test
@@ -177,10 +242,13 @@ class SchemaServiceTest {
             new SolrServerException(
                 "Server refused connection at: http://solr-internal.corp:8983/solr"));
 
+    ReadResourceRequest request = new ReadResourceRequest("solr://" + collectionName + "/schema");
+
     // When
     IllegalStateException e =
         assertThrows(
-            IllegalStateException.class, () -> schemaService.getSchemaResource(collectionName));
+            IllegalStateException.class,
+            () -> schemaService.getSchemaResource(request, collectionName));
 
     // Then the client gets the fixed message, never the Solr failure text
     assertEquals(SchemaService.SCHEMA_RESOURCE_ERROR, e.getMessage());
@@ -207,7 +275,7 @@ class SchemaServiceTest {
 
   @Test
   void addFields_blankCollection_throws() {
-    List<Map<String, Object>> fields = List.of(Map.of("name", "x", "type", "string"));
+    List<CollectionSchema.Field> fields = fields(Map.of("name", "x", "type", "string"));
     assertThrows(IllegalArgumentException.class, () -> schemaService.addFields("", fields));
     assertThrows(IllegalArgumentException.class, () -> schemaService.addFields("   ", fields));
   }
@@ -219,8 +287,8 @@ class SchemaServiceTest {
 
   @Test
   void addFields_happyPath_buildsMultiUpdateAndEchoesNames() throws Exception {
-    List<Map<String, Object>> fields =
-        List.of(
+    List<CollectionSchema.Field> fields =
+        fields(
             Map.of("name", "title", "type", "text_general", "stored", true, "indexed", true),
             Map.of(
                 "name",
@@ -247,17 +315,40 @@ class SchemaServiceTest {
   }
 
   @Test
-  void addFields_solrThrows_propagates() throws Exception {
+  void addFields_defaultIsNamedDefaultInTheContractAndTheSchemaApiRequest() throws Exception {
+    List<CollectionSchema.Field> fields =
+        fields(Map.of("name", "status", "type", "string", "default", "active"));
+    when(solrClient.request(any(SolrRequest.class), eq("col"))).thenReturn(new NamedList<>());
+
+    CollectionSchema.Field status = fields.getFirst();
+    assertEquals("active", status.defaultValue());
+    JsonContent json = new JsonContent(jsonMapper.writeValueAsString(status));
+    assertThat(json).extractingPath("$.default").isEqualTo("active");
+    assertThat(json).doesNotHavePath("$.defaultValue");
+
+    schemaService.addFields("col", fields);
+
+    JsonContent body = capturedBody();
+    assertThat(body).extractingPath("$['add-field'].default").isEqualTo("active");
+    assertThat(body).extractingPath("$..defaultValue").asArray().isEmpty();
+  }
+
+  @Test
+  void addFields_solrThrows_isTranslated() throws Exception {
     when(solrClient.request(any(SolrRequest.class), eq("col")))
         .thenThrow(new SolrServerException("simulated"));
 
-    List<Map<String, Object>> fields = List.of(Map.of("name", "x", "type", "string"));
-    assertThrows(SolrServerException.class, () -> schemaService.addFields("col", fields));
+    List<CollectionSchema.Field> fields = fields(Map.of("name", "x", "type", "string"));
+    IllegalStateException exception =
+        assertThrows(IllegalStateException.class, () -> schemaService.addFields("col", fields));
+    assertTrue(
+        exception.getMessage().startsWith(SchemaService.ADD_FIELDS_FAILED), exception::getMessage);
   }
 
   @Test
   void addFieldTypes_blankCollection_throws() {
-    List<Map<String, Object>> types = List.of(Map.of("name", "x", "class", "solr.StrField"));
+    List<CollectionSchema.FieldType> types =
+        fieldTypes(Map.of("name", "x", "className", "solr.StrField"));
     assertThrows(IllegalArgumentException.class, () -> schemaService.addFieldTypes("", types));
     assertThrows(IllegalArgumentException.class, () -> schemaService.addFieldTypes("   ", types));
   }
@@ -269,157 +360,164 @@ class SchemaServiceTest {
   }
 
   @Test
-  void addFieldTypes_happyPathWithAnalyzer_buildsCorrectFieldTypeDefinition() throws Exception {
-    SchemaService service = new SchemaService(solrClient, jsonMapper);
-
-    List<Map<String, Object>> types =
-        List.of(
+  void addFieldTypes_happyPathWithAnalyzer_sendsClassesAndChain() throws Exception {
+    List<CollectionSchema.FieldType> types =
+        fieldTypes(
             Map.of(
                 "name",
                 "text_lowercase",
-                "class",
+                "className",
                 "solr.TextField",
                 "analyzer",
                 Map.of(
                     "tokenizer",
-                    Map.of("class", "solr.KeywordTokenizerFactory"),
+                    Map.of("className", "solr.KeywordTokenizerFactory"),
                     "filters",
-                    List.of(Map.of("class", "solr.LowerCaseFilterFactory")))));
-
+                    List.of(Map.of("className", "solr.LowerCaseFilterFactory")))));
     when(solrClient.request(any(SolrRequest.class), eq("col"))).thenReturn(new NamedList<>());
 
-    SchemaUpdateResult result = service.addFieldTypes("col", types);
+    SchemaUpdateResult result = schemaService.addFieldTypes("col", types);
 
     assertEquals(List.of("text_lowercase"), result.addedNames());
-
-    ArgumentCaptor<SolrRequest> captor = ArgumentCaptor.forClass(SolrRequest.class);
-    verify(solrClient).request(captor.capture(), eq("col"));
-    assertInstanceOf(MultiUpdate.class, captor.getValue());
+    JsonContent body = capturedBody();
+    assertThat(body).extractingPath(FIELD_TYPE + ".class").isEqualTo("solr.TextField");
+    assertThat(body)
+        .extractingPath(FIELD_TYPE + ".analyzer.tokenizer.class")
+        .isEqualTo("solr.KeywordTokenizerFactory");
+    assertThat(body)
+        .extractingPath(FIELD_TYPE + ".analyzer.filters[*].class")
+        .asArray()
+        .containsExactly("solr.LowerCaseFilterFactory");
+    // The contract's names must not reach Solr.
+    assertThat(body).extractingPath("$..className").asArray().isEmpty();
   }
 
   @Test
-  void addFieldTypes_separateAnalyzers_buildsCorrectFieldTypeDefinition() throws Exception {
-    SchemaService service = new SchemaService(solrClient, jsonMapper);
-
-    List<Map<String, Object>> types =
-        List.of(
+  void addFieldTypes_separateAnalyzers_sendComponentParameters() throws Exception {
+    List<CollectionSchema.FieldType> types =
+        fieldTypes(
             Map.of(
                 "name",
                 "text_autocomplete",
-                "class",
+                "className",
                 "solr.TextField",
+                "parameters",
+                Map.of("positionIncrementGap", "100"),
                 "indexAnalyzer",
                 Map.of(
                     "tokenizer",
-                    Map.of("class", "solr.KeywordTokenizerFactory"),
+                    Map.of("className", "solr.KeywordTokenizerFactory"),
                     "filters",
                     List.of(
-                        Map.of("class", "solr.LowerCaseFilterFactory"),
+                        Map.of("className", "solr.LowerCaseFilterFactory"),
                         Map.of(
-                            "class",
+                            "className",
                             "solr.EdgeNGramFilterFactory",
-                            "minGramSize",
-                            2,
-                            "maxGramSize",
-                            20))),
+                            "parameters",
+                            Map.of("minGramSize", "2", "maxGramSize", "20")))),
                 "queryAnalyzer",
                 Map.of(
                     "tokenizer",
-                    Map.of("class", "solr.KeywordTokenizerFactory"),
+                    Map.of("className", "solr.KeywordTokenizerFactory"),
                     "filters",
-                    List.of(Map.of("class", "solr.LowerCaseFilterFactory")))));
-
+                    List.of(Map.of("className", "solr.LowerCaseFilterFactory")))));
     when(solrClient.request(any(SolrRequest.class), eq("col"))).thenReturn(new NamedList<>());
 
-    SchemaUpdateResult result = service.addFieldTypes("col", types);
+    SchemaUpdateResult result = schemaService.addFieldTypes("col", types);
 
     assertEquals(List.of("text_autocomplete"), result.addedNames());
+    JsonContent body = capturedBody();
+    assertThat(body).extractingPath(FIELD_TYPE + ".positionIncrementGap").isEqualTo("100");
+    assertThat(body)
+        .extractingPath(
+            FIELD_TYPE + ".indexAnalyzer.filters[?(@.class == 'solr.EdgeNGramFilterFactory')]")
+        .asArray()
+        .singleElement()
+        .asInstanceOf(InstanceOfAssertFactories.MAP)
+        .containsEntry("minGramSize", "2")
+        .containsEntry("maxGramSize", "20");
+    assertThat(body)
+        .extractingPath(FIELD_TYPE + ".queryAnalyzer.tokenizer.class")
+        .isEqualTo("solr.KeywordTokenizerFactory");
+    // Parameters are flattened into the object they belong to.
+    assertThat(body).extractingPath("$..parameters").asArray().isEmpty();
   }
 
   @Test
   void addFieldTypes_denseVectorField_noAnalyzer() throws Exception {
-    SchemaService service = new SchemaService(solrClient, jsonMapper);
-
-    List<Map<String, Object>> types =
-        List.of(
+    List<CollectionSchema.FieldType> types =
+        fieldTypes(
             Map.of(
                 "name",
                 "openai_embedding",
-                "class",
+                "className",
                 "solr.DenseVectorField",
-                "vectorDimension",
-                1536,
-                "similarityFunction",
-                "cosine",
-                "knnAlgorithm",
-                "hnsw"));
-
+                "parameters",
+                Map.of(
+                    "vectorDimension",
+                    "1536",
+                    "similarityFunction",
+                    "cosine",
+                    "knnAlgorithm",
+                    "hnsw")));
     when(solrClient.request(any(SolrRequest.class), eq("col"))).thenReturn(new NamedList<>());
 
-    SchemaUpdateResult result = service.addFieldTypes("col", types);
+    SchemaUpdateResult result = schemaService.addFieldTypes("col", types);
 
     assertEquals(List.of("openai_embedding"), result.addedNames());
+    JsonContent body = capturedBody();
+    assertThat(body).extractingPath(FIELD_TYPE + ".class").isEqualTo("solr.DenseVectorField");
+    assertThat(body).extractingPath(FIELD_TYPE + ".vectorDimension").isEqualTo("1536");
+    assertThat(body).doesNotHavePath(FIELD_TYPE + ".analyzer");
   }
 
   @Test
-  void addFieldTypes_solrThrows_propagates() throws Exception {
-    SchemaService service = new SchemaService(solrClient, jsonMapper);
-
+  void addFieldTypes_solrThrows_isTranslated() throws Exception {
     when(solrClient.request(any(SolrRequest.class), eq("col")))
         .thenThrow(new SolrServerException("simulated"));
 
-    assertThrows(
-        SolrServerException.class,
-        () -> service.addFieldTypes("col", List.of(Map.of("name", "x", "class", "solr.StrField"))));
+    List<CollectionSchema.FieldType> types =
+        fieldTypes(Map.of("name", "x", "className", "solr.StrField"));
+    IllegalStateException exception =
+        assertThrows(IllegalStateException.class, () -> schemaService.addFieldTypes("col", types));
+    assertTrue(
+        exception.getMessage().startsWith(SchemaService.ADD_FIELD_TYPES_FAILED),
+        exception::getMessage);
   }
 
   /**
-   * Regression test for the single-class analyzer form <code>
-   * {"analyzer":{"class":"solr.WhitespaceAnalyzer"}}</code>. SolrJ's {@code AnalyzerDefinition} has
-   * no top-level setter for {@code class}, so a naive {@code jsonMapper.convertValue} silently
-   * drops it and Solr gets a malformed analyzer. The helper must preserve unknown analyzer-level
-   * keys via {@code setAttributes}. We verify by serializing the captured MultiUpdate's wire body
-   * and asserting the analyzer class is present.
+   * The single-class analyzer form, {@code {"analyzer":{"className":"solr.WhitespaceAnalyzer"}}}.
+   * SolrJ's {@code AnalyzerDefinition} has no setter for the analyzer's {@code class}, so it must
+   * go out through {@code setAttributes}, or Solr gets a malformed analyzer.
    */
   @Test
-  void addFieldTypes_analyzerWithOnlyClassKey_preservesClassInWireFormat() throws Exception {
-    SchemaService service = new SchemaService(solrClient, jsonMapper);
-
-    List<Map<String, Object>> types =
-        List.of(
+  void addFieldTypes_analyzerWithOnlyClass_sendsTheClass() throws Exception {
+    List<CollectionSchema.FieldType> types =
+        fieldTypes(
             Map.of(
                 "name",
                 "text_whitespace",
-                "class",
+                "className",
                 "solr.TextField",
                 "analyzer",
-                Map.of("class", "solr.WhitespaceAnalyzer")));
-
+                Map.of("className", "solr.WhitespaceAnalyzer")));
     when(solrClient.request(any(SolrRequest.class), eq("col"))).thenReturn(new NamedList<>());
 
-    service.addFieldTypes("col", types);
+    schemaService.addFieldTypes("col", types);
 
-    ArgumentCaptor<SolrRequest> captor = ArgumentCaptor.forClass(SolrRequest.class);
-    verify(solrClient).request(captor.capture(), eq("col"));
-    SolrRequest<?> req = captor.getValue();
-
-    java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-    req.getContentWriter("application/json").write(baos);
-    String body = baos.toString(java.nio.charset.StandardCharsets.UTF_8);
-
-    assertTrue(
-        body.contains("solr.WhitespaceAnalyzer"),
-        "Wire body must preserve the analyzer-level 'class' key: " + body);
-    assertTrue(
-        body.contains("solr.TextField"),
-        "Wire body must preserve the field-type-level 'class' key: " + body);
+    JsonContent body = capturedBody();
+    assertThat(body).extractingPath(FIELD_TYPE + ".class").isEqualTo("solr.TextField");
+    assertThat(body)
+        .extractingPath(FIELD_TYPE + ".analyzer.class")
+        .isEqualTo("solr.WhitespaceAnalyzer");
   }
 
   @Test
   void designSchemaPrompt_includesKeyWorkflowSteps() {
     String body =
-        schemaService.designSchemaPrompt(
-            "products", "A catalog of products with title and price", null);
+        promptText(
+            schemaService.designSchemaPrompt(
+                "products", "A catalog of products with title and price", null));
 
     assertNotNull(body);
     assertTrue(body.contains("products"), "Prompt should mention the target collection name");
@@ -436,14 +534,14 @@ class SchemaServiceTest {
         """
 				{"id":"sku-1","title":"Widget","price":9.99}""";
 
-    String body = schemaService.designSchemaPrompt("products", "Catalog", sample);
+    String body = promptText(schemaService.designSchemaPrompt("products", "Catalog", sample));
 
     assertTrue(body.contains(sample), "Prompt should include the sample document body");
   }
 
   @Test
   void viewSchemaPrompt_isReadOnlyAndReferencesGetSchema() {
-    String body = schemaService.viewSchemaPrompt("products");
+    String body = promptText(schemaService.viewSchemaPrompt("products"));
 
     assertNotNull(body);
     assertTrue(body.contains("products"), "Prompt should mention the target collection name");
@@ -459,6 +557,13 @@ class SchemaServiceTest {
     assertTrue(
         body.contains("design-schema"),
         "View prompt should cross-reference design-schema for follow-up modification");
+  }
+
+  @Test
+  void viewSchemaPrompt_saysUncountedFieldsAreNotEmpty() {
+    String body = promptText(schemaService.viewSchemaPrompt("products"));
+
+    assertTrue(body.contains("cannot count them, not because they are empty"), body);
   }
 
   // ===== list-fields =====
@@ -485,34 +590,45 @@ class SchemaServiceTest {
     response.add("fields", fields);
     response.add("info", info);
     when(solrClient.request(any(LukeRequest.class), eq(COLLECTION))).thenReturn(response);
+    List<IndexedField> listing = new SchemaService(solrClient, jsonMapper).listFields(COLLECTION);
 
-    FieldListing listing = new SchemaService(solrClient, jsonMapper).listFields(COLLECTION);
-
-    FieldListing.IndexedField field = listing.fields().get("genre_s");
+    IndexedField field = listing.getFirst();
+    assertEquals("genre_s", field.name());
     assertEquals("string", field.type());
     assertEquals(
         Set.of(
-            FieldFlag.INDEXED,
-            FieldFlag.STORED,
-            FieldFlag.DOC_VALUES,
-            FieldFlag.MULTI_VALUED,
-            FieldFlag.OMIT_NORMS,
-            FieldFlag.OMIT_TF,
-            FieldFlag.SORT_MISSING_LAST),
+            FieldProperty.indexed,
+            FieldProperty.stored,
+            FieldProperty.docValues,
+            FieldProperty.multiValued,
+            FieldProperty.omitNorms,
+            FieldProperty.omitTermFreqAndPositions,
+            FieldProperty.sortMissingLast),
         field.flags());
     assertEquals("*_s", field.dynamicBase());
     assertEquals(5L, field.docs());
-    assertEquals(Map.of(), field.other(), "the schema letters are decoded, not kept");
     assertThat(new JsonContent(jsonMapper.writeValueAsString(listing)))
         .isStrictlyEqualTo(
             """
-            {"fields": {"genre_s": {
-              "type": "string",
-              "flags": ["INDEXED", "STORED", "DOC_VALUES", "MULTI_VALUED", "OMIT_NORMS",
-                        "OMIT_TF", "SORT_MISSING_LAST"],
-              "dynamicBase": "*_s",
-              "docs": 5}}}
+            [{"name": "genre_s", "type": "string",
+              "flags": ["indexed", "stored", "docValues", "multiValued", "omitNorms",
+                        "omitTermFreqAndPositions", "sortMissingLast"],
+              "dynamicBase": "*_s", "docs": 5}]
             """);
+  }
+
+  @Test
+  void listFields_isOrderedByFieldName() throws Exception {
+    NamedList<Object> fields = new SimpleOrderedMap<>();
+    fields.add("zeta_s", new SimpleOrderedMap<>());
+    fields.add("alpha_s", new SimpleOrderedMap<>());
+    NamedList<Object> response = new NamedList<>();
+    response.add("fields", fields);
+    when(solrClient.request(any(LukeRequest.class), eq(COLLECTION))).thenReturn(response);
+
+    assertEquals(
+        List.of("alpha_s", "zeta_s"),
+        schemaService.listFields(COLLECTION).stream().map(IndexedField::name).toList());
   }
 
   @Test
@@ -528,14 +644,15 @@ class SchemaServiceTest {
     response.add("fields", fields);
     when(solrClient.request(any(LukeRequest.class), eq(COLLECTION))).thenReturn(response);
 
-    FieldListing listing = new SchemaService(solrClient, jsonMapper).listFields(COLLECTION);
+    List<IndexedField> listing = schemaService.listFields(COLLECTION);
 
-    assertEquals(3_000_000_000L, listing.fields().get("title").docs());
+    assertEquals(3_000_000_000L, listing.getFirst().docs());
   }
 
   @Test
-  void listFields_keepsTheLettersWhenOneIsNotAKnownFlag() throws Exception {
-    // A letter a later Solr version adds must not throw or yield a partial flag set.
+  void listFields_unknownFlagLetterIsSkippedAndTheKnownFlagsKept() throws Exception {
+    // A letter a later Solr version adds must not throw or hide the flags SolrJ knows, and Luke's
+    // letter encoding is not part of the contract.
     NamedList<Object> future = new SimpleOrderedMap<>();
     future.add("type", "string");
     future.add("schema", "I-S-----------Z");
@@ -545,11 +662,15 @@ class SchemaServiceTest {
     response.add("fields", fields);
     when(solrClient.request(any(LukeRequest.class), eq(COLLECTION))).thenReturn(response);
 
-    FieldListing.IndexedField field =
-        new SchemaService(solrClient, jsonMapper).listFields(COLLECTION).fields().get("future_s");
+    IndexedField field = schemaService.listFields(COLLECTION).getFirst();
 
-    assertEquals(Set.of(), field.flags());
-    assertEquals("I-S-----------Z", field.other().get("schema"));
+    assertEquals(Set.of(FieldProperty.indexed, FieldProperty.stored), field.flags());
+    // Neither Luke's letter string nor the unknown letter reaches the contract.
+    assertThat(new JsonContent(jsonMapper.writeValueAsString(field)))
+        .isStrictlyEqualTo(
+            """
+            {"name": "future_s", "type": "string", "flags": ["indexed", "stored"]}
+            """);
   }
 
   @Test
@@ -567,5 +688,27 @@ class SchemaServiceTest {
   @Test
   void listFields_rejectsBlankCollection() {
     assertThrows(IllegalArgumentException.class, () -> schemaService.listFields(" "));
+  }
+
+  /** Fields as an MCP client sends them: JSON objects in the shape get-schema reports. */
+  @SafeVarargs
+  private List<CollectionSchema.Field> fields(Map<String, Object>... fields) {
+    return jsonMapper.convertValue(List.of(fields), new TypeReference<>() {});
+  }
+
+  /** Field types as an MCP client sends them: JSON objects in the shape get-schema reports. */
+  @SafeVarargs
+  private List<CollectionSchema.FieldType> fieldTypes(Map<String, Object>... types) {
+    return jsonMapper.convertValue(List.of(types), new TypeReference<>() {});
+  }
+
+  /** The JSON body of the single Schema API request the service sent. */
+  /** The Schema API request body sent to Solr, as JSON. */
+  private JsonContent capturedBody() throws Exception {
+    ArgumentCaptor<SolrRequest> captor = ArgumentCaptor.forClass(SolrRequest.class);
+    verify(solrClient).request(captor.capture(), eq("col"));
+    ByteArrayOutputStream body = new ByteArrayOutputStream();
+    captor.getValue().getContentWriter("application/json").write(body);
+    return new JsonContent(body.toString(StandardCharsets.UTF_8));
   }
 }

@@ -290,7 +290,10 @@ public class MarkdownDocumentCreator implements SolrDocumentCreator {
     }
     List<String> lines =
         block.getSourceSpans().stream()
-            .map(s -> markdown.substring(s.getInputIndex(), s.getInputIndex() + s.getLength()))
+            .map(
+                span ->
+                    markdown.substring(
+                        span.getInputIndex(), span.getInputIndex() + span.getLength()))
             .toList();
     // The first and last spans are the --- delimiters
     String text = String.join("\n", lines.subList(1, Math.max(1, lines.size() - 1)));

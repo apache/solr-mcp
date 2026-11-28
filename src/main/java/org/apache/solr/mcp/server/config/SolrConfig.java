@@ -17,10 +17,14 @@
 package org.apache.solr.mcp.server.config;
 
 import java.net.URI;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.apache.solr.client.solrj.request.XMLRequestWriter;
+import org.apache.solr.common.util.ExecutorUtil;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -93,6 +97,16 @@ public class SolrConfig {
   private static final int SOCKET_TIMEOUT_MS = 60000;
   private static final String SOLR_PATH = "solr/";
 
+  // The pool SolrJ's HttpJdkSolrClient builds when it is not given one, except that its threads
+  // are daemon threads; see solrClientExecutor().
+  private static final int CLIENT_CORE_THREADS = 4;
+  private static final int CLIENT_MAX_THREADS = 256;
+  private static final int CLIENT_THREAD_KEEP_ALIVE_SECONDS = 60;
+  private static final int CLIENT_QUEUE_CAPACITY = 1024;
+  private static final String CLIENT_THREAD_NAME_PREFIX = "solr-client-";
+
+  static final String SOLR_CLIENT_EXECUTOR = "solrClientExecutor";
+
   /** Default constructor used by Spring to instantiate this configuration. */
   public SolrConfig() {
     // Declared only to carry the Javadoc above; javadoc warns on an implicit constructor.
@@ -143,14 +157,48 @@ public class SolrConfig {
    * @param properties the injected Solr configuration properties containing connection URL
    * @param jsonResponseParser the parser that converts Solr's JSON responses into the NamedList
    *     tree SolrJ expects
+   * @param solrClientExecutor the threads the client runs requests on, from {@link
+   *     #solrClientExecutor()}
    * @return configured SolrClient instance ready for use in application services
    * @see HttpJdkSolrClient.Builder
    * @see SolrConfigurationProperties#url()
    */
   @Bean
   SolrClient solrClient(
-      SolrConfigurationProperties properties, JsonResponseParser jsonResponseParser) {
-    return buildSolrClient(properties, jsonResponseParser);
+      SolrConfigurationProperties properties,
+      JsonResponseParser jsonResponseParser,
+      @Qualifier(SOLR_CLIENT_EXECUTOR) ExecutorService solrClientExecutor) {
+    return buildSolrClient(properties, jsonResponseParser, solrClientExecutor);
+  }
+
+  /**
+   * Threads for {@link #solrClient}: the same pool SolrJ's {@link HttpJdkSolrClient} creates for
+   * itself, except that the threads are daemon threads.
+   *
+   * <p>SolrJ's own threads are non-daemon and stop only when the client is closed. In STDIO mode
+   * nothing closes the application context when the MCP client closes stdin, so once a tool had
+   * called Solr those threads kept the JVM running after the client had gone. With daemon threads
+   * the JVM exits on stdin EOF, and Spring's shutdown hook then closes the client and this
+   * executor. HTTP mode is unaffected: Tomcat's threads keep it running.
+   *
+   * <p>A client given an executor does not shut it down, so the context does, through the inferred
+   * {@code close()} of this bean, after it has closed the client.
+   *
+   * <p>It is not a default candidate, so only {@link #solrClient} receives it by name. As an
+   * ordinary {@code Executor} bean it would make Spring Boot back off from auto-configuring the
+   * {@code applicationTaskExecutor} that HTTP mode's async request handling uses.
+   *
+   * @return the executor passed to {@link HttpJdkSolrClient.Builder#withExecutor}
+   */
+  @Bean(name = SOLR_CLIENT_EXECUTOR, defaultCandidate = false)
+  ExecutorService solrClientExecutor() {
+    return new ExecutorUtil.MDCAwareThreadPoolExecutor(
+        CLIENT_CORE_THREADS,
+        CLIENT_MAX_THREADS,
+        CLIENT_THREAD_KEEP_ALIVE_SECONDS,
+        TimeUnit.SECONDS,
+        new LinkedBlockingQueue<>(CLIENT_QUEUE_CAPACITY),
+        Thread.ofPlatform().name(CLIENT_THREAD_NAME_PREFIX, 1).daemon(true).factory());
   }
 
   /**
@@ -167,7 +215,9 @@ public class SolrConfig {
   }
 
   private static SolrClient buildSolrClient(
-      SolrConfigurationProperties properties, JsonResponseParser jsonResponseParser) {
+      SolrConfigurationProperties properties,
+      JsonResponseParser jsonResponseParser,
+      ExecutorService executor) {
     // Normalise against the URL's *path* only. Testing the whole URL string
     // would see the "/solr/" inside an authority such as http://solr/ and
     // wrongly conclude the path was already present.
@@ -195,7 +245,8 @@ public class SolrConfig {
             .withIdleTimeout(SOCKET_TIMEOUT_MS, TimeUnit.MILLISECONDS)
             .useHttp1_1(true)
             .withResponseParser(jsonResponseParser)
-            .withRequestWriter(new XMLRequestWriter());
+            .withRequestWriter(new XMLRequestWriter())
+            .withExecutor(executor);
 
     // Optional HTTP Basic Authentication: applied only when both credentials
     // are provided so existing unauthenticated deployments are unaffected.

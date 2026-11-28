@@ -22,9 +22,12 @@ import static org.apache.solr.mcp.server.collection.CollectionUtils.getLong;
 
 import io.micrometer.observation.annotation.Observed;
 import io.modelcontextprotocol.spec.McpSchema.CompleteRequest;
+import io.modelcontextprotocol.spec.McpSchema.CompleteResult;
+import io.modelcontextprotocol.spec.McpSchema.GetPromptResult;
+import io.modelcontextprotocol.spec.McpSchema.ReadResourceRequest;
+import io.modelcontextprotocol.spec.McpSchema.ReadResourceResult;
+import io.modelcontextprotocol.spec.McpSchema.Role;
 import java.io.IOException;
-import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import org.apache.solr.client.solrj.SolrClient;
@@ -42,11 +45,22 @@ import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.util.NamedList;
+import org.apache.solr.mcp.server.collection.CollectionMetrics.CacheInfo;
+import org.apache.solr.mcp.server.collection.CollectionMetrics.CacheStats;
+import org.apache.solr.mcp.server.collection.CollectionMetrics.HandlerInfo;
+import org.apache.solr.mcp.server.collection.CollectionMetrics.HandlerStats;
+import org.apache.solr.mcp.server.collection.CollectionMetrics.IndexStats;
 import org.apache.solr.mcp.server.config.SolrConfigurationProperties;
+import org.apache.solr.mcp.server.security.McpAuthorities;
+import org.apache.solr.mcp.server.util.McpResults;
 import org.apache.solr.mcp.server.util.PromptNames;
+import org.apache.solr.mcp.server.util.ResourceUris;
+import org.apache.solr.mcp.server.util.SolrCalls;
+import org.apache.solr.mcp.server.util.SolrQueries;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.event.Level;
 import org.springframework.ai.mcp.annotation.McpArg;
 import org.springframework.ai.mcp.annotation.McpComplete;
 import org.springframework.ai.mcp.annotation.McpPrompt;
@@ -55,6 +69,7 @@ import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
+import org.springframework.util.MimeTypeUtils;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -99,26 +114,27 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <p><strong>Error Handling:</strong>
  *
- * <p>Collection-level operations (listing, validation) propagate {@link SolrServerException} and
- * {@link IOException} so that callers (including the MCP framework) receive a clear error when Solr
- * is unreachable. Sub-metric operations (cache, handler) degrade gracefully and return {@code null}
- * when their specific endpoints are unavailable.
+ * <p>Collection-level operations (listing, stats, creation) call Solr through {@link SolrCalls},
+ * which translates a failure into an exception whose message the MCP client receives as an {@code
+ * isError} result, Solr unreachable included. {@code check-health} reports a fixed {@link
+ * HealthStatus.Reason} instead. Sub-metric operations (cache, handler) degrade gracefully and
+ * return {@code null} when their specific endpoints are unavailable.
  *
  * <p><strong>Example Usage:</strong>
  *
  * <pre>{@code
  * // List all available collections
- * List<String> collections = collectionService.listCollections();
+ * List<Collection> collections = collectionService.listCollections();
  *
  * // Get comprehensive metrics for a collection
- * SolrMetrics metrics = collectionService.getCollectionStats("my_collection");
+ * CollectionMetrics metrics = collectionService.getCollectionStats("my_collection");
  *
  * // Check collection health
- * SolrHealthStatus health = collectionService.checkHealth("my_collection");
+ * HealthStatus health = collectionService.checkHealth("my_collection");
  * }</pre>
  *
- * @see SolrMetrics
- * @see SolrHealthStatus
+ * @see CollectionMetrics
+ * @see HealthStatus
  * @see org.apache.solr.client.solrj.SolrClient
  */
 @Service
@@ -134,9 +150,6 @@ public class CollectionService {
   // ========================================
   // Constants for API Parameters and Paths
   // ========================================
-
-  /** Universal Solr query pattern to match all documents in a collection */
-  private static final String ALL_DOCUMENTS_QUERY = "*:*";
 
   /**
    * Matches a SolrCloud shard/replica suffix at the end of a core name, e.g. {@code _shard1} or
@@ -250,8 +263,14 @@ public class CollectionService {
   // Constants for Error Messages
   // ========================================
 
-  /** Error message prefix for collection not found exceptions */
-  private static final String COLLECTION_NOT_FOUND_ERROR = "Collection not found: ";
+  /** Leads the error text of a failed {@code list-collections}. */
+  static final String LIST_COLLECTIONS_FAILED = "Listing collections failed";
+
+  /** Leads the error text of a failed {@code get-collection-stats}. */
+  static final String COLLECTION_STATS_FAILED = "Getting collection stats failed";
+
+  /** Leads the error text of a failed {@code create-collection}. */
+  static final String CREATE_COLLECTION_FAILED = "Creating the collection failed";
 
   /** Default configset name used when none is specified */
   private static final String DEFAULT_CONFIGSET = "_default";
@@ -314,19 +333,24 @@ public class CollectionService {
    * <p>This resource provides a simple way for MCP clients to discover what collections are
    * available in the Solr cluster. The returned JSON contains an array of collection names.
    *
-   * @return JSON string containing the list of collections
+   * @param request the read request, whose URI the result echoes
+   * @return the collection list as one {@code application/json} resource content
    * @throws IllegalStateException with {@link #COLLECTIONS_RESOURCE_ERROR} if the collections
    *     cannot be listed or serialized
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.READ)
   @McpResource(
-      uri = "solr://collections",
+      uri = ResourceUris.COLLECTIONS,
       name = "solr-collections",
       description = "List of all Solr collections available in the cluster",
-      mimeType = "application/json")
-  public String getCollectionsResource() {
+      mimeType = MimeTypeUtils.APPLICATION_JSON_VALUE)
+  public ReadResourceResult getCollectionsResource(ReadResourceRequest request) {
     try {
-      return jsonMapper.writeValueAsString(listCollections());
+      return McpResults.jsonResource(
+          request.uri(), jsonMapper.writeValueAsString(listCollections()));
+    } catch (IllegalArgumentException | IllegalStateException _) {
+      // SolrCalls' translation of a failed listing; SolrCalls has already logged the cause.
+      throw new IllegalStateException(COLLECTIONS_RESOURCE_ERROR);
     } catch (Exception e) {
       // Deliberately no cause: MCP reports the root cause's message to the client,
       // and Solr and SolrJ failure text can carry internal host names, URLs and
@@ -349,23 +373,27 @@ public class CollectionService {
    *
    * @param argument the partial value the client is completing; its {@link
    *     CompleteRequest.CompleteArgument#name() name} must be {@code collection}
-   * @return matching collection names, capped at {@link #MAX_COMPLETION_RESULTS}
+   * @return up to {@link #MAX_COMPLETION_RESULTS} matching names, with the total match count
    */
-  @PreAuthorize("isAuthenticated()")
-  @McpComplete(uri = "solr://{collection}/schema")
-  public List<String> completeCollection(CompleteRequest.CompleteArgument argument) {
-    if (!"collection".equals(argument.name())) {
-      return List.of();
+  @PreAuthorize(McpAuthorities.READ)
+  @McpComplete(uri = ResourceUris.COLLECTION_SCHEMA)
+  public CompleteResult completeCollection(CompleteRequest.CompleteArgument argument) {
+    if (!PromptNames.COLLECTION_ARG.equals(argument.name())) {
+      return McpResults.completion(List.of(), MAX_COMPLETION_RESULTS);
     }
     String prefix = argument.value().toLowerCase(Locale.ROOT);
     try {
-      return listCollections().stream()
-          .filter(c -> c.toLowerCase(Locale.ROOT).startsWith(prefix))
-          .sorted()
-          .limit(MAX_COMPLETION_RESULTS)
-          .toList();
-    } catch (SolrServerException | IOException _) {
-      return List.of();
+      List<String> matches =
+          collections(Level.DEBUG).stream()
+              .map(Collection::name)
+              .filter(name -> name.toLowerCase(Locale.ROOT).startsWith(prefix))
+              .sorted()
+              .toList();
+      return McpResults.completion(matches, MAX_COMPLETION_RESULTS);
+    } catch (IllegalArgumentException | IllegalStateException _) {
+      // SolrCalls' translations of a failed listing, logged at DEBUG: a completion runs on every
+      // keystroke, so it offers nothing rather than an error.
+      return McpResults.completion(List.of(), MAX_COMPLETION_RESULTS);
     }
   }
 
@@ -374,11 +402,12 @@ public class CollectionService {
    * resource template (defined in {@code SchemaService}).
    *
    * @param argument the partial value the client is completing
-   * @return matching collection names, capped at {@link #MAX_COMPLETION_RESULTS}
+   * @return up to {@link #MAX_COMPLETION_RESULTS} matching names, with the total match count
    */
-  @PreAuthorize("isAuthenticated()")
-  @McpComplete(uri = "solr://{collection}/fields")
-  public List<String> completeFieldsResourceCollection(CompleteRequest.CompleteArgument argument) {
+  @PreAuthorize(McpAuthorities.READ)
+  @McpComplete(uri = ResourceUris.COLLECTION_FIELDS)
+  public CompleteResult completeFieldsResourceCollection(
+      CompleteRequest.CompleteArgument argument) {
     return completeCollection(argument);
   }
 
@@ -392,11 +421,12 @@ public class CollectionService {
    * collection-name completion shares one implementation and one cap.
    *
    * @param argument the partial value the client is completing
-   * @return matching collection names, capped at {@link #MAX_COMPLETION_RESULTS}
+   * @return up to {@link #MAX_COMPLETION_RESULTS} matching names, with the total match count
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.READ)
   @McpComplete(prompt = PromptNames.SEARCH_COLLECTION)
-  public List<String> completeSearchCollectionPromptArg(CompleteRequest.CompleteArgument argument) {
+  public CompleteResult completeSearchCollectionPromptArg(
+      CompleteRequest.CompleteArgument argument) {
     return completeCollection(argument);
   }
 
@@ -404,11 +434,11 @@ public class CollectionService {
    * Completion for the {@code collection} argument of the {@code index-data} prompt.
    *
    * @param argument the partial value the client is completing
-   * @return matching collection names, capped at {@link #MAX_COMPLETION_RESULTS}
+   * @return up to {@link #MAX_COMPLETION_RESULTS} matching names, with the total match count
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.READ)
   @McpComplete(prompt = PromptNames.INDEX_DATA)
-  public List<String> completeIndexDataPromptArg(CompleteRequest.CompleteArgument argument) {
+  public CompleteResult completeIndexDataPromptArg(CompleteRequest.CompleteArgument argument) {
     return completeCollection(argument);
   }
 
@@ -416,11 +446,11 @@ public class CollectionService {
    * Completion for the {@code collection} argument of the {@code view-schema} prompt.
    *
    * @param argument the partial value the client is completing
-   * @return matching collection names, capped at {@link #MAX_COMPLETION_RESULTS}
+   * @return up to {@link #MAX_COMPLETION_RESULTS} matching names, with the total match count
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.READ)
   @McpComplete(prompt = PromptNames.VIEW_SCHEMA)
-  public List<String> completeViewSchemaPromptArg(CompleteRequest.CompleteArgument argument) {
+  public CompleteResult completeViewSchemaPromptArg(CompleteRequest.CompleteArgument argument) {
     return completeCollection(argument);
   }
 
@@ -428,11 +458,11 @@ public class CollectionService {
    * Completion for the {@code collection} argument of the {@code design-schema} prompt.
    *
    * @param argument the partial value the client is completing
-   * @return matching collection names, capped at {@link #MAX_COMPLETION_RESULTS}
+   * @return up to {@link #MAX_COMPLETION_RESULTS} matching names, with the total match count
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.READ)
   @McpComplete(prompt = PromptNames.DESIGN_SCHEMA)
-  public List<String> completeDesignSchemaPromptArg(CompleteRequest.CompleteArgument argument) {
+  public CompleteResult completeDesignSchemaPromptArg(CompleteRequest.CompleteArgument argument) {
     return completeCollection(argument);
   }
 
@@ -450,24 +480,38 @@ public class CollectionService {
    * <p>This method is exposed as an MCP tool and can be invoked by AI clients with natural language
    * requests like "list all collections" or "show me available databases".
    *
-   * @return a list of collection names; never null (returns an empty list when Solr reports no
+   * @return the collections, one {@link Collection} per name; empty when Solr reports no
    *     collections)
-   * @throws SolrServerException if there are errors communicating with Solr
-   * @throws IOException if there are I/O errors during communication
+   * @throws IllegalStateException if Solr failed or could not be reached, as {@link SolrCalls}
+   *     reports it
    * @see CollectionAdminRequest.List
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.READ)
   @McpTool(
       name = "list-collections",
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
       description = "List solr collections")
-  public List<String> listCollections() throws SolrServerException, IOException {
-    CollectionAdminRequest.List request = new CollectionAdminRequest.List();
-    CollectionAdminResponse response = request.process(solrClient);
+  public List<Collection> listCollections() {
+    return collections(Level.WARN);
+  }
+
+  /**
+   * Reads every collection name from Solr.
+   *
+   * @param logLevel the level a failure is logged at
+   * @return the collections, one {@link Collection} per name
+   */
+  private List<Collection> collections(Level logLevel) {
+    CollectionAdminResponse response =
+        SolrCalls.call(
+            LIST_COLLECTIONS_FAILED,
+            SolrCalls.ADMIN_API_NOT_FOUND,
+            logLevel,
+            () -> new CollectionAdminRequest.List().process(solrClient));
 
     @SuppressWarnings("unchecked")
     List<String> collections = (List<String>) response.getResponse().get(COLLECTIONS_KEY);
-    return collections != null ? collections : new ArrayList<>();
+    return collections != null ? collections.stream().map(Collection::new).toList() : List.of();
   }
 
   /**
@@ -496,8 +540,9 @@ public class CollectionService {
    * <p><strong>Validation:</strong>
    *
    * <p>Collection existence is not checked with a separate pre-flight call: the Luke request below
-   * already 404s for an unknown collection, and that response is translated into an {@code
-   * IllegalArgumentException} with a descriptive error message.
+   * already 404s for an unknown collection, and {@link SolrCalls} translates that response into an
+   * {@code IllegalArgumentException} that names the collection and the {@code list-collections}
+   * tool.
    *
    * <p><strong>MCP Tool Usage:</strong>
    *
@@ -507,56 +552,50 @@ public class CollectionService {
    * @param collection the name of the collection to analyze (supports both collection and shard
    *     names)
    * @return comprehensive metrics object containing all collected statistics
-   * @throws IllegalArgumentException if the specified collection does not exist
-   * @throws SolrServerException if there are errors communicating with Solr
-   * @throws IOException if there are I/O errors during communication
-   * @see SolrMetrics
+   * @throws IllegalArgumentException if the specified collection does not exist, or Solr refused
+   *     the request
+   * @throws IllegalStateException if Solr failed or could not be reached
+   * @see CollectionMetrics
    * @see LukeRequest
    * @see #extractCollectionName(String)
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.READ)
   @McpTool(
       name = "get-collection-stats",
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
       description =
-          "Get index size and performance metrics for a Solr collection: document and segment "
-              + "counts, and query, cache and handler stats. It does not describe fields; use "
-              + "list-fields for the fields that hold data. cacheStats and handlerStats may be"
-              + " null when Solr's /admin/metrics API does not provide them for the collection;"
-              + " this is expected and not an error.")
-  public SolrMetrics getCollectionStats(
-      @McpToolParam(description = "Solr collection to get stats/metrics for") String collection)
-      throws SolrServerException, IOException {
+          "Get index size and performance metrics for a Solr collection: document and segment"
+              + " counts from the index, and cache and request handler statistics. It does not"
+              + " describe fields; use list-fields for the fields that hold data. Before Solr 9.11"
+              + " and 10.1, numDocs and segmentCount of a collection with more than one shard are"
+              + " one shard's. caches and handlers are those of the one core named in"
+              + " metricsCore, not the whole collection, and are omitted when Solr's"
+              + " /admin/metrics API does not provide them; this is expected and not an error. A"
+              + " cache's hitRatio is 1.0 when it has had no lookups. handlers times (totalTime,"
+              + " avgTimePerRequest) are in nanoseconds.",
+      generateOutputSchema = true)
+  public CollectionMetrics getCollectionStats(
+      @McpToolParam(description = "Solr collection to get stats/metrics for") String collection) {
     // Extract actual collection name from shard name if needed
     String actualCollection = extractCollectionName(collection);
+    String notFound = SolrCalls.collectionNotFound(actualCollection);
 
     // Index statistics using Luke; an unknown collection 404s here
-    LukeResponse lukeResponse;
-    try {
-      lukeResponse = new IndexOnlyLukeRequest().process(solrClient, actualCollection);
-    } catch (SolrException e) {
-      if (e.code() == SolrException.ErrorCode.NOT_FOUND.code) {
-        throw new IllegalArgumentException(
-            COLLECTION_NOT_FOUND_ERROR
-                + actualCollection
-                + ". Hint: call list-collections to see available collections.",
-            e);
-      }
-      throw e;
-    }
+    LukeResponse lukeResponse =
+        SolrCalls.call(
+            COLLECTION_STATS_FAILED,
+            notFound,
+            () -> new IndexOnlyLukeRequest().process(solrClient, actualCollection));
 
-    // Query performance metrics
-    QueryResponse statsResponse =
-        solrClient.query(actualCollection, new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
-
-    // One /admin/metrics call feeds both the cache and handler stats
-    NamedList<Object> coreMetrics = fetchMetrics(actualCollection);
-    return new SolrMetrics(
+    // One /admin/metrics call feeds both the cache and handler stats. No query is sent: the
+    // handler and cache counters are cumulative, so a probe query would show up in this and every
+    // later call's numbers.
+    CoreMetrics coreMetrics = fetchMetrics(actualCollection);
+    return new CollectionMetrics(
         buildIndexStats(lukeResponse),
-        buildQueryStats(statsResponse),
-        cacheStats(coreMetrics),
-        handlerStats(coreMetrics),
-        Instant.now());
+        cacheStats(metricsOf(coreMetrics)),
+        handlerStats(metricsOf(coreMetrics)),
+        coreMetrics == null ? null : coreMetrics.core());
   }
 
   /**
@@ -590,41 +629,6 @@ public class CollectionService {
     Integer segmentCount = getInteger(indexInfo, SEGMENT_COUNT_KEY);
 
     return new IndexStats(lukeResponse.getNumDocs(), segmentCount);
-  }
-
-  /**
-   * Builds a QueryStats object from a Solr query response containing performance metrics.
-   *
-   * <p>Extracts key performance indicators from a query execution including timing, result
-   * characteristics, and relevance scoring information. These metrics help identify query
-   * performance patterns and optimization opportunities.
-   *
-   * <p><strong>Extracted Metrics:</strong>
-   *
-   * <ul>
-   *   <li><strong>queryTime</strong>: Execution time in milliseconds
-   *   <li><strong>totalResults</strong>: Total matching documents found
-   *   <li><strong>start</strong>: Pagination offset (0-based)
-   *   <li><strong>maxScore</strong>: Highest relevance score in results
-   * </ul>
-   *
-   * <p><strong>Performance Analysis:</strong>
-   *
-   * <p>Query time metrics help identify slow queries that may need optimization, while result
-   * counts and scores provide insight into search effectiveness.
-   *
-   * @param response the query response containing performance and result metadata
-   * @return QueryStats object with extracted performance metrics
-   * @see QueryStats
-   * @see QueryResponse
-   */
-  QueryStats buildQueryStats(QueryResponse response) {
-
-    return new QueryStats(
-        response.getQTime(),
-        response.getResults().getNumFound(),
-        response.getResults().getStart(),
-        response.getResults().getMaxScore());
   }
 
   /**
@@ -664,7 +668,7 @@ public class CollectionService {
    */
   @Nullable CacheStats getCacheMetrics(String collection) {
     // An unknown collection has no core in the metrics response, so this is null
-    return cacheStats(fetchMetrics(extractCollectionName(collection)));
+    return cacheStats(metricsOf(fetchMetrics(extractCollectionName(collection))));
   }
 
   /** Extracts {@link CacheStats} from fetched core metrics, or {@code null} if there are none. */
@@ -757,7 +761,7 @@ public class CollectionService {
    */
   @Nullable HandlerStats getHandlerMetrics(String collection) {
     // An unknown collection has no core in the metrics response, so this is null
-    return handlerStats(fetchMetrics(extractCollectionName(collection)));
+    return handlerStats(metricsOf(fetchMetrics(extractCollectionName(collection))));
   }
 
   /**
@@ -794,10 +798,10 @@ public class CollectionService {
    * request.
    *
    * @param collection the collection name
-   * @return the core-level metrics NamedList, or null if unavailable
+   * @return the first matching core's registry name and metrics, or null if unavailable
    */
   @SuppressWarnings("unchecked")
-  private @Nullable NamedList<Object> fetchMetrics(String collection) {
+  private @Nullable CoreMetrics fetchMetrics(String collection) {
     ModifiableSolrParams params = new ModifiableSolrParams();
     params.set(GROUP_PARAM, CORE_GROUP);
     params.set(PREFIX_PARAM, STATS_METRIC_PREFIXES);
@@ -825,10 +829,22 @@ public class CollectionService {
     for (int i = 0; i < metrics.size(); i++) {
       String key = metrics.getName(i);
       if (key != null && key.startsWith(corePrefix)) {
-        return (NamedList<Object>) metrics.getVal(i);
+        return new CoreMetrics(key, (NamedList<Object>) metrics.getVal(i));
       }
     }
     return null;
+  }
+
+  /**
+   * One core's metrics, keyed in the Metrics API by its registry name.
+   *
+   * @param core the registry name, such as {@code solr.core.films.shard1.replica_n1}
+   * @param metrics the core's metrics
+   */
+  private record CoreMetrics(String core, NamedList<Object> metrics) {}
+
+  private static @Nullable NamedList<Object> metricsOf(@Nullable CoreMetrics coreMetrics) {
+    return coreMetrics == null ? null : coreMetrics.metrics();
   }
 
   /**
@@ -851,7 +867,7 @@ public class CollectionService {
     // second, so the average time is derived from the total time and the request count.
     Float avgTimePerRequest =
         (requests > 0 && totalTime != null) ? (float) totalTime / requests : null;
-    return new HandlerInfo(requests, errors, timeouts, totalTime, avgTimePerRequest, null);
+    return new HandlerInfo(requests, errors, timeouts, totalTime, avgTimePerRequest);
   }
 
   /**
@@ -900,8 +916,7 @@ public class CollectionService {
    *   <li><strong>Availability</strong>: Collection responds to ping requests
    *   <li><strong>Performance</strong>: Response time measurement
    *   <li><strong>Content</strong>: Document count verification using universal query ({@value
-   *       #ALL_DOCUMENTS_QUERY})
-   *   <li><strong>Timestamp</strong>: When the check was performed
+   *       SolrQueries#MATCH_ALL})
    * </ul>
    *
    * <p><strong>Success Criteria:</strong>
@@ -912,9 +927,9 @@ public class CollectionService {
    *
    * <p><strong>Failure Handling:</strong>
    *
-   * <p>If the health check fails, a status object is returned with {@code isHealthy=false} and the
-   * error message describing the failure reason. This allows monitoring systems to identify
-   * specific issues.
+   * <p>If the health check fails, the result has {@code healthy=false} and a {@link
+   * HealthStatus.Reason} saying which step failed. The exception itself is logged and kept out of
+   * the result, because Solr's error text can quote host names, URLs and credentials.
    *
    * <p><strong>MCP Tool Usage:</strong>
    *
@@ -922,38 +937,46 @@ public class CollectionService {
    * healthy" or "is the search index working properly".
    *
    * @param collection the name of the collection to health check
-   * @return SolrHealthStatus object containing health assessment results
-   * @see SolrHealthStatus
+   * @return HealthStatus object containing health assessment results
+   * @see HealthStatus
    * @see SolrPingResponse
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.READ)
   @McpTool(
       name = "check-health",
       annotations = @McpTool.McpAnnotations(readOnlyHint = true),
-      description = "Check health of a Solr collection")
-  public SolrHealthStatus checkHealth(
+      generateOutputSchema = true,
+      description =
+          "Check that one collection answers queries: a ping plus its document count. It does not"
+              + " report replica state, so it can report healthy while a replica is down; use"
+              + " get-cluster-status for replicas and nodes.")
+  public HealthStatus checkHealth(
       @McpToolParam(description = "Solr collection") String collection) {
     String actualCollection = extractCollectionName(collection);
+    SolrPingResponse pingResponse;
     try {
-      // Ping Solr
-      SolrPingResponse pingResponse = solrClient.ping(actualCollection);
-
-      // Get basic stats
+      pingResponse = solrClient.ping(actualCollection);
+    } catch (SolrException e) {
+      logger.warn("Health check ping failed for collection: {}", collection, e);
+      return HealthStatus.unhealthy(
+          actualCollection,
+          e.code() == SolrException.ErrorCode.NOT_FOUND.code
+              ? HealthStatus.Reason.COLLECTION_NOT_FOUND
+              : HealthStatus.Reason.PING_FAILED);
+    } catch (SolrServerException | IOException e) {
+      logger.warn("Health check could not reach Solr for collection: {}", collection, e);
+      return HealthStatus.unhealthy(actualCollection, HealthStatus.Reason.SOLR_UNREACHABLE);
+    }
+    try {
       QueryResponse statsResponse =
-          solrClient.query(actualCollection, new SolrQuery(ALL_DOCUMENTS_QUERY).setRows(0));
-
-      return new SolrHealthStatus(
-          true,
-          null,
+          solrClient.query(actualCollection, new SolrQuery(SolrQueries.MATCH_ALL).setRows(0));
+      return HealthStatus.healthy(
+          actualCollection,
           pingResponse.getElapsedTime(),
-          statsResponse.getResults().getNumFound(),
-          Instant.now(),
-          actualCollection);
-
-    } catch (Exception e) {
-      logger.warn("Health check failed for collection: {}", collection, e);
-      return new SolrHealthStatus(
-          false, e.getMessage(), null, null, Instant.now(), actualCollection);
+          statsResponse.getResults().getNumFound());
+    } catch (SolrException | SolrServerException | IOException e) {
+      logger.warn("Health check query failed for collection: {}", collection, e);
+      return HealthStatus.unhealthy(actualCollection, HealthStatus.Reason.QUERY_FAILED);
     }
   }
 
@@ -976,19 +999,22 @@ public class CollectionService {
    *     private copy)
    * @param numShards number of shards (optional, defaults to 1)
    * @param replicationFactor replication factor (optional, defaults to 1)
-   * @return result describing the outcome of the creation operation
-   * @throws IllegalArgumentException if the collection name is blank
-   * @throws SolrServerException if Solr returns an error
-   * @throws IOException if there are I/O errors during communication
+   * @return the settings the collection was created with, including applied defaults
+   * @throws IllegalArgumentException if the collection name is blank, or Solr refused the request,
+   *     for example for a configset that does not exist; the message carries Solr's reason
+   * @throws IllegalStateException if Solr failed or could not be reached
+   * @see SolrCalls
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.ADMIN)
   @McpTool(
       name = "create-collection",
       annotations = @McpTool.McpAnnotations(destructiveHint = false),
       description =
           "Create a new Solr collection. By default it gets its own copy of the _default configset,"
               + " so its schema is independent of other collections. Pass configSet only to share an existing"
-              + " configset. numShards and replicationFactor default to 1.")
+              + " configset; call list-configsets to see the available configsets. numShards and"
+              + " replicationFactor default to 1.",
+      generateOutputSchema = true)
   public CollectionCreationResult createCollection(
       @McpToolParam(description = "Name of the collection to create") String name,
       @McpToolParam(
@@ -1001,8 +1027,7 @@ public class CollectionService {
       @McpToolParam(description = "Number of shards. Defaults to 1.", required = false)
           @Nullable Integer numShards,
       @McpToolParam(description = "Replication factor. Defaults to 1.", required = false)
-          @Nullable Integer replicationFactor)
-      throws SolrServerException, IOException {
+          @Nullable Integer replicationFactor) {
 
     if (name.isBlank()) {
       throw new IllegalArgumentException(BLANK_COLLECTION_NAME_ERROR);
@@ -1022,10 +1047,10 @@ public class CollectionService {
       request =
           CollectionAdminRequest.createCollection(name, configSet, effectiveShards, effectiveRf);
     }
-    request.process(solrClient);
+    SolrCalls.call(
+        CREATE_COLLECTION_FAILED, SolrCalls.ADMIN_API_NOT_FOUND, () -> request.process(solrClient));
 
-    return new CollectionCreationResult(
-        name, true, "Collection created successfully", effectiveConfigSet, Instant.now());
+    return new CollectionCreationResult(name, effectiveConfigSet, effectiveShards, effectiveRf);
   }
 
   /**
@@ -1034,14 +1059,16 @@ public class CollectionService {
    *
    * @return the prompt text instructing the model how to explore collections
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.READ)
   @McpPrompt(
       name = PromptNames.EXPLORE_COLLECTIONS,
       title = "Explore Solr collections",
-      description =
-          "Read-only walkthrough: list collections and characterise each by stats and health.")
-  public String exploreCollectionsPrompt() {
-    return """
+      description = PromptNames.EXPLORE_COLLECTIONS_DESCRIPTION)
+  public GetPromptResult exploreCollectionsPrompt() {
+    return McpResults.prompt(
+        PromptNames.EXPLORE_COLLECTIONS_DESCRIPTION,
+        Role.USER,
+        """
 				You are exploring an Apache Solr cluster through MCP tools. Goal: produce a concise,
 				accurate picture of what already exists. This prompt is read-only; do not create or
 				modify anything.
@@ -1062,7 +1089,7 @@ public class CollectionService {
 				     stale.
 				   - If the user's intent does not match any existing collection, suggest the
 				     `setup-collection` prompt to create one.
-				""";
+				""");
   }
 
   /**
@@ -1075,13 +1102,12 @@ public class CollectionService {
    *     or blank
    * @return the prompt text instructing the model how to set up the collection
    */
-  @PreAuthorize("isAuthenticated()")
+  @PreAuthorize(McpAuthorities.READ)
   @McpPrompt(
       name = PromptNames.SETUP_COLLECTION,
       title = "Set up a new Solr collection",
-      description =
-          "Guided workflow: validate a name, pick configset / shards / replication factor, create the collection, and verify it.")
-  public String setupCollectionPrompt(
+      description = PromptNames.SETUP_COLLECTION_DESCRIPTION)
+  public GetPromptResult setupCollectionPrompt(
       @McpArg(
               name = "name",
               description =
@@ -1096,7 +1122,10 @@ public class CollectionService {
           @Nullable String purpose) {
     String purposeLine =
         (purpose == null || purpose.isBlank()) ? "" : "\nPurpose: " + purpose.strip() + "\n";
-    return """
+    return McpResults.prompt(
+        PromptNames.SETUP_COLLECTION_DESCRIPTION,
+        Role.USER,
+        """
 				You are setting up a new Solr collection named `%s` through MCP tools.%s
 				1. Validate the name.
 				   - Lowercase letters, digits, underscores, hyphens only — no spaces or uppercase.
@@ -1112,8 +1141,8 @@ public class CollectionService {
 
 				3. Create.
 				   - Call `create-collection` with `name=%s` and any non-default `configSet`,
-				     `numShards`, `replicationFactor` values. Report the result (success flag +
-				     message).
+				     `numShards`, `replicationFactor` values. Report the name, configSet, numShards
+				     and replicationFactor it returns.
 
 				4. Verify.
 				   - Call `list-collections` again; `%s` should appear.
@@ -1122,15 +1151,15 @@ public class CollectionService {
 				Next step suggestion: define the schema. Use the `design-schema` prompt to design
 				fields for the dataset the user wants to index.
 				"""
-        .formatted(
-            name,
-            purposeLine,
-            name,
-            DEFAULT_CONFIGSET,
-            DEFAULT_NUM_SHARDS,
-            DEFAULT_REPLICATION_FACTOR,
-            name,
-            name,
-            name);
+            .formatted(
+                name,
+                purposeLine,
+                name,
+                DEFAULT_CONFIGSET,
+                DEFAULT_NUM_SHARDS,
+                DEFAULT_REPLICATION_FACTOR,
+                name,
+                name,
+                name));
   }
 }

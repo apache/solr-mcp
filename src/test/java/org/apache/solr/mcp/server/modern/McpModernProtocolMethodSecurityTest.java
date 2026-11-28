@@ -103,7 +103,7 @@ class McpModernProtocolMethodSecurityTest {
             || (body.get("result") instanceof Map<?, ?> r && Boolean.TRUE.equals(r.get("isError")));
     assertTrue(
         rejected,
-        "list-collections carries @PreAuthorize(\"isAuthenticated()\"); an anonymous modern-protocol "
+        "list-collections carries @PreAuthorize(McpAuthorities.READ); an anonymous modern-protocol "
             + "call must not run it: "
             + response.body());
   }
@@ -143,7 +143,7 @@ class McpModernProtocolMethodSecurityTest {
                 SecurityContextHolder.getContext()
                     .setAuthentication(
                         UsernamePasswordAuthenticationToken.authenticated(
-                            user, "n/a", AuthorityUtils.createAuthorityList("ROLE_USER")));
+                            user, "n/a", AuthorityUtils.createAuthorityList("SCOPE_solr:read")));
               }
               chain.doFilter(request, response);
             }
