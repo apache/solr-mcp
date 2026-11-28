@@ -362,7 +362,7 @@ image. Changes it has already made in Solr do not roll back with it.
   changing one tag back.
 - **To roll back**, set the image to the previous `<version>` tag and redeploy:
   `docker compose up -d` after editing `compose.yaml`, or
-  `kubectl set image deployment/solr-mcp solr-mcp=apache/solr-mcp:<previous-version>` and
+  `kubectl set image deployment/solr-mcp solr-mcp=ghcr.io/apache/solr-mcp:<previous-version>` and
   `kubectl rollout status deployment/solr-mcp`. `kubectl rollout undo deployment/solr-mcp`
   does the same thing when the bad version was the last rollout.
 - **Configuration** (`SOLR_URL`, `PROFILES`, `OAUTH2_*`, `MCP_CORS_ALLOWED_ORIGINS`) is read at
