@@ -36,8 +36,8 @@ import org.springframework.aot.hint.RuntimeHintsRegistrar;
  * GraalVM native image reachability hints for SolrJ types this project actually uses.
  *
  * <p>The client reads JSON responses through {@link JsonResponseParser} on {@code
- * HttpJdkSolrClient}. The hints below cover response containers and the {@code NamedList} admin
- * shape returned by the mbeans path.
+ * HttpJdkSolrClient}. It builds every response from {@code NamedList} and {@code SimpleOrderedMap},
+ * which the hints below cover along with the typed response containers.
  *
  * <p>{@link SolrConfig} imports this registrar unconditionally — on the JVM path it is a no-op
  * because no runtime reflection happens against these types at startup. It is only meaningful when

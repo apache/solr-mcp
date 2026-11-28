@@ -333,10 +333,15 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
   - **Resources**: `logback-spring.xml` (see Logging Architecture above), and SolrJ's
     `EnvToSyspropMappings.properties` / `DeprecatedSystemPropertyMappings.properties`,
     which `EnvUtils` loads in its static initializer
-- **Wire format:** `SolrConfig` reads JSON responses (`JsonResponseParser`) and sends
-  updates with `XMLRequestWriter` instead of the default `JavaBinRequestWriter`. Neither
-  is a native-image requirement: SolrJ's `JavaBinCodec` uses no reflection, and
-  `JavaBinResponseParser` passes `nativeTest -Pnative` with no extra hints.
+- **Wire format:** the same on the JVM and in the native image. Responses are JSON
+  (`JsonResponseParser`, chosen in #55 so the traffic is readable). Document batches go
+  out as XML through `XMLRequestWriter` instead of SolrJ's default `JavaBinRequestWriter`;
+  the writer only serializes `UpdateRequest`s, which `index-json-documents` and
+  `index-markdown-documents` send. The CSV and XML tools post their payload as given, and
+  every other request carries its own body. Neither choice is a native-image requirement:
+  SolrJ's JavaBin classes use no reflection, and `JavaBinResponseParser` passes
+  `nativeTest -Pnative` with no extra hints. XML stays for updates because it is readable
+  and it is the path the native tests run.
 - **Docker tags:** Jib JVM = `solr-mcp:<version>` (`solr-mcp:latest`).
   Paketo native = `solr-mcp:<version>-native-stdio` /
   `solr-mcp:<version>-native-http` (with corresponding `:latest-native-*` tags).

@@ -138,11 +138,18 @@ unconditionally; on the JVM path it is simply a no-op.
 
 ### Wire format
 
-`SolrConfig` builds the client with JSON responses (`JsonResponseParser` on
-`HttpJdkSolrClient`) and `XMLRequestWriter` for updates, in place of SolrJ's
-JavaBin defaults. The native image does not need either choice. SolrJ's
-`JavaBinCodec` uses no reflection, and with `JavaBinResponseParser` swapped in,
-`./gradlew nativeTest -Pnative` passes without adding a hint.
+`SolrConfig` builds one client for both the JVM and the native image: JSON
+responses (`JsonResponseParser` on `HttpJdkSolrClient`) and `XMLRequestWriter`
+for updates, in place of SolrJ's JavaBin defaults. The request writer only
+serializes `UpdateRequest` document batches (`index-json-documents`,
+`index-markdown-documents`); the CSV and XML tools post their payload as given,
+and every other request carries its own body.
+
+Neither choice is needed for the native image. SolrJ's JavaBin classes use no
+reflection, and with `JavaBinResponseParser` swapped in, `./gradlew nativeTest
+-Pnative` passes without adding a hint. JSON responses were chosen in #55 so the
+traffic is readable, and XML stays for updates for the same reason and because
+it is the path the native tests run.
 
 ### What's registered, and why
 
