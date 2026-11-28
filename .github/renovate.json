@@ -1,0 +1,36 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Runs Renovate with solrbot, as apache/solr does; see apache/solr's dev-docs/dependency-upgrades.adoc",
+  "enabled": true,
+  "gitIgnoredAuthors": ["renovate-bot <renovate-bot@noreply.github.com>"],
+  "dependencyDashboard": false,
+  "enabledManagers": ["gradle"],
+  "includePaths": [
+    "gradle/libs.versions.toml",
+    "build.gradle.kts",
+    "settings.gradle.kts",
+    "buildSrc/build.gradle.kts"
+  ],
+  "packageRules": [
+    {
+      "description": "CATCH-ALL: bundle all remaining minor/patch bumps into one PR to cut churn. Major bumps are intentionally NOT grouped - they stay as individual PRs. The groups below override this for their packages.",
+      "matchManagers": ["gradle"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "all non-major dependencies"
+    },
+    {
+      "description": "Error Prone, its Gradle plugin and NullAway are grouped on their own because compiler-check upgrades routinely surface new bug patterns that require source fixes, so they need dedicated review separate from the catch-all bump PR.",
+      "matchPackageNames": ["com.google.errorprone{/,}**", "com.uber.nullaway{/,}**", "net.ltgt.errorprone{/,}**"],
+      "groupName": "Error Prone"
+    },
+    {
+      "description": "cyclonedx-core-java (buildSrc) must stay on the version the org.cyclonedx.bom plugin uses, so the SBOM reader and writer share one model. Bump it by hand together with the plugin.",
+      "matchPackageNames": ["org.cyclonedx:cyclonedx-core-java"],
+      "enabled": false
+    }
+  ],
+  "schedule": ["before 9am on the first day of the month"],
+  "prConcurrentLimit": 7,
+  "prHourlyLimit": 20,
+  "minimumReleaseAge": "5 days"
+}
