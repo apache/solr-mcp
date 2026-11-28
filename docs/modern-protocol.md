@@ -83,8 +83,24 @@ spring.ai.mcp.server.modern.request-state-secret=${MCP_REQUEST_STATE_SECRET}
 ## Native images
 
 The transport is chosen by `@ConditionalOnProperty` conditions, which a GraalVM native image
-fixes at build time. To get a native image that serves the modern protocol, set
-`MCP_PROTOCOL=modern` when running `nativeCompile`. This has not been tested yet.
+fixes at build time, so `MCP_PROTOCOL` must be set when the image is built. Setting it when the
+image runs has no effect:
+
+```bash
+MCP_PROTOCOL=modern ./gradlew bootBuildImage -Pnative -Pprofile=http   # HTTP
+MCP_PROTOCOL=modern ./gradlew bootBuildImage -Pnative                  # STDIO
+```
+
+To confirm the build picked it up, check that the AOT output contains the modern server:
+
+```bash
+grep -rl McpServerModernAutoConfiguration build/generated/aotSources
+```
+
+Both images serve the 2026-07-28 revision. The HTTP image enforces the `@PreAuthorize` scope
+checks on every tool, resource, prompt and completion. The STDIO image has no authentication,
+the same as the default STDIO mode. It includes the workaround below, so it answers a request
+sent the moment it starts.
 
 ## Spring AI 2.1 STDIO workaround
 

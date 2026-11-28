@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.concurrent.ExecutorService;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.impl.HttpJdkSolrClient;
 import org.junit.jupiter.api.Test;
@@ -79,7 +80,9 @@ class SolrConfigAuthTest {
     SolrConfigurationProperties properties =
         new SolrConfigurationProperties("http://localhost:8983/solr/", username, password);
     SolrConfig config = new SolrConfig();
-    try (SolrClient client = config.solrClient(properties, new JsonResponseParser(jsonMapper))) {
+    try (ExecutorService executor = config.solrClientExecutor();
+        SolrClient client =
+            config.solrClient(properties, new JsonResponseParser(jsonMapper), executor)) {
       HttpJdkSolrClient httpClient = assertInstanceOf(HttpJdkSolrClient.class, client);
       Field field = ReflectionUtils.findField(httpClient.getClass(), "basicAuthAuthorizationStr");
       assertNotNull(field, "SolrJ field 'basicAuthAuthorizationStr' not found");
