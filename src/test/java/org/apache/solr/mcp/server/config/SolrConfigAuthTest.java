@@ -49,7 +49,7 @@ import tools.jackson.databind.json.JsonMapper;
 @DisabledInNativeImage
 class SolrConfigAuthTest {
 
-  @Autowired private JsonMapper objectMapper;
+  @Autowired private JsonMapper jsonMapper;
 
   @Test
   void noCredentialsWhenBothMissing() throws Exception {
@@ -79,7 +79,7 @@ class SolrConfigAuthTest {
     SolrConfigurationProperties properties =
         new SolrConfigurationProperties("http://localhost:8983/solr/", username, password);
     SolrConfig config = new SolrConfig();
-    try (SolrClient client = config.solrClient(properties, new JsonResponseParser(objectMapper))) {
+    try (SolrClient client = config.solrClient(properties, new JsonResponseParser(jsonMapper))) {
       HttpJdkSolrClient httpClient = assertInstanceOf(HttpJdkSolrClient.class, client);
       Field field = ReflectionUtils.findField(httpClient.getClass(), "basicAuthAuthorizationStr");
       assertNotNull(field, "SolrJ field 'basicAuthAuthorizationStr' not found");

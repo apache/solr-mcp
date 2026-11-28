@@ -48,8 +48,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.json.JsonTest;
 import tools.jackson.databind.json.JsonMapper;
 
+@JsonTest
 @ExtendWith(MockitoExtension.class)
 @DisabledInNativeImage
 class CollectionServiceTest {
@@ -64,11 +67,11 @@ class CollectionServiceTest {
 
   private CollectionService collectionService;
 
-  private final JsonMapper objectMapper = JsonMapper.shared();
+  @Autowired private JsonMapper jsonMapper;
 
   @BeforeEach
   void setUp() {
-    collectionService = new CollectionService(solrClient, objectMapper);
+    collectionService = new CollectionService(solrClient, jsonMapper);
   }
 
   // Constructor tests

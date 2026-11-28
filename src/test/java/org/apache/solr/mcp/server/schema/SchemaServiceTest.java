@@ -16,6 +16,7 @@
  */
 package org.apache.solr.mcp.server.schema;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -43,31 +44,35 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.json.JsonTest;
+import org.springframework.test.json.JsonContent;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Comprehensive test suite for the SchemaService class. Tests schema retrieval functionality with
  * various scenarios including success and error cases.
  */
+@JsonTest
 @ExtendWith(MockitoExtension.class)
 @DisabledInNativeImage
 class SchemaServiceTest {
 
   @Mock private SolrClient solrClient;
 
-  @Mock private JsonMapper objectMapper;
+  @Autowired private JsonMapper jsonMapper;
 
   private SchemaService schemaService;
 
   @BeforeEach
   void setUp() {
-    schemaService = new SchemaService(solrClient, objectMapper);
+    schemaService = new SchemaService(solrClient, jsonMapper);
   }
 
   @Test
   void testSchemaService_InstantiatesCorrectly() {
     // Given/When
-    SchemaService service = new SchemaService(solrClient, objectMapper);
+    SchemaService service = new SchemaService(solrClient, jsonMapper);
 
     // Then
     assertNotNull(service, "SchemaService should be instantiated correctly");
@@ -94,9 +99,8 @@ class SchemaServiceTest {
     NamedList<Object> response = new NamedList<>();
     response.add("schema", schema);
     when(solrClient.request(any(SchemaRequest.class), eq("c"))).thenReturn(response);
-    JsonMapper realMapper = JsonMapper.builder().build();
 
-    CollectionSchema result = new SchemaService(solrClient, realMapper).getSchema("c");
+    CollectionSchema result = new SchemaService(solrClient, jsonMapper).getSchema("c");
 
     assertEquals("genre", result.fields().getFirst().name());
     assertEquals(true, result.fields().getFirst().other().get("futureFlag"));
@@ -105,11 +109,12 @@ class SchemaServiceTest {
     assertFalse(result.fields().getFirst().other().containsKey("indexed"));
     assertFalse(result.fields().getFirst().other().containsKey("stored"));
     assertEquals(Map.of("k", "v"), result.other().get("futureSection"));
-    String json = realMapper.writeValueAsString(result);
-    assertTrue(json.contains("\"futureFlag\":true"), json);
-    assertTrue(json.contains("\"futureSection\":{\"k\":\"v\"}"), json);
-    assertFalse(json.contains("\"other\""), json);
-    assertTrue(json.contains("\"flags\":[\"INDEXED\"]"), json);
+    JsonContent json = new JsonContent(jsonMapper.writeValueAsString(result));
+    assertThat(json).extractingPath("$.fields[0].futureFlag").isEqualTo(true);
+    assertThat(json).extractingPath("$.futureSection").isEqualTo(Map.of("k", "v"));
+    assertThat(json).extractingPath("$.fields[0].flags").asArray().containsExactly("INDEXED");
+    // A deep scan never throws PathNotFoundException, so doesNotHavePath would always fail on it
+    assertThat(json).extractingPath("$..other").asArray().isEmpty();
   }
 
   @Test
@@ -196,7 +201,7 @@ class SchemaServiceTest {
   @Test
   void testConstructor() {
     // Test that constructor properly initializes the service
-    SchemaService service = new SchemaService(solrClient, objectMapper);
+    SchemaService service = new SchemaService(solrClient, jsonMapper);
     assertNotNull(service);
   }
 
@@ -265,9 +270,7 @@ class SchemaServiceTest {
 
   @Test
   void addFieldTypes_happyPathWithAnalyzer_buildsCorrectFieldTypeDefinition() throws Exception {
-    // Use a real JsonMapper so convertValue actually works
-    JsonMapper realMapper = JsonMapper.builder().build();
-    SchemaService service = new SchemaService(solrClient, realMapper);
+    SchemaService service = new SchemaService(solrClient, jsonMapper);
 
     List<Map<String, Object>> types =
         List.of(
@@ -296,8 +299,7 @@ class SchemaServiceTest {
 
   @Test
   void addFieldTypes_separateAnalyzers_buildsCorrectFieldTypeDefinition() throws Exception {
-    JsonMapper realMapper = JsonMapper.builder().build();
-    SchemaService service = new SchemaService(solrClient, realMapper);
+    SchemaService service = new SchemaService(solrClient, jsonMapper);
 
     List<Map<String, Object>> types =
         List.of(
@@ -336,8 +338,7 @@ class SchemaServiceTest {
 
   @Test
   void addFieldTypes_denseVectorField_noAnalyzer() throws Exception {
-    JsonMapper realMapper = JsonMapper.builder().build();
-    SchemaService service = new SchemaService(solrClient, realMapper);
+    SchemaService service = new SchemaService(solrClient, jsonMapper);
 
     List<Map<String, Object>> types =
         List.of(
@@ -362,8 +363,7 @@ class SchemaServiceTest {
 
   @Test
   void addFieldTypes_solrThrows_propagates() throws Exception {
-    JsonMapper realMapper = JsonMapper.builder().build();
-    SchemaService service = new SchemaService(solrClient, realMapper);
+    SchemaService service = new SchemaService(solrClient, jsonMapper);
 
     when(solrClient.request(any(SolrRequest.class), eq("col")))
         .thenThrow(new SolrServerException("simulated"));
@@ -376,15 +376,14 @@ class SchemaServiceTest {
   /**
    * Regression test for the single-class analyzer form <code>
    * {"analyzer":{"class":"solr.WhitespaceAnalyzer"}}</code>. SolrJ's {@code AnalyzerDefinition} has
-   * no top-level setter for {@code class}, so a naive {@code objectMapper.convertValue} silently
+   * no top-level setter for {@code class}, so a naive {@code jsonMapper.convertValue} silently
    * drops it and Solr gets a malformed analyzer. The helper must preserve unknown analyzer-level
    * keys via {@code setAttributes}. We verify by serializing the captured MultiUpdate's wire body
    * and asserting the analyzer class is present.
    */
   @Test
   void addFieldTypes_analyzerWithOnlyClassKey_preservesClassInWireFormat() throws Exception {
-    JsonMapper realMapper = JsonMapper.builder().build();
-    SchemaService service = new SchemaService(solrClient, realMapper);
+    SchemaService service = new SchemaService(solrClient, jsonMapper);
 
     List<Map<String, Object>> types =
         List.of(
@@ -486,9 +485,8 @@ class SchemaServiceTest {
     response.add("fields", fields);
     response.add("info", info);
     when(solrClient.request(any(LukeRequest.class), eq(COLLECTION))).thenReturn(response);
-    JsonMapper realMapper = JsonMapper.builder().build();
 
-    FieldListing listing = new SchemaService(solrClient, realMapper).listFields(COLLECTION);
+    FieldListing listing = new SchemaService(solrClient, jsonMapper).listFields(COLLECTION);
 
     FieldListing.IndexedField field = listing.fields().get("genre_s");
     assertEquals("string", field.type());
@@ -505,12 +503,16 @@ class SchemaServiceTest {
     assertEquals("*_s", field.dynamicBase());
     assertEquals(5L, field.docs());
     assertEquals(Map.of(), field.other(), "the schema letters are decoded, not kept");
-    String json = realMapper.writeValueAsString(listing);
-    assertEquals(
-        "{\"fields\":{\"genre_s\":{\"type\":\"string\",\"flags\":[\"INDEXED\",\"STORED\","
-            + "\"DOC_VALUES\",\"MULTI_VALUED\",\"OMIT_NORMS\",\"OMIT_TF\",\"SORT_MISSING_LAST\"],"
-            + "\"dynamicBase\":\"*_s\",\"docs\":5}}}",
-        json);
+    assertThat(new JsonContent(jsonMapper.writeValueAsString(listing)))
+        .isStrictlyEqualTo(
+            """
+            {"fields": {"genre_s": {
+              "type": "string",
+              "flags": ["INDEXED", "STORED", "DOC_VALUES", "MULTI_VALUED", "OMIT_NORMS",
+                        "OMIT_TF", "SORT_MISSING_LAST"],
+              "dynamicBase": "*_s",
+              "docs": 5}}}
+            """);
   }
 
   @Test
@@ -526,8 +528,7 @@ class SchemaServiceTest {
     response.add("fields", fields);
     when(solrClient.request(any(LukeRequest.class), eq(COLLECTION))).thenReturn(response);
 
-    FieldListing listing =
-        new SchemaService(solrClient, JsonMapper.builder().build()).listFields(COLLECTION);
+    FieldListing listing = new SchemaService(solrClient, jsonMapper).listFields(COLLECTION);
 
     assertEquals(3_000_000_000L, listing.fields().get("title").docs());
   }
@@ -545,10 +546,7 @@ class SchemaServiceTest {
     when(solrClient.request(any(LukeRequest.class), eq(COLLECTION))).thenReturn(response);
 
     FieldListing.IndexedField field =
-        new SchemaService(solrClient, JsonMapper.builder().build())
-            .listFields(COLLECTION)
-            .fields()
-            .get("future_s");
+        new SchemaService(solrClient, jsonMapper).listFields(COLLECTION).fields().get("future_s");
 
     assertEquals(Set.of(), field.flags());
     assertEquals("I-S-----------Z", field.other().get("schema"));

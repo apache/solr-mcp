@@ -100,7 +100,7 @@ class OtlpExportIntegrationTest {
 
   @Autowired private SolrClient solrClient;
 
-  @Autowired private JsonMapper objectMapper;
+  @Autowired private JsonMapper jsonMapper;
 
   @BeforeAll
   static void setUpCollection(@Autowired SolrClient solrClient) throws Exception {
@@ -193,7 +193,7 @@ class OtlpExportIntegrationTest {
     searchService.search(COLLECTION_NAME, "*:*", null, null, null, null, null);
 
     // When: We query Prometheus for metrics
-    LgtmAssertions lgtm = new LgtmAssertions(lgtmStack, objectMapper);
+    LgtmAssertions lgtm = new LgtmAssertions(lgtmStack, jsonMapper);
 
     // Then: Metrics should be available in Prometheus
     // Wait for metrics to be scraped and available
@@ -222,7 +222,7 @@ class OtlpExportIntegrationTest {
   @Test
   void shouldHaveLokiReadyAndAccessible() {
     // Given: LGTM stack is running with Loki
-    LgtmAssertions lgtm = new LgtmAssertions(lgtmStack, objectMapper);
+    LgtmAssertions lgtm = new LgtmAssertions(lgtmStack, jsonMapper);
 
     // Then: Loki should be ready and accessible
     await()
@@ -242,7 +242,7 @@ class OtlpExportIntegrationTest {
   @Test
   void shouldHavePrometheusEndpointAccessible() {
     // Given: LGTM stack is running
-    LgtmAssertions lgtm = new LgtmAssertions(lgtmStack, objectMapper);
+    LgtmAssertions lgtm = new LgtmAssertions(lgtmStack, jsonMapper);
 
     // Then: Prometheus endpoint should be accessible
     String prometheusUrl = lgtm.getPrometheusUrl();
@@ -253,7 +253,7 @@ class OtlpExportIntegrationTest {
   @Test
   void shouldHaveLokiEndpointAccessible() {
     // Given: LGTM stack is running
-    LgtmAssertions lgtm = new LgtmAssertions(lgtmStack, objectMapper);
+    LgtmAssertions lgtm = new LgtmAssertions(lgtmStack, jsonMapper);
 
     // Then: Loki endpoint should be accessible
     String lokiUrl = lgtm.getLokiUrl();
