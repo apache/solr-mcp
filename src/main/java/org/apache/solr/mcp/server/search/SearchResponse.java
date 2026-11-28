@@ -16,100 +16,98 @@
  */
 package org.apache.solr.mcp.server.search;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Immutable record representing a structured search response from Apache Solr operations.
+ * The result of the {@code search} tool: how many documents matched, where this page starts, the
+ * hits on this page, and the facet counts.
  *
- * <p>This record encapsulates all essential components of a Solr search result in a type-safe,
- * immutable structure that can be easily serialized to JSON for MCP client consumption. It provides
- * a clean abstraction over Solr's native response format while preserving all critical search
- * metadata and result data.
- *
- * <p><strong>Record Benefits:</strong>
- *
- * <ul>
- *   <li><strong>Immutability</strong>: Response data cannot be modified after creation
- *   <li><strong>Type Safety</strong>: Compile-time validation of response structure
- *   <li><strong>JSON Serialization</strong>: Automatic conversion to JSON for MCP clients
- *   <li><strong>Memory Efficiency</strong>: Compact representation with minimal overhead
- * </ul>
- *
- * <p><strong>Search Metadata:</strong>
- *
- * <p>The response includes comprehensive search metadata that helps clients understand the query
- * results and implement pagination, relevance analysis, and user interfaces:
- *
- * <ul>
- *   <li><strong>Total Results</strong>: Complete count of matching documents
- *   <li><strong>Pagination Info</strong>: Current offset for result windowing
- *   <li><strong>Relevance Scoring</strong>: Maximum relevance score in the result set
- * </ul>
- *
- * <p><strong>Document Structure:</strong>
- *
- * <p>Documents are represented as flexible key-value maps to accommodate Solr's dynamic field
- * capabilities and schema-less operation. Each document map contains field names as keys and field
- * values as objects, preserving the original data types from Solr (strings, numbers, dates, arrays,
- * etc.).
- *
- * <p><strong>Faceting Support:</strong>
- *
- * <p>Facet information is structured as a nested map hierarchy where the outer map represents facet
- * field names and inner maps contain facet values with their corresponding document counts. This
- * structure efficiently supports multiple faceting strategies including field faceting and range
- * faceting.
- *
- * <p><strong>Usage Examples:</strong>
- *
- * <pre>{@code
- * // Access search results
- * SearchResponse response = searchService.search("products", "laptop", null, null, null, 0, 10);
- * System.out.println("Found " + response.numFound() + " products");
- *
- * // Iterate through documents
- * for (Map<String, Object> doc : response.documents()) {
- * 	System.out.println("Title: " + doc.get("title"));
- * 	System.out.println("Price: " + doc.get("price"));
- * }
- *
- * // Access facet data
- * Map<String, Long> categoryFacets = response.facets().get("category");
- * categoryFacets.forEach((category, count) -> System.out.println(category + ": " + count + " items"));
- * }</pre>
- *
- * <p><strong>JSON Serialization Example:</strong>
+ * <p>The shape belongs to this server, not to Solr. Only the keys of each hit's {@link
+ * SearchHit#fields() fields} come from the collection, because they are the collection's own field
+ * names.
  *
  * <pre>{@code
  * {
- *   "numFound": 150,
- *   "start": 0,
+ *   "numFound": 42,
+ *   "start": 10,
  *   "maxScore": 2.34,
  *   "documents": [
- *     {"id": "1", "title": "Product 1", "price": 29.99},
- *     {"id": "2", "title": "Product 2", "price": 19.99}
+ *     {"id": "book001", "score": 2.34, "fields": {"name": ["A Game of Thrones"], "year": 1996}}
  *   ],
- *   "facets": {
- *     "category": {"electronics": 45, "books": 30},
- *     "brand": {"apple": 12, "samsung": 8}
- *   }
+ *   "facets": [
+ *     {"field": "genre", "values": [{"value": "drama", "count": 12}, {"value": "comedy", "count": 7}]}
+ *   ]
  * }
  * }</pre>
  *
- * @param numFound total number of documents matching the search query across all pages
- * @param start zero-based offset indicating the starting position of returned results
- * @param maxScore highest relevance score among the returned documents (null if scoring disabled)
- * @param documents list of document maps containing field names and values for each result
- * @param facets nested map structure containing facet field names, values, and document counts
- * @see SearchService#search(String, String, List, List, List, Integer, Integer)
- * @see org.apache.solr.client.solrj.response.QueryResponse
- * @see org.apache.solr.common.SolrDocumentList
+ * @param numFound the total number of matching documents, across all pages
+ * @param start the offset of the first hit in {@code documents}
+ * @param maxScore the highest score among the matches; absent when Solr computed no scores
+ * @param documents the hits on this page, in Solr's ranking order
+ * @param facets one entry per faceted field, in the order Solr returned them; empty when the search
+ *     asked for no facets
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record SearchResponse(
     long numFound,
     long start,
     @Nullable Float maxScore,
-    List<Map<String, Object>> documents,
-    Map<String, Map<String, Long>> facets) {}
+    List<SearchHit> documents,
+    List<FacetField> facets) {
+
+  /** Copies the lists into unmodifiable lists, so no hit or facet can be added or removed. */
+  public SearchResponse {
+    documents = List.copyOf(documents);
+    facets = List.copyOf(facets);
+  }
+
+  /**
+   * One matching document.
+   *
+   * @param id the value of the collection's uniqueKey field, as a string
+   * @param score the document's relevance score; absent when Solr returned none
+   * @param fields the document's other returned fields by name, in Solr's order, without the
+   *     uniqueKey field and without {@code score}. Values keep their JSON types: numbers stay
+   *     numbers and multi-valued fields are arrays. The map is unmodifiable; its values are not
+   *     deep-copied, so a multi-valued field's list is the one Solr's response holds
+   */
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public record SearchHit(String id, @Nullable Float score, Map<String, Object> fields) {
+
+    /**
+     * Copies {@code fields} into an unmodifiable map that keeps its order. {@code Map.copyOf} would
+     * lose Solr's field order. The values themselves are not copied.
+     */
+    public SearchHit {
+      fields = Collections.unmodifiableMap(new LinkedHashMap<>(fields));
+    }
+  }
+
+  /**
+   * The facet counts for one field.
+   *
+   * @param field the faceted field
+   * @param values the field's values with their counts, in the order Solr returned them (highest
+   *     count first)
+   */
+  public record FacetField(String field, List<FacetValue> values) {
+
+    /** Copies {@code values} into an unmodifiable list. */
+    public FacetField {
+      values = List.copyOf(values);
+    }
+  }
+
+  /**
+   * One value of a faceted field and the number of matching documents that have it.
+   *
+   * @param value the field value
+   * @param count the number of matching documents with that value
+   */
+  public record FacetValue(String value, long count) {}
+}
