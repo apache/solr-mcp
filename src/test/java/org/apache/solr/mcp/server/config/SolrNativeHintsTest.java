@@ -16,6 +16,7 @@
  */
 package org.apache.solr.mcp.server.config;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -83,6 +84,33 @@ class SolrNativeHintsTest {
             .onType(TypeReference.of("org.apache.solr.mcp.server.search.SearchResponse"))
             .withMemberCategory(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS)
             .test(hints));
+  }
+
+  /**
+   * The hints are registered with {@code registerTypeIfPresent}, which skips a name that does not
+   * load, so a renamed or deleted record would silently lose its hint in the native image.
+   */
+  @Test
+  void everyMcpToolRecordNameLoads() {
+    for (String className : SolrNativeHints.MCP_TOOL_RECORDS) {
+      assertDoesNotThrow(
+          () -> Class.forName(className, false, getClass().getClassLoader()),
+          () -> className + " is listed in MCP_TOOL_RECORDS but does not exist");
+    }
+  }
+
+  @Test
+  void registersAliasAndCollectionRecordHints() {
+    for (String className :
+        List.of(
+            "org.apache.solr.mcp.server.alias.Alias",
+            "org.apache.solr.mcp.server.collection.Collection",
+            "org.apache.solr.mcp.server.collection.HealthStatus",
+            "org.apache.solr.mcp.server.collection.CollectionMetrics$CacheInfo")) {
+      assertTrue(
+          RuntimeHintsPredicates.reflection().onType(TypeReference.of(className)).test(hints),
+          () -> "missing reflection hint for " + className);
+    }
   }
 
   @Test

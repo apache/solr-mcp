@@ -112,16 +112,16 @@ Using a different client, or want STDIO/HTTP/Docker options? See the per-client 
 | `index-csv-documents` | Index documents from a CSV string via Solr's CSV handler; repeat a column name for multi-valued fields |
 | `index-xml-documents` | Index documents from Solr update XML (`<add><doc><field name="...">`); only `<add>` blocks are accepted |
 | `index-markdown-documents` | Index markdown documents into a collection (one array element per document), extracting front matter, title, headings, and body text |
-| `create-collection` | Create a collection (configSet, numShards, replicationFactor optional — default: a private copy of `_default`, `1`, `1`) |
+| `create-collection` | Create a collection (configSet, numShards, replicationFactor optional — default: a private copy of `_default`, `1`, `1`); reports the settings it used |
 | `list-collections` | List all available Solr collections |
 | `get-collection-stats` | Get statistics and metrics for a collection |
-| `check-health` | Check the health status of a collection |
+| `check-health` | Check that a collection answers a ping and a query; an unhealthy result names a fixed `reason` such as `COLLECTION_NOT_FOUND` |
 | `add-fields` | Add fields to a collection schema (additive only; existing fields cannot be modified) |
 | `add-field-types` | Add field types — custom analyzers, `DenseVectorField` for semantic search, etc. |
 | `get-schema` | Retrieve the full schema: field types, analyzers, dynamic-field patterns, copy fields |
 | `list-fields` | List the fields that hold data in a collection, with types, flags and document counts |
-| `list-aliases` | List all Solr aliases and the collections they point to |
-| `create-alias` | Create or update a Solr alias pointing to one or more collections |
+| `list-aliases` | List all Solr aliases, the collections each points to, and their properties |
+| `create-alias` | Create or update a Solr alias pointing to a list of collections; returns the alias as Solr then holds it |
 | `delete-alias` | Delete a Solr alias (underlying collections are not affected) |
 
 Every tool advertises MCP behavior hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`) so clients can build sensible approval UX — `search` and the metadata tools are read-only, indexing is destructive but idempotent, schema modification is additive.

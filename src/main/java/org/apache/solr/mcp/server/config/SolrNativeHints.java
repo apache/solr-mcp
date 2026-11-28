@@ -52,18 +52,21 @@ class SolrNativeHints implements RuntimeHintsRegistrar {
    * reflection access to serialize responses and to bind request parameters in native image.
    * Registered by name because some are package-private.
    */
-  private static final List<String> MCP_TOOL_RECORDS =
+  static final List<String> MCP_TOOL_RECORDS =
       List.of(
-          "org.apache.solr.mcp.server.collection.AliasResult",
+          "org.apache.solr.mcp.server.alias.Alias",
+          "org.apache.solr.mcp.server.alias.AliasDeletion",
+          "org.apache.solr.mcp.server.collection.Collection",
           "org.apache.solr.mcp.server.collection.CollectionCreationResult",
-          "org.apache.solr.mcp.server.collection.SolrHealthStatus",
-          "org.apache.solr.mcp.server.collection.SolrMetrics",
-          "org.apache.solr.mcp.server.collection.IndexStats",
-          "org.apache.solr.mcp.server.collection.QueryStats",
-          "org.apache.solr.mcp.server.collection.CacheStats",
-          "org.apache.solr.mcp.server.collection.CacheInfo",
-          "org.apache.solr.mcp.server.collection.HandlerStats",
-          "org.apache.solr.mcp.server.collection.HandlerInfo",
+          "org.apache.solr.mcp.server.collection.HealthStatus",
+          "org.apache.solr.mcp.server.collection.HealthStatus$Reason",
+          "org.apache.solr.mcp.server.collection.CollectionMetrics",
+          "org.apache.solr.mcp.server.collection.CollectionMetrics$IndexStats",
+          "org.apache.solr.mcp.server.collection.CollectionMetrics$QueryStats",
+          "org.apache.solr.mcp.server.collection.CollectionMetrics$CacheStats",
+          "org.apache.solr.mcp.server.collection.CollectionMetrics$CacheInfo",
+          "org.apache.solr.mcp.server.collection.CollectionMetrics$HandlerStats",
+          "org.apache.solr.mcp.server.collection.CollectionMetrics$HandlerInfo",
           "org.apache.solr.mcp.server.search.SearchResponse",
           "org.apache.solr.mcp.server.search.SortClause",
           "org.apache.solr.mcp.server.schema.SchemaUpdateResult",
