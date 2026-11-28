@@ -29,13 +29,11 @@ import io.modelcontextprotocol.spec.McpSchema.CompleteResult;
 import io.modelcontextprotocol.spec.McpSchema.Content;
 import io.modelcontextprotocol.spec.McpSchema.GetPromptRequest;
 import io.modelcontextprotocol.spec.McpSchema.GetPromptResult;
-import io.modelcontextprotocol.spec.McpSchema.PromptMessage;
 import io.modelcontextprotocol.spec.McpSchema.PromptReference;
 import io.modelcontextprotocol.spec.McpSchema.ReadResourceRequest;
 import io.modelcontextprotocol.spec.McpSchema.ReadResourceResult;
 import io.modelcontextprotocol.spec.McpSchema.ResourceReference;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
-import io.modelcontextprotocol.spec.McpSchema.TextResourceContents;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -45,6 +43,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.AutoClose;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
@@ -190,7 +189,8 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    assertThat(json(result)).extractingPath("$.success").isEqualTo(true);
+    assertThat(json(result)).extractingPath("$.name").isEqualTo(COLLECTION);
+    assertThat(json(result)).extractingPath("$.configSet").isEqualTo(COLLECTION + ".AUTOCREATED");
   }
 
   @Test
@@ -200,7 +200,7 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    assertThat(json(result)).extractingPath("$").asArray().contains(COLLECTION);
+    assertThat(json(result)).extractingPath("$[*].name").asArray().contains(COLLECTION);
   }
 
   @Test
@@ -235,8 +235,10 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    assertThat(json(result)).extractingPath("$.isHealthy").isEqualTo(true);
-    assertThat(json(result)).extractingPath("$.totalDocuments").isEqualTo(5);
+    assertThat(json(result)).extractingPath("$.healthy").isEqualTo(true);
+    assertThat(json(result)).extractingPath("$.numDocs").isEqualTo(5);
+    // a healthy collection has no reason
+    assertThat(json(result)).doesNotHavePath("$.reason");
   }
 
   @Test
@@ -313,7 +315,7 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    assertThat(json(result)).extractingPath("$.indexStats.numDocs").isEqualTo(5);
+    assertThat(json(result)).extractingPath("$.index.numDocs").isEqualTo(5);
   }
 
   @Test
@@ -327,27 +329,28 @@ public abstract class McpClientIntegrationTestBase {
     String text = extractText(result);
     assertFalse(text.isEmpty(), "Schema response should not be empty");
 
-    // Spring AI serializes the CollectionSchema record. In Solr's own shape a field type's
-    // properties sit at the top level (no SolrJ "attributes" wrapper), the catch-all is merged
-    // in rather than emitted as "other", and the arrays are present (they go missing in a
-    // native image when the records lack reflection hints).
+    // Spring AI serializes the CollectionSchema record: declared schema properties as booleans,
+    // a field type's class as className with its class-specific settings in parameters, no SolrJ
+    // "attributes" wrapper and no catch-all, and the arrays present (they go missing in a native
+    // image when the records lack reflection hints).
     JsonContent schema = json(result);
     String id = "$.fields[?(@.name == 'id')]";
     String textGeneral = "$.fieldTypes[?(@.name == 'text_general')]";
     // A deep scan never throws PathNotFoundException, so doesNotHavePath would always fail on it
     assertThat(schema).extractingPath("$..other").asArray().isEmpty();
-    // flags are SolrJ FieldFlag constant names, not Luke legend text ("I - Indexed")
-    assertThat(schema).extractingPath(id + ".flags[*]").asArray().contains("INDEXED", "STORED");
-    assertThat(schema).extractingPath(id + ".indexed").asArray().isEmpty();
+    assertThat(schema).extractingPath(id + ".indexed").asArray().containsExactly(true);
+    assertThat(schema).extractingPath(id + ".stored").asArray().containsExactly(true);
+    assertThat(schema).extractingPath(id + ".flags").asArray().isEmpty();
     assertThat(schema)
-        .extractingPath(textGeneral + ".class")
+        .extractingPath(textGeneral + ".className")
         .asArray()
         .containsExactly("solr.TextField");
     assertThat(schema)
-        .extractingPath(textGeneral + ".positionIncrementGap")
+        .extractingPath(textGeneral + ".parameters")
         .asArray()
-        .containsExactly("100");
+        .containsExactly(Map.of("positionIncrementGap", "100"));
     assertThat(schema).extractingPath(textGeneral + ".attributes").asArray().isEmpty();
+    assertThat(schema).extractingPath(textGeneral + ".class").asArray().isEmpty();
   }
 
   @Test
@@ -369,7 +372,7 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    assertThat(json(result)).hasPath("$.facets.id");
+    assertThat(json(result)).extractingPath(facetValuesPath("id")).asArray().isNotEmpty();
   }
 
   @Test
@@ -561,7 +564,10 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    assertThat(json(result)).extractingPath("$.success").isEqualTo(true);
+    assertThat(json(result)).extractingPath("$.name").isEqualTo(SHOWS_COLLECTION);
+    assertThat(json(result))
+        .extractingPath("$.configSet")
+        .isEqualTo(SHOWS_COLLECTION + ".AUTOCREATED");
   }
 
   @Test
@@ -809,9 +815,18 @@ public abstract class McpClientIntegrationTestBase {
     assertNotError(result);
     JsonContent response = json(result);
     // The dataset has 20 Netflix shows and 20 Amazon Prime Video shows.
-    assertThat(response).extractingPath("$.facets.platform.Netflix").isEqualTo(20);
-    assertThat(response).extractingPath("$.facets.platform['Amazon Prime Video']").isEqualTo(20);
-    assertThat(response).hasPath("$.facets.platform['HBO Max']");
+    assertThat(response)
+        .extractingPath(facetCountPath("platform", "Netflix"))
+        .asArray()
+        .containsExactly(20);
+    assertThat(response)
+        .extractingPath(facetCountPath("platform", "Amazon Prime Video"))
+        .asArray()
+        .containsExactly(20);
+    assertThat(response)
+        .extractingPath(facetValuesPath("platform") + ".value")
+        .asArray()
+        .contains("HBO Max");
   }
 
   @Test
@@ -895,7 +910,7 @@ public abstract class McpClientIntegrationTestBase {
 
     assertNotNull(result);
     assertNotError(result);
-    assertThat(json(result)).extractingPath("$.indexStats.numDocs").isEqualTo(SHOWS_DOC_COUNT);
+    assertThat(json(result)).extractingPath("$.index.numDocs").isEqualTo(SHOWS_DOC_COUNT);
   }
 
   // ===== Prompt workflow (orders 28–34) =====
@@ -1061,6 +1076,8 @@ public abstract class McpClientIntegrationTestBase {
     assertTrue(
         values.contains(COLLECTION),
         "Completion should include the previously created collection: " + values);
+    assertEquals(values.size(), result.completion().total(), "Every match fits under the cap");
+    assertEquals(Boolean.FALSE, result.completion().hasMore());
   }
 
   @Test
@@ -1147,7 +1164,10 @@ public abstract class McpClientIntegrationTestBase {
                     List.of(Map.of("field", "", "order", "")))));
     assertNotError(result);
     assertEquals(SHOWS_DOC_COUNT, getNumFound(result));
-    assertThat(json(result)).extractingPath("$.facets.platform.Netflix").isEqualTo(20);
+    assertThat(json(result))
+        .extractingPath(facetCountPath("platform", "Netflix"))
+        .asArray()
+        .containsExactly(20);
   }
 
   @Test
@@ -1179,15 +1199,15 @@ public abstract class McpClientIntegrationTestBase {
     assertNotError(result);
     JsonContent listing = json(result);
     assertThat(listing)
-        .extractingPath("$.fields")
-        .asMap()
-        .containsKeys("id", "title", "platform", "genres", "release_year");
+        .extractingPath("$[*].name")
+        .asArray()
+        .contains("id", "title", "platform", "genres", "release_year");
 
-    // Through Spring AI's serialization: Luke's flag letters arrive decoded as FieldFlag
-    // constant names, with neither the letters nor Luke's info legend left over.
-    assertThat(listing).doesNotHavePath("$.info");
-    assertThat(listing).extractingPath("$.fields.id.flags").asArray().contains("INDEXED", "STORED");
-    assertThat(listing).doesNotHavePath("$.fields.id.schema");
+    // Through Spring AI's serialization: Luke's flag letters arrive decoded as the contract's
+    // property names, with neither the letters nor Luke's info legend left over.
+    String id = "$[?(@.name == 'id')]";
+    assertThat(listing).extractingPath(id + ".flags[*]").asArray().contains("indexed", "stored");
+    assertThat(listing).extractingPath(id + ".schema").asArray().isEmpty();
   }
 
   @Test
@@ -1199,11 +1219,22 @@ public abstract class McpClientIntegrationTestBase {
     ReadResourceResult resource =
         mcpClient.readResource(new ReadResourceRequest("solr://" + SHOWS_COLLECTION + "/fields"));
 
-    assertInstanceOf(TextResourceContents.class, resource.contents().getFirst());
-    String resourceText = ((TextResourceContents) resource.contents().getFirst()).text();
-    Map<String, Object> toolFields = read(tool, "$.fields");
-    Map<String, Object> resourceFields = JsonPath.read(resourceText, "$.fields");
-    assertEquals(toolFields.keySet(), resourceFields.keySet());
+    assertThat(
+            new JsonContent(
+                McpResultAssertions.resourceJson(
+                    resource, "solr://" + SHOWS_COLLECTION + "/fields")))
+        .isStrictlyEqualTo(extractText(tool));
+  }
+
+  @Test
+  @Order(44)
+  void collectionsResourceMatchesListCollectionsTool() {
+    CallToolResult tool = mcpClient.callTool(new CallToolRequest("list-collections", Map.of()));
+    ReadResourceResult resource =
+        mcpClient.readResource(new ReadResourceRequest("solr://collections"));
+
+    assertThat(new JsonContent(McpResultAssertions.resourceJson(resource, "solr://collections")))
+        .isStrictlyEqualTo(extractText(tool));
   }
 
   @Test
@@ -1243,10 +1274,35 @@ public abstract class McpClientIntegrationTestBase {
     assertNotError(result);
     // "Fallout" has "post-apocalyptic" in its description.
     assertThat(getNumFound(result)).as("apocalyptic shows").isGreaterThanOrEqualTo(1);
-    List<Map<String, Object>> documents = read(result, "$.documents[*]");
-    // fields limits each document to title plus score
-    assertThat(documents)
-        .allSatisfy(document -> assertThat(document).containsOnlyKeys("title", "score"));
+    // The uniqueKey is returned as id even though fields left it out; score sits beside it.
+    List<Map<String, Object>> hits = read(result, "$.documents[*]");
+    assertThat(hits)
+        .allSatisfy(
+            hit -> {
+              assertThat(hit).containsOnlyKeys("id", "score", "fields");
+              assertThat(hit.get("id"))
+                  .as("id is the uniqueKey as a string")
+                  .isInstanceOf(String.class);
+              assertThat(hit.get("score")).as("score is a number").isInstanceOf(Number.class);
+              assertThat(hit.get("fields"))
+                  .asInstanceOf(InstanceOfAssertFactories.MAP)
+                  .as("fields limits each hit to title")
+                  .containsOnlyKeys("title");
+            });
+  }
+
+  @Test
+  @Order(46)
+  void schemaResourceMatchesGetSchemaTool() {
+    String uri = "solr://" + SHOWS_COLLECTION + "/schema";
+    CallToolResult tool =
+        mcpClient.callTool(
+            new CallToolRequest("get-schema", Map.of("collection", SHOWS_COLLECTION)));
+    ReadResourceResult resource = mcpClient.readResource(new ReadResourceRequest(uri));
+
+    assertNotError(tool);
+    assertThat(new JsonContent(McpResultAssertions.resourceJson(resource, uri)))
+        .isStrictlyEqualTo(extractText(tool));
   }
 
   @Test
@@ -1267,12 +1323,7 @@ public abstract class McpClientIntegrationTestBase {
   }
 
   private static String extractFirstMessageText(GetPromptResult result) {
-    List<PromptMessage> messages = result.messages();
-    assertFalse(messages.isEmpty(), "messages must not be empty");
-    Content content = messages.getFirst().content();
-    assertInstanceOf(
-        TextContent.class, content, "first prompt message content should be TextContent");
-    String text = ((TextContent) content).text();
+    String text = McpResultAssertions.promptText(result);
     assertFalse(text.isBlank(), "prompt message text should not be blank");
     return text;
   }
@@ -1319,5 +1370,15 @@ public abstract class McpClientIntegrationTestBase {
 
   protected static int getNumFound(CallToolResult result) {
     return read(result, "$.numFound");
+  }
+
+  /** JsonPath to one field's facet values. A filter path, so it reads as a list. */
+  protected static String facetValuesPath(String field) {
+    return "$.facets[?(@.field == '" + field + "')].values[*]";
+  }
+
+  /** JsonPath to the count of one facet value. A filter path, so it reads as a list. */
+  protected static String facetCountPath(String field, String value) {
+    return "$.facets[?(@.field == '" + field + "')].values[?(@.value == '" + value + "')].count";
   }
 }

@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
@@ -42,6 +41,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.testcontainers.containers.Container.ExecResult;
+import org.testcontainers.containers.SolrContainer;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /** Integration tests for SearchService using a real Solr instance via Testcontainers. */
@@ -52,10 +53,39 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class SearchServiceIntegrationTest {
 
   private static final String COLLECTION_NAME = "search_test_" + System.currentTimeMillis();
+
+  /** Restricts a search to the ten sample books; testSpecialCharactersInQuery adds an eleventh. */
+  private static final List<String> BOOKS_ONLY = List.of("cat_ss:book");
+
+  /** A collection whose schema's uniqueKey is {@code sku} instead of {@code id}. */
+  private static final String SKU_COLLECTION = "search_sku_" + System.currentTimeMillis();
+
+  /**
+   * Builds and uploads a configset for {@link #SKU_COLLECTION}. SolrCloud cannot change a uniqueKey
+   * through the Schema API, so this copies {@code _default}, makes {@code sku} the uniqueKey (a
+   * required string field; {@code id} stays, no longer required) and uploads the copy to the
+   * embedded ZooKeeper. {@code %1$s} is the configset name.
+   */
+  private static final String SKU_CONFIGSET_SCRIPT =
+      """
+      set -e
+      rm -rf /tmp/%1$s
+      cp -r /opt/solr/server/solr/configsets/_default/conf /tmp/%1$s
+      sed -i \
+        -e 's|<uniqueKey>id</uniqueKey>|<uniqueKey>sku</uniqueKey>|' \
+        -e '/<field name="id" /s/required="true"/required="false"/' \
+        -e '/<field name="id" /a <field name="sku" type="string" indexed="true" stored="true" required="true" multiValued="false" />' \
+        /tmp/%1$s/managed-schema.xml
+      grep -q '<uniqueKey>sku</uniqueKey>' /tmp/%1$s/managed-schema.xml
+      /opt/solr/bin/solr zk upconfig -n %1$s -d /tmp/%1$s -z localhost:9983
+      """;
+
   private static boolean initialized = false;
+  private static boolean skuCollectionCreated = false;
   @Autowired private SearchService searchService;
   @Autowired private IndexingService indexingService;
   @Autowired private SolrClient solrClient;
+  @Autowired private SolrContainer solrContainer;
 
   @BeforeEach
   void setUp() throws Exception {
@@ -184,7 +214,7 @@ class SearchServiceIntegrationTest {
     SearchResponse result =
         searchService.search(COLLECTION_NAME, null, null, null, null, null, null);
     assertNotNull(result);
-    List<Map<String, Object>> documents = result.documents();
+    List<SearchResponse.SearchHit> documents = result.documents();
     assertFalse(documents.isEmpty());
     assertEquals(10, documents.size());
   }
@@ -216,8 +246,8 @@ class SearchServiceIntegrationTest {
     assertEquals(0, result.numFound(), "the filter is designed to match nothing");
     assertNotNull(result.facets(), "facets must be present even when nothing matched");
     assertTrue(
-        result.facets().getOrDefault("genre_s", Map.of()).isEmpty(),
-        () -> "expected no facet buckets, got: " + result.facets().get("genre_s"));
+        facetValues(result, "genre_s").isEmpty(),
+        () -> "expected no facet values, got: " + result.facets());
   }
 
   @Test
@@ -232,8 +262,9 @@ class SearchServiceIntegrationTest {
             0,
             10);
     assertEquals(2, result.numFound());
-    assertEquals(List.of("book002", "book001"), getDocumentIds(result.documents()));
-    assertEquals(Map.of("netflix", 2L), result.facets().get("platform_ss"));
+    assertEquals(List.of("book002", "book001"), ids(result));
+    assertEquals(
+        List.of(new SearchResponse.FacetValue("netflix", 2)), facetValues(result, "platform_ss"));
   }
 
   /**
@@ -338,7 +369,7 @@ class SearchServiceIntegrationTest {
     SearchResponse byName =
         searchService.search(
             COLLECTION_NAME, "kings", null, null, null, null, null, null, List.of("name"));
-    assertEquals(List.of("book002"), getDocumentIds(byName.documents()));
+    assertEquals(List.of("book002"), ids(byName));
 
     SearchResponse byAuthor =
         searchService.search(
@@ -352,10 +383,10 @@ class SearchServiceIntegrationTest {
         searchService.search(
             COLLECTION_NAME, "name:kings", null, null, null, null, null, List.of("id"), null);
     assertEquals(1, result.numFound());
-    assertEquals(
-        Set.of("id", "score"),
-        result.documents().getFirst().keySet(),
-        "fl must narrow the document to the requested fields plus score");
+    SearchResponse.SearchHit hit = result.documents().getFirst();
+    assertEquals("book002", hit.id());
+    assertNotNull(hit.score(), "score must stay in fl");
+    assertEquals(Map.of(), hit.fields(), "fl must narrow the hit to the requested fields");
     assertNotNull(result.maxScore(), "score must stay in fl so maxScore is still returned");
   }
 
@@ -423,8 +454,9 @@ class SearchServiceIntegrationTest {
     assertNotNull(result.maxScore(), "maxScore must be populated for a non-*:* query");
     assertTrue(result.maxScore() > 0, "maxScore should be a positive relevance score");
     assertFalse(result.documents().isEmpty());
-    for (Map<String, Object> book : result.documents()) {
-      assertNotNull(book.get("score"), "each document should carry its relevance score");
+    for (SearchResponse.SearchHit hit : result.documents()) {
+      assertNotNull(hit.score(), "each hit should carry its relevance score");
+      assertFalse(hit.fields().containsKey("score"), "score is reported on the hit, not in fields");
     }
   }
 
@@ -434,7 +466,7 @@ class SearchServiceIntegrationTest {
         searchService.search(
             COLLECTION_NAME, "name:\"Game of Thrones\"", null, null, null, null, null);
     assertNotNull(result);
-    List<Map<String, Object>> documents = result.documents();
+    List<Map<String, Object>> documents = fieldsOf(result);
     assertEquals(1, documents.size());
     Map<String, Object> book = documents.getFirst();
     assertEquals("A Game of Thrones", ((List<?>) book.get("name")).getFirst());
@@ -446,7 +478,7 @@ class SearchServiceIntegrationTest {
         searchService.search(
             COLLECTION_NAME, "author_ss:\"George R.R. Martin\"", null, null, null, null, null);
     assertNotNull(result);
-    List<Map<String, Object>> documents = result.documents();
+    List<Map<String, Object>> documents = fieldsOf(result);
     assertEquals(3, documents.size());
     Map<String, Object> book = documents.getFirst();
     assertEquals("George R.R. Martin", ((List<?>) book.get("author_ss")).getFirst());
@@ -457,9 +489,10 @@ class SearchServiceIntegrationTest {
     SearchResponse result =
         searchService.search(COLLECTION_NAME, null, null, List.of("genre_s"), null, null, null);
     assertNotNull(result);
-    Map<String, Map<String, Long>> facets = result.facets();
+    List<SearchResponse.FacetField> facets = result.facets();
     assertNotNull(facets);
-    assertTrue(facets.containsKey("genre_s"));
+    assertEquals(
+        List.of("genre_s"), facets.stream().map(SearchResponse.FacetField::field).toList());
   }
 
   @Test
@@ -467,7 +500,7 @@ class SearchServiceIntegrationTest {
     SearchResponse result =
         searchService.search(COLLECTION_NAME, null, null, null, null, null, null);
     assertNotNull(result);
-    List<Map<String, Object>> documents = result.documents();
+    List<Map<String, Object>> documents = fieldsOf(result);
     assertFalse(documents.isEmpty());
     Map<String, Object> book = documents.getFirst();
     double currentPrice =
@@ -483,7 +516,7 @@ class SearchServiceIntegrationTest {
     SearchResponse result =
         searchService.search(COLLECTION_NAME, null, null, null, sortClauses, null, null);
     assertNotNull(result);
-    List<Map<String, Object>> documents = result.documents();
+    List<Map<String, Object>> documents = fieldsOf(result);
     assertFalse(documents.isEmpty());
     double previousPrice = 0.0;
     for (Map<String, Object> book : documents) {
@@ -502,7 +535,7 @@ class SearchServiceIntegrationTest {
     SearchResponse result =
         searchService.search(COLLECTION_NAME, null, null, null, sortClauses, null, null);
     assertNotNull(result);
-    List<Map<String, Object>> documents = result.documents();
+    List<Map<String, Object>> documents = fieldsOf(result);
     assertFalse(documents.isEmpty());
     double previousPrice = Double.MAX_VALUE;
     for (Map<String, Object> book : documents) {
@@ -522,7 +555,7 @@ class SearchServiceIntegrationTest {
     SearchResponse result =
         searchService.search(COLLECTION_NAME, null, filterQueries, null, sortClauses, null, null);
     assertNotNull(result);
-    List<Map<String, Object>> documents = result.documents();
+    List<Map<String, Object>> documents = fieldsOf(result);
     assertFalse(documents.isEmpty());
     int previousSequence = 0;
     for (Map<String, Object> book : documents) {
@@ -540,7 +573,7 @@ class SearchServiceIntegrationTest {
     SearchResponse result =
         searchService.search(COLLECTION_NAME, null, filterQueries, null, null, null, null);
     assertNotNull(result);
-    List<Map<String, Object>> documents = result.documents();
+    List<Map<String, Object>> documents = fieldsOf(result);
     assertFalse(documents.isEmpty());
     for (Map<String, Object> book : documents) {
       String genre = (String) book.get("genre_s");
@@ -554,7 +587,7 @@ class SearchServiceIntegrationTest {
     SearchResponse result =
         searchService.search(COLLECTION_NAME, null, filterQueries, null, null, null, null);
     assertNotNull(result);
-    List<Map<String, Object>> documents = result.documents();
+    List<Map<String, Object>> documents = fieldsOf(result);
     assertFalse(documents.isEmpty());
     for (Map<String, Object> book : documents) {
       if (book.get("price") == null) continue;
@@ -572,7 +605,7 @@ class SearchServiceIntegrationTest {
     SearchResponse result =
         searchService.search(COLLECTION_NAME, null, filterQueries, null, sortClauses, null, null);
     assertNotNull(result);
-    List<Map<String, Object>> documents = result.documents();
+    List<Map<String, Object>> documents = fieldsOf(result);
     assertFalse(documents.isEmpty());
     for (Map<String, Object> book : documents) {
       String genre = (String) book.get("genre_s");
@@ -616,8 +649,8 @@ class SearchServiceIntegrationTest {
     assertEquals(2, secondPage.start(), "Start offset should be 2");
     assertEquals(totalDocuments, secondPage.numFound(), "Total count should match");
     assertEquals(2, secondPage.documents().size(), "Should return exactly 2 documents");
-    List<String> firstPageIds = getDocumentIds(firstPage.documents());
-    List<String> secondPageIds = getDocumentIds(secondPage.documents());
+    List<String> firstPageIds = ids(firstPage);
+    List<String> secondPageIds = ids(secondPage);
     for (String id : firstPageIds) {
       assertFalse(
           secondPageIds.contains(id), "Second page should not contain documents from first page");
@@ -671,16 +704,150 @@ class SearchServiceIntegrationTest {
     return OptionalDouble.empty();
   }
 
-  private List<String> getDocumentIds(List<Map<String, Object>> documents) {
-    List<String> ids = new ArrayList<>();
-    for (Map<String, Object> doc : documents) {
-      Object idObj = doc.get("id");
-      if (idObj instanceof List) {
-        ids.add(((List<?>) idObj).getFirst().toString());
-      } else if (idObj != null) {
-        ids.add(idObj.toString());
+  /** Creates {@link #SKU_COLLECTION} from its own configset and indexes three products, once. */
+  private void createSkuCollection() throws Exception {
+    if (skuCollectionCreated) {
+      return;
+    }
+    ExecResult upload =
+        solrContainer.execInContainer("sh", "-c", SKU_CONFIGSET_SCRIPT.formatted(SKU_COLLECTION));
+    assertEquals(0, upload.getExitCode(), () -> upload.getStdout() + upload.getStderr());
+    CollectionAdminRequest.createCollection(SKU_COLLECTION, SKU_COLLECTION, 1, 1)
+        .process(solrClient);
+    indexingService.indexJsonDocuments(
+        SKU_COLLECTION,
+        TestDocuments.json(
+            """
+            [
+              {"sku": "A-1", "name": "Anvil"},
+              {"sku": "B-2", "name": "Bucket"},
+              {"sku": "C-3", "name": "Crowbar"}
+            ]
+            """));
+    solrClient.commit(SKU_COLLECTION);
+    skuCollectionCreated = true;
+  }
+
+  @Test
+  void uniqueKeyNotNamedIdIsReportedAsId() throws Exception {
+    createSkuCollection();
+    SearchResponse result =
+        searchService.search(
+            SKU_COLLECTION, null, null, null, List.of(new SortClause("sku", "asc")), null, null);
+    assertEquals(List.of("A-1", "B-2", "C-3"), ids(result));
+    for (SearchResponse.SearchHit hit : result.documents()) {
+      assertFalse(hit.fields().containsKey("sku"), () -> "sku is the hit's id: " + hit);
+      assertTrue(hit.fields().containsKey("name"), () -> "the other fields stay: " + hit);
+    }
+  }
+
+  @Test
+  void uniqueKeyNotNamedIdIsAddedToANarrowedFieldList() throws Exception {
+    createSkuCollection();
+    SearchResponse result =
+        searchService.search(
+            SKU_COLLECTION, "name:bucket", null, null, null, null, null, List.of("name"), null);
+    SearchResponse.SearchHit hit = result.documents().getFirst();
+    assertEquals("B-2", hit.id());
+    assertEquals(Set.of("name"), hit.fields().keySet());
+  }
+
+  @Test
+  void searchThroughAnAliasReturnsTheCollectionsIds() throws Exception {
+    String alias = COLLECTION_NAME + "_alias";
+    CollectionAdminRequest.createAlias(alias, COLLECTION_NAME).process(solrClient);
+    SearchResponse result =
+        searchService.search(
+            alias, null, BOOKS_ONLY, null, List.of(new SortClause("id", "asc")), 0, 3);
+    assertEquals(10, result.numFound());
+    assertEquals(List.of("book001", "book002", "book003"), ids(result));
+  }
+
+  private static List<String> ids(SearchResponse response) {
+    return response.documents().stream().map(SearchResponse.SearchHit::id).toList();
+  }
+
+  private static List<Map<String, Object>> fieldsOf(SearchResponse response) {
+    return response.documents().stream().map(SearchResponse.SearchHit::fields).toList();
+  }
+
+  /** The values of one faceted field, or an empty list when the field is not among the facets. */
+  private static List<SearchResponse.FacetValue> facetValues(
+      SearchResponse response, String field) {
+    for (SearchResponse.FacetField facet : response.facets()) {
+      if (facet.field().equals(field)) {
+        return facet.values();
       }
     }
-    return ids;
+    return List.of();
+  }
+
+  // ===== typed search contract (spec: search) =====
+
+  @Test
+  void pagedSearchReportsNumFoundStartAndAtMostRowsHits() throws Exception {
+    SearchResponse result =
+        searchService.search(COLLECTION_NAME, null, BOOKS_ONLY, null, null, 5, 3);
+    assertEquals(10, result.numFound());
+    assertEquals(5, result.start());
+    assertEquals(3, result.documents().size());
+  }
+
+  @Test
+  void scoresRequestedInFieldsAreReportedOnEachHit() throws Exception {
+    SearchResponse result =
+        searchService.search(
+            COLLECTION_NAME,
+            "name:kings",
+            null,
+            null,
+            null,
+            null,
+            null,
+            List.of("name", "score"),
+            null);
+    SearchResponse.SearchHit hit = result.documents().getFirst();
+    assertNotNull(hit.score());
+    assertEquals(Set.of("name"), hit.fields().keySet());
+  }
+
+  @Test
+  void fieldsWithoutTheUniqueKeyStillReturnItAsId() throws Exception {
+    SearchResponse result =
+        searchService.search(
+            COLLECTION_NAME, "name:kings", null, null, null, null, null, List.of("name"), null);
+    SearchResponse.SearchHit hit = result.documents().getFirst();
+    assertEquals("book002", hit.id());
+    assertEquals(Set.of("name"), hit.fields().keySet());
+  }
+
+  @Test
+  void fieldValuesKeepTheirTypes() throws Exception {
+    SearchResponse result =
+        searchService.search(COLLECTION_NAME, "id:book001", null, null, null, null, null);
+    Map<String, Object> fields = result.documents().getFirst().fields();
+    assertEquals(1, ((Number) fields.get("sequence_i")).intValue());
+    assertEquals(List.of("George R.R. Martin"), fields.get("author_ss"));
+    assertFalse(fields.containsKey("id"), "the uniqueKey is the hit's id, not one of its fields");
+  }
+
+  @Test
+  void facetValuesKeepSolrsCountOrder() throws Exception {
+    SearchResponse result =
+        searchService.search(COLLECTION_NAME, null, BOOKS_ONLY, List.of("genre_s"), null, null, 0);
+    assertEquals(
+        List.of(
+            new SearchResponse.FacetField(
+                "genre_s",
+                List.of(
+                    new SearchResponse.FacetValue("fantasy", 7),
+                    new SearchResponse.FacetValue("scifi", 3)))),
+        result.facets());
+  }
+
+  @Test
+  void searchWithoutFacetFieldsReturnsAnEmptyFacetList() throws Exception {
+    SearchResponse result = searchService.search(COLLECTION_NAME, null, null, null, null, null, 0);
+    assertEquals(List.of(), result.facets());
   }
 }

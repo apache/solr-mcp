@@ -17,6 +17,8 @@
 package org.apache.solr.mcp.server.indexing;
 
 import io.micrometer.observation.annotation.Observed;
+import io.modelcontextprotocol.spec.McpSchema.GetPromptResult;
+import io.modelcontextprotocol.spec.McpSchema.Role;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,6 +37,7 @@ import org.apache.solr.common.SolrException;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.util.ContentStreamBase;
 import org.apache.solr.mcp.server.indexing.documentcreator.IndexingDocumentCreator;
+import org.apache.solr.mcp.server.util.McpResults;
 import org.apache.solr.mcp.server.util.PromptNames;
 import org.apache.solr.mcp.server.util.PromptText;
 import org.jspecify.annotations.Nullable;
@@ -495,9 +498,8 @@ public class IndexingService {
   @McpPrompt(
       name = PromptNames.INDEX_DATA,
       title = "Index documents into a Solr collection",
-      description =
-          "Guides the assistant through verifying the target schema, picking the right indexing tool for the input format, and confirming the result.")
-  public String indexDataPrompt(
+      description = PromptNames.INDEX_DATA_DESCRIPTION)
+  public GetPromptResult indexDataPrompt(
       @McpArg(name = "collection", description = "Target Solr collection name", required = true)
           String collection,
       @McpArg(
@@ -517,7 +519,10 @@ public class IndexingService {
             sample,
             "Sample input:",
             "No sample was provided. If the user has not pasted the documents yet, ask for them (or a representative subset) before indexing.");
-    return """
+    return McpResults.prompt(
+        PromptNames.INDEX_DATA_DESCRIPTION,
+        Role.USER,
+        """
 				You are indexing %s data into collection `%s` via MCP tools. Work incrementally and
 				verify after each step.
 
@@ -548,15 +553,15 @@ public class IndexingService {
 				Next step suggestion: once data is indexed, the `search-collection` prompt drives
 				searching it.
 				"""
-        .formatted(
-            indexTool.format(),
-            collection,
-            collection,
-            sampleSection,
-            indexTool.name(),
-            collection,
-            indexTool.paramName(),
-            indexTool.payload(),
-            collection);
+            .formatted(
+                indexTool.format(),
+                collection,
+                collection,
+                sampleSection,
+                indexTool.name(),
+                collection,
+                indexTool.paramName(),
+                indexTool.payload(),
+                collection));
   }
 }

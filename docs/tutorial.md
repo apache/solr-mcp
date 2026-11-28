@@ -109,7 +109,7 @@ This is the most ordinary business question imaginable, and the answer comes bac
 empty:
 
 ```json
-{ "numFound": 61, "documents": [], "facets": { "platform": {} } }
+{ "numFound": 61, "documents": [], "facets": [{ "field": "platform", "values": [] }] }
 ```
 
 Read that carefully, because it is worse than an error. Sixty-one documents
@@ -133,7 +133,7 @@ Look at any document that comes back and the giveaway is visible — every field
 wrapped in an array:
 
 ```json
-"title": ["Stranger Things"], "imdb_rating": [8.7]
+"fields": { "title": ["Stranger Things"], "imdb_rating": [8.7] }
 ```
 
 Solr saw one sample of each field and had no reason to assume it would not repeat,

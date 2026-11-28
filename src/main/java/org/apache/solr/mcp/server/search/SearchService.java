@@ -17,8 +17,10 @@
 package org.apache.solr.mcp.server.search;
 
 import io.micrometer.observation.annotation.Observed;
+import io.modelcontextprotocol.spec.McpSchema.GetPromptResult;
+import io.modelcontextprotocol.spec.McpSchema.Role;
 import java.io.IOException;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -28,11 +30,13 @@ import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.request.SolrQuery;
 import org.apache.solr.client.solrj.response.FacetField;
 import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.DisMaxParams;
 import org.apache.solr.common.params.FacetParams;
 import org.apache.solr.common.util.JsonTextWriter;
+import org.apache.solr.mcp.server.util.McpResults;
 import org.apache.solr.mcp.server.util.PromptNames;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -86,8 +90,8 @@ import org.springframework.util.StringUtils;
  *
  * <p><strong>Response Format:</strong>
  *
- * <p>Returns structured {@link SearchResponse} objects that encapsulate search results, metadata,
- * and facet information in a format optimized for JSON serialization and consumption by AI clients.
+ * <p>Returns a {@link SearchResponse}: the totals, one {@link SearchResponse.SearchHit} per
+ * document with its uniqueKey value as {@code id}, and a list of facet counts per field.
  *
  * @see SearchResponse
  * @see SolrClient
@@ -175,7 +179,48 @@ public class SearchService {
           + " If facetFields were supplied, call list-fields to check those fields or retry without facetFields;"
           + " if it persists, ask the operator to check server logs and Solr compatibility.";
 
+  /**
+   * Failure for a collection whose schema declares no uniqueKey, which only standalone Solr allows.
+   */
+  static final String NO_UNIQUE_KEY_ERROR =
+      "Search failed: the collection's schema has no unique key, so its documents cannot be"
+          + " identified.";
+
+  /**
+   * Failure for a hit without the remembered uniqueKey: the collection was deleted and created
+   * again with another schema since the key was read.
+   */
+  static final String SCHEMA_CHANGED_ERROR =
+      "Search failed: the collection's schema changed since its unique key was read; retry the"
+          + " search.";
+
+  /** Rejection for a {@code fields} entry such as {@code id:name_s} when {@code id} is the key. */
+  static final String RENAME_TO_UNIQUE_KEY_ERROR =
+      "Search failed: fields cannot rename another field to the unique key, which each hit"
+          + " already reports as id. Choose another name for the renamed field.";
+
+  /**
+   * The field Solr fills with each document's relevance score when {@code fl} asks for it. It is
+   * reported as {@link SearchResponse.SearchHit#score()}, not among the hit's fields.
+   */
+  private static final String SCORE_FIELD = "score";
+
+  /** Separates the new name from the field in an {@code fl} rename such as {@code title:name_s}. */
+  private static final char RENAME_SEPARATOR = ':';
+
+  /**
+   * A call to Solr whose failures {@link #callSolr} turns into safe, actionable errors.
+   *
+   * @param <T> what the call returns
+   */
+  @FunctionalInterface
+  private interface SolrCall<T> {
+    T call() throws SolrServerException, IOException;
+  }
+
   private final SolrClient solrClient;
+
+  private final UniqueKeyCache uniqueKeys;
 
   /**
    * Constructs a new SearchService with the required SolrClient dependency.
@@ -189,30 +234,51 @@ public class SearchService {
    */
   public SearchService(SolrClient solrClient) {
     this.solrClient = solrClient;
+    this.uniqueKeys = new UniqueKeyCache(solrClient);
   }
 
   /**
-   * Extracts facet information from a QueryResponse.
+   * Converts Solr's facet fields into the response's facet list.
    *
-   * @param queryResponse The QueryResponse containing facet results
-   * @return A Map where keys are facet field names and values are Maps of facet values to counts,
-   *     both in Solr's original (count-sorted) order
+   * @param queryResponse the response holding the facet counts
+   * @return one entry per faceted field, with values in Solr's (count-sorted) order; empty when the
+   *     search asked for no facets
    */
-  private static Map<String, Map<String, Long>> getFacets(QueryResponse queryResponse) {
-    Map<String, Map<String, Long>> facets = new LinkedHashMap<>();
-    if (queryResponse.getFacetFields() != null && !queryResponse.getFacetFields().isEmpty()) {
-      queryResponse
-          .getFacetFields()
-          .forEach(
-              facetField -> {
-                Map<String, Long> facetValues = new LinkedHashMap<>();
-                for (FacetField.Count count : facetField.getValues()) {
-                  facetValues.put(count.getName(), count.getCount());
-                }
-                facets.put(facetField.getName(), facetValues);
-              });
+  private static List<SearchResponse.FacetField> toFacets(QueryResponse queryResponse) {
+    final List<FacetField> facetFields = queryResponse.getFacetFields();
+    if (facetFields == null) {
+      return List.of();
+    }
+    final List<SearchResponse.FacetField> facets = new ArrayList<>(facetFields.size());
+    for (FacetField facetField : facetFields) {
+      final List<SearchResponse.FacetValue> values = new ArrayList<>(facetField.getValueCount());
+      for (FacetField.Count count : facetField.getValues()) {
+        values.add(new SearchResponse.FacetValue(count.getName(), count.getCount()));
+      }
+      facets.add(new SearchResponse.FacetField(facetField.getName(), values));
     }
     return facets;
+  }
+
+  /**
+   * Converts one Solr document into a hit: the uniqueKey value becomes {@code id}, {@code score}
+   * becomes the hit's score, and every other field stays in {@code fields} in Solr's order.
+   *
+   * @param document the document as Solr returned it
+   * @param uniqueKey the collection's uniqueKey field
+   * @return the hit, or {@code null} when the document has no value for {@code uniqueKey}
+   */
+  private static SearchResponse.@Nullable SearchHit toHit(SolrDocument document, String uniqueKey) {
+    final Object id = document.getFieldValue(uniqueKey);
+    if (id == null) {
+      return null;
+    }
+    final Float score =
+        document.getFieldValue(SCORE_FIELD) instanceof Number number ? number.floatValue() : null;
+    final Map<String, Object> fields = new LinkedHashMap<>(document);
+    fields.remove(uniqueKey);
+    fields.remove(SCORE_FIELD);
+    return new SearchResponse.SearchHit(String.valueOf(id), score, fields);
   }
 
   /**
@@ -251,6 +317,12 @@ public class SearchService {
    * Searches a Solr collection with the specified parameters. This method is exposed as a tool for
    * MCP clients to use.
    *
+   * <p>Each hit reports the collection's uniqueKey value as its {@code id}. The uniqueKey is read
+   * with the Schema API ({@code GET /schema/uniquekey}) on the first search of each collection and
+   * again every few minutes, so the Solr account needs Solr's {@code schema-read} permission as
+   * well as {@code read}. A collection whose schema has no uniqueKey, which only standalone Solr
+   * allows, cannot be searched.
+   *
    * @param collection The Solr collection to query
    * @param query The Solr query string (q parameter). Defaults to "*:*" if not specified
    * @param filterQueries List of filter queries (fq parameter); blank entries are ignored
@@ -260,13 +332,17 @@ public class SearchService {
    *     are ignored
    * @param start Starting offset for pagination
    * @param rows Number of rows to return
-   * @param fields Fields to return (fl parameter); {@code score} is always added. Blank entries are
-   *     ignored; all stored fields are returned when none remain
+   * @param fields Fields to return (fl parameter); {@code score} is always added, and so is the
+   *     uniqueKey field, which each hit reports as {@code id}. Blank entries are ignored; all
+   *     stored fields are returned when none remain
    * @param queryFields Fields to search the query against, with optional boosts (qf parameter).
    *     Blank entries are ignored; any remaining entry switches the request to eDisMax
    * @return A SearchResponse containing the search results and facets
    * @throws IllegalArgumentException if {@code queryFields} is combined with a {@code query} that
-   *     starts with {@literal {!...}} local params
+   *     starts with {@literal {!...}} local params, or if a {@code fields} entry renames another
+   *     field to the uniqueKey (such as {@code id:name_s} when the uniqueKey is {@code id})
+   * @throws IllegalStateException if the collection's schema has no uniqueKey, or changed since the
+   *     uniqueKey was read
    * @throws SolrServerException If there's an error communicating with Solr
    * @throws IOException If there's an I/O error
    */
@@ -284,11 +360,14 @@ public class SearchService {
 			results rank by score. For other eDisMax features (mm, pf, bq, boost), embed Solr local params
 			in q instead and leave queryFields empty, e.g. {!edismax qf='name author' mm=2}george martin.
 			Pass fields to return only the fields you need; by default every stored field comes back.
+			Each hit in documents has id (the collection's uniqueKey value), score, and its other fields
+			under fields; facets lists each faceted field with its values and counts, highest count first.
 			Put filters in fq (filterQueries) instead of q so Solr can cache and reuse them.
 			Call list-fields first to get the field names that hold data and their types, rather than
 			guessing names: dynamic fields such as genre_s exist only once documents use them. Facet
 			only on fields that list-fields reports with docValues, and sort only on single-valued ones.
-			""")
+			""",
+      generateOutputSchema = true)
   // @formatter:on
   public SearchResponse search(
       @McpToolParam(description = "Solr collection to query") String collection,
@@ -318,9 +397,9 @@ public class SearchService {
           @Nullable Integer rows,
       @McpToolParam(
               description =
-                  "Solr fl parameter: fields to return, e.g. [\"id\", \"name\"]. score is always"
-                      + " included. If none specified, all stored fields are returned. Blank entries"
-                      + " are ignored",
+                  "Solr fl parameter: fields to return, e.g. [\"name\", \"year\"]. score and the"
+                      + " uniqueKey (returned as each hit's id) are always included. If none"
+                      + " specified, all stored fields are returned. Blank entries are ignored",
               required = false)
           @Nullable List<String> fields,
       @McpToolParam(
@@ -393,24 +472,86 @@ public class SearchService {
       solrQuery.setRows(rows);
     }
 
+    final String uniqueKey =
+        callSolr(collection, () -> uniqueKeys.get(collection))
+            .orElseThrow(
+                () -> {
+                  logger.warn(
+                      "Collection {} has no uniqueKey, so it cannot be searched", collection);
+                  return new IllegalStateException(NO_UNIQUE_KEY_ERROR);
+                });
+
+    // Every hit reports its uniqueKey value as id, so a narrowed fl must still return it, and no
+    // other field may be renamed onto it.
+    if (!nonBlankFields.isEmpty()) {
+      if (nonBlankFields.stream().anyMatch(field -> renamesOnto(field, uniqueKey))) {
+        throw new IllegalArgumentException(RENAME_TO_UNIQUE_KEY_ERROR);
+      }
+      if (!nonBlankFields.contains(uniqueKey)) {
+        solrQuery.addField(uniqueKey);
+      }
+    }
+
+    final QueryResponse queryResponse =
+        callSolr(collection, () -> solrClient.query(collection, solrQuery));
+    final SolrDocumentList documents = callSolr(collection, queryResponse::getResults);
+    final List<SearchResponse.FacetField> facets =
+        callSolr(collection, () -> toFacets(queryResponse));
+
+    final List<SearchResponse.SearchHit> hits = new ArrayList<>(documents.size());
+    for (SolrDocument document : documents) {
+      final SearchResponse.SearchHit hit = toHit(document, uniqueKey);
+      if (hit == null) {
+        // Only a remembered uniqueKey that the collection no longer has (it was deleted and created
+        // again with another schema) leaves a hit without it; look it up afresh next time.
+        uniqueKeys.evict(collection);
+        logger.warn(
+            "A hit on collection {} has no value for its remembered uniqueKey {}; forgot the key",
+            collection,
+            uniqueKey);
+        throw new IllegalStateException(SCHEMA_CHANGED_ERROR);
+      }
+      hits.add(hit);
+    }
+
+    logger.info(
+        "Search on collection {} matched {} documents", collection, documents.getNumFound());
+
+    return new SearchResponse(
+        documents.getNumFound(), documents.getStart(), documents.getMaxScore(), hits, facets);
+  }
+
+  /**
+   * Whether an {@code fl} entry renames some other field to {@code uniqueKey}, as {@code id:name_s}
+   * does when the uniqueKey is {@code id}. Renaming the uniqueKey itself, as {@code key:id} does,
+   * is fine.
+   *
+   * @param field one {@code fields} entry
+   * @param uniqueKey the collection's uniqueKey field
+   * @return true if the entry would put another value where the hit's {@code id} comes from
+   */
+  private static boolean renamesOnto(String field, String uniqueKey) {
+    final int separator = field.indexOf(RENAME_SEPARATOR);
+    return separator >= 0
+        && field.substring(0, separator).strip().equals(uniqueKey)
+        && !field.substring(separator + 1).strip().equals(uniqueKey);
+  }
+
+  /**
+   * Runs one call to Solr and turns its failures into errors that are safe to show the client: the
+   * Solr text is logged, never returned, and each error names a next step.
+   *
+   * @param collection the collection being searched, for hints and the log
+   * @param call the call to run
+   * @param <T> what the call returns
+   * @return the call's result
+   * @throws SolrServerException if Solr cannot be reached
+   * @throws IOException if the request fails on the wire
+   */
+  private static <T> T callSolr(String collection, SolrCall<T> call)
+      throws SolrServerException, IOException {
     try {
-      final QueryResponse queryResponse = solrClient.query(collection, solrQuery);
-
-      // Add documents
-      final SolrDocumentList documents = queryResponse.getResults();
-
-      // Convert SolrDocuments to Maps
-      // SolrDocument is a Map in Solr's field order, so no per-document copy
-      final List<Map<String, Object>> docs = Collections.unmodifiableList(documents);
-
-      // Add facets if present
-      final var facets = getFacets(queryResponse);
-
-      logger.info(
-          "Search on collection {} matched {} documents", collection, documents.getNumFound());
-
-      return new SearchResponse(
-          documents.getNumFound(), documents.getStart(), documents.getMaxScore(), docs, facets);
+      return call.call();
     } catch (SolrException e) {
       throw withRemediationHint(e, collection);
     } catch (SolrServerException e) {
@@ -513,9 +654,8 @@ public class SearchService {
   @McpPrompt(
       name = PromptNames.SEARCH_COLLECTION,
       title = "Search a Solr collection from a natural-language question",
-      description =
-          "Guides the assistant through inspecting the schema, translating a user question into a Solr query, running the search, and refining the result.")
-  public String searchCollectionPrompt(
+      description = PromptNames.SEARCH_COLLECTION_DESCRIPTION)
+  public GetPromptResult searchCollectionPrompt(
       @McpArg(name = "collection", description = "Target Solr collection name", required = true)
           String collection,
       @McpArg(
@@ -523,7 +663,10 @@ public class SearchService {
               description = "The user's natural-language search question or information need",
               required = true)
           String question) {
-    return """
+    return McpResults.prompt(
+        PromptNames.SEARCH_COLLECTION_DESCRIPTION,
+        Role.USER,
+        """
 				You are searching collection `%s` to answer:
 
 				    %s
@@ -569,15 +712,18 @@ public class SearchService {
 				                 * Many results: add a `filterQueries` constraint to narrow, or pass
 				                   `facetFields` on a relevant `string`/`strings` field to surface the distribution
 				                   and pick a sharper filter.
-				   - Inspect `documents` for the actual content. Each document carries a relevance
-				     `score`, and the response's `maxScore` is the top score among them; both are most
-				     meaningful as a relative confidence signal for non-`*:*` queries.
+				   - Inspect `documents` for the actual content. Each hit has `id` (the collection's
+				     uniqueKey value), a relevance `score`, and its other values under `fields`. The
+				     response's `maxScore` is the top score; scores are most meaningful as a relative
+				     confidence signal for non-`*:*` queries.
+				   - `facets` is a list with one entry per faceted field: `field` and its `values`, each
+				     a `value` with its `count`, highest count first.
 
 				5. Summarize.
 				   - Answer the user's question grounded in the documents found, citing concrete field
 				     values (title, id, etc.). If the search did not produce a clear answer, surface
 				     that explicitly rather than guessing.
 				"""
-        .formatted(collection, question, collection, collection);
+            .formatted(collection, question, collection, collection));
   }
 }

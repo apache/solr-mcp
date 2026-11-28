@@ -16,6 +16,7 @@
  */
 package org.apache.solr.mcp.server.indexing;
 
+import static org.apache.solr.mcp.server.McpResultAssertions.promptText;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -393,7 +394,7 @@ class IndexingServiceTest {
         """
 				[{"id":"1","title":"Test"}]""";
 
-    String body = indexingService.indexDataPrompt("library", "json", sample);
+    String body = promptText(indexingService.indexDataPrompt("library", "json", sample));
 
     assertTrue(body.contains("library"), "Prompt should mention the target collection name");
     assertTrue(
@@ -408,7 +409,7 @@ class IndexingServiceTest {
 
   @Test
   void indexDataPrompt_csvPath_referencesIndexCsvDocuments() {
-    String body = indexingService.indexDataPrompt("library", "csv", null);
+    String body = promptText(indexingService.indexDataPrompt("library", "csv", null));
 
     assertTrue(
         body.contains("index-csv-documents"), "CSV path should reference index-csv-documents tool");
@@ -419,7 +420,7 @@ class IndexingServiceTest {
 
   @Test
   void indexDataPrompt_xmlPath_referencesIndexXmlDocuments() {
-    String body = indexingService.indexDataPrompt("library", "xml", null);
+    String body = promptText(indexingService.indexDataPrompt("library", "xml", null));
 
     assertTrue(
         body.contains("index-xml-documents"), "XML path should reference index-xml-documents tool");
@@ -427,7 +428,7 @@ class IndexingServiceTest {
 
   @Test
   void indexDataPrompt_markdownPath_referencesIndexMarkdownDocuments() {
-    String body = indexingService.indexDataPrompt("library", "markdown", null);
+    String body = promptText(indexingService.indexDataPrompt("library", "markdown", null));
 
     assertTrue(
         body.contains("index-markdown-documents"),
@@ -436,7 +437,7 @@ class IndexingServiceTest {
 
   @Test
   void indexDataPrompt_mdAliasResolvesToMarkdownTool() {
-    String body = indexingService.indexDataPrompt("library", "md", null);
+    String body = promptText(indexingService.indexDataPrompt("library", "md", null));
 
     assertTrue(
         body.contains("index-markdown-documents"),
