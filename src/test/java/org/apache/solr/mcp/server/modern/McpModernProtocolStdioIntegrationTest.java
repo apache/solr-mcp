@@ -128,13 +128,15 @@ class McpModernProtocolStdioIntegrationTest {
             Map.of("name", "list-collections", "arguments", Map.of())); // no Mcp-Name over STDIO
     assertEquals(
         Boolean.FALSE, collections.get("isError"), () -> "list-collections failed: " + collections);
-    assertTrue(firstText(collections).startsWith("["), "list-collections returns a JSON array");
+    assertTrue(
+        firstText(collections).startsWith("["),
+        "list-collections returns a JSON array of collections");
 
     Map<String, Object> discover = send("server/discover", Map.of());
     assertEquals(List.of(PROTOCOL_VERSION), discover.get("supportedVersions"));
 
     List<Map<String, Object>> tools =
         (List<Map<String, Object>>) send("tools/list", Map.of()).get("tools");
-    assertTrue(tools.stream().anyMatch(t -> "search".equals(t.get("name"))));
+    assertTrue(tools.stream().anyMatch(tool -> "search".equals(tool.get("name"))));
   }
 }
