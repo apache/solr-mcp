@@ -230,8 +230,8 @@ Tests run against the Solr image pinned as `test-image-solr` in `gradle/libs.ver
 
 **Solr 10 notes.** Solr 10 is fully supported with the JSON wire format. The `/admin/mbeans`
 endpoint was removed in Solr 10, so `getCacheMetrics()`/`getHandlerMetrics()` catch
-`RuntimeException` and return `null` — `cacheStats`/`handlerStats` from `get-collection-stats`
-are therefore always `null` on Solr 10 (a future migration to `/admin/metrics` will restore
+`RuntimeException` and return `null` — `caches`/`handlers` from `get-collection-stats`
+are therefore always absent on Solr 10 (a future migration to `/admin/metrics` will restore
 them). SolrJ is on 10.0.0; since the pinned test image is Solr 9.9, the standard
 build runs a SolrJ 10 client against a Solr 9.9 server.
 
