@@ -57,9 +57,13 @@ re-derive it imperfectly every call:
 
 Keep the server for deterministic, security-sensitive, multi-step operations
 and for non-Claude clients (it's an Apache incubating project for *any* MCP
-client). Add a thin Solr skill for query and faceting know-how. The skill
-makes the agent better at *using* Solr; the server makes the dangerous parts
-*safe and repeatable*.
+client). Pair it with a thin skill. The repo ships one
+(`src/main/resources/skills/solr/`) that covers what is specific to this
+server's tools; Solr itself (query syntax, analyzers, schema design) is what the
+[Solr Reference Guide](https://solr.apache.org/guide/solr/latest/) is for, and
+an LLM can reach it through its own knowledge, web search or a docs-lookup tool.
+The skill makes the agent better at *using this server*; the server makes the
+dangerous parts *safe and repeatable*.
 
 ## Doesn't an MCP server cost more context than a skill?
 
@@ -79,7 +83,7 @@ bounded.
 Two factors close the gap at runtime:
 
 - **Typed, compact returns.** Every tool returns its own purpose-built
-  typed record (`SearchResponse`, `SolrHealthStatus`, `IndexStats`, …),
+  typed record (`SearchResponse`, `HealthStatus`, `CollectionMetrics`, …),
   not raw Solr JSON the model must reparse. Over a multi-turn agent run, leaner tool output
   offsets the upfront schema cost.
 - **Code execution with MCP.** Anthropic's pattern of discovering tool

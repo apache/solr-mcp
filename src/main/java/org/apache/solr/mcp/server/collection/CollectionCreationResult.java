@@ -16,26 +16,14 @@
  */
 package org.apache.solr.mcp.server.collection;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
-import java.util.Date;
-import org.jspecify.annotations.Nullable;
-
 /**
- * Result record for alias management operations.
+ * The result of {@code create-collection}: the settings the collection was created with, including
+ * the defaults the server applied for anything the client left out.
  *
- * <p>Returned by {@link AliasService} methods to communicate the outcome of create, update, and
- * delete operations on Solr aliases.
- *
- * @param aliasName the alias that was operated on
- * @param collections the target collection(s) (null for delete operations)
- * @param success whether the operation completed successfully
- * @param message human-readable description of the outcome
- * @param timestamp when the operation was performed
+ * @param name the collection name
+ * @param configSet the configset the collection uses
+ * @param numShards the number of shards
+ * @param replicationFactor the number of replicas per shard
  */
-public record AliasResult(
-    String aliasName,
-    @Nullable String collections,
-    boolean success,
-    String message,
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-        Date timestamp) {}
+public record CollectionCreationResult(
+    String name, String configSet, int numShards, int replicationFactor) {}
