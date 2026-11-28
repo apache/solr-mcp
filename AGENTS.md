@@ -111,12 +111,27 @@ docker run -p 8080:8080 --rm -e PROFILES=http \
 
 ### MCP Tools (src/main/java/org/apache/solr/mcp/server/)
 
-Four service classes expose MCP tools via `@McpTool` annotations:
+Five service classes expose MCP tools via `@McpTool` annotations:
 
 - **SearchService** (`search/`) - Full-text search with filtering, faceting, sorting, pagination
 - **IndexingService** (`indexing/`) - Document indexing supporting JSON, CSV, XML, and markdown formats
 - **CollectionService** (`collection/`) - List collections, get stats, health checks
+- **AliasService** (`alias/`) - List, create and delete collection aliases
 - **SchemaService** (`schema/`) - Schema introspection and additive modification (add-fields, add-field-types)
+
+### MCP contracts
+
+Every tool, resource, prompt and completion accepts and returns types the server owns. Solr's response shapes are an implementation detail the server maps away. The rules, from the `mcp-contracts` spec of the `typed-mcp-contracts` OpenSpec change (#306):
+
+- **Tools** return records and set `@McpTool(generateOutputSchema = true)`. The client then gets an `outputSchema` and `structuredContent`, and the SDK adds the same JSON as a text block. The SDK also validates each result against the schema, so a mismatch fails the call. A tool that returns a `List` (`list-aliases`, `list-collections`, `list-fields`) leaves the flag off: MCP 2025-11-25 restricts an `outputSchema` to an object root, so the list goes out as JSON text.
+- **Optional record components** are `@Nullable`, with `@JsonInclude(NON_NULL)` on the record. Spring AI reads `@Nullable` through Spring's `Nullness` and leaves the component out of `required`.
+- **Shapes** use only property names the server defines. Leave out Solr's response header, flag encodings, comma-joined lists and `@JsonAnySetter` catch-alls. The open maps are user content: document `fields`, and the class-specific `parameters` of field types, analyzers and analyzer components.
+- **Failures** are exceptions, which reach the client as `isError: true`. A result reports what happened, with no `success`/`message` flags and no timestamps from the server's clock. Text that describes a failure is the server's own fixed wording; Solr's exception text goes only to the log.
+- **Prompts** return `GetPromptResult` through `McpResults.prompt(description, role, text)`. Pick the role by speaker: `Role.USER` for instructions or a request to the model, which is every current prompt; `Role.ASSISTANT` only for text the model should treat as its own earlier reply. The description is the `*_DESCRIPTION` constant in `PromptNames`, shared with the annotation.
+- **Resources** return `McpResults.jsonResource(request.uri(), json)`, with the same JSON as the matching tool. The method takes the `ReadResourceRequest` Spring AI injects next to any URI-template variables, so the content echoes the URI the client read.
+- **Completions** return `McpResults.completion(matches, limit)`, which reports `total` and `hasMore`.
+
+`McpContractConformanceIntegrationTest` (legacy protocol) and `McpModernContractConformanceIntegrationTest` (modern) check that every published `outputSchema` describes an object, that the list tools publish none, and that every tool with a schema, called against a real Solr, succeeds (so its `structuredContent` passed the SDK's own validation against the schema), returns a first text block holding the same JSON as `structuredContent`, and carries no `success` or `message` property. A tool that publishes one needs an entry in `McpContractConformanceTestBase.SAMPLE_ARGUMENTS`.
 
 ### Document Creators and pass-throughs
 
@@ -226,10 +241,11 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
   - **Solr API model types** used by `CoreAdminResponse.getCoreStatus()`:
     `SolrJerseyResponse`, `ErrorInfo`, `CoreStatusResponse` and their nested types
   - **MCP tool response records** (invisible to AOT because the MCP framework uses
-    generic `Object` dispatch): `AliasResult`, `CollectionCreationResult`,
-    `SolrHealthStatus`, `SolrMetrics`, `IndexStats`, `QueryStats`, `CacheStats`,
-    `CacheInfo`, `HandlerStats`, `HandlerInfo`, `SearchResponse`, `SortClause`,
-    `SchemaUpdateResult`, `CollectionSchema` and `FieldListing` and their nested records
+    generic `Object` dispatch): `Alias`, `AliasDeletion`, `Collection`,
+    `CollectionCreationResult`, `HealthStatus` and its `Reason`, `CollectionMetrics` and its
+    nested stats records, `SearchResponse`, `SortClause`,
+    `SchemaUpdateResult`, `CollectionSchema` and its nested records, `IndexedField` and
+    `FieldProperty`
   - **Spring AI**: `org.springframework.ai.mcp.annotation.context.DefaultMetaProvider`,
     which `MetaUtils` instantiates reflectively
   - **Resources**: `logback-spring.xml` (see Logging Architecture), and SolrJ's
@@ -388,7 +404,7 @@ The Solr Docker image used in tests is pinned as `test-image-solr` in `gradle/li
 Solr 10.0.0 is fully supported with the JSON wire format. The `/admin/mbeans` endpoint was
 removed in Solr 10; `getCacheMetrics()` and `getHandlerMetrics()` now catch `RuntimeException`
 (which covers `RemoteSolrException`) so they degrade gracefully and return `null`. Tests that
-check `cacheStats` and `handlerStats` already handle `null` values.
+check `caches` and `handlers` already handle their absence.
 
 Remaining known differences from Solr 9:
 - **`/admin/mbeans` removed:** Cache and handler stats from `getCollectionStats()` will always be `null` on Solr 10. A future migration to `/admin/metrics` will restore these metrics.

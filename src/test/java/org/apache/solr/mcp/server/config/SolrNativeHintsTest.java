@@ -16,6 +16,7 @@
  */
 package org.apache.solr.mcp.server.config;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -85,21 +86,47 @@ class SolrNativeHintsTest {
             .test(hints));
   }
 
+  /**
+   * The hints are registered with {@code registerTypeIfPresent}, which skips a name that does not
+   * load, so a renamed or deleted record would silently lose its hint in the native image.
+   */
+  @Test
+  void everyMcpToolRecordNameLoads() {
+    for (String className : SolrNativeHints.MCP_TOOL_RECORDS) {
+      assertDoesNotThrow(
+          () -> Class.forName(className, false, getClass().getClassLoader()),
+          () -> className + " is listed in MCP_TOOL_RECORDS but does not exist");
+    }
+  }
+
+  @Test
+  void registersAliasAndCollectionRecordHints() {
+    for (String className :
+        List.of(
+            "org.apache.solr.mcp.server.alias.Alias",
+            "org.apache.solr.mcp.server.collection.Collection",
+            "org.apache.solr.mcp.server.collection.HealthStatus",
+            "org.apache.solr.mcp.server.collection.CollectionMetrics$CacheInfo")) {
+      assertTrue(
+          RuntimeHintsPredicates.reflection().onType(TypeReference.of(className)).test(hints),
+          () -> "missing reflection hint for " + className);
+    }
+  }
+
   @Test
   void registersCollectionSchemaRecordHints() {
-    // Jackson builds these from Solr's response (constructors) and writes the catch-all
-    // back out through its @JsonAnyGetter accessor (methods), so both are needed.
+    // Jackson builds the input records for add-fields and add-field-types (constructors) and
+    // writes every record out through its accessors (methods), so both are needed.
     for (String record :
         List.of(
             "org.apache.solr.mcp.server.schema.CollectionSchema",
             "org.apache.solr.mcp.server.schema.CollectionSchema$Field",
             "org.apache.solr.mcp.server.schema.CollectionSchema$FieldType",
             "org.apache.solr.mcp.server.schema.CollectionSchema$Analyzer",
+            "org.apache.solr.mcp.server.schema.CollectionSchema$AnalyzerComponent",
             "org.apache.solr.mcp.server.schema.CollectionSchema$CopyField",
-            "org.apache.solr.mcp.server.schema.FieldFlags$NameSerializer",
-            "org.apache.solr.mcp.server.schema.FieldListing",
-            "org.apache.solr.mcp.server.schema.FieldListing$IndexedField",
-            "org.apache.solr.common.luke.FieldFlag")) {
+            "org.apache.solr.mcp.server.schema.FieldProperty",
+            "org.apache.solr.mcp.server.schema.IndexedField")) {
       assertTrue(
           RuntimeHintsPredicates.reflection()
               .onType(TypeReference.of(record))

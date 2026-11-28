@@ -16,6 +16,7 @@
  */
 package org.apache.solr.mcp.server.search;
 
+import static org.apache.solr.mcp.server.McpResultAssertions.promptText;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -769,7 +770,9 @@ class SearchServiceTest {
   @Test
   void searchCollectionPrompt_includesKeyWorkflowSteps() {
     SearchService localService = new SearchService(mock(SolrClient.class));
-    String body = localService.searchCollectionPrompt("shows", "What sci-fi shows are on Netflix?");
+    String body =
+        promptText(
+            localService.searchCollectionPrompt("shows", "What sci-fi shows are on Netflix?"));
 
     assertNotNull(body);
     assertTrue(body.contains("shows"), "Prompt should mention the target collection name");

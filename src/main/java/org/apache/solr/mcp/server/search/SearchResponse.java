@@ -16,6 +16,7 @@
  */
 package org.apache.solr.mcp.server.search;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -100,13 +101,15 @@ import org.jspecify.annotations.Nullable;
  *
  * @param numFound total number of documents matching the search query across all pages
  * @param start zero-based offset indicating the starting position of returned results
- * @param maxScore highest relevance score among the returned documents (null if scoring disabled)
+ * @param maxScore highest relevance score among the returned documents; left out of the JSON when
+ *     Solr reports none, since the published output schema types it as a number
  * @param documents list of document maps containing field names and values for each result
  * @param facets nested map structure containing facet field names, values, and document counts
  * @see SearchService#search(String, String, List, List, List, Integer, Integer)
  * @see org.apache.solr.client.solrj.response.QueryResponse
  * @see org.apache.solr.common.SolrDocumentList
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record SearchResponse(
     long numFound,
     long start,
