@@ -11,6 +11,19 @@ Solr MCP Server is a Spring AI Model Context Protocol (MCP) server that enables 
 - **Framework:** Spring Boot 4.2.0, Spring AI 2.1.0
 - **License:** Apache 2.0
 
+## Ask before doing
+
+These reach outside the checkout and cannot be taken back. Ask a human first, every time:
+
+- `./gradlew jib` in any form: it pushes an image to a registry. `jibDockerBuild` builds into the
+  local Docker daemon and is fine.
+- Dispatching `release-publish.yml`, `atr-release.yml` or `atr-release-test.yml`.
+- Any step of [dev-docs/release-process.md](dev-docs/release-process.md): pushing a
+  `releases/solr-mcp/*` tag, staging in ATR, starting or closing a vote on dev@solr.apache.org,
+  announcing.
+- Pointing `SOLR_URL` at anything but the local `compose.yaml` Solr or a Testcontainers instance.
+  The tools create collections, change schemas, index documents and delete aliases.
+
 ## Common Commands
 
 ```bash
@@ -109,14 +122,66 @@ docker run -p 8080:8080 --rm -e PROFILES=http \
 
 ## Architecture
 
-### MCP Tools (src/main/java/org/apache/solr/mcp/server/)
+### Package map (src/main/java/org/apache/solr/mcp/server/)
 
-Four service classes expose MCP tools via `@McpTool` annotations:
+Five service classes expose MCP tools via `@McpTool`. Prompts (`@McpPrompt`), resources
+(`@McpResource`) and completions (`@McpComplete`) live on the same classes:
 
-- **SearchService** (`search/`) - Full-text search with filtering, faceting, sorting, pagination
-- **IndexingService** (`indexing/`) - Document indexing supporting JSON, CSV, XML, and markdown formats
-- **CollectionService** (`collection/`) - List collections, get stats, health checks
-- **SchemaService** (`schema/`) - Schema introspection and additive modification (add-fields, add-field-types)
+- **SearchService** (`search/`) - `search`: full-text search with filtering, faceting, sorting, pagination
+- **IndexingService** (`indexing/`) - `index-json-documents`, `index-csv-documents`, `index-xml-documents`, `index-markdown-documents`
+- **CollectionService** (`collection/`) - `list-collections`, `get-collection-stats`, `check-health`, `create-collection`; the `solr://collections` resource and every `@McpComplete` handler
+- **AliasService** (`alias/`) - `list-aliases`, `create-alias`, `delete-alias`
+- **SchemaService** (`schema/`) - `get-schema`, `list-fields`, and the additive `add-fields`, `add-field-types`; the `solr://{collection}/schema` and `solr://{collection}/fields` resources
+
+Packages without tools:
+
+- `config/` - `SolrConfig` (the SolrJ client: `JsonResponseParser` reads responses, `XMLRequestWriter`
+  sends updates), `SolrConfigurationProperties` (`solr.*`), `SolrNativeHints`,
+  `InstallOpenTelemetryAppender`, `ModernStdioTransportConfiguration` (STDIO under `MCP_PROTOCOL=modern`)
+- `security/` - HTTP profile only, both off when `HTTP_SECURITY_ENABLED=false`:
+  `HttpSecurityConfiguration` (OAuth2 resource server; `/mcp` is open at the URL level, `/actuator/**`
+  other than health needs a token) and `MethodSecurityConfiguration`, which enables the
+  `@PreAuthorize` checks on the tool methods that actually gate `/mcp`
+- `util/` - `SolrCalls`, which runs every tool's Solr calls and translates their failures (see
+  "MCP contracts" below); `McpResults`, which builds the prompt, resource and completion results;
+  `PromptNames`, the prompt names shared by `@McpPrompt` and `@McpComplete` (they must match
+  byte-for-byte or completion fails at runtime); and `PromptText`, the prompt bodies
+
+Why the project is built this way (Spring AI MCP, Jib): "Design Decisions" in
+[dev-docs/ARCHITECTURE.md](dev-docs/ARCHITECTURE.md).
+
+### MCP contracts
+
+Every tool, resource, prompt and completion accepts and returns types the server owns. Solr's response shapes are an implementation detail the server maps away. The rules, from the `mcp-contracts` spec of the `typed-mcp-contracts` OpenSpec change (#306):
+
+- **Tools** return records and set `@McpTool(generateOutputSchema = true)`. The client then gets an `outputSchema` and `structuredContent`, and the SDK adds the same JSON as a text block. The SDK also validates each result against the schema, so a mismatch fails the call. A tool that returns a `List` (`list-aliases`, `list-collections`, `list-fields`) leaves the flag off: MCP 2025-11-25 restricts an `outputSchema` to an object root, so the list goes out as JSON text.
+- **Optional record components** are `@Nullable`, with `@JsonInclude(NON_NULL)` on the record. Spring AI reads `@Nullable` through Spring's `Nullness` and leaves the component out of `required`.
+- **Shapes** use only property names the server defines. Leave out Solr's response header, flag encodings, comma-joined lists and `@JsonAnySetter` catch-alls. The open maps are user content: document `fields`, and the class-specific `parameters` of field types, analyzers and analyzer components.
+- **Failures** are `RuntimeException`s, which Spring AI turns into a `tools/call` result with `isError: true`. A result reports what happened, with no `success`/`message` flags and no timestamps from the server's clock. Never declare a checked exception on an `@McpTool` method: Spring AI 2.1 rethrows one, and the client gets a bare JSON-RPC `-32603` (#213).
+- **Solr calls** in a tool go through `util/SolrCalls.call(operation, notFound, call)`, which runs the call and translates SolrJ's failures (design D9 of `typed-mcp-contracts`). The error text is `operation` followed by:
+  - a 404: the caller's `notFound` text, usually `SolrCalls.collectionNotFound(collection)`, which names `list-collections` (`SolrCalls.ADMIN_API_NOT_FOUND` for tools that name no collection);
+  - a 401 or 403: that Solr denied access;
+  - any other `SolrException`: Solr's reason, then the caller's `ReasonHint` for a 4xx or an operator hint otherwise. The reason is passed on only from a `RemoteSolrException` that SolrJ built from the `error` object of Solr's JSON response (`getRemoteErrorObject() != null`): it is that object's `msg`, read with SolrJ's `Utils.getObjectByPath`, never `getMessage()`, where SolrJ puts the `errorClass` Solr 10 sends in front of it. For a `RemoteSolrException` from a node the request was forwarded to, it is that node's `details[0]/remoteError` message; for a Schema API `SolrErrorWrappingException`, `SolrErrorWrappingException.constructMessage` adds each command's errors from `details`. Every quoted `Error from server at <host>: ` is removed and any other URL is replaced. Every other message, such as SolrJ's `Expected mime type ... but got text/html.` followed by an HTML error page that names the request path, gets the fixed `Solr returned an error (HTTP <code>)` instead;
+  - a timeout (`HttpTimeoutException` in the cause chain): that Solr did not answer in time;
+  - any other `SolrServerException` or `IOException`: that Solr could not be reached.
+
+  The translated exception has no cause, because Spring AI appends the root cause's message and SolrJ's messages quote the Solr URL; `SolrCalls` logs the original at `warn`. It is an `IllegalArgumentException` when Solr refused the request because of something in it, and an `IllegalStateException` otherwise. `check-health` is the exception to the rule: it catches its failures and returns a fixed `HealthStatus.Reason`. Resources keep their own fixed error text.
+- **Prompts** return `GetPromptResult` through `McpResults.prompt(description, role, text)`. Pick the role by speaker: `Role.USER` for instructions or a request to the model, which is every current prompt; `Role.ASSISTANT` only for text the model should treat as its own earlier reply. The description is the `*_DESCRIPTION` constant in `PromptNames`, shared with the annotation.
+- **Resources** return `McpResults.jsonResource(request.uri(), json)`, with the same JSON as the matching tool. The method takes the `ReadResourceRequest` Spring AI injects next to any URI-template variables, so the content echoes the URI the client read.
+- **Completions** return `McpResults.completion(matches, limit)`, which reports `total` and `hasMore`.
+
+`McpContractConformanceIntegrationTest` (legacy protocol) and `McpModernContractConformanceIntegrationTest` (modern) check that every published `outputSchema` describes an object, that the list tools publish none, and that every tool with a schema, called against a real Solr, succeeds (so its `structuredContent` passed the SDK's own validation against the schema), returns a first text block holding the same JSON as `structuredContent`, and carries no `success` or `message` property. A tool that publishes one needs an entry in `McpContractConformanceTestBase.SAMPLE_ARGUMENTS`.
+
+The same two tests call every tool that names a collection, alias or configset with one that does not exist, and `McpSolrUnreachableIntegrationTest` / `McpModernSolrUnreachableIntegrationTest` call every tool with `solr.url` pointing at a closed port. Each call must return `isError: true`, never a JSON-RPC error, with no `Error from server at`, `http://` or `https://` in its text. A new tool needs an entry in `McpToolFailures.MISSING_TARGET_ARGUMENTS` (or `TOOLS_WITHOUT_A_TARGET`).
+
+### Solr Agent Skill
+
+`src/main/resources/skills/solr/` holds an Agent Skill (`SKILL.md` + `references/`) about this
+server's tools, not about Solr: the Solr Reference Guide covers Solr itself. Keep it to server
+behaviour that the tool descriptions, prompts and server instructions do not already say.
+`SolrSkillFormatTest` enforces the Agent Skills format and the SEP-2640 size limits. When tool
+behaviour changes (error messages, response wording, id handling), update the skill in the same PR.
+Serving it over MCP is tracked in #280.
 
 ### Document Creators and pass-throughs
 
@@ -132,9 +197,12 @@ are used as given. The one server-side step is `indexing/SolrUpdateXml`, a
 hardened StAX read up to the root element that rejects anything but an `<add>`
 block, because Solr's update grammar also carries `<delete>` and `<commit>` on the
 same endpoint. There is no generic-XML mapping; the XML tool takes Solr update XML
-(`<add><doc><field name="...">`). Solr's update response carries no document
-count, so these two tools report that Solr accepted the payload rather than a
-count.
+(`<add><doc><field name="...">`). All four tools return an `IndexingResult`
+(`collection`, `format`). For JSON and Markdown it also carries
+`documentsSubmitted`, `documentsIndexed`, `fieldNames` (up to 50 field names of the
+accepted documents, in sort order) and `fieldCount` (how many there are), and the
+call fails if Solr rejects every document. Solr's update response carries no
+document count, so for CSV and XML those four are absent.
 
 ### Transport Modes
 
@@ -226,10 +294,12 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
   - **Solr API model types** used by `CoreAdminResponse.getCoreStatus()`:
     `SolrJerseyResponse`, `ErrorInfo`, `CoreStatusResponse` and their nested types
   - **MCP tool response records** (invisible to AOT because the MCP framework uses
-    generic `Object` dispatch): `AliasResult`, `CollectionCreationResult`,
-    `SolrHealthStatus`, `SolrMetrics`, `IndexStats`, `QueryStats`, `CacheStats`,
-    `CacheInfo`, `HandlerStats`, `HandlerInfo`, `SearchResponse`, `SortClause`,
-    `SchemaUpdateResult`, `CollectionSchema` and `FieldListing` and their nested records
+    generic `Object` dispatch): `Alias`, `AliasDeletion`, `Collection`,
+    `CollectionCreationResult`, `HealthStatus` and its `Reason`, `CollectionMetrics` and its
+    nested stats records, `SearchResponse` and its nested `SearchHit`,
+    `FacetField` and `FacetValue`, `SortClause`,
+    `SchemaUpdateResult`, `IndexingResult` and its `Format` enum, `CollectionSchema` and its
+    nested records, `IndexedField` and `FieldProperty`
   - **Spring AI**: `org.springframework.ai.mcp.annotation.context.DefaultMetaProvider`,
     which `MetaUtils` instantiates reflectively
   - **Resources**: `logback-spring.xml` (see Logging Architecture), and SolrJ's
@@ -367,7 +437,9 @@ modes.
 
 `native.yml` runs `dockerIntegrationTest` over a `[stdio, http]` matrix on
 every PR that touches native-related files, so both Paketo native variants
-are exercised. The Jib JVM path runs in `build-and-publish.yml`.
+are exercised. The Jib JVM image runs on every PR in `ci.yml`'s `docker-image` job
+(`./gradlew dockerIntegrationTest`). The `build` job also runs `rat`, which `./gradlew build`
+otherwise runs only after merge, in `build-and-publish.yml`.
 
 ### Solr Version Compatibility Testing
 
@@ -388,7 +460,7 @@ The Solr Docker image used in tests is pinned as `test-image-solr` in `gradle/li
 Solr 10.0.0 is fully supported with the JSON wire format. The `/admin/mbeans` endpoint was
 removed in Solr 10; `getCacheMetrics()` and `getHandlerMetrics()` now catch `RuntimeException`
 (which covers `RemoteSolrException`) so they degrade gracefully and return `null`. Tests that
-check `cacheStats` and `handlerStats` already handle `null` values.
+check `caches` and `handlers` already handle their absence.
 
 Remaining known differences from Solr 9:
 - **`/admin/mbeans` removed:** Cache and handler stats from `getCollectionStats()` will always be `null` on Solr 10. A future migration to `/admin/metrics` will restore these metrics.
@@ -404,6 +476,8 @@ Environment variables:
 - `MCP_PROTOCOL`: MCP spec revision. Unset = 2025 revisions (`stateless` HTTP, `streamable`
   STDIO); `modern` = 2026-07-28. Sets `spring.ai.mcp.server.protocol`; fixed at build time in
   native images.
+- `HTTP_SECURITY_ENABLED`: HTTP mode is secured by default (`true`); `false` turns off OAuth2
+  and the `@PreAuthorize` checks
 - `OAUTH2_ISSUER_URI`: OAuth2 issuer URL (HTTP mode only)
 - `OTEL_SAMPLING_PROBABILITY`: trace sampling rate (default `1.0`)
 - `OTEL_TRACES_URL` / `OTEL_METRICS_URL` / `OTEL_LOGS_URL`: OTLP/HTTP endpoints

@@ -159,16 +159,20 @@ it is the path the native tests run.
   These are the JSON response containers and indexing inputs reflected over at
   runtime.
 - **SolrJ schema request types** — `AnalyzerDefinition`, `FieldTypeDefinition`.
-  Needed for Jackson's `convertValue` when `add-field-types` deserializes
-  analyzer trees in native image.
-- **SolrJ schema response type** — `SchemaRepresentation`, returned by the
-  `get-schema` MCP tool. Without its hints, Spring AI's JSON in native image
-  silently drops the `fields`/`fieldTypes`/`dynamicFields`/`copyFields` arrays —
-  a quiet correctness bug, not a crash.
-- **MCP tool response records** — `CollectionCreationResult`, `SolrHealthStatus`,
-  `SolrMetrics`, `IndexStats`, `QueryStats`, `CacheStats`, `CacheInfo`,
-  `HandlerStats`, `HandlerInfo`, `SearchResponse`, `SchemaUpdateResult`. These
-  are package-private records the MCP framework dispatches via generic
+  No current code path reaches them reflectively: `add-field-types` builds both
+  with setters, and SolrJ reads them back through getters into `NamedList`s
+  before writing the request JSON. They are kept so that a definition
+  serialized or logged reflectively still works in native image.
+- **Schema records** — `CollectionSchema` and its nested records, `FieldProperty`
+  and `IndexedField`, returned by `get-schema` and `list-fields` and bound from
+  `add-fields` / `add-field-types` arguments. Like the MCP tool response
+  records below, the MCP framework handles them as `Object`, so AOT can't see
+  them; they're registered by name in the same list.
+- **MCP tool response records** — `Alias`, `AliasDeletion`, `Collection`,
+  `CollectionCreationResult`, `HealthStatus` (and `HealthStatus$Reason`),
+  `CollectionMetrics` with its nested stats records, `SearchResponse` (with its
+  nested `SearchHit`, `FacetField` and `FacetValue`),
+  `SchemaUpdateResult`, `IndexingResult` and `IndexingResult$Format`. These are records the MCP framework dispatches via generic
   `Object`, so AOT can't see them. They're registered by name with
   `registerTypeIfPresent`.
 - **`logback-spring.xml` resource.** Registered as a resource pattern as
