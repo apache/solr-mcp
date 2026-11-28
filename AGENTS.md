@@ -111,11 +111,12 @@ docker run -p 8080:8080 --rm -e PROFILES=http \
 
 ### MCP Tools (src/main/java/org/apache/solr/mcp/server/)
 
-Four service classes expose MCP tools via `@McpTool` annotations:
+Five service classes expose MCP tools via `@McpTool` annotations:
 
 - **SearchService** (`search/`) - Full-text search with filtering, faceting, sorting, pagination
 - **IndexingService** (`indexing/`) - Document indexing supporting JSON, CSV, XML, and markdown formats
 - **CollectionService** (`collection/`) - List collections, get stats, health checks
+- **AliasService** (`alias/`) - List, create and delete collection aliases
 - **SchemaService** (`schema/`) - Schema introspection and additive modification (add-fields, add-field-types)
 
 ### Document Creators and pass-throughs
@@ -226,10 +227,11 @@ buildpacks (`bootBuildImage -Pnative`). Key configuration:
   - **Solr API model types** used by `CoreAdminResponse.getCoreStatus()`:
     `SolrJerseyResponse`, `ErrorInfo`, `CoreStatusResponse` and their nested types
   - **MCP tool response records** (invisible to AOT because the MCP framework uses
-    generic `Object` dispatch): `AliasResult`, `CollectionCreationResult`,
-    `SolrHealthStatus`, `SolrMetrics`, `IndexStats`, `QueryStats`, `CacheStats`,
-    `CacheInfo`, `HandlerStats`, `HandlerInfo`, `SearchResponse`, `SortClause`,
-    `SchemaUpdateResult`, `CollectionSchema` and `FieldListing` and their nested records
+    generic `Object` dispatch): `Alias`, `AliasDeletion`, `Collection`,
+    `CollectionCreationResult`, `HealthStatus` and its `Reason`, `CollectionMetrics` and its
+    nested stats records, `SearchResponse`, `SortClause`,
+    `SchemaUpdateResult`, `CollectionSchema` and its nested records, `IndexedField` and
+    `FieldProperty`
   - **Spring AI**: `org.springframework.ai.mcp.annotation.context.DefaultMetaProvider`,
     which `MetaUtils` instantiates reflectively
   - **Resources**: `logback-spring.xml` (see Logging Architecture), and SolrJ's
@@ -388,7 +390,7 @@ The Solr Docker image used in tests is pinned as `test-image-solr` in `gradle/li
 Solr 10.0.0 is fully supported with the JSON wire format. The `/admin/mbeans` endpoint was
 removed in Solr 10; `getCacheMetrics()` and `getHandlerMetrics()` now catch `RuntimeException`
 (which covers `RemoteSolrException`) so they degrade gracefully and return `null`. Tests that
-check `cacheStats` and `handlerStats` already handle `null` values.
+check `caches` and `handlers` already handle their absence.
 
 Remaining known differences from Solr 9:
 - **`/admin/mbeans` removed:** Cache and handler stats from `getCollectionStats()` will always be `null` on Solr 10. A future migration to `/admin/metrics` will restore these metrics.

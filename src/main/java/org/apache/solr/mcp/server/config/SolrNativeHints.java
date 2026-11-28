@@ -24,7 +24,6 @@ import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.SolrInputField;
-import org.apache.solr.common.luke.FieldFlag;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.SimpleOrderedMap;
 import org.jspecify.annotations.Nullable;
@@ -52,18 +51,21 @@ class SolrNativeHints implements RuntimeHintsRegistrar {
    * reflection access to serialize responses and to bind request parameters in native image.
    * Registered by name because some are package-private.
    */
-  private static final List<String> MCP_TOOL_RECORDS =
+  static final List<String> MCP_TOOL_RECORDS =
       List.of(
-          "org.apache.solr.mcp.server.collection.AliasResult",
+          "org.apache.solr.mcp.server.alias.Alias",
+          "org.apache.solr.mcp.server.alias.AliasDeletion",
+          "org.apache.solr.mcp.server.collection.Collection",
           "org.apache.solr.mcp.server.collection.CollectionCreationResult",
-          "org.apache.solr.mcp.server.collection.SolrHealthStatus",
-          "org.apache.solr.mcp.server.collection.SolrMetrics",
-          "org.apache.solr.mcp.server.collection.IndexStats",
-          "org.apache.solr.mcp.server.collection.QueryStats",
-          "org.apache.solr.mcp.server.collection.CacheStats",
-          "org.apache.solr.mcp.server.collection.CacheInfo",
-          "org.apache.solr.mcp.server.collection.HandlerStats",
-          "org.apache.solr.mcp.server.collection.HandlerInfo",
+          "org.apache.solr.mcp.server.collection.HealthStatus",
+          "org.apache.solr.mcp.server.collection.HealthStatus$Reason",
+          "org.apache.solr.mcp.server.collection.CollectionMetrics",
+          "org.apache.solr.mcp.server.collection.CollectionMetrics$IndexStats",
+          "org.apache.solr.mcp.server.collection.CollectionMetrics$QueryStats",
+          "org.apache.solr.mcp.server.collection.CollectionMetrics$CacheStats",
+          "org.apache.solr.mcp.server.collection.CollectionMetrics$CacheInfo",
+          "org.apache.solr.mcp.server.collection.CollectionMetrics$HandlerStats",
+          "org.apache.solr.mcp.server.collection.CollectionMetrics$HandlerInfo",
           "org.apache.solr.mcp.server.search.SearchResponse",
           "org.apache.solr.mcp.server.search.SortClause",
           "org.apache.solr.mcp.server.schema.SchemaUpdateResult",
@@ -71,11 +73,10 @@ class SolrNativeHints implements RuntimeHintsRegistrar {
           "org.apache.solr.mcp.server.schema.CollectionSchema$Field",
           "org.apache.solr.mcp.server.schema.CollectionSchema$FieldType",
           "org.apache.solr.mcp.server.schema.CollectionSchema$Analyzer",
+          "org.apache.solr.mcp.server.schema.CollectionSchema$AnalyzerComponent",
           "org.apache.solr.mcp.server.schema.CollectionSchema$CopyField",
-          // Jackson instantiates this @JsonSerialize(contentUsing = ...) serializer reflectively
-          "org.apache.solr.mcp.server.schema.FieldFlags$NameSerializer",
-          "org.apache.solr.mcp.server.schema.FieldListing",
-          "org.apache.solr.mcp.server.schema.FieldListing$IndexedField");
+          "org.apache.solr.mcp.server.schema.FieldProperty",
+          "org.apache.solr.mcp.server.schema.IndexedField");
 
   @Override
   public void registerHints(RuntimeHints hints, @Nullable ClassLoader classLoader) {
@@ -101,9 +102,6 @@ class SolrNativeHints implements RuntimeHintsRegistrar {
     hints.reflection().registerType(FacetField.class, categories);
     hints.reflection().registerType(FacetField.Count.class, categories);
 
-    // SolrJ's Luke flag enum, serialized in get-schema and list-fields responses
-    hints.reflection().registerType(FieldFlag.class, categories);
-
     // SolrJ / Solr API model types used by CoreAdminResponse.getCoreStatus()
     // which deserializes via Jackson reflection.
     for (String solrApiType :
@@ -127,8 +125,10 @@ class SolrNativeHints implements RuntimeHintsRegistrar {
             "org.springframework.ai.mcp.annotation.context.DefaultMetaProvider",
             categories);
 
-    // SolrJ schema request types (needed for Jackson's convertValue in native
-    // image when add-field-types deserializes analyzer trees)
+    // SolrJ schema request types. No current path reaches them reflectively:
+    // add-field-types builds both with setters, and SolrJ reads them back through
+    // getters into NamedLists before Utils.writeJson. They are kept so that a
+    // definition serialized or logged reflectively still works in native image.
     hints
         .reflection()
         .registerType(

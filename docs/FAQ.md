@@ -79,7 +79,7 @@ bounded.
 Two factors close the gap at runtime:
 
 - **Typed, compact returns.** Every tool returns its own purpose-built
-  typed record (`SearchResponse`, `SolrHealthStatus`, `IndexStats`, …),
+  typed record (`SearchResponse`, `HealthStatus`, `CollectionMetrics`, …),
   not raw Solr JSON the model must reparse. Over a multi-turn agent run, leaner tool output
   offsets the upfront schema cost.
 - **Code execution with MCP.** Anthropic's pattern of discovering tool
