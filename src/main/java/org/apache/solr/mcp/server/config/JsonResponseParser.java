@@ -151,7 +151,7 @@ class JsonResponseParser extends ResponseParser {
               if (val.isArray()) {
                 // A multi-valued field stays a list, even with one value.
                 List<@Nullable Object> values = new ArrayList<>(val.size());
-                val.forEach(v -> values.add(convertFieldValue(v)));
+                val.forEach(element -> values.add(convertFieldValue(element)));
                 doc.setField(entry.getKey(), values);
               } else {
                 doc.setField(entry.getKey(), convertFieldValue(val));

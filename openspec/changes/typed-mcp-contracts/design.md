@@ -74,7 +74,7 @@ Each domain maps Solr responses into its records in the service or a static `fro
   - `FieldProperty` is a server-owned enum whose JSON values are the camelCase schema-attribute names (`indexed`, `docValues`, …). It replaces SolrJ's `FieldFlag` in the contract. `FieldFlags` keeps decoding Luke's flag letters into it.
 - **collection**:
   - `list-collections` returns `List<Collection>`, with `Collection(name)`. A wrapper record would only exist to satisfy the legacy object-root rule, and these tools publish no schema.
-  - `CollectionMetrics(index, query, caches?, handlers?)` with nested `IndexStats`, `QueryStats`, `CacheStats`, `CacheInfo` (`hitRatio`), `HandlerStats` and `HandlerInfo`.
+  - `CollectionMetrics(index, caches?, handlers?, metricsCore?)` with nested `IndexStats`, `CacheStats`, `CacheInfo` (`hitRatio`), `HandlerStats` and `HandlerInfo`.
   - `HealthStatus(collection, healthy, pingMillis?, numDocs?, reason?)`.
   - `CollectionCreationResult(name, configSet, numShards, replicationFactor)`.
 - **alias**:
