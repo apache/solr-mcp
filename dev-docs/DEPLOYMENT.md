@@ -350,6 +350,31 @@ volumes:
   solr_data:
 ```
 
+### Rolling back
+
+The server keeps no state of its own, so rolling back a release is a redeploy of the previous
+image. Changes it has already made in Solr do not roll back with it.
+
+- **Pin an exact version in production.** `latest`, `<major>` and `<major>.<minor>` move to the
+  newest release each time one is published (`release-publish.yml`), and so do the
+  `latest-native-<profile>` tags on GHCR. Run `apache/solr-mcp:<version>` or
+  `ghcr.io/apache/solr-mcp:<version>-native-<profile>`, so that undoing a bad release means
+  changing one tag back.
+- **To roll back**, set the image to the previous `<version>` tag and redeploy:
+  `docker compose up -d` after editing `compose.yaml`, or
+  `kubectl set image deployment/solr-mcp solr-mcp=ghcr.io/apache/solr-mcp:<previous-version>` and
+  `kubectl rollout status deployment/solr-mcp`. `kubectl rollout undo deployment/solr-mcp`
+  does the same thing when the bad version was the last rollout.
+- **Configuration** (`SOLR_URL`, `PROFILES`, `OAUTH2_*`, `MCP_CORS_ALLOWED_ORIGINS`) is read at
+  startup. Restoring the previous environment and restarting the container reverts it.
+- **Changes the server made in Solr stay in Solr.** Documents indexed through
+  `index-*-documents`, collections from `create-collection`, aliases from `create-alias`, and
+  fields or field types from `add-fields` and `add-field-types` persist after a rollback. The
+  server has no tool that removes documents, collections, fields or field types. Undo those
+  directly in Solr: the Collections API (`DELETE`, `DELETEALIAS`), a delete-by-query update, or
+  the Schema API (`delete-field`, `delete-field-type`). Removing a field that has data needs a
+  reindex. Snapshot or back up the collection before giving a new release write access.
+
 ### Using Kubernetes
 
 Example deployment:
