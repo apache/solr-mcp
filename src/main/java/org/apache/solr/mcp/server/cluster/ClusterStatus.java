@@ -46,7 +46,7 @@ public record ClusterStatus(List<String> liveNodes, List<Collection> collections
   private static final String LIVE_NODES = "live_nodes";
 
   /** The section of CLUSTERSTATUS that lists the collections. */
-  private static final String COLLECTIONS = "collections";
+  private static final String COLLECTIONS_SECTION = "collections";
 
   /** Solr's summary health of a collection or a shard. */
   private static final String HEALTH = "health";
@@ -138,7 +138,7 @@ public record ClusterStatus(List<String> liveNodes, List<Collection> collections
       }
     }
     return new ClusterStatus(
-        liveNodes, entries(cluster.get(COLLECTIONS), ClusterStatus::collectionFrom));
+        liveNodes, entries(cluster.get(COLLECTIONS_SECTION), ClusterStatus::collectionFrom));
   }
 
   private static Collection collectionFrom(String name, Map<?, ?> collection) {
