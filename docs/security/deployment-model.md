@@ -13,6 +13,12 @@ In HTTP mode, OAuth2 authenticates *that* a caller is allowed in, but every
 authenticated caller shares the same single Solr identity — it is an access
 gate, not a tenant boundary.
 
+When you scope the identity with Solr's rule-based authorization, note that
+`search` needs Solr's `schema-read` permission as well as `read`: the first
+search on each collection (and again every few minutes) reads the collection's
+unique key with `GET /solr/<collection>/schema/uniquekey`, so every hit can
+report it as `id`.
+
 Sharing one instance across multiple users, or otherwise treating it as
 multi-tenant, is unsupported: you are on your own for isolation and any
 resulting exposure. Multi-tenancy may be considered in a future release.

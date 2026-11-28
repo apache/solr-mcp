@@ -9,6 +9,7 @@ When running in HTTP mode, the Solr MCP Server supports **OAuth2 authentication*
 
 * **Protocol**: OAuth2 Resource Server with JWT validation
 * **Supported providers**: Auth0, Keycloak, Okta, or any OAuth2/OIDC provider
+* **Granular Scopes**: `solr:read` (search, schema inspection, collections), `solr:write` (indexing), `solr:admin` (collection creation, aliases, schema edits)
 * **STDIO mode**: Security is not applicable (OS-level process isolation)
 * **HTTP mode**: **Secured by default** &mdash; set `OAUTH2_ISSUER_URI` to wire up a provider; disable for local dev only with `HTTP_SECURITY_ENABLED=false`
 
@@ -122,10 +123,14 @@ docker run -d --name keycloak \
 
 Access the admin console at `http://localhost:8180` (login: `admin` / `admin`). Wait for `http://localhost:8180/realms/master/.well-known/openid-configuration` to answer before continuing; the container is up well before its endpoints are.
 
-### 2. Create Realm and Client ###
+### 2. Create Realm, Scopes and Client ###
 
 1. Create realm: `solr-mcp`
-2. Create client:
+2. Create the scopes every tool checks, **before the client** (a new client inherits the realm's scopes when it is created). Under **Client scopes** > **Create client scope**, Protocol OpenID Connect, Include in token scope ON:
+    * `solr:read`, Type **Default**: every token gets it
+    * `solr:write` and `solr:admin`, Type **Optional**: granted only when the client requests them
+3. Tie the optional scopes to roles, or any user can request `solr:admin`: create the realm roles `solr-writer` and `solr-admin`, then under **Client scopes** > `solr:write` > **Scope** > **Assign role** pick `solr-writer`, and `solr-admin` for `solr:admin`
+4. Create client:
     * Client ID: `solr-mcp-client`
     * Client type: OpenID Connect
     * Client authentication: OFF (public client)
@@ -147,6 +152,7 @@ Keycloak does not honour the RFC 8707 `resource=` parameter, so the audience mus
 1. Navigate to **Users** > **Add user**
 2. Username: `testuser`, Email verified: ON, **First name and Last name filled in** (Keycloak refuses to issue a token to a user missing either)
 3. Set password in **Credentials** tab with **Temporary** OFF
+4. The user holds no `solr-*` role, so its tokens carry only `solr:read`, enough for the read tools. To index or administer, assign `solr-writer` or `solr-admin` under **Role mapping** and request the scope with `-d "scope=solr:admin"`
 
 ### 5. Run the Server ###
 
