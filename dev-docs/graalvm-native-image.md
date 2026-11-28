@@ -176,8 +176,7 @@ it is the path the native tests run.
   logback model instead. Logback's own pre-Spring status output, which would
   otherwise land on stdout in the native image and corrupt STDIO framing, is
   silenced by `Main` via the `logback.statusListenerClass` system property, so
-  no early `logback.xml` is needed. (See the Logging Architecture section of
-  `AGENTS.md`.)
+  no early `logback.xml` is needed. (See [logging.md](logging.md).)
 
 ### Adding a hint when a native run fails
 

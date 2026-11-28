@@ -246,4 +246,4 @@ the client's callback URL, and is not covered by these guides.
 - [STDIO transport security model](./stdio.md)
 - OAuth2 provider setup: [Auth0](./auth0.md) · [Keycloak](./keycloak.md)
 - [GraalVM native image spec](../../dev-docs/graalvm-native-image.md)
-- [Logging architecture in `CLAUDE.md`](../../CLAUDE.md#logging-architecture)
+- [Logging architecture](../../dev-docs/logging.md)

@@ -100,6 +100,6 @@ A handful of Gradle terms show up in the code. Here is the minimum to read it:
    (thin `jar`, `-sources`, `-javadoc`) instead carry the plain repo-root `LICENSE` /
    `NOTICE`.
 
-See the `## Release LICENSE / NOTICE` section in the repository's `AGENTS.md` for the
+See [dev-docs/sbom-and-license.md](../dev-docs/sbom-and-license.md) for the
 policy rationale, and the [Licensing & Notices](https://solr.apache.org/mcp/licensing.html)
 docs page for the consumer-facing explanation.
